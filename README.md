@@ -22,7 +22,7 @@
 
 The following benchmark metrics have been independently reproduced. The evaluation scripts natively support GPU acceleration, confirming the architectural scaling and temporal advantages of MT-LNN under realistic hardware configurations. The empirical results align tightly with the documentation in `BENCHMARKS.md`.
 
-![Empirical Benchmarks](fig_experiments.png)
+![Empirical Benchmarks](assets/figures/fig_experiments.png)
 
 ### Head-to-head on Selective Copy (~200K params each, 1500 steps)
 
@@ -42,18 +42,36 @@ The following benchmark metrics have been independently reproduced. The evaluati
 | 101 | 0.016 | 0.016 | **0.547** | **×34** |
 | 229 | 0.016 | 0.016 | **0.078** | ×5 |
 
-#### 1.1B Scale: Needle-in-a-Haystack (TinyLlama)
+### 1.1B Scale: TinyLlama-1.1B + MT-LNN residual adapter (Kaggle T4, 2026-05-28)
 
-We evaluated MT-LNN as a residual adapter on TinyLlama-1.1B (fine-tuned for 500 steps) on the Needle-in-a-Haystack task.
+The first end-to-end evidence that the MT-LNN inductive bias transfers to a real pretrained LM. Frozen TinyLlama-1.1B-Chat, MT-LNN residual adapters on 6 decoder layers + LoRA on q/k/v/o, trained 1000 steps on WikiText-2-raw-v1 (single T4, ~3 h, fp16). Raw artefacts in `benchmarks/kaggle_run/`.
 
-| Variant | Context | Depth | Exact | Contains | Tok/s | 
-|---|---:|---:|---:|---:|---:|
-| Base | 1024-2048 | All | 1.000 | 1.000 | ~800 |
-| MT-Adapter | 1024-2048 | All | **1.000** | **1.000** | ~670 (-13%) |
-| Base | 4096 (RoPE) | All | 1.000 | 1.000 | ~580 |
-| MT-Adapter | 4096 (RoPE) | All | **1.000** | **1.000** | ~545 |
+**Headline — validation perplexity on WikiText-2 valid (38,400 tokens):**
 
-> *Note: Using RoPE scaling we successfully extended the 2048 window to 4096 without catastrophic forgetting. GPU memory limitations (OOM on T4) prevented evaluating scale up to 8192, but inference speed confirms MT-LNN imposes only ~10-15% latency degradation across contexts.*
+| Variant | Trainable params | PPL ↓ | Tok/s |
+|---|---:|---:|---:|
+| Base TinyLlama-1.1B (frozen) | 1,100 M | 9.161 | 959 |
+| **+ MT adapter + LoRA (1000 steps)** | **2.3 M (0.196 %)** | **6.553** | 862 |
+| Δ | | **−28.5 %** | −10 % |
+
+The adapter learns a 28.5 % PPL reduction with 0.2 % of the parameter budget, at the cost of ~10 % decode-time slowdown. Training is stable: loss falls 2.5 → 1.9 over 1000 steps, no NaN, no divergence.
+
+**Needle-in-a-Haystack — base-bottlenecked, not adapter failure:**
+
+| Variant | Context | Exact (avg over depth ∈ {0.1, 0.5, 0.9}) |
+|---|---:|---:|
+| Base | 1024 / 2048 / 4096 | 0.000 / 0.000 / 0.000 |
+| MT-Adapter | 1024 / 2048 / 4096 | 0.000 / 0.000 / 0.000 |
+
+Both base and adapter score 0/15 across all depths and contexts. TinyLlama-1.1B itself cannot perform this needle format, so the adapter has nothing to improve on — the test is non-discriminative at this scale. The follow-up Phase 5b notebook (`kaggle/phase5b_qwen15b.ipynb`) repeats the run on Qwen-2.5-1.5B, whose base hits non-zero needle scores and so will expose any adapter delta.
+
+| Claim | Verdict |
+|---|---|
+| MT-LNN adapter trains stably on a real 1B+ pretrained LM | ✅ |
+| Adapter learns LM-useful representations (PPL improves) | ✅ (−28.5 %) |
+| Parameter-efficient (0.2 % trainable) | ✅ |
+| Adapter improves long-context retrieval at 1.1B | ⚠ Inconclusive — base ≡ 0 on needle |
+| Adapter improves long-context retrieval at ≥1.5B | ⏳ Phase 5b queued |
 
 ## AVP (anesthesia hooks) is architecture-specific
 
@@ -91,7 +109,7 @@ python benchmarks/run_benchmark.py
 
 # MT-LNN
 
-![MT-LNN Architecture Diagram](fig_architecture.png)
+![MT-LNN Architecture Diagram](assets/figures/fig_architecture.png)
 
 **Microtubule-Enhanced Liquid Neural Network** — an open-source small language model that combines:
 
@@ -208,7 +226,7 @@ The 5 parallel Time Scales ($\tau$) simulated per protofilament capture differen
 - By introducing dynamic Top-$k$ scale-gate masks, we surgically execute state-scans on the dominant temporal frequencies ($k=1$ or $2$ out of $5$).
 - **Results:** Ablations show top-$k=2$ matching dense outputs with high accuracy, while accelerating single-batch CPU inference from $\sim3650 \text{ tok/s}$ up to **$\sim6400 \text{ tok/s}$**.
 
-![Sparse Resonance and Compression](fig_operator_compression_updates.png)
+![Sparse Resonance and Compression](assets/figures/fig_operator_compression_updates.png)
 
 ## Status
 
