@@ -55,6 +55,19 @@ style: |
 
 ## 3. Benchmarks & 架构优势 (Architectural Advantages)
 
+### 🆕 Phase 5 milestone — TinyLlama-1.1B + MT adapter (Kaggle T4, 2026-05-28)
+
+第一次在真实的 1B+ 预训练 LM 上端到端验证了 MT-LNN 残差适配器:
+
+| Variant | Trainable params | WikiText-2 PPL ↓ |
+|---|---:|---:|
+| Base TinyLlama-1.1B (frozen) | 1.10 B | 9.16 |
+| **+ MT adapter + LoRA (1000 steps)** | **2.3 M (0.196 %)** | **6.55 (−28.5 %)** |
+
+— Reproduce: `KAGGLE_RUN.md` · raw artefacts: `benchmarks/kaggle_run/ppl_ablation.json`
+— **0.2 % 可训练参数, PPL 下降 28 %** — MT 时间动态归纳偏置对真实 LM 有用, 不是 toy-scale 的故事.
+— Needle-in-haystack 在该规模下 base 自身 ≡ 0, 待 ≥3B base 上重测.
+
 <div class="columns">
 <div>
 

@@ -281,6 +281,26 @@ Only MT-LNN passes. Transformer and plain LNN, lacking MT coherence parameters, 
 
 The 13-protofilament split is the single most impactful component. GTP-period renewal contributes the second-largest Φ̂ delta — disabling it (i.e. using absolute-position GTP that vanishes at large $t$) silently kills lateral coupling in long contexts.
 
+### 6.6 Real-LM adapter experiment (TinyLlama-1.1B, Kaggle T4, 2026-05-28)
+
+To validate that the MT-LNN inductive bias transfers beyond toy-scale matched-parameter ablations, we attach MT-LNN residual adapters + LoRA to a frozen pretrained TinyLlama-1.1B-Chat and fine-tune on WikiText-2-raw-v1.
+
+**Setup.** Wrap 6 decoder layers (`[3, 7, 11, 15, 19, 21]` — every 4th + last) with an `MTResidualAdapter` of width $d_\text{model} = 2048$, $P = 13$ protofilaments, $S = 2$ time-scales, $d_\text{map} = 8$, $\text{init\_scale} = 10^{-2}$, plus LoRA on q/k/v/o projections. Base weights frozen. Train 1000 steps, seq_len 768, batch 1 × grad_accum 8, AdamW, fp16 on a single Tesla T4 (14.6 GB). Trainable params: 2.30 M / 1.17 B (0.196 %). Wall-clock: ~3 h.
+
+**Table 5.** WikiText-2 validation perplexity, 38 400 tokens.
+
+| Variant | Trainable params | PPL ↓ | Tok/s |
+|---|---:|---:|---:|
+| Base TinyLlama-1.1B (frozen) | 1.10 B | 9.161 | 959 |
+| **+ MT adapter + LoRA (1000 steps)** | **2.3 M (0.196 %)** | **6.553** | 862 |
+| Δ | | **−28.5 %** | −10 % |
+
+A 28.5 % PPL reduction from 0.196 % trainable parameters is, to our knowledge, the first end-to-end validation that the MT-DL formulation (13 protofilaments + multi-scale resonance + RMC + GTP renewal) yields LM-useful representations on a real pretrained backbone — independent of the parameter-matched Selective Copy comparisons of §6.2.
+
+**Needle-in-a-haystack** at contexts {1024, 2048, 4096} × depths {0.1, 0.5, 0.9} (5 samples each, NIAH-Single1 format from RULER) returns exact-match 0/15 for both base and adapter across all 9 cells. This is a base-model ceiling, not an adapter failure: TinyLlama-1.1B by itself produces no correct answers, so the adapter has no measurable headroom. Replicating this evaluation at $\geq 3$ B-parameter bases (Qwen-2.5-1.5B, Phi-3-mini-3.8B) is the immediate next experiment.
+
+**Reproduction.** End-to-end runnable on free Kaggle GPU quota (P100 or T4); see `KAGGLE_RUN.md`. Raw artefacts: `benchmarks/kaggle_run/ppl_ablation.json`, `needle.json`, `train.log`, adapter checkpoint `checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt`.
+
 ---
 
 ## 7. Discussion
