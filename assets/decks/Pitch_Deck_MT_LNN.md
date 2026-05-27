@@ -117,6 +117,40 @@ style: |
 
 ---
 
+## 4.5 Auditable Reasoning vs Black-Box Thinking (可审计推理 vs 黑盒思考)
+
+<div class="columns">
+<div>
+
+**Gemini "thinking summary"**
+- Post-hoc paragraph
+- Not clickable, not diffable
+- No per-token route / entropy
+- No proof of when cloud was queried
+
+</div>
+<div>
+
+**AwareLiquid reasoning trace**
+- One JSONL row per token: `(step, entropy, route, phi, source)`
+- `trace_timeline.html` — every token clickable, color = route
+- `bench_trace_audit.py` — quantified metric: **self-sufficiency**
+
+**Demo trace numbers (120 tokens):**
+- LOCAL 94.2% · SELF_CRITIQUE 5.0% · CLOUD 0.8%
+- **Self-sufficiency: 99.17%** (1 − cloud/total)
+- Net cost vs always-cloud: **+$0.0016** saved
+- Φ̂ sampled 14× · mean 0.221
+
+</div>
+</div>
+
+**Compliance / regulated industries** (finance, legal, healthcare) cannot ship Gemini's opaque thinking. They can ship AwareLiquid — every fact's provenance lives in `evidence_log`, every route decision in JSONL.
+
+— Reproduce: `python scripts/demo_trace_synth.py && open trace_timeline.html`
+
+---
+
 ## 5. Contact & Links (相关链接)
 
 **Experience the future of constant-memory architecture:**

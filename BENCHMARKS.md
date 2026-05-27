@@ -362,3 +362,36 @@ Next experiment to run (see *What's next* below): repeat at Qwen-2.5-1.5B or Phi
 | Adapter improves long-context retrieval at 1.1B scale | ⚠ Inconclusive — base ≡ 0 on needle |
 | Adapter improves long-context retrieval at ≥3B scale | ⏳ Not yet tested |
 
+
+## Reasoning trace observability (2026-05-28)
+
+AwareLiquid emits one JSONL row per decoded token via `mt_lnn.reasoning_trace.ReasoningTrace`. Each row carries `(step, token_id, entropy, route, phi)` plus separate `route` decisions and `cloud_inject` events. Two artefacts ride on top of this stream:
+
+**`trace_timeline.html`** — single-file browser viewer (no external deps). Drop a `*.trace.jsonl` file; renders one colored bar per token (green=LOCAL, yellow=SELF_CRITIQUE, blue=CLOUD, purple=INJECT), bar height ∝ entropy, orange dots mark Φ̂ samples. Click any bar for the raw event. This is the AwareLiquid answer to Gemini's opaque "thinking summary": every reasoning step is replayable, auditable, diffable.
+
+**`scripts/bench_trace_audit.py`** — quantitative trace auditor. On the bundled `demo_trace.jsonl` (120 synthetic decode steps):
+
+| Metric | Value |
+|---|---:|
+| Total tokens | 120 |
+| LOCAL / SELF_CRITIQUE / CLOUD | 113 (94.2%) / 6 (5.0%) / 1 (0.8%) |
+| Cloud injects | 1 (212 B absorbed) |
+| **Self-sufficiency** | **99.17 %** |
+| Φ̂ samples / mean | 14 / 0.221 |
+| Est. cost vs full-cloud | saved $0.001785 output − spent $0.000159 input = **+$0.001626 net** |
+
+Self-sufficiency = `1 - cloud_tokens / total_tokens`. Cost model assumes $3/MTok input, $15/MTok output (frontier-API order of magnitude). Raw report: `demo_trace_audit.json`.
+
+## Cloud-inject end-to-end uplift harness (scaffold)
+
+`scripts/bench_cloud_inject_uplift.py` measures the accuracy lift from prepending an `[Absorbed fact]` block to the prompt — the exact template `demo_awareliquid_v2.py` uses on CLOUD route. For each question in `benchmarks/cloud_inject_questions.json` (30 factual probes), generate twice:
+
+  - **no-inject**: bare `Question: ... \nAnswer:`
+  - **inject**: `[Absorbed fact] ... \nContinuing: Question: ... \nAnswer:`
+
+Score = normalized substring match. Two backends:
+
+  - `echo` — deterministic stub for CI (returns "I do not know" without a fact, echoes the fact when present). On 30 questions: **no_inject = 0.000, inject = 1.000, uplift = +1.000** (10 ms). This proves the scoring + scaffolding work end-to-end.
+  - `hf` — real HuggingFace model with optional MT adapter. Headline numbers pending Qwen-1.5B run (Phase 5b).
+
+This is the scaffolding for the "cloud inject adds real measurable value" pitch number. Once the Phase 5b adapter is trained, the same harness produces the real uplift figure on TinyLlama/Qwen with adapter loaded.
