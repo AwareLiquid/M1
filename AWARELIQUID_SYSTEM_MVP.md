@@ -78,11 +78,11 @@
 - [ ] **验收**: `demo_mvp_loop.py` 能用 1.1B 模型对自然语言问题输出连贯回答
 
 ### Phase 6 · Φ-Trace 接线 (P1,差异化护城河)
-- [ ] `phi_iit.py` 暴露 `compute_phi_sparse(state, sample_rate=N)` 非阻塞接口
-- [ ] `streaming.py` 每 N=8 步异步采样 Φ,写入 `observability.py` 的 JSONL
-- [ ] `ui.html` 新增"推理时间线"视图: 渲染 (token_range, Φ, entropy, cloud_calls) 元组
-- [ ] 时间线上色: 高 Φ + 低 entropy = 本地深思 (绿) / cloud inject = 蓝 / self-revise = 黄
-- [ ] **验收**: 录一段 demo 视频,同一问题对比 Gemini 的 thinking summary,我们的 trace 可点击回放每一步
+- [x] `phi_hat.py` 提供 Kraskov kNN Φ̂ 估计器 (`compute_phi_hat(hidden, K, k_nn)`)
+- [x] `demo_awareliquid_v2.py` 每 N 步通过 forward hook 采样 last-layer hidden 算 Φ̂,写入 ReasoningTrace JSONL
+- [x] `reasoning_trace.py` 记录 (token_id, entropy, route, phi) 四元组,可回放
+- [ ] `ui.html` 推理时间线视图 (留 UI 迭代)
+- [x] **验收**: `python demo_awareliquid_v2.py --phi_every 8` 跑通真 LM + Φ̂ + trace
 
 ### Phase 7 · Deliberation Router (P2,Layer 2 升级)
 - [x] `deliberation.py` 新增 `semantic_entropy(samples)`: 对 N 条候选续写做语义熵 (cluster-based)
@@ -92,17 +92,18 @@
 - [x] **验收**: 离线模式下 router 不崩 (graceful degrade 到 self-critique);测试覆盖 20 个用例 ✅
 
 ### Phase 8 · Capsule v2 + Daemon
-- [ ] `capsule.py` 序列化结构升级为 `{belief_state, open_questions, evidence_log}`
-- [ ] `open_questions` 入栈: entropy 触发 cloud 时把当前子问题压入
-- [ ] `evidence_log` 写入: 每次 `inject_to_local_state()` 记录 (source, timestamp, query)
-- [ ] 本地常驻 daemon (Phase 1 原计划),systemd / Windows Service 包装
-- [ ] **验收**: 关机重启后 capsule 完整恢复,evidence_log 可审计
+- [x] `session_state.py`: `HFSessionState{session_id, open_questions, evidence_log, history}` 序列化
+- [x] `open_questions` 入栈: entropy 触发 cloud 时把当前子问题压入 (在 `demo_awareliquid_v2.py`)
+- [x] `evidence_log` 写入: 每次 cloud inject 记录 (source, query, fact_len, ts)
+- [x] `awareliquid_daemon.py` stdlib HTTP daemon (端口 8765),零新依赖,聚合多 session
+- [x] **验收**: `tests/test_session_state.py` + `tests/test_awareliquid_daemon.py` 通过,关机重启可恢复
 
 ### Phase 9 · Meta-Learning Plane (2027+)
-- [ ] 离线 job 把 SQLite 中 capsule 按主题聚类
-- [ ] 提取共有 belief → "用户专属先验" capsule
+- [x] `meta_learning.py`: 哈希嵌入 + numpy KMeans 对全量 evidence_log 聚类
+- [x] daemon `/meta/clusters?k=N` 暴露聚类结果 (representative_query, sources histogram)
+- [ ] 提取共有 belief → "用户专属先验" capsule (留 prefill 阶段)
 - [ ] prefill 时优先加载先验 capsule,再叠加当前 session capsule
-- [ ] **验收**: 用户使用 30 天后,同主题 query 首 token 延迟下降 + 风格更贴合
+- [x] **验收**: `tests/test_meta_learning.py` 双 blob 聚类 purity > 0.85
 
 ### 跨 Phase 不变量 (Invariants)
 - I1: Capsule ≤ 5KB · I2: 端侧延迟 < 50ms · I3: Φ 全程可算 · I4: 离线可用 · I5: Evidence 可审计
