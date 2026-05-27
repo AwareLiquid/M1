@@ -63,3 +63,46 @@
   4. 最终回答。
   5. `save_capsule()` 存入当前工作目录体验。
 - [x] 在命令行跑通，确保证明逻辑畅通，用于后续向投资人和评审做“技术变现”的 Demo。
+
+---
+
+## 4. 下一阶段 TODO — Reasoning UX 超越 Gemini 3.1 (2026-05-28 新增)
+
+> 战略详见 [ARCHITECTURE.md](ARCHITECTURE.md)。MVP 闭环已通过,以下任务把 demo 推向"真能用、真比 Gemini 强"的产品形态。
+
+### Phase 5 · Backbone 升级 (P0,前置依赖,不可跳)
+- [ ] 在云 GPU 上跑通 `train_llama_mt_adapter.py`,产出 1.1B Qwen/TinyLlama + MT-LNN adapter checkpoint
+- [ ] 把 `streaming.py` 的 ASCII vocab=200 替换为真 tokenizer (Qwen/Llama BPE)
+- [ ] 验证: WikiText-103 PPL 接近原 backbone (退化 < 10%)
+- [ ] 验证: 长上下文 needle-in-haystack 8K 准确率 > 95%
+- [ ] **验收**: `demo_mvp_loop.py` 能用 1.1B 模型对自然语言问题输出连贯回答
+
+### Phase 6 · Φ-Trace 接线 (P1,差异化护城河)
+- [ ] `phi_iit.py` 暴露 `compute_phi_sparse(state, sample_rate=N)` 非阻塞接口
+- [ ] `streaming.py` 每 N=8 步异步采样 Φ,写入 `observability.py` 的 JSONL
+- [ ] `ui.html` 新增"推理时间线"视图: 渲染 (token_range, Φ, entropy, cloud_calls) 元组
+- [ ] 时间线上色: 高 Φ + 低 entropy = 本地深思 (绿) / cloud inject = 蓝 / self-revise = 黄
+- [ ] **验收**: 录一段 demo 视频,同一问题对比 Gemini 的 thinking summary,我们的 trace 可点击回放每一步
+
+### Phase 7 · Deliberation Router (P2,Layer 2 升级)
+- [ ] `router.py` 新增 `semantic_entropy(query, n_samples=5)`: 同模型采样 N 次,衡量答案分布
+- [ ] 路由分支: low → 直出 / mid → self-critique / high+fact_gap → cloud
+- [ ] `fact_gap` 检测: 用 retrieval relevance (本地 embedding 检索 capsule.evidence_log),低于阈值 → 真 cloud API
+- [ ] 接入真 cloud API (Gemini/GPT,可配置),替代 mock dict
+- [ ] **验收**: 离线模式下 router 不崩 (graceful degrade 到 self-critique)
+
+### Phase 8 · Capsule v2 + Daemon
+- [ ] `capsule.py` 序列化结构升级为 `{belief_state, open_questions, evidence_log}`
+- [ ] `open_questions` 入栈: entropy 触发 cloud 时把当前子问题压入
+- [ ] `evidence_log` 写入: 每次 `inject_to_local_state()` 记录 (source, timestamp, query)
+- [ ] 本地常驻 daemon (Phase 1 原计划),systemd / Windows Service 包装
+- [ ] **验收**: 关机重启后 capsule 完整恢复,evidence_log 可审计
+
+### Phase 9 · Meta-Learning Plane (2027+)
+- [ ] 离线 job 把 SQLite 中 capsule 按主题聚类
+- [ ] 提取共有 belief → "用户专属先验" capsule
+- [ ] prefill 时优先加载先验 capsule,再叠加当前 session capsule
+- [ ] **验收**: 用户使用 30 天后,同主题 query 首 token 延迟下降 + 风格更贴合
+
+### 跨 Phase 不变量 (Invariants)
+- I1: Capsule ≤ 5KB · I2: 端侧延迟 < 50ms · I3: Φ 全程可算 · I4: 离线可用 · I5: Evidence 可审计

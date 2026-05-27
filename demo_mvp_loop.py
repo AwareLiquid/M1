@@ -17,8 +17,9 @@ from transformers import AutoTokenizer
 from mt_lnn import MTLNNConfig, MTLNNModel, ModelCacheStruct
 from mt_lnn.utils import load_checkpoint
 from mt_lnn.streaming import streaming_inference, prefill_state_only
-from mt_lnn.capsule import save_capsule, load_capsule
+from mt_lnn.capsule import save_capsule, load_capsule, add_open_question
 from mt_lnn.router import CloudOracleRouter
+from mt_lnn.reasoning_trace import ReasoningTrace
 
 # --- MVP Settings ---
 # Because training is on a micro-sandbox (vocab 200, GPT-2 init style), we must keep that consistent.
@@ -27,6 +28,7 @@ TOKENIZER_NAME = "gpt2" # Placeholder. Our tiny sandbox model's vocab_size is 20
 DEVICE = "cpu"
 ENTROPY_THRESHOLD = 5.0  # High entropy = flat distribution = low confidence = hallucinations
 CAPSULE_FILE = "session_alice.capsule"
+TRACE_FILE = "session_alice.trace.jsonl"
 
 
 def compute_entropy(logits: torch.Tensor) -> float:
@@ -38,72 +40,86 @@ def compute_entropy(logits: torch.Tensor) -> float:
 
 
 def mock_generate_with_interception(
-    model: MTLNNModel, 
-    tokenizer, 
-    user_query: str, 
-    cache: ModelCacheStruct, 
-    router: CloudOracleRouter
+    model: MTLNNModel,
+    tokenizer,
+    user_query: str,
+    cache: ModelCacheStruct,
+    router: CloudOracleRouter,
+    trace: ReasoningTrace,
 ) -> ModelCacheStruct:
     """
-    Simulates a streaming generation that monitors its own confidence.
+    Simulates a streaming generation that monitors its own confidence and
+    records every routing decision into the reasoning trace.
     """
     print(f"\n[User] {user_query}")
     print(f"[AwareLiquid] Thinking...", end=" ")
-    
+
     # 1. Prefill Query
     # Convert query to simple ASCII ordinals as a mock mapping to fit within vocab 200
     ids_list = [ord(c) % 200 for c in user_query]
     prompt_ids = torch.tensor([ids_list], dtype=torch.long).to(DEVICE)
     logits, cache = prefill_state_only(model, prompt_ids, cache=cache, use_lnn_recurrence=True)
-    
+
     generated_tokens = []
     max_tokens = 50
     current_token_id = prompt_ids[:, -1:]
-    
+
     # Mocking a topic to force intercept for demo purposes
     trigger_intercept = "m-theory" in user_query.lower() or "tokyo" in user_query.lower()
-    
+
     for i in range(max_tokens):
         # Forward pass (streaming O(1))
         logits, cache = streaming_inference(model, current_token_id, cache=cache, state_only=True)
         next_logits = logits[:, -1, :]
-        
+
         # 2. Entropy Monitor / Hallucination Blocker
         # For the demo, we manually inject high entropy if the trigger keyword is detected at step 3.
         entropy = compute_entropy(next_logits)
         if trigger_intercept and i == 3:
             entropy = ENTROPY_THRESHOLD + 1.0  # Force trigger!
-            
+
         if entropy > ENTROPY_THRESHOLD:
             print(f"\n[WARN] High Entropy Detected (E={entropy:.2f}). Halt generating to prevent hallucinations!")
             print(f"[AwareLiquid] I lack precise memory regarding '{user_query}'. Initiating Oracle Uplink...")
-            
+
+            trace.record_route(route="cloud", reason="entropy_above_threshold",
+                               extras={"entropy": entropy, "threshold": ENTROPY_THRESHOLD})
+            add_open_question(cache, user_query)
+
             # 3. Request External Fact from Cloud
-            cloud_fact = router.query(user_query)
-            
-            # 4. Silent Absorption (Quiet Mode)
-            cache = router.inject_to_local_state(cloud_fact, tokenizer, model, cache, device=DEVICE)
-            
+            cloud_result = router.query(user_query)
+            fact = cloud_result["fact"]
+            source = cloud_result["source"]
+
+            trace.record_cloud_inject(source=source, query=user_query, fact_len=len(fact))
+
+            # 4. Silent Absorption (Quiet Mode) — also logs evidence onto capsule
+            cache = router.inject_to_local_state(
+                fact, tokenizer, model, cache, device=DEVICE,
+                source=source, query_text=user_query,
+            )
+
             # Regenerate answer natively (mock final output)
             print("[AwareLiquid] Based on new context, I understand now. (Continuing generation using updated O(1) state...)\n")
             break
-            
+
         # Normal generation sampling (simplified greedy for demo)
         next_id = next_logits.argmax(dim=-1, keepdim=True)
+        trace.record_token(token_id=int(next_id.item()), entropy=entropy, route="local")
         # Skip actual decoding for the tiny sandbox vocab (size 200, causes indexing errors with normal tokenizer)
         # We just print a simulation of words being generated
         mock_words = [" The", " quantum", " state", " is", " updated."]
         curr_text = mock_words[i % len(mock_words)]
         print(curr_text, end="", flush=True)
         time.sleep(0.3)
-        
+
         generated_tokens.append(next_id)
         current_token_id = next_id
-        
+
         # Stop on EOS or dot for demo
         if next_id.item() == tokenizer.eos_token_id or "." in curr_text:
             break
-            
+
     print("\n[AwareLiquid] Finished response.")
     return cache
 
@@ -132,7 +148,8 @@ def main():
     model.eval()
     
     router = CloudOracleRouter()
-    
+    trace = ReasoningTrace(TRACE_FILE, session_id="alice", phi_every=0)
+
     # ---------------------------------------------------------
     # Scenario A: Restoring state from yesterday
     # ---------------------------------------------------------
@@ -142,26 +159,35 @@ def main():
     else:
         print("\n2. [State Capsule] Starting fresh session (No capsule found).")
         cache = ModelCacheStruct()
-        
+        cache.open_questions = []
+        cache.evidence_log = []
+
     # ---------------------------------------------------------
     # Scenario B: Hitting a Factual Blind Spot
     # ---------------------------------------------------------
     print("\n--- Demo Interaction 1: Unknown Fact (High Entropy) ---")
     query_unknown = "Explain the origins of m-theory to me."
-    cache = mock_generate_with_interception(model, tokenizer, query_unknown, cache, router)
-    
+    cache = mock_generate_with_interception(model, tokenizer, query_unknown, cache, router, trace)
+
     # ---------------------------------------------------------
     # Scenario C: Normal Knowledge
     # ---------------------------------------------------------
     print("\n--- Demo Interaction 2: Normal Generative Task ---")
     query_known = "Say hello."
-    cache = mock_generate_with_interception(model, tokenizer, query_known, cache, router)
-    
+    cache = mock_generate_with_interception(model, tokenizer, query_known, cache, router, trace)
+
     # ---------------------------------------------------------
-    # Scenario D: Saving State Capsule (Zero-Cost Persistence)
+    # Scenario D: Saving State Capsule v2 (belief + open_q + evidence)
     # ---------------------------------------------------------
-    print("\n3. [State Capsule] Session concluded. Crystallizing user's persona into 4.1KB capsule...")
-    save_capsule(cache, CAPSULE_FILE)
+    print("\n3. [State Capsule] Session concluded. Crystallizing user's persona into capsule v2...")
+    save_capsule(
+        cache,
+        CAPSULE_FILE,
+        open_questions=getattr(cache, "open_questions", []),
+        evidence_log=getattr(cache, "evidence_log", []),
+    )
+    trace.close()
+    print(f"[Reasoning Trace] Timeline events written to {TRACE_FILE}")
     print("\n=== MVP Demo Successfully Completed ===")
 
 

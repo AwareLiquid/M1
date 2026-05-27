@@ -32,6 +32,14 @@ from .llama_adapter import (
 )
 from .streaming import streaming_inference, prefill_state_only
 from .observability import JsonlMetricWriter, cache_summary, setup_logging
+from .capsule import (
+    CAPSULE_VERSION,
+    save_capsule,
+    load_capsule,
+    add_open_question,
+    add_evidence,
+)
+from .reasoning_trace import ReasoningTrace
 
 # Optional scientific-rigour modules (gracefully degrade if dependencies missing)
 try:
@@ -92,6 +100,12 @@ __all__ = [
     "JsonlMetricWriter",
     "cache_summary",
     "setup_logging",
+    "CAPSULE_VERSION",
+    "save_capsule",
+    "load_capsule",
+    "add_open_question",
+    "add_evidence",
+    "ReasoningTrace",
     # Optional scientific-rigour modules
     "PYPHI_AVAILABLE",
     "PENNYLANE_AVAILABLE",

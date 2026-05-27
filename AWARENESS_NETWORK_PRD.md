@@ -1,9 +1,12 @@
 # Product Requirements Document (PRD) - Awareness Network
 
-**Version:** 1.0 (Draft)
-**Date:** May 2026
+**Version:** 2.0
+**Date:** 2026-05-28
 **Product Name:** Awareness Network
 **Core Technology:** AwareLiquid (MT-LNN: Microtubule-inspired Liquid Neural Network)
+**Architecture spec:** see [ARCHITECTURE.md](ARCHITECTURE.md)
+
+> **v2.0 变更**: 在原 4 模块基础上,明确"超越 Gemini 3.1 推理体验"的产品定位与 5 层架构 (Layer 0–4)。原 4 模块归入 Layer 1–3。新增 Layer 0 (Backbone) 与 Layer 4 (Meta-Learning)。
 
 ## 1. Executive Summary (产品概要)
 Awareness Network 是基于 AwareLiquid (MT-LNN) 架构打造的**“端云分离、状态主导”的混合边缘智能系统（Hybrid Edge-State Intelligence System）**。
@@ -42,10 +45,25 @@ Awareness Network 包含四大核心解耦模块：
 * **抗干扰精确度：** 当挂载超过 128K 或无限字符的历史流后，核心逻辑提取（如“大海捞针”盲测）维持 $>99\%$。
 * **提速目标 (Sparse Resonance)：** 简单交互（社交寒暄、简单调用）在低算力下需实现瞬间休眠机制，提速超过 13%且毫秒级响应。
 
-## 5. Phased Roadmap (路线图)
-- **Phase 1 (H1 2026):** AwareLiquid 本地 Daemon 化封装。打造可后台常驻运行的 “AwareLiquid 本地守护进程” 端架构。
-- **Phase 2 (H2 2026):** Cloud Oracle 路由打通。允许 AwareLiquid 使用外置 API key 自动触发并吸收 Gemini/GPT 返回的数据。
-- **Phase 3 (2027+):** Personal State Capsule 云端/U盘化。实现无缝换机“个人潜意识灵魂接驳”。
+## 5. Reasoning UX 差异化 (vs Gemini 3.1)
 
-## 6. Competitive Advantage Summary (总结)
+知识广度不打——拆给云端 API 当事实硬盘。**推理体验**靠三件 Gemini 结构上做不到的事:
+
+| # | 差异点 | 实现位置 | Gemini 为何做不到 |
+|---|---|---|---|
+| D1 | 跨 session 持续推理状态 | Layer 1 · Capsule v2 (belief + open_q + evidence) | 云端 query 无状态,response 结束即蒸发 |
+| D2 | 按语义熵 + Φ 信号的细粒度路由 | Layer 2 · Deliberation Router (三级) | thinking budget 是一刀切 |
+| D3 | 可回放、可归因的 Φ-trace | Layer 3 · Verifiable Trace + UI 时间线 | 黑盒 thinking summary,无持续状态可归因 |
+
+详见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
+## 6. Phased Roadmap (路线图)
+
+- **Phase 1 (Q3 2026) · Backbone (P0)**: 跑通 1.1B Qwen/TinyLlama adapter。`train_llama_mt_adapter.py` → 产出可生成连贯长文的 L0 骨干。**前置依赖,不可跳。**
+- **Phase 2 (Q3 2026) · Φ-Trace 接线 (P1)**: 把 `phi_iit.py` 接入 streaming loop,`ui.html` 渲染推理时间线。差异化护城河,80% 代码已写好。
+- **Phase 3 (Q4 2026) · Deliberation Router (P2)**: Entropy router 升级为 semantic entropy + 真 cloud API。事实缺口/推理困难分别路由。
+- **Phase 4 (Q4 2026) · Capsule v2 + Daemon**: belief/open_q/evidence 三段结构 + 本地常驻进程。
+- **Phase 5 (2027+) · Meta-Learning Plane**: Capsule 聚类生成用户专属先验。RAG-on-state。
+
+## 7. Competitive Advantage Summary (总结)
 我们通过制造一个强有力的本地底层流状态机（AwareLiquid），改变了与大厂的零和博弈。我们把大厂（Gemini/GPT）降维成了 Awareness Network 下的一个“存储硬盘”，而把“智慧和意识”留在用户的手中。
