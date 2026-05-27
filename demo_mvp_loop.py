@@ -20,13 +20,14 @@ from mt_lnn.streaming import streaming_inference, prefill_state_only
 from mt_lnn.capsule import save_capsule, load_capsule, add_open_question
 from mt_lnn.router import CloudOracleRouter
 from mt_lnn.reasoning_trace import ReasoningTrace
+from mt_lnn.deliberation import DeliberationRouter, Route, RouterThresholds
 
 # --- MVP Settings ---
 # Because training is on a micro-sandbox (vocab 200, GPT-2 init style), we must keep that consistent.
 CKPT_PATH = "checkpoints/final.pt"
 TOKENIZER_NAME = "gpt2" # Placeholder. Our tiny sandbox model's vocab_size is 200, so we bypass word decoding visually.
 DEVICE = "cpu"
-ENTROPY_THRESHOLD = 5.0  # High entropy = flat distribution = low confidence = hallucinations
+THRESHOLDS = RouterThresholds(low=3.0, high=5.0)
 CAPSULE_FILE = "session_alice.capsule"
 TRACE_FILE = "session_alice.trace.jsonl"
 
@@ -46,10 +47,10 @@ def mock_generate_with_interception(
     cache: ModelCacheStruct,
     router: CloudOracleRouter,
     trace: ReasoningTrace,
+    deliberation: DeliberationRouter,
 ) -> ModelCacheStruct:
     """
-    Simulates a streaming generation that monitors its own confidence and
-    records every routing decision into the reasoning trace.
+    Stream-decode with a Layer 2 three-way router (local / self-critique / cloud).
     """
     print(f"\n[User] {user_query}")
     print(f"[AwareLiquid] Thinking...", end=" ")
@@ -72,18 +73,32 @@ def mock_generate_with_interception(
         logits, cache = streaming_inference(model, current_token_id, cache=cache, state_only=True)
         next_logits = logits[:, -1, :]
 
-        # 2. Entropy Monitor / Hallucination Blocker
+        # 2. Layer 2 routing decision
         # For the demo, we manually inject high entropy if the trigger keyword is detected at step 3.
-        entropy = compute_entropy(next_logits)
         if trigger_intercept and i == 3:
-            entropy = ENTROPY_THRESHOLD + 1.0  # Force trigger!
+            forced = next_logits.clone()
+            forced[..., :] = 0.0  # uniform → max entropy
+            decision = deliberation.decide(
+                forced,
+                query=user_query,
+                evidence_log=getattr(cache, "evidence_log", []),
+            )
+        else:
+            decision = deliberation.decide(
+                next_logits,
+                query=user_query,
+                evidence_log=getattr(cache, "evidence_log", []),
+            )
 
-        if entropy > ENTROPY_THRESHOLD:
-            print(f"\n[WARN] High Entropy Detected (E={entropy:.2f}). Halt generating to prevent hallucinations!")
+        if decision.route == Route.CLOUD:
+            print(f"\n[ROUTE] {decision.route.value} (E={decision.entropy:.2f}, reason={decision.reason})")
             print(f"[AwareLiquid] I lack precise memory regarding '{user_query}'. Initiating Oracle Uplink...")
 
-            trace.record_route(route="cloud", reason="entropy_above_threshold",
-                               extras={"entropy": entropy, "threshold": ENTROPY_THRESHOLD})
+            trace.record_route(
+                route=decision.route.value,
+                reason=decision.reason,
+                extras={"entropy": decision.entropy, "fact_gap": decision.fact_gap},
+            )
             add_open_question(cache, user_query)
 
             # 3. Request External Fact from Cloud
@@ -99,13 +114,24 @@ def mock_generate_with_interception(
                 source=source, query_text=user_query,
             )
 
-            # Regenerate answer natively (mock final output)
             print("[AwareLiquid] Based on new context, I understand now. (Continuing generation using updated O(1) state...)\n")
             break
 
+        if decision.route == Route.SELF_CRITIQUE:
+            trace.record_route(
+                route=decision.route.value,
+                reason=decision.reason,
+                extras={"entropy": decision.entropy},
+            )
+            # MVP: log only; a future revision will run N-sample re-decode here.
+
         # Normal generation sampling (simplified greedy for demo)
         next_id = next_logits.argmax(dim=-1, keepdim=True)
-        trace.record_token(token_id=int(next_id.item()), entropy=entropy, route="local")
+        trace.record_token(
+            token_id=int(next_id.item()),
+            entropy=decision.entropy,
+            route=decision.route.value,
+        )
         # Skip actual decoding for the tiny sandbox vocab (size 200, causes indexing errors with normal tokenizer)
         # We just print a simulation of words being generated
         mock_words = [" The", " quantum", " state", " is", " updated."]
@@ -149,6 +175,7 @@ def main():
     
     router = CloudOracleRouter()
     trace = ReasoningTrace(TRACE_FILE, session_id="alice", phi_every=0)
+    deliberation = DeliberationRouter(thresholds=THRESHOLDS)
 
     # ---------------------------------------------------------
     # Scenario A: Restoring state from yesterday
@@ -167,14 +194,14 @@ def main():
     # ---------------------------------------------------------
     print("\n--- Demo Interaction 1: Unknown Fact (High Entropy) ---")
     query_unknown = "Explain the origins of m-theory to me."
-    cache = mock_generate_with_interception(model, tokenizer, query_unknown, cache, router, trace)
+    cache = mock_generate_with_interception(model, tokenizer, query_unknown, cache, router, trace, deliberation)
 
     # ---------------------------------------------------------
     # Scenario C: Normal Knowledge
     # ---------------------------------------------------------
     print("\n--- Demo Interaction 2: Normal Generative Task ---")
     query_known = "Say hello."
-    cache = mock_generate_with_interception(model, tokenizer, query_known, cache, router, trace)
+    cache = mock_generate_with_interception(model, tokenizer, query_known, cache, router, trace, deliberation)
 
     # ---------------------------------------------------------
     # Scenario D: Saving State Capsule v2 (belief + open_q + evidence)

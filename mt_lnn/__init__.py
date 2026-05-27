@@ -40,6 +40,22 @@ from .capsule import (
     add_evidence,
 )
 from .reasoning_trace import ReasoningTrace
+from .deliberation import (
+    DeliberationRouter,
+    Route,
+    RouterThresholds,
+    RouteDecision,
+    token_entropy,
+    semantic_entropy,
+    lexical_fact_gap,
+)
+from .cloud_client import (
+    OracleClient,
+    OracleResult,
+    MockOracleClient,
+    HttpOracleClient,
+    build_oracle_client,
+)
 
 # Optional scientific-rigour modules (gracefully degrade if dependencies missing)
 try:
@@ -106,6 +122,18 @@ __all__ = [
     "add_open_question",
     "add_evidence",
     "ReasoningTrace",
+    "DeliberationRouter",
+    "Route",
+    "RouterThresholds",
+    "RouteDecision",
+    "token_entropy",
+    "semantic_entropy",
+    "lexical_fact_gap",
+    "OracleClient",
+    "OracleResult",
+    "MockOracleClient",
+    "HttpOracleClient",
+    "build_oracle_client",
     # Optional scientific-rigour modules
     "PYPHI_AVAILABLE",
     "PENNYLANE_AVAILABLE",

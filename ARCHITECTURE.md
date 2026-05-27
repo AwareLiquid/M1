@@ -85,13 +85,14 @@ flowchart TB
   - `evidence_log` — cloud inject 来源 + 时间戳 (审计用)
 - **不可替代性**: Gemini 没有跨 session 持久推理状态。
 
-### Layer 2 — Deliberation Router (升级现有 entropy router)
-- **现状**: `mt_lnn/router.py` 只看 next-token Shannon entropy + mock cloud。
-- **升级三级路由**:
+### Layer 2 — Deliberation Router (已实现,Phase 7 ✅)
+- **现状**: `mt_lnn/deliberation.py` 实现三级路由,`mt_lnn/cloud_client.py` 提供 env-var 驱动的后端工厂(Mock / Gemini / OpenAI,SDK 或 key 缺失时优雅降级)。
+- **三级路由**:
   1. **低熵** (E < θ₁) → 本地直出
-  2. **中熵** (θ₁ ≤ E < θ₂) → 同模型 N-sample 做语义自检 (semantic entropy)
-  3. **高熵 + 事实缺口** → 真 cloud API,quiet inject 进 L1
-- **关键区分**: "事实缺口"用 retrieval relevance 判,"推理困难"用 logit margin + Φ 下降判。两者走不同分支。
+  2. **中熵** (θ₁ ≤ E < θ₂) → 可选 N-sample 语义熵自检 (semantic entropy)
+  3. **高熵 + 事实缺口** → cloud API,quiet inject 进 L1
+- **关键区分**: "事实缺口"用 `lexical_fact_gap()` 查 capsule.evidence_log 词级重叠;"推理困难"用语义熵收敛度。两者走不同分支。
+- **不变量**: I4 由 `build_oracle_client()` 守护——任何配置错误都退回 `MockOracleClient`,管线绝不崩。
 
 ### Layer 3 — Verifiable Trace Plane (差异化护城河)
 - **现状**: `mt_lnn/phi_iit.py` 已能算 Tononi Φ_max,但未接入生成 loop。

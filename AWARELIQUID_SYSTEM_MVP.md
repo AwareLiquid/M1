@@ -85,11 +85,11 @@
 - [ ] **验收**: 录一段 demo 视频,同一问题对比 Gemini 的 thinking summary,我们的 trace 可点击回放每一步
 
 ### Phase 7 · Deliberation Router (P2,Layer 2 升级)
-- [ ] `router.py` 新增 `semantic_entropy(query, n_samples=5)`: 同模型采样 N 次,衡量答案分布
-- [ ] 路由分支: low → 直出 / mid → self-critique / high+fact_gap → cloud
-- [ ] `fact_gap` 检测: 用 retrieval relevance (本地 embedding 检索 capsule.evidence_log),低于阈值 → 真 cloud API
-- [ ] 接入真 cloud API (Gemini/GPT,可配置),替代 mock dict
-- [ ] **验收**: 离线模式下 router 不崩 (graceful degrade 到 self-critique)
+- [x] `deliberation.py` 新增 `semantic_entropy(samples)`: 对 N 条候选续写做语义熵 (cluster-based)
+- [x] 路由分支: low → 直出 / mid → self-critique / high+fact_gap → cloud
+- [x] `lexical_fact_gap()` 检测: 与 `capsule.evidence_log` 做词级重叠 (embedding 检索留 Phase 9)
+- [x] `cloud_client.py`: env-var 驱动的 `build_oracle_client()`,真 API (Gemini/OpenAI) lazy-import,缺 key 优雅降级 Mock
+- [x] **验收**: 离线模式下 router 不崩 (graceful degrade 到 self-critique);测试覆盖 20 个用例 ✅
 
 ### Phase 8 · Capsule v2 + Daemon
 - [ ] `capsule.py` 序列化结构升级为 `{belief_state, open_questions, evidence_log}`
