@@ -77,6 +77,15 @@ class DecoderLayerWithMTAdapter(nn.Module):
         self.base_layer = base_layer
         self.mt_adapter = adapter
 
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            base = self.__dict__.get('_modules', {}).get('base_layer')
+            if base is not None and hasattr(base, name):
+                return getattr(base, name)
+            raise
+
     def forward(self, *args, **kwargs):
         out = self.base_layer(*args, **kwargs)
         if isinstance(out, tuple):
