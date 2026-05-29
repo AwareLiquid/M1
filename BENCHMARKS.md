@@ -438,3 +438,26 @@ Same 30-question harness, real backend (`--backend hf`), greedy decode, 60 token
 2. **The MT adapter does not break in-context learning** — same model, with vs without the adapter, identical 83.3 → 96.7 % uplift. The adapter that drops PPL by 28 % does not "close the model off" from external facts. This is the experiment that disproves the worry "adapter-finetuned models stop listening to context."
 
 Reproduce: `kaggle/awareliquid_cloud_inject_uplift.ipynb`.
+
+## Track 1B — real-inference ReasoningTrace (2026-05-29)
+
+The trace numbers above (`demo_trace.jsonl`, 99.17 % self-sufficiency) came from a *synthetic* event generator. Track 1B closes PRD §F3 last-row by wiring `ReasoningTrace` into a *real* HF generate loop.
+
+`scripts/awareliquid_real_trace.py` loads a HF causal LM (optionally with the Phase 5b adapter), greedy/temperature-decodes a single prompt, and at every step:
+
+  - computes Shannon entropy of the next-token logits;
+  - picks LOCAL (entropy < 2.0) / SELF_CRITIQUE (2.0 – 4.0) / CLOUD (≥ 4.0);
+  - on CLOUD, splices an `[Absorbed fact]` block into the running context (same template as the cloud-inject uplift harness) and emits a `cloud_inject` event.
+
+**Canonical demo run** — Qwen-2.5-0.5B, prompt `"The capital of Australia is"`, 39 tokens, CPU:
+
+| Metric | Value |
+|---|---:|
+| Total tokens | 39 |
+| LOCAL / SELF_CRITIQUE / CLOUD | 23 (59.0 %) / 16 (41.0 %) / 0 (0.0 %) |
+| Cloud injects | 1 (62 B absorbed) |
+| **Self-sufficiency** | **100.00 %** |
+| Entropy mean / max | 1.929 / 6.471 |
+| Est. cost vs full-cloud | saved $0.000585 output, spent $0.000046 input → **+$0.000539 net** |
+
+Raw: `artifacts/real_trace_demo.jsonl` + `artifacts/real_trace_demo_audit.json`. Viewable in `trace_timeline.html` (drag-drop the jsonl). First real-model trace shipped in-repo; the synthetic trace stays for UI demo. Track 1A (Qwen-3B Kaggle run) will produce the canonical adapter-on real-trace once it completes.
