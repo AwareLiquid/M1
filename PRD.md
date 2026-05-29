@@ -1,246 +1,275 @@
-# MT-LNN Product Requirements Document
+# AwareLiquid (formerly MT-LNN) — Product Requirements Document
 
-**Version:** 1.1  
-**Date:** 2026-05-12  
-**Status:** Active  
+**Version:** 2.0
+**Date:** 2026-05-29
+**Status:** Active
 **Repo:** https://github.com/everest-an/M1
+**Supersedes:** v1.1 (2026-05-12), which anchored on the standalone 125M research artefact only. v1.1 goals are preserved under Track A (Research) below; the headline product is now Track B (AwareLiquid).
 
 ---
 
-## 1. Overview / 概述
+## 0. What changed since v1.1
 
-**What is MT-LNN? (什么是 MT-LNN？)**
-MT-LNN (Microtubule-Inspired Liquid Neural Network) is an open-source small language model (~125 M parameters) that embeds three advanced neuroscientific theories — microtubule dynamics, Global Workspace Theory (GWT), and Integrated Information Theory (IIT) — directly into a trainable neural architecture. 
-> *中文简述：MT-LNN (受微管启发的液态神经网络) 是一个开源的小型语言模型（约1.25亿参数），它将三大前沿神经科学理论——微管动力学、全局工作区理论 (GWT) 和 信息整合理论 (IIT) ——直接嵌入到了可训练的神经网络架构中。*
+v1.1 framed the project as a single deliverable: a 125M brain-inspired research model + the Anesthesia Validation Protocol + an arXiv paper.
 
-**The Product Core: (产品核心：)**
-The primary deliverable is a **research artefact**: a robust Python/PyTorch codebase, trained weights, and an arXiv paper. Together, they constitute the first publicly reproducible deep learning architecture designed to pass a computational "anesthesia-based consciousness test." 
-> *中文简述：核心交付物是一个**研究级基线系统 (Research Artefact)**：包括极具鲁棒性的 PyTorch 代码库、预训练权重以及一篇 arXiv 论文。这是世界上第一个能够通过计算学层面“麻醉意识测试”的公开可复现深度学习架构。相比标准 Transformer 那种纯数学的矩阵乘法，MT-LNN 从物理和动态上模仿了大脑微管的信息处理方式，为 AI 提供了一个“更像大脑”的底层基座。*
+Between 2026-05-24 and 2026-05-29 the project pivoted to compete in the Gemini-3.1-era reasoning-UX market:
 
-By physically mimicking how the brain's microtubule structures process information statically and dynamically, MT-LNN provides a literal "brain-like" foundation for AI, unlike the rigid, math-centric matrix multiplications of standard Transformers.
-
----
-
-## 2. Problem Statement & Product Value / 痛点与产品价值
-
-### 2.1 The Current AI Bottleneck / 当前AI的瓶颈
-
-All mainstream large language models (GPT, Llama, Qwen, Claude, etc.) share the same core Transformer loop:
-```
-token → static matrix multiply (FFN) → attention → repeat
-```
-While incredibly powerful for language, this design has major limitations:
-- **No Temporal Dynamics (缺乏时间动态):** Every token is processed statically. There is no concept of "time flow" or state accumulation within the layer itself. (每一个 token 的处理都是静态的，层内部根本没有“时间流动”或状态积累的概念。)
-- **No Biological Plausibility (缺乏生物学基础):** The architecture represents a purely mathematical solution and lacks connection to biological inductive biases associated with higher-level cognition. (这纯粹是数学运算，缺乏与高级认知相关的生物学归纳偏置。)
-- **Consciousness Evaluation Gap (意识评估空白):** AI alignment and AGI research lacks a standard, open framework to measure architectural similarities to consciousness (like information integration and global workspace broadcast). (AI 对齐和 AGI 研究一直缺乏一种开放的评估框架，来衡量 AI 架构与意识体在“信息整合”及“全局广播”上的相似度。)
-
-### 2.2 The MT-LNN Solution & Product Value / MT-LNN的解决方案与价值
-
-MT-LNN replaces the static feed-forward layer of a Transformer with a continuously flowing "Microtubule Dynamic Layer" based on Closed-form Liquid Neural Networks (LNN). 
-> *MT-LNN 将 Transformer 静态的前馈层 (FFN) 彻底替换为基于“闭式液态神经网络 (LNN)”的、持续流动更新的“微管动态层”。*
-
-**Product Value Delivered (产品交付价值):**
-1. **For Neuroscience & AGI Researchers (面向神经科学与AGI研究员):** Provides a ready-to-run, 125M-parameter PyTorch baseline bridging LLMs and the Penrose-Hameroff Orch-OR theories. (提供了一个开箱即用的大模型代码基线，将大语言模型与 Penrose-Hameroff 的 Orch-OR 意识理论真正折叠到了一起。)
-2. **For General ML Practitioners (面向通用机器学习从业者):** Proves that dropping a completely dynamic, non-Transformer layer into LLMs is commercially viable, performant (runs efficiently), and scale-ready. (证明了将纯动态流式的非 Transformer 层塞进 LLM 是可行的、高性能的且易于扩展的。)
-3. **The Anesthesia Benchmark (首创“麻醉”基准测试):** Introduces a brand-new way to test AI using a simulated drug test (The Anesthesia Validation Protocol). (引入了一种全新的 AI 测评方式——给 AI “打麻药”并观察其内部信息剥离状态的 AVP 测试。)
-
-| Gap in current AI | MT-LNN Capability |
+| Date | Event |
 |---|---|
-| No open model with MT-inspired dynamics | Researchers must start from scratch |
-| No standard consciousness-adjacent evaluation | Cannot compare architectures on this axis |
-| Anesthesia-as-test has no computational analogue | Wiest et al. 2025 finding has no AI implementation |
-| LNN and consciousness research exist in separate silos | No bridge architecture exists |
+| 2026-05-24 | `AWARENESS_NETWORK_PRD.md` introduces the **Cloud Oracle** strategy |
+| 2026-05-24 | `ARCHITECTURE.md` rewrite — Predictive Coding, O(1) Memory, Compute Skipping |
+| 2026-05-26 | Project renamed **M1 → AwareLiquid** |
+| 2026-05-28 | Capsule v2 + ReasoningTrace shipped *"for Gemini-3.1-class reasoning UX"* |
+| 2026-05-28 | Phase 5 — TinyLlama-1.1B + MT residual adapter → WikiText-2 PPL −28.5% |
+| 2026-05-29 | Phase 5b — Qwen-2.5-1.5B + adapter → PPL −27.7% (cross-base replication) |
+| 2026-05-29 | Real cloud-inject uplift on Qwen-1.5B: 83.3% → 96.7% (+13.3%) |
+
+This v2.0 reflects the pivoted scope. **The research artefact is preserved**, not retired — it now lives as Track A. The new headline is Track B.
+
+---
+
+## 1. Product Overview / 产品概述
+
+**What is AwareLiquid?**
+AwareLiquid is an open-source reasoning system that combines:
+1. A **local liquid-neural-network adapter** (MT residual adapter) bolted onto any open-weight 1B+ LM, which drops perplexity ~28% with ≤0.2% trainable parameters
+2. A **cloud oracle inject pathway** that pulls verifiable facts from a frontier LM only when the local model's entropy / route gate decides it can't answer alone
+3. A **fully auditable per-token reasoning trace** (JSONL + clickable HTML viewer) that records every routing decision, entropy spike, Φ̂ sample, and cloud-inject event
+
+> *AwareLiquid 是一个开源推理系统：本地液态神经网络适配器（28% PPL 下降，0.2% 可训练参数）+ 云端按需注入（self-sufficiency 99%+）+ 完全可审计的逐 token 推理日志（替代 Gemini 黑盒 thinking summary）。*
+
+**Pitch in one line:** Gemini-3.1-class reasoning UX, but local-first, audit-trail-native, and runnable on a single RTX 4090.
+
+---
+
+## 2. Problem Statement / 痛点与定位
+
+### 2.1 The Gemini-3.1 challenge
+
+Frontier reasoning models (Gemini 3.1, Claude Sonnet 4.6, GPT-5) ship "thinking" features that:
+- Bill at $15+/MTok output
+- Return a post-hoc opaque "thinking summary" — not a per-token route, not diffable, not auditable
+- Require always-cloud — no local-first path, no compliance story for regulated industries
+- Have no measured cost/benefit boundary for when the cloud is actually needed
+
+### 2.2 Why standard Transformers also have a memory wall
+
+KV-cache scales O(N²) with context. Brute-force long-context inference burns A100-grade memory per user. The local-first path requires a recurrent/state-space alternative.
+
+### 2.3 AwareLiquid's wedge
+
+| Frontier-cloud (Gemini 3.1) | AwareLiquid |
+|---|---|
+| Always cloud | Local-first; cloud only on entropy spike (measured: 0.8% of tokens on demo trace) |
+| Opaque thinking summary | Per-token JSONL `(step, entropy, route, phi, source)` + HTML viewer |
+| O(N²) KV cache | O(1) recurrent state via MT adapter |
+| No compliance audit trail | Every cloud query + every fact's provenance in `evidence_log` |
+| Cost: $15/MTok output | Cost: ~$0.0016 net per 120-token answer (measured on demo trace) |
+| No public reproduction | All artefacts in `benchmarks/`, all training in `kaggle/*.ipynb` |
 
 ---
 
 ## 3. Goals and Non-Goals / 目标与非目标
 
-### Goals (P0 — must have for v1) / 核心目标 (V1必做)
-- **G1** — Implement the full MT-LNN architecture in PyTorch, fully tested, open-source (实现并开源全套 MT-LNN 架构)
-- **G2** — Provide a working training pipeline (提供单 A100 上可运行的训练和数据处理流)
-- **G3** — Implement and document the Anesthesia Validation Protocol (AVP) with Φ̂ metric (实现带 $\hat{\Phi}$ 指标的麻醉验证协议)
-- **G4** — Publish a complete arxiv paper describing the architecture, motivation, and results (发布 Arxiv 学术论文以提供引用源)
-- **G5** — Achieve 17/17 test suite pass rate; all tests runnable in < 2 minutes on CPU (测试用例 17/17 全部通过，支持 CPU 快速验证)
+### Track B — AwareLiquid (P0, headline product)
 
-### Non-Goals / 非目标 (不打算做的)
-- **NG1** — This project does NOT claim MT-LNN is conscious or has subjective experience (不宣称本模型真的具备意识感知)
-- **NG2** — Not a production-ready model; no safety/alignment tuning is planned for v1 (不是业务生成级模型，不包含安全对齐/RLHF微调)
+- **B1** — Ship MT residual adapter that runs on top of any open-weight 1B+ LM, ≤0.2% trainable params, ≥25% PPL improvement, demonstrated on ≥2 base families (Llama + Qwen). **STATUS: ✅ done (Phase 5 + 5b)**
+- **B2** — Per-token reasoning trace: JSONL schema + clickable HTML viewer + quantitative audit (`bench_trace_audit.py`). **STATUS: ✅ scaffolding done, ⏳ real-inference wiring pending (Track 1B below)**
+- **B3** — Cloud-inject pathway with measurable accuracy uplift on a real LM. **STATUS: ✅ +13.3% on 30-question harness (Qwen-1.5B)**
+- **B4** — End-to-end demo: a user query that triggers local generation, an entropy-spike-triggered cloud inject, a fact absorption, and a full trace artifact for that session. **STATUS: ⏳ pending (Track 1B + 2 below)**
+- **B5** — Public reproducibility: every claim has a script in `scripts/`, a notebook in `kaggle/`, and JSON artefacts in `benchmarks/`. **STATUS: ✅ ongoing**
 
----
+### Track A — Research artefact (P1, preserved from v1.1)
 
-## 4. Users and Personas / 目标用户画像
+The original v1.1 thesis is downgraded to P1 but kept alive — the 125M standalone MT-LNN model and AVP are still publishable research and feed Track B's Φ̂ trace integration.
 
-### Primary: AI × Neuroscience researcher / 核心：AI×神经科学 的交叉学科研究员
-- Needs: reproducible baseline, good documentation, clean PyTorch code, arxiv citation (需要完全可复现的代码基线，干净清晰的 PyTorch 网络，可供引用的文献)
+- **A1** — 17/17 test suite passing on CPU in <2 min. **STATUS: ✅ (v1.1 met)**
+- **A2** — 125M standalone MT-LNN trained on WikiText-103 to PPL < 22. **STATUS: 🔲 deferred, not blocking Track B**
+- **A3** — Anesthesia Validation Protocol (AVP) with Φ̂ metric pass at trained checkpoint. **STATUS: 🔲 deferred, not blocking Track B**
+- **A4** — arXiv paper covering Track A + Track B evidence. **STATUS: 🔲 planned as Track C (writing phase)**
 
-### Secondary: Consciousness-adjacent AI researcher / 次要：意识导向的 AI 理论研究员
-- Needs: the Φ̂ metric, the anesthesia test, the GlobalCoherenceLayer collapse gate (需要模型内封装好的 $\hat{\Phi}$ 计算评估方法、微管麻醉机制和全局相干层坍缩门)
+### Non-Goals / 非目标
 
-### Tertiary: LNN / Liquid AI practitioner / 第三梯队：液态神经网络(Liquid AI) 开发者
-- Needs: drop-in replacement for Transformer FFN; standard benchmarks (极其需要能平替掉 Transformer FFN 的可矢量化的动态层代码，去搞研究魔改)
-
----
-
-## 5. Feature Requirements / 具体特性需求
-
-### F1 — Microtubule Dynamic Layer (MT-DL) `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| 13 protofilaments | Fixed at `n_protofilaments=13` by default; configurable up to P=128 |
-| Multi-scale resonance | S=5 geometric τ sweep; each scale independently learnable |
-| Three-way lateral coupling | Static W_lat (identity init) + NN torch.roll + RMC SDPA |
-| GTP-cap renewal | Periodic local clock `t mod T_period`; avoids long-context decay |
-| MAP gates | Per-protofilament 2-layer MLP; fc2_bias=+2 init |
-| Fully vectorised | No Python loop over P; single einsum; P=64 ≤ 1.2× slower than P=13 |
-| Recurrent state | `h_prev (B, P, D)` threaded across tokens; cached for inference |
-
-### F2 — Microtubule Attention `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| GQA | `n_kv_heads=1` default (MQA); configurable |
-| Scalar polarity bias | Per-head signed scalar; encodes MT plus/minus end directionality |
-| ALiBi GTP log-bias | Geometric γ schedule; 64× receptive-field spread across heads |
-| Low-rank bilinear polarity | Opt-in (`polarity_mode="low_rank"`); σ(x Wₐ)(x W_b)ᵀ bilinear mask |
-| SDPA backend | `torch.nn.functional.scaled_dot_product_attention`; Flash-Attn automatic |
-| KV cache | Causal; position-offset-aware; bit-exact with full-forward (diff < 1e-4) |
-| Precomputed buffers | Distance matrix Δ and causal mask as buffers; no per-token allocation |
-
-### F3 — Global Workspace Theory Bottleneck (GWTB) `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| Compression | d_model → d_gw = d_model/r (default r=8) |
-| Workspace self-attention | Causal, multi-head, KV-cached |
-| Broadcast | Linear projection + gated residual; γ_bcast=0.01 init |
-| Per-block mode | `gwtb_per_block=True` puts GWTB inside every block |
-| Cache parity | GWTB cached vs full-forward diff < 1e-4 |
-
-### F4 — GlobalCoherenceLayer `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| Sparse attention | Top-k retention (sparsity=0.1); causal |
-| Collapse gate | `σ((energy − threshold) × 10)`; Orch-OR inspired |
-| Diagnostics export | `last_gate` buffer readable by `get_mt_diagnostics()` |
-| KV cache | Cache-compatible; cache parity guaranteed |
-
-### F5 — Anesthesia Validation Protocol (AVP) `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| Runtime hooks | `AnesthesiaController` via `register_forward_hook`; no weight modification |
-| Context manager | `with anesthetize(model, level): ...` one-liner API |
-| Two effects | (1) MT-DL output × (1-level); (2) coherence deviation × (1-level) |
-| Φ̂ proxy | kNN entropy estimator (KSG 2004); L∞ metric; pure PyTorch (no SciPy) |
-| Multi-batch averaging | `n_batches=10` default; reduces variance by ~√10 |
-| Anesthesia test | Pass if Φ̂(κ=10)/Φ̂(κ=1) ≤ 0.30 (70% collapse); default δ=0.70 |
-| CLI | `python eval.py --anesthesia_test --anesthesia_kappas 1 2 5 10` |
-
-### F6 — Training Pipeline `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| Data pipeline | Memory-mapped `uint16` binary (numpy.memmap); random stride augmentation |
-| AMP | BF16 on A100; FP16 fallback |
-| torch.compile | Opt-in `--compile`; peel `_orig_mod` for diagnostics |
-| Separate LR groups | 4 groups: main (1×), ODE constants (0.33×), polarity (1.67×), lateral (0.33×) |
-| W&B | τ/γ/polarity histograms + collapse gate rate; opt-in `--wandb` |
-| Checkpointing | Config serialised into `.pt`; `load_model` reconstructs from checkpoint |
-| Dummy mode | `--dummy` flag for smoke tests without dataset download |
-
-### F7 — Evaluation `[P0]`
-
-| Sub-feature | Requirement |
-|---|---|
-| Standard PPL | WikiText-103 word-level perplexity |
-| Long-context PPL | Sliding-window with dual KV+h_prev cache; beyond training seq_len |
-| MT diagnostics | τ mean/std/min/max, γ, polarity std, lateral off-diag norm, rmc_gate, collapse_gate |
-| W_lat heatmaps | Per-layer coupling matrix PNG (matplotlib opt-in) |
-| Φ̂ sweep | `phi_hat_anesthesia_sweep()` returns {κ: Φ̂} dict |
-
-### F8 — Test Suite `[P0]`
-
-17 tests, all passing, runnable in < 2 minutes on CPU:
-
-- Shape and forward correctness
-- Gradient flow (all parameters)
-- KV-cache parity (< 1e-4)
-- LNN recurrence active
-- Prefill + decode parity
-- GQA KV cache size
-- MT diagnostics finite
-- Low-rank polarity
-- Nearest-neighbor coupling
-- GWTB bottleneck
-- GWTB cache parity
-- GWTB per-block mode
-- Φ̂ basic (correlated > independent)
-- AVP sweep
-- Anesthesia collapse
-- Protofilament scaling (P=64 ≤ 1.2× P=13)
-- Overfit single batch (loss drops ≥10×)
+- **NG1** — AwareLiquid does not claim sentience or subjective experience.
+- **NG2** — Not a hosted SaaS; the deliverable is open-source weights, code, and artefacts.
+- **NG3** — Not an RLHF-aligned chat product; v2.0 ships raw adapter + tooling.
+- **NG4** — Not a Gemini-3.1 replacement on *all* axes (multimodal, function calling, video) — those are roadmap items, not v2.0 acceptance criteria.
 
 ---
 
-## 6. Architecture Snapshot (v1)
+## 4. Users and Personas
 
-```
-d_model = 832 = 13 × 64   (Tensor-Core aligned; d_proto = d_head = 64)
-n_layers = 12
-n_heads = 13  (one head per protofilament)
-n_kv_heads = 1  (Multi-Query Attention; 13× KV-cache savings)
-n_protofilaments = 13
-n_time_scales = 5
-gwtb_compression_ratio = 8  → d_gw = 104
-gtp_period = 256
-~125M parameters
-```
+### Primary: Compliance-sensitive enterprise reasoning user
+Finance, legal, healthcare. Cannot ship Gemini's opaque thinking — every fact's provenance must be auditable. Needs: per-token trace, deterministic local fallback, low TCO.
+
+### Secondary: Open-source AI engineer / hacker
+Needs: a working 1B-scale adapter recipe, reproducible Kaggle notebooks, JSON artefacts they can diff. They were already using TinyLlama/Qwen and want measurable PPL/accuracy uplift without huge train budgets.
+
+### Tertiary: AI × neuroscience researcher (was v1.1 primary)
+Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation. Track A serves them.
 
 ---
 
-## 7. Success Metrics / 验收度量指标
+## 5. Feature Requirements
 
-| Metric (指标维度) | Target (目标) | Status (状态) |
+### F1 — MT Residual Adapter (Track B, P0)
+
+| Sub-feature | Requirement | Status |
 |---|---|---|
-| Test suite pass rate (单元测试集) | 17/17 | ✅ 17/17 |
-| KV-cache parity (增量缓存误差) | diff < 1e-4 | ✅ ~4e-7 |
-| WikiText-103 PPL (125M) (词级困惑度) | < 22 | 🔲 Pending training |
-| LRA Pathfinder accuracy (寻路探知率) | > 70% | 🔲 Pending |
-| Anesthesia test (MT-LNN) (模型麻醉结果) | Pass (collapse ≥ 70%) | 🔲 Pending trained model |
-| Anesthesia test (Transformer) (变压器麻醉结果) | Fail (失效) | 🔲 Pending |
-| Φ̂(MT-LNN) > Φ̂(Transformer) (积分强度) | Yes (是) | 🔲 Pending |
-| P=64 scaling overhead (64纤维计算开销) | < 2× vs P=13 | ✅ 1.2× |
-| arxiv paper published (ArXiv 论文发表) | Yes (是) | 🔲 In progress |
+| `attach_mt_adapters(model, layer_idxs)` API | One-line wrap of any HF causal LM | ✅ |
+| Attribute proxy on wrapper | `DecoderLayerWithMTAdapter` proxies `attention_type` etc. to base layer (new HF transformers need this) | ✅ `b108744` |
+| Checkpoint format | `attach_adapters_from_checkpoint(model, ckpt)` reconstructs adapters from `.pt` | ✅ |
+| Trainable param budget | ≤ 0.2% of base model params | ✅ TinyLlama 0.196%, Qwen 0.139% |
+| PPL improvement | ≥ 25% WikiText-2 drop at 1000 steps, batch 1, grad_accum 8 | ✅ TinyLlama −28.5%, Qwen −27.7% |
+| Cross-base reproducibility | Same recipe must work on ≥2 LM families | ✅ Llama + Qwen |
+| ≥3B base validation | Same recipe at Qwen-3B / Phi-3-mini; needle non-zero on base | ⏳ Track A (next) |
+
+### F2 — Cloud Oracle Inject Pathway (Track B, P0)
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| Inject template | `[Absorbed fact] {fact}\nContinuing: Question: {q}\nAnswer:` | ✅ |
+| Real-model accuracy uplift | ≥ +10% on 30-question harness, real HF backend | ✅ +13.3% on Qwen-1.5B |
+| Adapter does not break in-context learning | Same uplift with/without MT adapter loaded | ✅ |
+| Entropy-triggered routing | Local generation routes to cloud inject only when token entropy > threshold | 🔲 wiring pending (B4) |
+| Per-session self-sufficiency metric | `1 - cloud_tokens/total_tokens`, reported per trace | ✅ on synthetic; ⏳ on real inference |
+
+### F3 — Reasoning Trace (Track B, P0)
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| JSONL schema | One row per token: `(step, token_id, entropy, route, phi)` + separate `route` and `cloud_inject` events | ✅ |
+| `trace_timeline.html` viewer | Single-file HTML; one colored bar per token; click for raw event | ✅ |
+| `bench_trace_audit.py` | Reports route breakdown, self-sufficiency, entropy stats, Φ̂ stats, cost vs full-cloud | ✅ |
+| Real inference emits trace | Hook `ReasoningTrace` into Qwen generate loop, not just synthetic demo | 🔲 pending (Track 1B below) |
+| Demo session bundle | One canonical user-query trace shipped in repo; reproducible from scripts | 🔲 pending (B4) |
+
+### F4 — Public Reproducibility (Track B, P0)
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| Kaggle notebooks | Each headline number reproducible from one `kaggle/*.ipynb` | ✅ Phase 5b, cloud-inject |
+| Artefact JSONs | All headline tables back-by-JSON in `benchmarks/` | ✅ |
+| Pinned torch | Kaggle notebooks pin `torch==2.4.1+cu121` to survive P100/T4 random assignment | ✅ |
+| Pitch deck | `assets/decks/Pitch_Deck_MT_LNN.md` reflects current headline numbers | ✅ |
+| Test suite green | All tests pass on CPU in < 2 min | 🔲 verify after Track 1B wiring |
+
+### F5 — MT-LNN core architecture (Track A, P1, from v1.1)
+
+Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no longer Track B acceptance gates but remain valid research deliverables.
 
 ---
 
-## 8. Dependencies and Constraints / 环境约束指引
+## 6. Acceptance Criteria (v2.0 headline metrics)
 
-### Runtime requirements (运行环境)
+### Track B (must hit for v2.0 ship)
+
+| Metric | Target | **Measured** | Source |
+|---|---|---|---|
+| PPL drop on 1B+ base, 1000 steps | ≥ −25% | **−28.5% (TinyLlama)** | `benchmarks/kaggle_run/ppl_ablation.json` |
+| PPL drop, cross-family base | ≥ −25% | **−27.7% (Qwen-1.5B)** | `benchmarks/kaggle_qwen_run/ppl_ablation.json` |
+| Trainable params | ≤ 0.2% | **0.139%–0.196%** | same |
+| Cloud-inject accuracy uplift, real backend | ≥ +10% | **+13.3% (Qwen-1.5B, 30 Q)** | `benchmarks/cloud_inject_qwen/*.json` |
+| Adapter preserves in-context learning | uplift Δ vs no-adapter ≤ 1pp | **Δ = 0pp (identical)** | same |
+| Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) | `demo_trace_audit.json` |
+| Real-inference trace | demo session shipped | 🔲 **pending** | (Track 1B + 2) |
+| ≥3B base needle non-zero | base non-zero accuracy at 4096-context | 🔲 **pending** | (Track 1A) |
+
+### Track A (preserved from v1.1)
+
+| Metric | Target | Status |
+|---|---|---|
+| Test suite | 17/17 in < 2 min CPU | ✅ |
+| KV-cache parity | diff < 1e-4 | ✅ |
+| WikiText-103 PPL (125M standalone) | < 22 | 🔲 deferred |
+| AVP pass on trained MT-LNN | Φ̂(κ=10)/Φ̂(κ=1) ≤ 0.30 | 🔲 deferred |
+| arXiv paper | published | 🔲 planned Track C |
+
+---
+
+## 7. Roadmap (post-v2.0)
+
+Three tracks, sequenced:
+
+### Track 1A — Scale validation
+Re-run Phase 5b recipe on **Qwen-3B or Phi-3-mini-3.8B**. Goal: produce non-zero base needle scores so the MT adapter delta becomes measurable. Closes acceptance row "≥3B base needle non-zero." Wall: ~5h Kaggle.
+
+### Track 1B — Wire ReasoningTrace into real Qwen inference
+Currently traces are synthetic (`scripts/demo_trace_synth.py`). Hook `ReasoningTrace` into the Qwen + adapter generate loop, emit real per-token entropies, route decisions, optional cloud injects. Ship one canonical demo session. Closes B4 + F3 last row. Wall: ~1-2 days code.
+
+### Track 2 — Brain-inspired Phase 1 (from `BRAIN_INSPIRED_ROADMAP.md`)
+Currently deferred items that are "首选 / 高优" per roadmap:
+- Dynamic channel gating (κ-based compute skipping)
+- Working memory decay (GWTB upgrade)
+- Predictive coding loss
+
+These are independent of Track B headline metrics but feed the research narrative. Sequence after 1A/1B.
+
+### Track 3 — arXiv tech report (Track C)
+2-3 page short paper bundling Phase 5 + 5b + cloud-inject + trace audit + (if done) Track 1A 3B-scale results. Wall: ~1 week.
+
+### Deferred / Out-of-scope for v2.0
+- Multimodal, function calling, agent OS (mentioned in pitch deck as Stage 2-3)
+- 7B / 70B scale training (Stage 2 / 3 in roadmap)
+- Hosted SaaS, RLHF alignment
+- Track A G3 / G4 (AVP pass + arXiv) — moved to Track 3
+
+---
+
+## 8. Architecture snapshot (v2.0)
+
+```
+Local stack:
+  Base LM (open weights, frozen)       ← TinyLlama-1.1B / Qwen-2.5-1.5B (tested), Qwen-3B / Phi-3-mini-3.8B (planned)
+  + MT residual adapter on every 4th layer  ← O(1) recurrent state, 0.2% trainable
+  + LoRA on q/k/v/o projections             ← absorbs adapter output into attention
+  ─────────
+  Per-token generate loop emits ReasoningTrace JSONL events
+
+Routing:
+  Entropy of next-token distribution > threshold ?
+      ├─ no  → LOCAL route, emit token
+      ├─ yes → SELF_CRITIQUE: regenerate with explicit reflection prompt
+      └─ yes & still uncertain → CLOUD route:
+            POST {q} to frontier LM
+            wrap returned fact in [Absorbed fact] template
+            re-generate with absorbed fact in context
+            emit cloud_inject event with fact_len and bytes_absorbed
+
+Track A (research):
+  125M standalone MT-LNN with original v1.1 F1-F8 features
+  (independent of Track B; supports AVP + Φ̂ research)
+```
+
+---
+
+## 9. Dependencies / Constraints
+
+### Runtime
 - Python ≥ 3.10
-- PyTorch ≥ 2.1 (for `torch.nn.functional.scaled_dot_product_attention`)
-- CUDA ≥ 11.8 for BF16 + Flash-Attn; CPU-only also supported
+- PyTorch 2.4.1 (pinned for Kaggle P100/T4 compatibility; sm_60 support)
+- CUDA 12.1 build of torch for Kaggle, cu118+ for local
+- transformers, peft, accelerate, safetensors, datasets
 
-### Training hardware (算力设备)
-- Minimum: single RTX 3090 (24 GB) at d_model=512
-- Recommended: single A100-80GB at default 125M config
-- Global batch = 8 × 64 = 512 sequences; 100K steps ≈ 10 B tokens seen
+### Training hardware
+- Track B adapter: Kaggle free-tier GPU (T4 or P100) — 1000 steps on Qwen-1.5B fits in ~3h
+- Track A 125M standalone: single A100 (v1.1 spec)
+- Track 1A 3B scale: Kaggle GPU; ~5h estimated
 
-### Key design constraints (研发底线红线)
-- **13 is fixed by biology**: n_protofilaments=13 is the thermodynamically stable MT configuration; the architecture uses this as a structural inductive bias, not a tunable hyperparameter
-- **d_model must be chosen so d_model/n_protofilaments is a multiple of 8** for Tensor-Core alignment (832, 416, 1040, …)
-- **Anesthesia test requires MT parameters**: standard Transformer/LNN cannot pass AVP by design; this is a feature, not a limitation
+### Design constraints
+- Adapter must remain ≤ 0.2% trainable params (else story becomes "we just LoRA'd Qwen")
+- Adapter wrapper must proxy attribute access (`DecoderLayerWithMTAdapter.__getattr__`) — non-negotiable since new HF transformers introspects layer attributes
+- Track A 13-protofilament biological constraint preserved (v1.1 §8)
 
 ---
 
-## 9. Open Questions / Risks / 悬而未决的风险点
+## 10. Open questions / risks
 
-| Question (问题描述) | Risk level (风险) | Notes (预估对策) |
+| Question | Risk | Notes |
 |---|---|---|
-| Will training converge stably at 125M? | Medium | τ/γ instability possible; separate LR groups and gradient clipping mitigate |
-| Will Φ̂ be reliably positive for trained model? | Medium | Depends on information integration actually occurring; kNN estimator has variance |
-| Does 13-protofilament split help beyond parameter efficiency? | Low | Ablation confirms monotone improvement; qualitative mechanism still theorised |
-| Is Orch-OR experimentally validated? | High (scientific debate) | Paper explicitly acknowledges debate; classical MT predictions are sufficient |
-| PyTorch 2.x torch.compile compatibility | Low | Tested; `_orig_mod` unwrap handles this |
+| Does the MT adapter PPL gain hold at ≥3B base? | Medium | If yes — strong scaling story. If no — Track B caps at 1B–2B "small-model" market |
+| Does the +13.3% cloud-inject uplift hold across other Q&A formats (MMLU, TriviaQA)? | Medium | Current 30-question harness is hand-curated; needs broader replication before publication |
+| Will entropy-triggered routing in real inference produce sane route decisions? | Medium | Synthetic demo trace was hand-tuned; real inference may pick weird threshold values |
+| Track A (125M standalone) gets de-prioritised long enough that the v1.1 research narrative atrophies | Low–Medium | Track 3 paper explicitly bundles both — that's the mitigation |
+| Conversation logs contain a Kaggle API token | Operational | Rotate token after each external collaboration |
+| Gemini 3.x evolves into local-first / open-trace before we ship | Medium | Maintain a 4-6 week lead time on key features; trace JSONL spec is the moat |
