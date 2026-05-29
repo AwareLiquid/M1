@@ -174,7 +174,7 @@ Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no lo
 | Adapter preserves in-context learning | uplift Δ vs no-adapter ≤ 1pp | **Δ = 0pp (identical)** | same |
 | Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) · **100%** (real Qwen-0.5B smoke) | `demo_trace_audit.json` · `artifacts/real_trace_demo_audit.json` |
 | Real-inference trace | demo session shipped | ✅ **shipped** (Qwen-0.5B/CPU; adapter-on canonical Kaggle run in flight) | `scripts/awareliquid_real_trace.py` · `artifacts/real_trace_demo.jsonl` |
-| ≥3B base needle non-zero | base non-zero accuracy at 4096-context | ❌ **base ≡ 0 at 3B too** — needle harness needs rework (chat-template / RULER-style), not larger base | `benchmarks/kaggle_qwen3b_run/needle.json` |
+| ≥3B base needle non-zero | base non-zero accuracy at 4096-context | ⏳ **harness fixed (2026-05-30)** — Qwen-0.5B achieves 1.0 acc with chat-template; pending rerun on 1.5B/3B+adapter | `NEEDLE_FIX.md` · `bench_needle_chat_template.py` |
 
 ### Track A (preserved from v1.1)
 

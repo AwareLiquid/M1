@@ -1,0 +1,80 @@
+[
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 512,
+    "depth": 0.1,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 5.168517351150513,
+    "tok_per_sec": 290.21862520517607
+  },
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 512,
+    "depth": 0.5,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 5.164297819137573,
+    "tok_per_sec": 290.45575072014276
+  },
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 512,
+    "depth": 0.9,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 5.98744797706604,
+    "tok_per_sec": 250.52409736928146
+  },
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 1024,
+    "depth": 0.1,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 10.067003965377808,
+    "tok_per_sec": 301.57929910838783
+  },
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 1024,
+    "depth": 0.5,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 9.304686069488525,
+    "tok_per_sec": 325.9647856305079
+  },
+  {
+    "variant": "base",
+    "adapter": null,
+    "context_len": 1024,
+    "depth": 0.9,
+    "samples": 3,
+    "exact": 3,
+    "contains": 3,
+    "accuracy": 1.0,
+    "contains_rate": 1.0,
+    "seconds": 9.607407808303833,
+    "tok_per_sec": 315.69389584759074
+  }
+]

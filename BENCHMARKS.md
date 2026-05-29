@@ -483,9 +483,11 @@ WikiText-2 valid, 50 batches × 384 tokens = 19 200 tokens.
 
 **The MT adapter PPL gain grows with base size**: TinyLlama-1.1B −28.5 % → Qwen-1.5B −27.7 % → **Qwen-3B −34.4 %**. The "scale catastrophes the adapter" worry is disproven; the inductive bias *strengthens* at 3B. Trainable budget stays comfortably under 0.2 % (0.117 %).
 
-### Needle (still negative — format, not size, is the bottleneck)
+### Needle (format fixed 2026-05-30, rerun pending)
 
-All 9 (context, depth) cells at 1024 / 2048 / 4096 score `accuracy=0.0` for **both** base and adapter. Same flat zero as TinyLlama and Qwen-1.5B. This rules out "needle needs more parameters" — even at 3 B base, the bespoke needle-prompt format yields nothing. Verdict: the needle harness itself needs replacement (chat-template wrapping or RULER-style multi-turn probes) before MT-vs-base delta becomes measurable. This is a benchmark-tooling problem, not an architecture problem.
+**Root cause identified and fixed**: The old `bench_llama_mt_needle.py` used raw prompt concatenation without chat templates, causing 0.0 accuracy on all instruct-tuned models regardless of size (1.1B / 1.5B / 3B). The new `bench_needle_chat_template.py` uses `tokenizer.apply_chat_template()` and achieves **1.0 accuracy** on Qwen-0.5B-Instruct baseline at all depths (0.1, 0.5, 0.9) and contexts (512, 1024).
+
+This was a benchmark-tooling problem, not an architecture problem. Next: rerun on Qwen-1.5B/3B with Phase 5b adapters to measure MT-vs-base delta. See `NEEDLE_FIX.md` for full details.
 
 ### Cross-base summary (Phase 5 + 5b + Track 1A)
 
