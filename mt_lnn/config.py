@@ -38,7 +38,7 @@ class MTLNNConfig:
     #                Mimics α/β-tubulin pair interactions; rank-r adds 2·d·r
     #                params per head.
     polarity_mode: str = "scalar"
-    polarity_rank: int = 8
+    polarity_rank: int = 16  # Increased from 8 for better content-based attention capacity
 
     # GTP hydrolysis (lateral coupling in MTLNNLayer)
     gamma_init: float = 0.1
@@ -93,6 +93,13 @@ class MTLNNConfig:
     # contextual state once and emits a fixed number of target slots, so tasks
     # such as Selective Copy can be evaluated without autoregressive decoding.
     direct_target_max_len: int = 16
+
+    # Position-Free Architecture (Experimental - Default OFF)
+    # WARNING: Only enable after validating on 200K parameter model first!
+    use_position_free_attention: bool = False    # Replace RoPE with h_prev-based timing
+    h_prev_position_weight: float = 0.05         # h_prev position signal strength (0.05 = 5% of content)
+    keep_relative_bias: bool = True              # Keep GTP-cap relative distance bias
+    position_free_mode: str = "hybrid"           # "hybrid"(KV+h_prev) or "state_only"(h_prev only)
     
     # Optional Causal Chain and Self-Monitor Extraction Heads (Phase 2 & 3)
     use_causal_head: bool = False

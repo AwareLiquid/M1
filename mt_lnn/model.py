@@ -124,6 +124,7 @@ class MTLNNBlock(nn.Module):
             past_kv=past_kv,
             position_offset=position_offset,
             use_cache=use_cache,
+            h_prev=h_prev,  # Pass h_prev for position-free timing signal
         )
         x = x + attn_out
 
