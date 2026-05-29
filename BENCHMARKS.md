@@ -422,3 +422,19 @@ Score = normalized substring match. Two backends:
   - `hf` — real HuggingFace model with optional MT adapter. Echo baseline proves the harness; full TinyLlama/Qwen + adapter numbers are next.
 
 This is the scaffolding for the "cloud inject adds real measurable value" pitch number. Now that the Phase 5b adapter (`benchmarks/kaggle_qwen_run/`) has trained, the same harness can produce a real uplift figure on Qwen-2.5-1.5B with the adapter loaded.
+
+### Real cloud-inject numbers on Qwen-2.5-1.5B (2026-05-29, Kaggle GPU)
+
+Same 30-question harness, real backend (`--backend hf`), greedy decode, 60 tokens. Raw: `benchmarks/cloud_inject_qwen/`.
+
+| Variant | no_inject acc | inject acc | **uplift_abs** | wall (s) |
+|---|---:|---:|---:|---:|
+| Qwen-2.5-1.5B-Instruct (baseline) | 0.833 | **0.967** | **+0.133** | 108 |
+| Qwen-2.5-1.5B-Instruct + Phase 5b MT adapter | 0.833 | **0.967** | **+0.133** | 159 |
+
+**Two claims this validates:**
+
+1. **Cloud-inject genuinely lifts accuracy on a real model** — Qwen alone answers 25/30; with the `[Absorbed fact]` template it answers 29/30. This is no longer a stub-only demonstration.
+2. **The MT adapter does not break in-context learning** — same model, with vs without the adapter, identical 83.3 → 96.7 % uplift. The adapter that drops PPL by 28 % does not "close the model off" from external facts. This is the experiment that disproves the worry "adapter-finetuned models stop listening to context."
+
+Reproduce: `kaggle/awareliquid_cloud_inject_uplift.ipynb`.

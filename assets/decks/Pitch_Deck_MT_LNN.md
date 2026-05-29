@@ -152,6 +152,46 @@ style: |
 
 ---
 
+## 4.6 Cloud-Inject 真在用 — 真模型 +13.3% 准确率提升 (2026-05-29)
+
+<div class="columns">
+<div>
+
+**30 道事实问答 · 真实 HF 后端 · Qwen-2.5-1.5B**
+
+| Variant | no_inject | inject | uplift |
+|---|---:|---:|---:|
+| Qwen-1.5B (baseline) | 83.3% | **96.7%** | **+13.3%** |
+| Qwen-1.5B + MT adapter | 83.3% | **96.7%** | **+13.3%** |
+
+**两个 claim 同时拿下:**
+1. `[Absorbed fact]` 模板**真的拉准确率** — 不再是 EchoBackend stub 数字，是真 Qwen 上 25/30 → 29/30.
+2. **MT adapter 不破坏 in-context learning** — PPL 降 28% 的同时, inject uplift 100% 保留.
+
+</div>
+<div>
+
+**为什么这两个组合起来很重要**
+
+很多 LoRA / adapter 微调会让模型"闭起来" — 学会了训练分布, 反而忽略 prompt 里塞进来的新事实. 这是 RAG 圈的常见 bug.
+
+AwareLiquid 的 MT adapter 给出反例:
+- PPL 改善 → adapter 学到东西
+- inject uplift 保留 → 但**没把基座 in-context learning 学坏**
+
+这是 **AwareLiquid 架构哲学的实证**: 
+*local 模型负责常识 + 主流知识 (83.3%),  
+cloud 只在不知道的 5 题时介入 (+13.4%),  
+adapter 不破坏这个分工.*
+
+— Reproduce: `kaggle/awareliquid_cloud_inject_uplift.ipynb`
+— Raw: `benchmarks/cloud_inject_qwen/*.json`
+
+</div>
+</div>
+
+---
+
 ## 5. Contact & Links (相关链接)
 
 **Experience the future of constant-memory architecture:**
