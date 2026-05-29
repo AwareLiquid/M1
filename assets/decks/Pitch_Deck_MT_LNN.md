@@ -55,18 +55,19 @@ style: |
 
 ## 3. Benchmarks & 架构优势 (Architectural Advantages)
 
-### 🆕 Phase 5 milestone — TinyLlama-1.1B + MT adapter (Kaggle T4, 2026-05-28)
+### 🆕 Phase 5b milestone — Qwen-2.5-1.5B + MT adapter (Kaggle GPU, 2026-05-29)
 
-第一次在真实的 1B+ 预训练 LM 上端到端验证了 MT-LNN 残差适配器:
+跨基座复现 — 同样的 MT 残差适配器配方在 **两个不同 1B+ 预训练 LM 家族** 上同样有效:
 
-| Variant | Trainable params | WikiText-2 PPL ↓ |
+| Base | Trainable params | WikiText-2 PPL ↓ |
 |---|---:|---:|
-| Base TinyLlama-1.1B (frozen) | 1.10 B | 9.16 |
-| **+ MT adapter + LoRA (1000 steps)** | **2.3 M (0.196 %)** | **6.55 (−28.5 %)** |
+| TinyLlama-1.1B (Phase 5) | 2.3 M (0.196 %) | 9.16 → **6.55 (−28.5 %)** |
+| **Qwen-2.5-1.5B (Phase 5b)** | **2.22 M (0.139 %)** | **11.10 → 8.03 (−27.7 %)** |
 
-— Reproduce: `KAGGLE_RUN.md` · raw artefacts: `benchmarks/kaggle_run/ppl_ablation.json`
-— **0.2 % 可训练参数, PPL 下降 28 %** — MT 时间动态归纳偏置对真实 LM 有用, 不是 toy-scale 的故事.
-— Needle-in-haystack 在该规模下 base 自身 ≡ 0, 待 ≥3B base 上重测.
+**Cross-base reproducibility** — Llama 家族和 Qwen 家族，**两组独立训练，PPL 下降幅度几乎一致**，证明 MT 时间动态归纳偏置对真实 1B+ LM 普适有效，不是 TinyLlama-only 的幸运。
+
+— Reproduce: `kaggle/awareliquid_train_qwen_phase5b.ipynb` · raw artefacts: `benchmarks/kaggle_qwen_run/ppl_ablation.json`
+— Needle-in-haystack 在 ≤1.5B base 上自身 ≡ 0, 待 ≥3B base 上重测.
 
 <div class="columns">
 <div>

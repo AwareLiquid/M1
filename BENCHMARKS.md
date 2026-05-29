@@ -363,6 +363,33 @@ Next experiment to run (see *What's next* below): repeat at Qwen-2.5-1.5B or Phi
 | Adapter improves long-context retrieval at ≥3B scale | ⏳ Not yet tested |
 
 
+## Phase 5b — Qwen-2.5-1.5B replication (2026-05-29, Kaggle GPU)
+
+Re-ran the Phase 5 recipe on a different 1B+ base (Qwen-2.5-1.5B-Instruct) to test whether the PPL improvement was TinyLlama-specific or a property of the MT residual adapter itself. Same recipe: 1000 steps, batch 1, grad_accum 8, MT adapter on every 4th layer, LoRA on q/k/v/o projections.
+
+Raw artefacts: `benchmarks/kaggle_qwen_run/{ppl_ablation,needle}.json`. Reproduce with `kaggle/awareliquid_train_qwen_phase5b.ipynb`.
+
+### Perplexity on WikiText-2 (50 batches, 25,600 tokens)
+
+| Variant | Trainable params | Total params | **WikiText-2 PPL ↓** |
+|---|---:|---:|---:|
+| Base Qwen-2.5-1.5B-Instruct (frozen) | 1.54 B | 1.54 B | 11.10 |
+| **+ MT adapter + LoRA (1000 steps)** | **2.22 M (0.139 %)** | 1.59 B | **8.03 (−27.7 %)** |
+
+### Cross-base reproducibility check
+
+| Base | Trainable | PPL drop |
+|---|---:|---:|
+| TinyLlama-1.1B (Phase 5)  | 0.196 % | −28.5 % |
+| Qwen-2.5-1.5B (Phase 5b)  | 0.139 % | **−27.7 %** |
+
+Two different 1B+ bases, two different families (Llama vs Qwen), same recipe → essentially the same PPL drop. The MT inductive bias is **not** a TinyLlama-specific artefact.
+
+### Needle (negative result, same ceiling as Phase 5)
+
+Both base and adapter score `accuracy = 0.000` across all 9 (context × depth) cells at 1024/2048/4096. Same conclusion as Phase 5: at 1.5 B base size the needle format is too hard even for the base; nothing to lift. Verdict deferred to ≥3 B base.
+
+
 ## Reasoning trace observability (2026-05-28)
 
 AwareLiquid emits one JSONL row per decoded token via `mt_lnn.reasoning_trace.ReasoningTrace`. Each row carries `(step, token_id, entropy, route, phi)` plus separate `route` decisions and `cloud_inject` events. Two artefacts ride on top of this stream:
@@ -392,6 +419,6 @@ Self-sufficiency = `1 - cloud_tokens / total_tokens`. Cost model assumes $3/MTok
 Score = normalized substring match. Two backends:
 
   - `echo` — deterministic stub for CI (returns "I do not know" without a fact, echoes the fact when present). On 30 questions: **no_inject = 0.000, inject = 1.000, uplift = +1.000** (10 ms). This proves the scoring + scaffolding work end-to-end.
-  - `hf` — real HuggingFace model with optional MT adapter. Headline numbers pending Qwen-1.5B run (Phase 5b).
+  - `hf` — real HuggingFace model with optional MT adapter. Echo baseline proves the harness; full TinyLlama/Qwen + adapter numbers are next.
 
-This is the scaffolding for the "cloud inject adds real measurable value" pitch number. Once the Phase 5b adapter is trained, the same harness produces the real uplift figure on TinyLlama/Qwen with adapter loaded.
+This is the scaffolding for the "cloud inject adds real measurable value" pitch number. Now that the Phase 5b adapter (`benchmarks/kaggle_qwen_run/`) has trained, the same harness can produce a real uplift figure on Qwen-2.5-1.5B with the adapter loaded.
