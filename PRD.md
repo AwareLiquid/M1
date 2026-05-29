@@ -168,12 +168,13 @@ Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no lo
 |---|---|---|---|
 | PPL drop on 1B+ base, 1000 steps | ≥ −25% | **−28.5% (TinyLlama)** | `benchmarks/kaggle_run/ppl_ablation.json` |
 | PPL drop, cross-family base | ≥ −25% | **−27.7% (Qwen-1.5B)** | `benchmarks/kaggle_qwen_run/ppl_ablation.json` |
-| Trainable params | ≤ 0.2% | **0.139%–0.196%** | same |
+| PPL drop, ≥3B base | ≥ −25% | **−34.4% (Qwen-3B)** | `benchmarks/kaggle_qwen3b_run/ppl_ablation.json` |
+| Trainable params | ≤ 0.2% | **0.117%–0.196%** | same |
 | Cloud-inject accuracy uplift, real backend | ≥ +10% | **+13.3% (Qwen-1.5B, 30 Q)** | `benchmarks/cloud_inject_qwen/*.json` |
 | Adapter preserves in-context learning | uplift Δ vs no-adapter ≤ 1pp | **Δ = 0pp (identical)** | same |
-| Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) | `demo_trace_audit.json` |
-| Real-inference trace | demo session shipped | 🔲 **pending** | (Track 1B + 2) |
-| ≥3B base needle non-zero | base non-zero accuracy at 4096-context | 🔲 **pending** | (Track 1A) |
+| Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) · **100%** (real Qwen-0.5B smoke) | `demo_trace_audit.json` · `artifacts/real_trace_demo_audit.json` |
+| Real-inference trace | demo session shipped | ✅ **shipped** (Qwen-0.5B/CPU; adapter-on canonical Kaggle run in flight) | `scripts/awareliquid_real_trace.py` · `artifacts/real_trace_demo.jsonl` |
+| ≥3B base needle non-zero | base non-zero accuracy at 4096-context | ❌ **base ≡ 0 at 3B too** — needle harness needs rework (chat-template / RULER-style), not larger base | `benchmarks/kaggle_qwen3b_run/needle.json` |
 
 ### Track A (preserved from v1.1)
 
