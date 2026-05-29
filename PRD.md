@@ -1,10 +1,10 @@
 # AwareLiquid (formerly MT-LNN) — Product Requirements Document
 
-**Version:** 2.0
-**Date:** 2026-05-29
+**Version:** 2.1
+**Date:** 2026-05-30
 **Status:** Active
 **Repo:** https://github.com/everest-an/M1
-**Supersedes:** v1.1 (2026-05-12), which anchored on the standalone 125M research artefact only. v1.1 goals are preserved under Track A (Research) below; the headline product is now Track B (AwareLiquid).
+**Supersedes:** v2.0 (2026-05-29), which introduced Track B (AwareLiquid product). v2.1 adds Position-Free Architecture (Track A research advancement).
 
 ---
 
@@ -12,7 +12,7 @@
 
 v1.1 framed the project as a single deliverable: a 125M brain-inspired research model + the Anesthesia Validation Protocol + an arXiv paper.
 
-Between 2026-05-24 and 2026-05-29 the project pivoted to compete in the Gemini-3.1-era reasoning-UX market:
+Between 2026-05-24 and 2026-05-30 the project pivoted to compete in the Gemini-3.1-era reasoning-UX market:
 
 | Date | Event |
 |---|---|
@@ -23,8 +23,9 @@ Between 2026-05-24 and 2026-05-29 the project pivoted to compete in the Gemini-3
 | 2026-05-28 | Phase 5 — TinyLlama-1.1B + MT residual adapter → WikiText-2 PPL −28.5% |
 | 2026-05-29 | Phase 5b — Qwen-2.5-1.5B + adapter → PPL −27.7% (cross-base replication) |
 | 2026-05-29 | Real cloud-inject uplift on Qwen-1.5B: 83.3% → 96.7% (+13.3%) |
+| **2026-05-30** | **Position-Free Architecture** — h_prev-based timing replaces RoPE → **94.11%** performance |
 
-This v2.0 reflects the pivoted scope. **The research artefact is preserved**, not retired — it now lives as Track A. The new headline is Track B.
+This v2.1 reflects the Position-Free Architecture addition to Track A. **Both Track A and Track B remain active**; Track B (AwareLiquid) is still the headline product.
 
 ---
 
@@ -158,6 +159,22 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 
 Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no longer Track B acceptance gates but remain valid research deliverables.
 
+### F6 — Position-Free Architecture (Track A, P1, 2026-05-30)
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| Dual-path architecture | Preserve 100% of RoPE baseline; add position-free path with config switch | ✅ `df6ecd9` |
+| h_prev timing extractor | Extract position signal from liquid state (B,P,S,D) via tau-weighted aggregation | ✅ |
+| Tau-weight initialization | 1/sqrt(τ) init: fast scales (τ=0.01) weighted 10× higher than slow scales (τ=10) | ✅ |
+| Content-based attention | Low-rank bilinear polarity (rank=16) for position-free mode | ✅ |
+| Performance target | ≥90% of RoPE baseline on Selective Copy task | ✅ **94.11%** |
+| Parameter overhead | ≤15% additional params vs RoPE-only | ✅ **12.8%** |
+| Kaggle deployment | Production-ready test script with multi-scale (tiny/small/medium) support | ✅ |
+
+**Rationale**: Position-Free Architecture replaces external position encoding (RoPE) with internal timing signals from liquid dynamics. This aligns with the AGI thesis: understanding through state evolution, not statistical token prediction. Achieves 94.11% of baseline performance with only 12.8% parameter overhead.
+
+**Key innovation**: No max_seq_len constraint in theory (position from h_prev, not absolute indices); enables true O(1) memory streaming via state-only mode.
+
 ---
 
 ## 6. Acceptance Criteria (v2.0 headline metrics)
@@ -176,15 +193,20 @@ Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no lo
 | Real-inference trace | demo session shipped | ✅ **shipped** (Qwen-0.5B/CPU; adapter-on canonical Kaggle run in flight) | `scripts/awareliquid_real_trace.py` · `artifacts/real_trace_demo.jsonl` |
 | ≥3B base needle non-zero | base non-zero accuracy at 4096-context | ⏳ **harness fixed (2026-05-30)** — Qwen-0.5B achieves 1.0 acc with chat-template; pending rerun on 1.5B/3B+adapter | `NEEDLE_FIX.md` · `bench_needle_chat_template.py` |
 
-### Track A (preserved from v1.1)
+### Track A (preserved from v1.1 + Position-Free 2026-05-30)
 
-| Metric | Target | Status |
-|---|---|---|
-| Test suite | 17/17 in < 2 min CPU | ✅ |
-| KV-cache parity | diff < 1e-4 | ✅ |
-| WikiText-103 PPL (125M standalone) | < 22 | 🔲 deferred |
-| AVP pass on trained MT-LNN | Φ̂(κ=10)/Φ̂(κ=1) ≤ 0.30 | 🔲 deferred |
-| arXiv paper | published | 🔲 planned Track C |
+| Metric | Target | Status | Source |
+|---|---|---|---|
+| Test suite | 17/17 in < 2 min CPU | ✅ | — |
+| KV-cache parity | diff < 1e-4 | ✅ | — |
+| Position-Free performance (Selective Copy) | ≥90% of RoPE baseline | ✅ **94.11%** | `test_position_free_optimized.py` |
+| Position-Free token accuracy | ≥68% absolute | ✅ **71.78%** | same (baseline: 76.27%) |
+| Position-Free parameter overhead | ≤15% | ✅ **12.8%** | same (323K → 365K params) |
+| Position-Free training convergence | 1000 steps | ✅ | same |
+| WikiText-103 PPL (125M standalone) | < 22 | 🔲 deferred | — |
+| AVP pass on trained MT-LNN | Φ̂(κ=10)/Φ̂(κ=1) ≤ 0.30 | 🔲 deferred | — |
+| arXiv paper | published | 🔲 planned Track C | — |
+
 
 ---
 
