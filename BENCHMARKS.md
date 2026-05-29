@@ -460,7 +460,11 @@ The trace numbers above (`demo_trace.jsonl`, 99.17 % self-sufficiency) came from
 | Entropy mean / max | 1.929 / 6.471 |
 | Est. cost vs full-cloud | saved $0.000585 output, spent $0.000046 input → **+$0.000539 net** |
 
-Raw: `artifacts/real_trace_demo.jsonl` + `artifacts/real_trace_demo_audit.json`. Viewable in `trace_timeline.html` (drag-drop the jsonl). First real-model trace shipped in-repo; the synthetic trace stays for UI demo.
+Raw: `artifacts/real_trace_demo.jsonl` + `artifacts/real_trace_demo_audit.json`. Viewable in `trace_timeline.html` (drag-drop the jsonl).
+
+**v3 optimization (2026-05-30):** Fixed v2 infinite-loop bug (LogitsProcessor couldn't interrupt `generate()`). `scripts/awareliquid_real_trace_v3.py` uses manual token loop with `past_key_values` → proper O(N) KV cache + working cloud-inject. Local validation (Qwen-0.5B/CPU/34 tokens): 7.3s, 64.7% LOCAL / 35.3% SELF_CRITIQUE / 1 cloud inject. Kaggle run cancelled after 90+ min with empty logs (infrastructure slow, not script issue). Raw: `artifacts/real_trace_v3_test.jsonl`.
+
+First real-model trace shipped in-repo; the synthetic trace stays for UI demo.
 
 ## Track 1A — Qwen-2.5-3B + MT adapter (2026-05-29, Kaggle GPU)
 
