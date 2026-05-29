@@ -1,0 +1,29 @@
+[
+  {
+    "path": "artifacts\\real_trace_demo.jsonl",
+    "session_id": "real_demo",
+    "total_tokens": 39,
+    "routes": {
+      "local": 23,
+      "self_critique": 16,
+      "cloud": 0
+    },
+    "cloud_injects": 1,
+    "absorbed_bytes": 62,
+    "self_sufficiency": 1.0,
+    "entropy": {
+      "mean": 1.929,
+      "p50": 1.621,
+      "p95": 6.471,
+      "max": 6.471
+    },
+    "phi_hat": {
+      "samples": 0
+    },
+    "estimated_cost_usd": {
+      "saved_vs_full_cloud_output": 0.000585,
+      "spent_on_cloud_inject_input": 4.6e-05,
+      "net_savings": 0.000539
+    }
+  }
+]
