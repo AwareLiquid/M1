@@ -39,6 +39,32 @@
 
 ---
 
+## 📝 Resources & Quick Start
+
+**Technical Blog**: [`TECH_BLOG.md`](TECH_BLOG.md) — Cross-architecture reproducibility story, practical implications, and open questions
+
+**One-Line Apply**:
+```python
+from transformers import AutoModelForCausalLM
+from mt_lnn.recipes import apply_phase5b_recipe
+
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
+result = apply_phase5b_recipe(model)  # MT every 4th + LoRA on q/k/v/o
+# Train as usual - only 0.1-0.2% params are trainable
+```
+
+**Documentation**:
+- [`RECIPES.md`](RECIPES.md) — API reference for Phase 5b recipe + ablation variants
+- [`ABLATIONS.md`](ABLATIONS.md) — Ablation study framework (MT vs LoRA vs both, layer density, etc.)
+- [`NEEDLE_FIX.md`](NEEDLE_FIX.md) — Fixed needle-in-a-haystack harness (0.0 → 1.0 accuracy with chat templates)
+
+**Reproduction**:
+- `train_llama_mt_adapter.py` — Train script for any HuggingFace causal LM
+- `kaggle/*.ipynb` — Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
+- `scripts/run_ablations.py` — Systematic ablation runner
+
+---
+
 ## 🔥 Empirical Benchmark Reproduction
 
 The following benchmark metrics have been independently reproduced. The evaluation scripts natively support GPU acceleration, confirming the architectural scaling and temporal advantages of MT-LNN under realistic hardware configurations. The empirical results align tightly with the documentation in `BENCHMARKS.md`.
