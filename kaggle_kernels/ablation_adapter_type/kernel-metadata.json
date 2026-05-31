@@ -1,0 +1,15 @@
+{
+  "id": "muningan/mt-lnn-ablation-adapter-type-v2",
+  "title": "MT-LNN Ablation Adapter Type v2 Fixed",
+  "code_file": "run_ablation.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

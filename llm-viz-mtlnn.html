@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>LLM-Viz: MT-LNN Architecture</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #1a1a2e; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #info { position: absolute; top: 20px; width: 100%; text-align: center; font-size: 24px; font-weight: bold; pointer-events: none; z-index: 10; text-shadow: 0px 2px 4px rgba(0,0,0,0.5);}
+        #panel { position: absolute; bottom: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); padding: 20px; border-radius: 12px; border: 1px solid #334155; max-width: 350px; z-index: 10; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .title { color: #38bdf8; font-size: 18px; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 5px;}
+        .desc { font-size: 14px; color: #cbd5e1; line-height: 1.5; margin-bottom: 15px;}
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 13px;}
+        .colobox { width: 16px; height: 16px; border-radius: 4px; margin-right: 10px; border: 1px solid rgba(255,255,255,0.2); }
+        
+        /* CSS2D Object labels */
+        .label {
+            color: #ffffff;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 4px 8px;
+            background: rgba(0,0,0,0.6);
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            pointer-events: none;
+            margin-top: -1em;
+            text-align: center;
+        }
+        .small-label {
+            color: #94a3b8;
+            font-size: 11px;
+            pointer-events: none;
+        }
+    </style>
+    <!-- Three.js + OrbitControls + CSS2DRenderer-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+</head>
+<body>
+    <div id="info">MT-LNN 3D Visualization</div>
+    <div id="panel">
+        <div class="title">Microtubule-Liquid Neural Network</div>
+        <div class="desc">
+            An accurate 3D structural view of MT-LNN replacing the standard GPT FFN with 13 Protofilaments possessing 5 liquid time scales, followed by a Global Workspace (GWTB) bottleneck.
+        </div>
+        <div class="legend-item"><div class="colobox" style="background:#10b981;"></div> Tokens & Softmax</div>
+        <div class="legend-item"><div class="colobox" style="background:#3b82f6;"></div> Embeddings & Norm</div>
+        <div class="legend-item"><div class="colobox" style="background:#8b5cf6;"></div> Causal Self-Attention [T, D]</div>
+        <div class="legend-item"><div class="colobox" style="background:#d946ef;"></div> MT-DL (13 Protos x 5 Scales)</div>
+        <div class="legend-item"><div class="colobox" style="background:#f59e0b;"></div> GWTB (Bottleneck:832&rarr;104)</div>
+    </div>
+
+    <script>
+        const scene = new THREE.Scene();
+        // background grid to match llm-viz
+        scene.fog = new THREE.FogExp2(0x1a1a2e, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Position camera to look top-down isometric
+        camera.position.set(-40, 60, 80);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setClearColor(0x1a1a2e);
+        document.body.appendChild(renderer.domElement);
+
+        const labelRenderer = new THREE.CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, -20, 0);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        dirLight.position.set(50, 100, 50);
+        scene.add(dirLight);
+        
+        const dirLight2 = new THREE.DirectionalLight(0x90b0d0, 0.4);
+        dirLight2.position.set(-50, -50, -50);
+        scene.add(dirLight2);
+
+        // Core visual builder function
+        function createBlock(w, h, d, x, y, z, color, opacity=0.9, label="") {
+            const geom = new THREE.BoxGeometry(w, h, d);
+            const mat = new THREE.MeshPhongMaterial({ 
+                color: color, 
+                transparent: opacity < 1.0, 
+                opacity: opacity,
+                shininess: 60
+            });
+            const mesh = new THREE.Mesh(geom, mat);
+            
+            const edges = new THREE.EdgesGeometry(geom);
+            const lineMat = new THREE.LineBasicMaterial({
+                color: 0xffffff, 
+                transparent: true,
+                opacity: opacity === 1.0 ? 0.3 : 0.6
+            });
+            const line = new THREE.LineSegments(edges, lineMat);
+            mesh.add(line);
+            
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+
+            if (label !== "") {
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'label';
+                labelDiv.textContent = label;
+                const cssLabel = new THREE.CSS2DObject(labelDiv);
+                cssLabel.position.set(w/2 + 2, 0, 0); // Position to the right
+                mesh.add(cssLabel);
+            }
+            return mesh;
+        }
+
+        function createProtocylinder(radius, h, x, y, z, color) {
+            const geom = new THREE.CylinderGeometry(radius, radius, h, 8);
+            const mat = new THREE.MeshPhongMaterial({ color: color });
+            const mesh = new THREE.Mesh(geom, mat);
+            mesh.position.set(x, y, z);
+            mesh.rotation.x = Math.PI / 2; // Lay flat along Z like the blocks
+            scene.add(mesh);
+            return mesh;
+        }
+
+        // Configuration
+        const T = 8;         // sequence length
+        const D = 16;        // Dim scaled down visually
+        const bWidth = T * 2;
+        const bDepth = D;     
+        const bHeight = 2;
+        const spacingY = -8; 
+        
+        let currentY = 0;
+
+        // 1. Tokens
+        for(let i=0; i<T; i++){
+            createBlock(1.5, 1.5, 1.5, (i - T/2 + 0.5)*2, currentY, 0, 0x10b981, 1.0, i===T-1 ? "Input Tokens" : "");
+        }
+        currentY += spacingY;
+
+        // 2. Token Embedding + Pos Embedding
+        createBlock(bWidth, bHeight, bDepth, 0, currentY, 0, 0x3b82f6, 0.9, "Embedding [T, D]");
+        currentY += spacingY;
+
+        // 3. MT-LNN Layers
+        const numLayers = 2; // Show 2 layers for visualization
+        for(let L=0; L<numLayers; L++) {
+            // Layer Norm
+            createBlock(bWidth, bHeight/2, bDepth, 0, currentY, 0, 0x64748b, 0.9, `LayerNorm ${L+1}`);
+            currentY += -4;
+            
+            // Self Attention
+            createBlock(bWidth, bHeight*1.5, bDepth, 0, currentY, 0, 0x8b5cf6, 0.9, `Self-Attention ${L+1}`);
+            currentY += spacingY;
+
+            // MT-DL: Microtubule Dynamic Layer (The core innovation)
+            // Draw a semi-transparent container
+            const mtdlGroup = createBlock(bWidth, bHeight*4, bDepth, 0, currentY, 0, 0x1e293b, 0.3, `MT-DL ${L+1} (13x5)`);
+            
+            // Inside the MT-DL, visualize the 13 protofilaments x 5 time scales
+            for(let p=0; p<13; p++) {
+                const px = (p - 6) * (bWidth / 15);
+                for(let ts=0; ts<5; ts++) {
+                    const pz = (ts - 2) * (bDepth / 6);
+                    // Color based on time scale (to show liquid dynamics)
+                    const color = new THREE.Color().setHSL((Math.sin(ts)+1)/2 * 0.2 + 0.7, 0.8, 0.6); // Purple/pink hues
+                    createProtocylinder(0.4, bHeight*3.5, px, currentY, pz, color);
+                }
+            }
+            
+            currentY += spacingY * 1.5;
+        }
+
+        // 4. Global Workspace Task Bottleneck (GWTB)
+        createBlock(bWidth, bHeight/2, bDepth, 0, currentY, 0, 0x64748b, 0.9, "LayerNorm (GWTB)");
+        currentY += -4;
+
+        // Encoder (D -> bottleneck D_sub = 104)
+        createBlock(bWidth, bHeight, bDepth*0.6, 0, currentY, 0, 0xf59e0b, 0.9, "GWTB Encode (832→104)");
+        currentY += -5;
+        // The bottleneck itself (smaller depth and width)
+        createBlock(bWidth*0.7, bHeight*0.5, bDepth*0.3, 0, currentY, 0, 0xeab308, 1.0, "GWTB Core (O(1) updates)");
+        currentY += -5;
+        // Decoder (bottleneck D_sub -> D)
+        createBlock(bWidth, bHeight, bDepth, 0, currentY, 0, 0xf59e0b, 0.9, "GWTB Decode (104→832)");
+        currentY += spacingY;
+
+        // 5. Output projection and Softmax
+        createBlock(bWidth, bHeight, bDepth, 0, currentY, 0, 0x3b82f6, 0.9, "Linear Output Projection");
+        currentY += -6;
+        for(let i=0; i<T; i++){
+            createBlock(1.5, 1.5, Math.random()*4 + 1, (i - T/2 + 0.5)*2, currentY, 0, 0x10b981, 1.0, i===T-1 ? "Softmax Probs" : "");
+        }
+
+        // Animation Loop
+        clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            labelRenderer.render(scene, camera);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
