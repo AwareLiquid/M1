@@ -451,15 +451,20 @@
 \begin{itemize}
     \item 启动 7B 级原生大模型基座训练环境。
     \item 组建成熟的 GTM 和企业级销售团队。
-    \item \textbf{核心目标：} 12 个月内斩获 10 家全球头部企业 PoC，锁定 \$1.5M 的年度经常性营收 (ARR)。
+    \item \textbf{12个月里程碑（非营收承诺）：}
+    \begin{itemize}\footnotesize
+        \item 与 $\geq$ 10 家高德企业/机构签约 着合作备忘录 / PoC。
+        \item 其中 3--5 家转为付费 design partner，建立可验证的付费需求信号。
+        \item 发布第一个生产环境可用 7B 检查点 + 公开 benchmark 报告。
+    \end{itemize}
 \end{itemize}
 \end{column}
 \begin{column}{0.5\textwidth}
 \textbf{资金使用占比：}
 \begin{itemize}
-    \item \textbf{50\% 算力与研发：} 租赁包含 H100 架构算力集群用于底层架构联合预训练。
-    \item \textbf{30\% 核心架构研发团队：} 招募与构建具有深厚算子优化、模型内核改进经验的资深 CUDA 及系统工程研发人才体系。
-    \item \textbf{20\% 市场与系统工程支持：} 用于大型核心 B 端商业拓客支持节点建立与持续宣发。
+    \item \textbf{50\% 算力与预训练：} 租赁 H100 / A100 集群跑 7B 基座联合预训练。
+    \item \textbf{30\% LNN 核心研究：} 拓充连续时间动力学 (LTC ODE)、Orch-OR 启发选择机制、工作记忆 GWTB 方向的研究人员，差异化的技术周边护城河在这里。
+    \item \textbf{20\% GTM 与市场：} B 端客户销售 + 社区 / 论文 / 品牌。
 \end{itemize}
 \end{column}
 \end{columns}
@@ -475,10 +480,14 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{我们坚如磐石的技术防卫高墙}
-\begin{itemize}
-    \item \textbf{开源生态布局战略：} 我们计划将高层模型 API 与核心组件代码积极融入开源生态，借助广大开发者的共创与试错打通应用层瓶颈，快速验证商业构想并稳固社区信仰高地。
-    \item \textbf{壁垒级核心闭源资产：} 对于最底层的 CUDA 原生高度定制化算子调优、动态特化编译器加速组件以及复杂环境下的高效压缩路由引擎代码方案将被列为我们不可轻易复现的商业化核心壁垒与高保护级别代码资产。
+\begin{frame}{我们真正的技术护城河}
+\small
+\begin{itemize}\itemsep=0.4em
+    \item \textbf{架构原创性（最深的一层）：} MT-LNN 本身（连续时间 LTC ODE + Orch-OR 启发的选择机制 + GWTB 工作记忆三件套）是我们的原创架构，在投稿论文中。竹箱不同于 CUDA / 内核工程，架构本身是不可被快速复现的原创资产。
+    \item \textbf{可复现的训练 recipe 与跨基座经验：} 从 Qwen-0.5B 到 Qwen-3B、Llama 多个基座上的 adapter 训练数据、超参均以及消融报告均已沉淀在仓库。后来者即使拿到架构也需数月 reproduce 这一套经验。
+    \item \textbf{Benchmark 与评测体系：} 大海捞针 / 选择性拷贝 / O(1) 内存压力测试 / 稀疏共振消融都是自研的、公开的、可复现的。这是技术信仰加笾。
+    \item \textbf{开源社区 + 早期 design partner 飞轮：} 代码、权重、反馈闭环先发。Mamba / RWKV 都是靠这一招拉开差距。
+    \item \textbf{不起护城河作用的：} CUDA kernel 写作、编译器优化、推理路由——这些是有足够工程资源就能赶上的执行项，不是闭源坚壁。不在 deck 里装作它们是护城河。
 \end{itemize}
 \end{frame}
 
