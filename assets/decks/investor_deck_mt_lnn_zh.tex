@@ -482,12 +482,11 @@
 
 \begin{frame}{我们真正的技术护城河}
 \small
-\begin{itemize}\itemsep=0.4em
-    \item \textbf{架构原创性（最深的一层）：} MT-LNN 本身（连续时间 LTC ODE + Orch-OR 启发的选择机制 + GWTB 工作记忆三件套）是我们的原创架构，在投稿论文中。竹箱不同于 CUDA / 内核工程，架构本身是不可被快速复现的原创资产。
-    \item \textbf{可复现的训练 recipe 与跨基座经验：} 从 Qwen-0.5B 到 Qwen-3B、Llama 多个基座上的 adapter 训练数据、超参均以及消融报告均已沉淀在仓库。后来者即使拿到架构也需数月 reproduce 这一套经验。
-    \item \textbf{Benchmark 与评测体系：} 大海捞针 / 选择性拷贝 / O(1) 内存压力测试 / 稀疏共振消融都是自研的、公开的、可复现的。这是技术信仰加笾。
+\begin{itemize}\itemsep=0.5em
+    \item \textbf{架构原创性（最深的一层）：} MT-LNN 本身——连续时间 LTC ODE + Orch-OR 启发的选择机制 + GWTB 工作记忆三件套——是我们的原创架构，论文在投稿中。架构本身是不可被快速复现的原创资产。
+    \item \textbf{可复现的训练 recipe 与跨基座经验：} 从 Qwen-0.5B 到 Qwen-3B、Llama 多个基座上的 adapter 训练数据、超参与消融报告均已沉淀在仓库。后来者即使拿到架构，也需数月 reproduce 这一套经验。
+    \item \textbf{Benchmark 与评测体系：} 大海捞针 / 选择性拷贝 / O(1) 内存压力测试 / 稀疏共振消融，全部自研、公开、可复现。
     \item \textbf{开源社区 + 早期 design partner 飞轮：} 代码、权重、反馈闭环先发。Mamba / RWKV 都是靠这一招拉开差距。
-    \item \textbf{不起护城河作用的：} CUDA kernel 写作、编译器优化、推理路由——这些是有足够工程资源就能赶上的执行项，不是闭源坚壁。不在 deck 里装作它们是护城河。
 \end{itemize}
 \end{frame}
 
