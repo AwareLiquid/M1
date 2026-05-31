@@ -461,6 +461,16 @@ Conscious Core Eval & \textcolor{green}{Yes} & \textcolor{red}{No} & \textcolor{
 \end{columns}
 \end{frame}
 
+\begin{frame}{Where the Real Moat Lives}
+\small
+\begin{itemize}\itemsep=0.5em
+    \item \textbf{Architecture originality (deepest layer):} MT-LNN itself --- continuous-time LTC ODE + Orch-OR-inspired selection + GWTB working memory --- is our original architecture, with a paper under submission. Architecture is the asset that cannot be quickly reproduced.
+    \item \textbf{Reproducible training recipes \& cross-base experience:} adapter training data, hyperparameters, and ablation reports across Qwen-0.5B, Qwen-3B, and Llama bases are all committed to the repo. Even with the architecture in hand, a follow-on team needs months to reproduce this corpus of experience.
+    \item \textbf{Self-built benchmark \& evaluation suite:} needle-in-a-haystack, selective-copy, O(1) memory stress tests, sparse-resonance ablations --- all self-designed, public, and reproducible.
+    \item \textbf{OSS community + early design-partner flywheel:} code, weights, feedback loop shipped first. The same playbook Mamba and RWKV used to open a gap.
+\end{itemize}
+\end{frame}
+
 \begin{frame}{Vision \& Conclusion}
 \begin{itemize}
     \item \textbf{A New Scaling Path:} The traditional ``more compute, more scale'' Transformer paradigm faces diminishing marginal returns and severe memory constraints.
