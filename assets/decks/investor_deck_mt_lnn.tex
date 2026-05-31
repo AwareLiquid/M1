@@ -1,6 +1,7 @@
 ﻿\documentclass[aspectratio=169, 10pt]{beamer}
 \usefonttheme{serif}
 \usepackage{graphicx}
+\graphicspath{{./}{../figures/}{../../}}
 \usepackage{booktabs}
 \usepackage{xcolor}
 
@@ -222,7 +223,7 @@
 \begin{frame}{Awareness Network Architecture}
   \begin{figure}
     \centering
-    \includegraphics[width=\textwidth]{fig_awareness_network}
+    \includegraphics[height=0.78\textheight,keepaspectratio]{fig_awareness_network}
   \end{figure}
 \end{frame}
 
@@ -272,8 +273,9 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Beyond Transformers: Faster, Cheaper, More Accurate}
-\begin{itemize}
+\begin{frame}[allowframebreaks]{Beyond Transformers: Faster, Cheaper, More Accurate}
+\small
+\begin{itemize}\itemsep=0.3em
     \item \textbf{1. Extreme Cost Compression ($O(1)$ Memory):}
     \begin{itemize}
         \item \textbf{Transformer:} 1000-token KV Cache bloats to 1020 KB. Memory costs scale boundlessly.
@@ -294,8 +296,9 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Core Validation: Verifiable \& Open Benchmarks}
-\begin{itemize}
+\begin{frame}[allowframebreaks]{Core Validation: Verifiable \& Open Benchmarks}
+\footnotesize
+\begin{itemize}\itemsep=0.3em
     \item \textbf{1. Memory Compression Limit Test (1000-token footprint)}
     \begin{itemize}
         \item \textbf{Testing Baseline:} Standard Transformer (KV Cache) v.s. AwareLiquid (State-only).

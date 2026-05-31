@@ -1,6 +1,7 @@
 ﻿\documentclass[aspectratio=169, 10pt]{beamer}
 \usefonttheme{serif}
 \usepackage{graphicx}
+\graphicspath{{./}{../figures/}{../../}}
 \usepackage{booktabs}
 \usepackage{xeCJK}
 \usepackage{xcolor}
@@ -217,8 +218,9 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{从产品与商业化看 AwareLiquid 的降维打击}
-\begin{itemize}
+\begin{frame}[allowframebreaks]{从产品与商业化看 AwareLiquid 的降维打击}
+\small
+\begin{itemize}\itemsep=0.4em
     \item \textbf{极低门槛（告别天价显卡）：} 无需 H800/A100 等昂贵硬件。得益于 $O(1)$ 算子压缩，AwareLiquid 处理超长文本的缓存恒定在 \textbf{4.1 KB}。这使得百亿/千亿级别的模型能力，能被无缝下放到普通轻薄本、智能终端和局域网服务器中。
     \item \textbf{算力降本（引擎的“智能启停”）：} 传统模型应对哪怕是一句简单问候都会拉满所有算力。AwareLiquid 的\textbf{“稀疏共振”}机制允许系统在处理简单逻辑时瞬间休眠 80\% 的冗余计算通道，在没有专用加速卡的情况下仍实现 \textbf{13\%+} 的原生计算提速。
     \item \textbf{长线体验（攻克“中间遗忘”痛点）：} 类似 Mamba 的传统线性模型随文本无限变长会不可避免地产生衰减。AwareLiquid 通过底层的门控调度锁住信息，即便在极高噪声打断和 128K 超长闭环盲测中，依然实现了 $>99\%$ 的无死角提取精度。
@@ -226,8 +228,9 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{硬核实测：AwareLiquid 与主流同梯队架构的数据鸿沟}
-\begin{itemize}
+\begin{frame}[allowframebreaks]{硬核实测：AwareLiquid 与主流同梯队架构的数据鸿沟}
+\small
+\begin{itemize}\itemsep=0.3em
     \item 在同等参数（200K级别微型沙盒验证）的绝对公平盲测下，AwareLiquid 展现出了令人惊悚的压制力：
     \vspace{0.5em}
     \item \textbf{1. 长文极限抗干扰（$T=229$ 大海捞针盲测）：}
@@ -279,12 +282,13 @@
 \begin{frame}{Awareness Network 架构示意图}
   \begin{figure}
     \centering
-    \includegraphics[width=\textwidth]{fig_awareness_network}
+    \includegraphics[height=0.78\textheight,keepaspectratio]{fig_awareness_network}
   \end{figure}
 \end{frame}
 
 \begin{frame}{终结“烧 Token”的算力内卷时代}
-\begin{itemize}
+\small
+\begin{itemize}\itemsep=0.3em
     \item \textbf{传统大厂的算力陷阱：} 
     \begin{itemize}
         \item 现有大模型要求每一次对话都必须将数万 Token 的历史记录全量传给云端重算，导致巨头深陷疯狂“烧 Token”和囤积算力的军备竞赛。
@@ -351,8 +355,9 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{核心验证：100\% 开源可复现的基准测试}
-\begin{itemize}
+\begin{frame}[allowframebreaks]{核心验证：100\% 开源可复现的基准测试}
+\footnotesize
+\begin{itemize}\itemsep=0.3em
     \item \textbf{1. 内存极限压缩（1000 Tokens 压力环境）}
     \begin{itemize}
         \item \textbf{测试基准：} 传统 Transformer (KV 缓存) v.s. AwareLiquid (状态流)。
