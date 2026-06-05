@@ -1,6 +1,6 @@
 # AwareLiquid Architecture (v2.0)
 
-**Last updated:** 2026-05-28
+**Last updated:** 2026-06-06
 **Status:** Target architecture for "Reasoning UX > Gemini 3.1" milestone
 **Companion docs:** [AWARENESS_NETWORK_PRD.md](AWARENESS_NETWORK_PRD.md) · [AWARELIQUID_SYSTEM_MVP.md](AWARELIQUID_SYSTEM_MVP.md)
 
@@ -76,6 +76,25 @@ flowchart TB
 - **是什么**: 真正能产生连贯语言的解码器。当前 200K 参数 + vocab=200 仅用于算法验证。
 - **目标**: 把 `train_llama_mt_adapter.py` 的 1.1B 适配器跑通,作为 L1 的状态承载体。
 - **不到位的后果**: L1-L3 的所有差异化都失去意义。
+
+#### Layer 0 子组件更新 (2026-06-06): EEG 节律门控
+
+**新增**: `mt_lnn/rhythm.py` — LAVIEstimator + GlobalRhythmController
+
+骨干层现在具备"节律感知":每个 MTLNNLayer 通过 LAVI(滞后角向量指数近似)实时感知推理状态是处于**持续模式**(高 LAVI,慢 τ 主导,上下文维持)还是**瞬态模式**(低 LAVI,快 τ 主导,快速切换)。
+
+```
+κ-gate (已有,基于当前内容)     →  回答"现在在处理什么"
+LAVI rhythm gate (新增,基于历史) →  回答"状态有多稳定"
+两者组合 → 更接近皮层在稳定性-灵活性之间的动态权衡
+```
+
+| 开关 | 描述 | 默认 |
+|---|---|---|
+| `use_rhythm=True` | 每层挂 LAVIEstimator, LAVI 调节 τ 尺度混合权重 | False (零影响) |
+| `global_rhythm=True` | 在 GWTB 前增加 GlobalRhythmController 跨层校正 | False |
+
+**不变量**: 默认关闭 (`use_rhythm=False`), 全部已有测试和 checkpoint 不受影响。
 
 ### Layer 1 — Stateful Reasoning Plane (已部分实现)
 - **现状**: `mt_lnn/capsule.py` 已保存 4.1KB `h_prev`,`streaming.py` 已支持 state-only 生成。

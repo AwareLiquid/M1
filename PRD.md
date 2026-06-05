@@ -1,10 +1,10 @@
 # AwareLiquid (formerly MT-LNN) — Product Requirements Document
 
-**Version:** 2.1
-**Date:** 2026-05-30
+**Version:** 2.2
+**Date:** 2026-06-06
 **Status:** Active
 **Repo:** https://github.com/everest-an/M1
-**Supersedes:** v2.0 (2026-05-29), which introduced Track B (AwareLiquid product). v2.1 adds Position-Free Architecture (Track A research advancement).
+**Supersedes:** v2.1 (2026-05-30), which added Position-Free Architecture. v2.2 adds EEG-inspired Rhythm Gate (LAVI + GlobalRhythmController).
 
 ---
 
@@ -24,8 +24,9 @@ Between 2026-05-24 and 2026-05-30 the project pivoted to compete in the Gemini-3
 | 2026-05-29 | Phase 5b — Qwen-2.5-1.5B + adapter → PPL −27.7% (cross-base replication) |
 | 2026-05-29 | Real cloud-inject uplift on Qwen-1.5B: 83.3% → 96.7% (+13.3%) |
 | **2026-05-30** | **Position-Free Architecture** — h_prev-based timing replaces RoPE → **94.11%** performance |
+| **2026-06-06** | **EEG Rhythm Gate** — LAVI estimator + GlobalRhythmController; dynamic stability/flexibility balance |
 
-This v2.1 reflects the Position-Free Architecture addition to Track A. **Both Track A and Track B remain active**; Track B (AwareLiquid) is still the headline product.
+This v2.2 adds the Rhythm Gate (F7) as a Track A architecture advancement with direct Track B relevance: improved long-context stability and smoother multi-turn reasoning. **Both Track A and Track B remain active**; Track B (AwareLiquid) is still the headline product.
 
 ---
 
@@ -174,6 +175,37 @@ Carried over from v1.1 §5 (F1-F8). No changes to specs. Track A items are no lo
 **Rationale**: Position-Free Architecture replaces external position encoding (RoPE) with internal timing signals from liquid dynamics. This aligns with the AGI thesis: understanding through state evolution, not statistical token prediction. Achieves 94.11% of baseline performance with only 12.8% parameter overhead.
 
 **Key innovation**: No max_seq_len constraint in theory (position from h_prev, not absolute indices); enables true O(1) memory streaming via state-only mode.
+
+### F7 — EEG-Inspired Rhythm Gate (Track A, P1, 2026-06-06)
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| `LAVIEstimator` per layer | Cosine-sim LAVI proxy; output ∈ [0,1], shape `(B,T,P,1)` | ✅ `mt_lnn/rhythm.py` |
+| Rhythm blend in resonance | LAVI gates τ-scale blend: high LAVI → slow scales, low → fast | ✅ `mt_lnn_layer.py` |
+| Neutral init (zero impact) | `h_prev=None` → LAVI=0.5 → rhythm_bonus=0 → output unchanged | ✅ `test_rhythm.py` |
+| `GlobalRhythmController` | Cross-layer LAVI aggregation; residual correction before GWTB | ✅ `mt_lnn/rhythm.py` |
+| Identity at init | `GlobalRhythmController.scale=0` → zero correction at step 0 | ✅ test verified |
+| Config opt-in | `use_rhythm=False` default; zero impact on existing code/checkpoints | ✅ |
+| Diagnostics | `lavi_mean/min/max`, `rhythm_scale_mean`, `global_rhythm_scale` in `get_mt_diagnostics()` | ✅ |
+| Streaming gradient | LAVI bias receives gradient during step-2+ streaming inference | ✅ `test_model_rhythm_gradient_flow` |
+| Biological validity | High LAVI for similar input (persistent mode), low for novel input | ✅ `test_lavi_persistent_higher_for_similar_input` |
+| Test coverage | 13 dedicated tests, all pass | ✅ `tests/test_rhythm.py` |
+
+**Product angle — what this changes for users:**
+
+The existing κ-gate already answers "what is the input now?" (content-based). The rhythm gate answers "how consistent has reasoning been?" (history-based). Combined, AwareLiquid now has **two independent stability signals**:
+
+1. **Short-term**: κ-gate responds to each token's content (fast, reactive)
+2. **Long-term**: LAVI responds to h_prev/input alignment (slower, contextual)
+
+For AwareLiquid's target use cases:
+- **Long-document analysis** (B2): Sustained reading → high LAVI → slow τ dominant → state drifts less over 10K+ tokens
+- **Multi-turn chat** (B4): Context switch at turn boundary → LAVI drops → fast τ activates → model adapts quicker without catastrophic forgetting
+- **Compliance audit trail** (B3): LAVI time-series is logged alongside Φ̂ in `get_mt_diagnostics()`, giving auditors a per-layer stability index per inference step
+
+**No parameter budget impact**: `LAVIEstimator` adds only P=13 learnable bias values per layer. At default `rhythm_scale_init=0.1`, the gate starts at near-zero influence and grows only if training finds it useful — it cannot hurt baseline performance.
+
+**Rationale**: EEG research (persistent vs transient oscillatory modes) provides a mathematically well-grounded reason for why the existing κ-gate's purely content-based signal is incomplete. LAVI is the missing history dimension. Both are needed for the stability-flexibility tradeoff that is the defining challenge of all recurrent architectures.
 
 ---
 

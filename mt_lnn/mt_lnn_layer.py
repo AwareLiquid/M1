@@ -97,8 +97,23 @@ class VectorizedMultiScaleResonance(nn.Module):
             nn.init.normal_(self.W_pred, mean=0.0, std=0.02)
         self.register_buffer("last_pred_error", torch.zeros(()), persistent=False)
 
+        # Rhythm gate (EEG-LAVI). Active only when use_rhythm=True in config.
+        self.use_rhythm = getattr(config, "use_rhythm", False)
+        if self.use_rhythm:
+            # Fixed scale_preference: -1 = fastest τ scale, +1 = slowest τ scale.
+            # Not a learnable parameter — it encodes which scales are "slow".
+            self.register_buffer(
+                "scale_preference",
+                torch.linspace(-1.0, 1.0, S),
+                persistent=False,
+            )
+            # Learnable influence strength; tanh(rhythm_scale) ∈ (-1, 1).
+            rhythm_scale_val = getattr(config, "rhythm_scale_init", 0.1)
+            self.rhythm_scale = nn.Parameter(torch.tensor(float(rhythm_scale_val)))
+        self.register_buffer("last_lavi_mean", torch.zeros(()), persistent=False)
+
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor,
-                use_scan: bool = True):
+                use_scan: bool = True, lavi: torch.Tensor = None):
         """
         x:        (B, T, P, D)
         h_prev:   real-mode:    (B, P, S, D)  — per-scale recurrent state
@@ -255,6 +270,23 @@ class VectorizedMultiScaleResonance(nn.Module):
                 self.last_scale_gate_mean = torch.ones(S, device=x.device, dtype=x.dtype)
                 self.last_active_scale_ratio = torch.ones((), device=x.device, dtype=x.dtype)
                 self.last_nonzero_scale_ratio = torch.ones((), device=x.device, dtype=x.dtype)
+
+        # LAVI rhythm modulation — runs only when use_rhythm=True and lavi provided.
+        # High LAVI (persistent) → boost slow scales; Low LAVI (transient) → boost fast.
+        # rhythm_bonus is zero when lavi=0.5 (neutral) and scales with rhythm_scale.
+        if lavi is not None and self.use_rhythm:
+            rhythm_bonus = (
+                torch.tanh(self.rhythm_scale)
+                * (lavi - 0.5)                                       # (B,T,P,1) centred
+                * self.scale_preference.view(1, 1, 1, S)             # (1,1,1,S)
+            )   # (B,T,P,S) — positive = boost slow, negative = boost fast
+            gated_w = gated_w * (1.0 + rhythm_bonus)
+            gated_w = gated_w / gated_w.sum(dim=-1, keepdim=True).clamp_min(1e-6)
+            with torch.no_grad():
+                self.last_lavi_mean = lavi.detach().mean()
+        else:
+            with torch.no_grad():
+                self.last_lavi_mean.zero_()
 
         out = (h_per_scale * gated_w.unsqueeze(-1)).sum(dim=3)        # (B,T,P,D)
 
@@ -438,6 +470,16 @@ class MTLNNLayer(nn.Module):
 
         self.dropout = nn.Dropout(config.dropout)
 
+        # LAVI estimator — attached only when use_rhythm=True.
+        # LAVIEstimator has no weight sharing with the resonance bank;
+        # its only parameters are a per-protofilament bias vector.
+        self.use_rhythm = getattr(config, "use_rhythm", False)
+        if self.use_rhythm:
+            from .rhythm import LAVIEstimator
+            self.lavi_estimator = LAVIEstimator(config.d_proto, config.n_protofilaments)
+        else:
+            self.lavi_estimator = None
+
     def forward(
         self,
         x: torch.Tensor,                       # (B, T, d_model)
@@ -459,10 +501,16 @@ class MTLNNLayer(nn.Module):
         x_proto = self.in_proj(x)                                      # (B,T,d_proto_total)
         x_split = x_proto.view(B, T, P, D)                            # (B,T,P,D)
 
+        # 1b. LAVI rhythmicity signal (optional, computed before resonance so it
+        #     can gate the τ-scale blend inside the resonance bank).
+        lavi = None
+        if self.lavi_estimator is not None:
+            lavi = self.lavi_estimator(h_prev, x_split)               # (B,T,P,1)
+
         # 2. Run the resonance bank. It accepts h_prev in either form and
         # returns the per-scale state we need to cache.
         h_stack, h_last_per_scale = self.resonance(
-            x_split, h_prev, use_scan=use_scan
+            x_split, h_prev, use_scan=use_scan, lavi=lavi
         )                                                              # (B,T,P,D), (B,P,S,D)
 
         # 4. Lateral coupling with GTP temporal gate.

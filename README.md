@@ -263,6 +263,39 @@ This does not prove that MT-LNN is conscious. It shows that MT-LNN has a structu
 
 Recent experimental pathways implemented by the core team showcase the real-world inference and scaling capabilities of the AwareLiquid architecture.
 
+### 3. EEG-Inspired Rhythm Gate (2026-06-06)
+
+A new biologically-grounded stability mechanism drawn from EEG cortical-rhythm research. The brain maintains two complementary oscillatory modes — **persistent** (theta/alpha, stable context) and **transient** (gamma bursts, rapid switching) — and regulates their balance dynamically. MT-LNN now implements this via the **LAVI (Lag Angle Vector Index) estimator** and an optional **GlobalRhythmController**.
+
+**Mechanism:** At each `MTLNNLayer`, a `LAVIEstimator` computes a per-protofilament rhythmicity score (0 = transient, 1 = persistent) by measuring the cosine similarity between the incoming input and the previous recurrent state `h_prev`. This LAVI signal gates the τ-scale blend weights:
+- **High LAVI** → blend shifts toward slow τ scales (persistent mode, context maintenance)
+- **Low LAVI** → blend shifts toward fast τ scales (transient mode, rapid adaptation)
+
+This is complementary to the existing κ-gate (which is content-based). LAVI is history-based: not "what is the input now" but "how stable has the state been."
+
+| Feature | Existing κ-gate | New LAVI rhythm gate |
+|---|---|---|
+| Signal source | Current input content | h_prev vs current input similarity |
+| Mode | Content-aware scale gating | History-aware scale blend |
+| Effect | Which τ scales are active | How much to weight slow vs fast τ |
+
+**Enable via config:**
+```python
+from mt_lnn.config import MTLNNConfig
+cfg = MTLNNConfig(
+    use_rhythm=True,          # attach LAVIEstimator to each MTLNNLayer
+    rhythm_scale_init=0.1,    # initial influence (tanh-gated, grows with training)
+    global_rhythm=True,       # optional cross-layer GlobalRhythmController
+)
+```
+
+Or as an adapter-layer feature — the rhythm gate is purely additive and defaults off (`use_rhythm=False`), so **all existing tests and checkpoints are unaffected**.
+
+**New diagnostic fields** (visible in `model.get_mt_diagnostics()`):
+- `lavi_mean`, `lavi_min`, `lavi_max` — per-layer LAVI health
+- `rhythm_scale_mean` — learned influence strength
+- `global_rhythm_scale` — cross-layer correction gate (if enabled)
+
 ### 1. Operator Compression (State-Only Streaming)
 By completely discarding historical KV cache tensors during sequential decoding workflows (retaining only the recurrent `h_prev` flow), AwareLiquid shrinks traditional quadratic memory constraints to strict $O(1)$. 
 - **At 1000 tokens:** The traditional KV stream consumes **~1020 KB** of state memory even on small scales. M1's state-only mechanism drops this footprint down to exactly **4.1 KB**.
@@ -297,6 +330,23 @@ Research-grade code. The full test suite passes:
 [ok] test_anesthesia_collapse            output diverges with level; entropy rises
 [ok] test_protofilament_scaling          P=64 only ~1.2× slower than P=13
 [ok] test_overfit_single_batch           loss drops ≥10× in 200 steps
+[ok] test_dynamic_scale_gate_diagnostics scale gate ratios reported correctly
+[ok] test_sparse_resonance_kernel_topk   sparse top-k < dense gate count
+
+# Rhythm gate — tests/test_rhythm.py
+[ok] test_lavi_shape_and_range           LAVI ∈ [0,1], correct (B,T,P,1) shape
+[ok] test_lavi_no_h_prev                 neutral 0.5 fallback when h_prev=None
+[ok] test_lavi_gradient_flow             gradient reaches LAVIEstimator.bias
+[ok] test_lavi_persistent_higher_for_similar_input  stable input → higher LAVI
+[ok] test_global_rhythm_identity_at_init scale=0 → output = input exactly
+[ok] test_global_rhythm_gradient_flow    gradient reaches GlobalRhythmController
+[ok] test_layer_with_rhythm_shapes       MTLNNLayer shapes unchanged
+[ok] test_layer_rhythm_buffer_populated  last_lavi_mean non-zero after streaming step
+[ok] test_layer_rhythm_neutral_no_change neutral LAVI (0.5) leaves blend unchanged
+[ok] test_model_with_rhythm_forward      full MTLNNModel with global_rhythm=True
+[ok] test_model_rhythm_diagnostics       lavi_mean / rhythm_scale_mean in diagnostics
+[ok] test_model_rhythm_gradient_flow     LAVI bias receives grad in step-2 streaming
+[ok] test_model_no_regression_rhythm_off use_rhythm=False: zero impact on output
 ```
 
 ## Head-to-head benchmark at matched parameter count
@@ -534,25 +584,31 @@ The dual-cache `ModelCacheStruct` carries:
 ```
 mt_lnn/
   config.py            MTLNNConfig (single source of truth for all hyperparams)
+                       + use_rhythm / rhythm_scale_init / global_rhythm flags
   embedding.py         TokenEmbedding + RoPE (position-offset aware)
   mt_attention.py      MicrotubuleAttention — GQA, KV cache, SDPA/Flash-Attn,
                        scalar + optional low-rank bilinear polarity bias
   mt_lnn_layer.py      VectorizedMultiScaleResonance, LateralCoupling (3-way),
                        VectorizedMAPGate, MTLNNLayer (fully vectorised over P)
+                       + LAVIEstimator hook + rhythm blend in scale gate
+  rhythm.py            LAVIEstimator (cosine-sim rhythmicity per protofilament)
+                       + GlobalRhythmController (cross-layer correction)
   gwtb.py              GWTBLayer — compress → workspace SA → broadcast
   global_coherence.py  GlobalCoherenceLayer (sparse top-k + Orch-OR collapse gate)
   anesthesia.py        AnesthesiaController — runtime forward hooks for AVP
   phi_hat.py           Φ̂ kNN entropy estimator + anesthesia sweep + test result
   model.py             MTLNNBlock, MTLNNModel, ModelCacheStruct (dual+GWTB cache)
+                       + GlobalRhythmController mount + rhythm diagnostics
   utils.py             init_weights, init_mt_params, scheduler,
                        checkpointing, make_param_groups (4 separate LR groups)
 prepare_data.py        Tokenise to uint16 .bin (numpy.memmap-friendly)
 train.py               BinDataset / DummyDataset, AMP, torch.compile, W&B,
-                       MT diagnostics + τ/γ/polarity histograms
+                       MT diagnostics + τ/γ/polarity/lavi histograms
 eval.py                PPL, long-context sliding-window PPL, collapse-gate stats,
                        W_lat heatmaps, Φ̂ + AVP CLI
 demo.py                KV-cached autoregressive streaming generation
-tests/test_model.py    Full test suite (17 tests, all pass)
+tests/test_model.py    Full architecture test suite (21 tests, all pass)
+tests/test_rhythm.py   Rhythm gate test suite (13 tests, all pass)
 ```
 
 ## Design references

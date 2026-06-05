@@ -49,6 +49,7 @@ from .deliberation import (
     semantic_entropy,
     lexical_fact_gap,
 )
+from .rhythm import LAVIEstimator, GlobalRhythmController
 from .cloud_client import (
     OracleClient,
     OracleResult,
@@ -129,6 +130,8 @@ __all__ = [
     "token_entropy",
     "semantic_entropy",
     "lexical_fact_gap",
+    "LAVIEstimator",
+    "GlobalRhythmController",
     "OracleClient",
     "OracleResult",
     "MockOracleClient",

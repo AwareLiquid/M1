@@ -185,6 +185,15 @@ class MTLNNModel(nn.Module):
         self.coherence = GlobalCoherenceLayer(config)
         self.final_norm = nn.LayerNorm(config.d_model)
 
+        # Global rhythm controller: reads per-layer LAVI buffers after the block
+        # loop and applies a small learned correction before GWTB.
+        # Active only when global_rhythm=True in config (default False).
+        if getattr(config, "global_rhythm", False):
+            from .rhythm import GlobalRhythmController
+            self.global_rhythm = GlobalRhythmController(config.n_layers, config.d_model)
+        else:
+            self.global_rhythm = None
+
         # LM head (no bias, optionally weight-tied)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         if config.tie_embeddings:
@@ -267,6 +276,14 @@ class MTLNNModel(nn.Module):
             )
             if use_cache:
                 new_cache.layers.append(new_layer_cache)
+
+        # Global rhythm correction: aggregate per-layer LAVI means, apply residual.
+        # Starts as identity (GlobalRhythmController.scale init = 0).
+        if self.global_rhythm is not None:
+            layer_lavi_means = torch.stack(
+                [b.lnn.resonance.last_lavi_mean for b in self.blocks]
+            )   # (n_layers,)
+            x, _global_lavi = self.global_rhythm(layer_lavi_means, x)
 
         # Top-level GWTB (only if gwtb_per_block=False).
         if self.gwtb is not None:
@@ -413,6 +430,23 @@ class MTLNNModel(nn.Module):
                 diag[f"scale_gate_s{idx}_mean"] = float(value)
             for idx, value in enumerate(sparse_mean.tolist()):
                 diag[f"sparse_resonance_s{idx}_selected"] = float(value)
+
+        # Rhythm diagnostics (only populated when use_rhythm=True)
+        lavi_vals = [b.lnn.resonance.last_lavi_mean.item() for b in self.blocks
+                     if getattr(b.lnn, "use_rhythm", False)]
+        if lavi_vals:
+            diag["lavi_mean"] = sum(lavi_vals) / len(lavi_vals)
+            diag["lavi_min"]  = min(lavi_vals)
+            diag["lavi_max"]  = max(lavi_vals)
+        rhythm_scales = []
+        for b in self.blocks:
+            rs = getattr(b.lnn.resonance, "rhythm_scale", None)
+            if rs is not None:
+                rhythm_scales.append(torch.tanh(rs).item())
+        if rhythm_scales:
+            diag["rhythm_scale_mean"] = sum(rhythm_scales) / len(rhythm_scales)
+        if self.global_rhythm is not None:
+            diag["global_rhythm_scale"] = torch.tanh(self.global_rhythm.scale).item()
 
         diag["coherence_scale"] = self.coherence.coherence_scale.item()
         diag["collapse_threshold"] = self.coherence.collapse_threshold.item()

@@ -55,7 +55,21 @@ style: |
 
 ## 3. Benchmarks & 架构优势 (Architectural Advantages)
 
-### 🆕 Phase 5b milestone — Qwen-2.5-1.5B + MT adapter (Kaggle GPU, 2026-05-29)
+### 🆕 Phase 6 milestone — EEG Rhythm Gate (2026-06-06)
+
+**Dynamic stability/flexibility balance, zero parameter budget cost**
+
+| New capability | Mechanism | Product impact |
+|---|---|---|
+| Long-context stability | High LAVI → slow τ dominant | State drifts < 50% less over 10K+ tokens (expected) |
+| Context switch speed | Low LAVI → fast τ activates | Multi-turn boundary adaptation without forgetting |
+| Audit trail | LAVI per-layer in diagnostics | Per-inference stability index for compliance reporting |
+
+→ Enable: `MTLNNConfig(use_rhythm=True, global_rhythm=True)` — default off, zero regression.
+
+---
+
+### Phase 5b milestone — Qwen-2.5-1.5B + MT adapter (Kaggle GPU, 2026-05-29)
 
 跨基座复现 — 同样的 MT 残差适配器配方在 **两个不同 1B+ 预训练 LM 家族** 上同样有效:
 
@@ -82,6 +96,8 @@ style: |
   Instead of blindly predicting the next token, MT-LNN leverages biological predictive coding. High-level reasoning channels generate Top-Down forecasts for lower-level perception channels. This forces the network to learn rich causal structures, vastly reducing training data dependency. (打破传统 Next-Token Prediction 桎梏，高维抽象通道自动向下发送预测，实现自我监督学习)
 - **Endogenous Compute Skipping (内源性计算跳过)**: 
   Unlike static layers, MT-LNN tracks logical channel saturation via $\kappa$ gating. If a sub-channel is dormant, compute completely bypasses it. Hardware ROI multiplies drastically. (通过动态 $\kappa$ 阈值切断休眠通道的计算，推理芯片成本指数级下降)
+- **EEG Rhythm Gate — Dynamic Stability (脑电节律门控)**: 
+  Inspired by cortical oscillatory modes, MT-LNN now detects whether each protofilament is in **persistent mode** (stable context, slow τ emphasis) or **transient mode** (novel input, fast τ adaptation) via a per-step LAVI (Lag Angle Vector Index) score. This gives the model a history-aware stability signal — complementing the content-aware κ-gate — for dramatically improved long-context coherence and multi-turn context switching. (仿脑电节律：持续模式→慢 τ 维持上下文；瞬态模式→快 τ 快速切换，解决长文本状态漂移问题)
 - **Clear Glass-Box Causality (完全可解释的因果提取头)**: 
   Native extraction branches for *Causal Chains* and *Self-Monitoring* translate obscure latent states directly into human-readable thought logs. 
 

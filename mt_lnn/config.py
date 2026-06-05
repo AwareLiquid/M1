@@ -114,6 +114,18 @@ class MTLNNConfig:
     sparse_resonance_kernel: bool = False
     sparse_resonance_top_k: int = 1
 
+    # EEG-inspired rhythm gate (LAVI). Default OFF — no impact on existing code.
+    # use_rhythm: attach LAVIEstimator to each MTLNNLayer; modulates the τ-scale
+    #   blend toward slow scales (persistent mode) or fast scales (transient mode)
+    #   based on cosine similarity between h_prev and the current input.
+    # rhythm_scale_init: initial tanh-gated influence of LAVI on blend weights.
+    #   Small value (0.1) means rhythm starts nearly disabled; training grows it.
+    # global_rhythm: attach GlobalRhythmController to MTLNNModel to aggregate
+    #   cross-layer LAVI means and apply a small residual correction before GWTB.
+    use_rhythm: bool = False
+    rhythm_scale_init: float = 0.1
+    global_rhythm: bool = False
+
     # Derived (set in __post_init__)
     d_proto: int = field(init=False)
     d_proto_total: int = field(init=False)
