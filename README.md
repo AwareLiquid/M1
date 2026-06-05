@@ -534,33 +534,44 @@ python bench_llama_mt_needle.py \
 
 ## Architecture
 
+> Full v2.0 architecture design: see [ARCHITECTURE.md](ARCHITECTURE.md)
+
 ```
 input_ids
    ↓
 Token Embedding + RoPE
    ↓
-─── × n_layers ──────────────────────────────────────
+─── × n_layers ──────────────────────────────────────────────────
 MTLNNBlock  (pre-norm + residual at each sub-layer)
   • MicrotubuleAttention          [GQA, KV cache, SDPA/Flash-Attn]
-      scalar polarity bias  +  GTP-cap ALiBi log-bias (absolute positions)
+      scalar polarity bias  +  GTP-cap ALiBi log-bias
       opt-in: low-rank bilinear polarity  σ(x Wₐ)(x W_b)ᵀ
   • MTLNNLayer                    [recurrent h_prev cache]
       d_model → 13 protofilaments (d_proto = d_model/13, exact for 832)
       13 × 5-scale MultiScaleResonance  [geometric τ sweep, softmax blend]
+        κ-gate: content-based scale activation  (dynamic_scale_gates=True)
+        LAVI rhythm gate: history-based slow/fast τ blend  (use_rhythm=True)
       LateralCoupling:
         static W_lat (13×13, identity init)
-        + nearest-neighbor torch.roll  (synchronous, ring topology)
+        + nearest-neighbor torch.roll  (ring topology, synchronous)
         + RMC content-aware attention  (σ(rmc_gate) ≈ 0.05 at init)
         → gated by exp(-γ·(t mod T_period))  [GTP-cap renewal]
       MAPGate (per protofilament, fc2_bias=+2 → near-open at init)
       → d_model
-  • GWTBLayer (if gwtb_per_block=True)   [optional per-block workspace]
-─────────────────────────────────────────────────────
+  • GWTBLayer / CompetitiveGWTBLayer  [Phase A, optional per-block workspace]
+──────────────────────────────────────────────────────────────────
    ↓
-GWTBLayer (if gwtb_per_block=False, default)  [KV cache]
+[GlobalRhythmController]          [Phase 2026-06-06, opt-in, before GWTB]
+    aggregate per-layer LAVI → global_lavi → residual correction
+   ↓
+GWTBLayer or CompetitiveGWTBLayer [KV cache, Phase A: multi-source competition]
     compress d_model → d_gw  →  workspace SA  →  broadcast + γ·residual
+    Phase A: module_bids=[lnn_out, attn_out, coherence_out] → score → winner
    ↓
 GlobalCoherenceLayer              [KV cache, sparse top-k, Orch-OR collapse gate]
+   ↓
+[PredictiveStateHead]             [Phase C, opt-in]
+    predict h_{t+1} from h_t → world_model_loss (training only)
    ↓
 LayerNorm → lm_head (weight-tied)
    ↓

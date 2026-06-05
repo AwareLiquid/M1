@@ -177,7 +177,11 @@ class MTLNNModel(nn.Module):
         # Mutually exclusive to avoid double-broadcasting the workspace.
         self.gwtb_per_block = config.gwtb_per_block
         if not config.gwtb_per_block:
-            self.gwtb = GWTBLayer(config)
+            if getattr(config, "use_competitive_gwtb", False):
+                from .gwtb import CompetitiveGWTBLayer
+                self.gwtb = CompetitiveGWTBLayer(config)
+            else:
+                self.gwtb = GWTBLayer(config)
         else:
             self.gwtb = None
 
@@ -193,6 +197,32 @@ class MTLNNModel(nn.Module):
             self.global_rhythm = GlobalRhythmController(config.n_layers, config.d_model)
         else:
             self.global_rhythm = None
+
+        # Predictive State Head / World Model (Phase C).
+        # Runs on x_normed (after final_norm), predicts h_{t+1} from h_t.
+        # Training adds L_wm to total loss; inference updates last_pred_error.
+        # Active only when use_world_model=True in config (default False).
+        if getattr(config, "use_world_model", False):
+            from .world_model import PredictiveStateHead
+            self.world_model_head = PredictiveStateHead(
+                config.d_model,
+                hidden_ratio=getattr(config, "world_model_hidden_ratio", 0.5),
+            )
+        else:
+            self.world_model_head = None
+
+        # Hebbian Regularizer (Phase D).
+        # Collects per-block co-activation signals from MTLNNLayer._hebb_signal
+        # and returns -α × mean as a training loss term.
+        # Active only when use_hebbian=True in config (default False).
+        if getattr(config, "use_hebbian", False):
+            from .plasticity import HebbianRegularizer
+            self.hebbian_reg = HebbianRegularizer(
+                base_lr=getattr(config, "hebbian_lr", 1e-4),
+                lavi_gate=getattr(config, "hebbian_lavi_gate", True),
+            )
+        else:
+            self.hebbian_reg = None
 
         # LM head (no bias, optionally weight-tied)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
@@ -303,6 +333,16 @@ class MTLNNModel(nn.Module):
             new_cache.coherence_kv = coh_new_kv
 
         x = self.final_norm(x)
+
+        # Predictive State Head (Phase C): runs on normed x.
+        # During training (compute_loss=True, T>1): accumulates L_wm.
+        # During inference (T=1): updates last_pred_error buffer only.
+        _world_model_loss: Optional[torch.Tensor] = None
+        if self.world_model_head is not None:
+            _, _world_model_loss = self.world_model_head(
+                x, compute_loss=(self.training and input_ids.shape[1] > 1)
+            )
+
         logits = self.lm_head(x)                              # (B, T_new, vocab_size)
 
         result: Dict[str, torch.Tensor] = {"logits": logits}
@@ -355,6 +395,19 @@ class MTLNNModel(nn.Module):
                 pred_error_sum = sum(b.lnn.resonance.last_pred_error for b in self.blocks)
                 result["pred_loss"] = pred_error_sum
                 loss = loss + self.config.predictive_loss_weight * pred_error_sum
+
+            # Phase C: world model prediction loss
+            if _world_model_loss is not None:
+                wm_weight = getattr(self.config, "world_model_loss_weight", 0.01)
+                loss = loss + wm_weight * _world_model_loss
+                result["world_model_loss"] = _world_model_loss.detach()
+
+            # Phase D: Hebbian co-activation loss (training only)
+            if self.hebbian_reg is not None and self.training:
+                hebb_loss = self.hebbian_reg.compute_loss(self)
+                if hebb_loss is not None:
+                    loss = loss + hebb_loss
+                    result["hebbian_loss"] = hebb_loss.detach()
 
             result["loss"] = loss
 
@@ -448,14 +501,35 @@ class MTLNNModel(nn.Module):
         if self.global_rhythm is not None:
             diag["global_rhythm_scale"] = torch.tanh(self.global_rhythm.scale).item()
 
+        # Phase C: world model diagnostics
+        if self.world_model_head is not None:
+            diag["world_model_pred_error"] = self.world_model_head.last_pred_error.item()
+
+        # Phase D: Hebbian diagnostics
+        if self.hebbian_reg is not None:
+            hebb_sigs = [
+                b.lnn._hebb_signal.item()
+                for b in self.blocks
+                if getattr(b.lnn, "_hebb_signal", None) is not None
+            ]
+            if hebb_sigs:
+                diag["hebbian_signal_mean"] = sum(hebb_sigs) / len(hebb_sigs)
+            diag["hebbian_lavi_temperature"] = self.hebbian_reg.lavi_temperature.item()
+
         diag["coherence_scale"] = self.coherence.coherence_scale.item()
         diag["collapse_threshold"] = self.coherence.collapse_threshold.item()
         diag["collapse_gate_last"] = self.coherence.last_gate.item()
 
         if self.gwtb is not None:
-            # Single top-level GWTB
+            # Single top-level GWTB (standard or competitive)
             diag["gwtb_broadcast_gate"] = self.gwtb.broadcast_gate.item()
             diag["gwtb_d_gw"] = float(self.gwtb.d_gw)
+            # Competitive GWTB diagnostics
+            from .gwtb import CompetitiveGWTBLayer
+            if isinstance(self.gwtb, CompetitiveGWTBLayer):
+                diag["gwtb_competition_entropy"] = self.gwtb.last_competition_entropy.item()
+                for k, w in enumerate(self.gwtb.last_winner_weights.tolist()):
+                    diag[f"gwtb_bid{k}_weight"] = w
         else:
             # Per-block GWTB — report mean / spread across blocks
             gates = [b.gwtb.broadcast_gate.item() for b in self.blocks if b.has_gwtb]

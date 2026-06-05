@@ -480,6 +480,13 @@ class MTLNNLayer(nn.Module):
         else:
             self.lavi_estimator = None
 
+        # Hebbian signal accumulator (Phase D). When use_hebbian=True, the
+        # forward pass writes self._hebb_signal as a scalar tensor (with grad)
+        # for HebbianRegularizer.compute_loss() to collect.
+        # Plain Python attribute (not register_buffer) so it stays in the graph.
+        self.use_hebbian = getattr(config, "use_hebbian", False)
+        self._hebb_signal: Optional[torch.Tensor] = None
+
     def forward(
         self,
         x: torch.Tensor,                       # (B, T, d_model)
@@ -536,6 +543,15 @@ class MTLNNLayer(nn.Module):
         # 6. Output projection
         h_flat = h_gated.reshape(B, T, P * D)
         out = self.dropout(self.out_proj(h_flat))                      # (B,T,d_model)
+
+        # Phase D: Hebbian co-activation signal.
+        # out ⊙ x (post × pre): positive when output and input are co-active.
+        # Stored as a plain Python attribute (not detached) so the gradient
+        # flows through it when HebbianRegularizer.compute_loss() returns it.
+        if self.use_hebbian:
+            self._hebb_signal = (out * x).mean()
+        else:
+            self._hebb_signal = None
 
         # We cache the resonance bank's per-scale state (B, P, S, D) — that
         # is the actual recurrent state of the LNN. Caching h_gated would

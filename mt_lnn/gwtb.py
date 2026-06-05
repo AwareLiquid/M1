@@ -1,36 +1,65 @@
 """
-gwtb.py — Global Workspace Theory Bottleneck
+gwtb.py — Global Workspace Theory Bottleneck + Competitive extension.
 
-Implements the explicit "compress → process → broadcast" pattern that Baars
-(1988) / Dehaene (2011) Global Workspace Theory predicts is necessary for
-conscious access. Unlike the GlobalCoherenceLayer's sparse top-k attention
-(which is an Orch-OR-flavoured collapse mechanism), GWTB enforces a *capacity
-limit* — information must squeeze through a narrow d_gw « d_model bottleneck
-before it can influence later computation.
+GWTBLayer
+---------
+Implements the "compress → process → broadcast" pipeline from Baars (1988) /
+Dehaene (2011) GWT. Information must squeeze through a narrow d_gw « d_model
+bottleneck before it can influence later computation (capacity constraint =
+consciousness bottleneck).
 
-Pipeline (per token, with KV cache for autoregressive decoding):
+Pipeline per token (with KV cache for autoregressive decoding):
 
-  1. **Compression (Ignition).**
-       z_t = LayerNorm(W_compress · x_t)              shape: (B, T, d_gw)
+  1. Compression (Ignition)
+       z_t = LayerNorm(W_compress · x_t)              (B, T, d_gw)
 
-  2. **Workspace processing.**
+  2. Workspace processing
        z'_t = SelfAttention(z_<=t)                    causal, multi-head over d_gw
-     This is where information from different time steps competes for
-     bottleneck capacity. Uses standard SDPA + KV cache.
+     Information from different time steps competes for bottleneck capacity.
 
-  3. **Broadcast (Global Ignition).**
-       Δh_t = W_broadcast · z'_t                      shape: (B, T, d_model)
-       out_t = x_t + γ · Δh_t                          gated residual
+  3. Broadcast (Global Ignition)
+       Δh_t = W_broadcast · z'_t                      (B, T, d_model)
+       out_t = x_t + γ · Δh_t                         gated residual
 
-The `broadcast_gate` γ is initialised small (default 0.01) so the layer
-starts as near-identity and gradually learns to ignite globally.
+broadcast_gate γ is initialised small (default 0.01) — the layer starts as
+near-identity and gradually learns to ignite globally.
 
-KV cache: forward(x, past_kv, use_cache) → (out, new_kv) — same contract as
-the rest of the model's cached layers.
+CompetitiveGWTBLayer  (Phase A, 2026-06-06)
+-------------------------------------------
+Extends GWTBLayer with winner-take-all competition among K specialist bids.
+
+The core GWT claim is that "conscious content" is decided by *competition*:
+multiple specialist modules (sensory, memory, reasoning, …) simultaneously
+bid for the limited workspace, and only the winner's representation is globally
+broadcast. This layer operationalises that claim inside MT-LNN.
+
+Competition pipeline:
+  1. K BidProjectors extract K specialised views from x
+       bid_i = x + δ_i(x)      (δ initialised to 0 → bid_i ≡ x at init)
+  2. ScoreHead rates each bid
+       score_i = MLP(bid_i)     → (B, T, 1)
+  3. Normalise across K bids
+       w_i = softmax(scores)    → (B, T, K)  [soft; hard argmax at inference if configured]
+  4. Weighted combination
+       x_ws = Σ w_i · bid_i     → (B, T, d_model)   enters the workspace
+  5. GWTBLayer workspace SA + broadcast on x_ws
+  6. Residual on the ORIGINAL x (not x_ws)
+       out = x + γ · broadcast(x_ws)
+
+Residual on original x is intentional:  competition decides what the workspace
+*processes*, but the broadcast enriches the *full specialist stream*.
+
+Invariants:
+  • At init: all δ_i = 0 → all bids = x → uniform weights → x_ws = x →
+    CompetitiveGWTBLayer behaves identically to GWTBLayer.
+  • use_competitive_gwtb=False → model uses GWTBLayer, not this class → zero
+    regression risk on all existing tests.
+  • KV cache contract unchanged: forward(x, past_kv, position_offset, use_cache)
+    → (out, new_kv).
 """
 
 import math
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -38,6 +67,10 @@ import torch.nn.functional as F
 
 from .config import MTLNNConfig
 
+
+# ---------------------------------------------------------------------------
+# GWTBLayer
+# ---------------------------------------------------------------------------
 
 class GWTBLayer(nn.Module):
     def __init__(self, config: MTLNNConfig):
@@ -65,35 +98,36 @@ class GWTBLayer(nn.Module):
 
         # 3. Broadcast projection (d_gw → d_model) + gated residual
         self.broadcast = nn.Linear(self.d_gw, self.d_model, bias=False)
-        # Tiny init: layer is near-identity until it learns to ignite.
         self.broadcast_gate = nn.Parameter(torch.tensor(float(config.gwtb_broadcast_init)))
 
         self.dropout = nn.Dropout(config.dropout)
 
-        # Precomputed causal mask buffer (workspace operates at same T as model)
         causal = torch.tril(torch.ones(config.max_seq_len, config.max_seq_len,
                                        dtype=torch.bool))
         self.register_buffer("_causal", causal, persistent=False)
 
     # ------------------------------------------------------------------
-    # Forward
+    # Internal: workspace SA pipeline
+    # Separated from forward() so CompetitiveGWTBLayer can reuse it
+    # after substituting a different input into the bottleneck.
     # ------------------------------------------------------------------
 
-    def forward(
+    def _run_workspace_pipeline(
         self,
-        x: torch.Tensor,                       # (B, T_new, d_model)
-        past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-        position_offset: int = 0,
-        use_cache: bool = False,
+        z: torch.Tensor,                              # (B, T_new, d_gw) — pre-compressed
+        past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]],
+        position_offset: int,
+        use_cache: bool,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        """
+        Workspace SA + broadcast.
 
-        B, T_new, _ = x.shape
+        Returns (delta, new_kv) where delta: (B, T_new, d_model).
+        The caller decides how to add delta to the residual stream.
+        """
+        B, T_new, _ = z.shape
         H, D = self.n_heads, self.d_head
 
-        # ---- 1. Compression / Ignition ----
-        z = self.compress_norm(self.compress(x))                  # (B,T_new,d_gw)
-
-        # ---- 2. Workspace SA ----
         Q = self.q_proj(z).view(B, T_new, H, D).transpose(1, 2)    # (B,H,T_new,D)
         K = self.k_proj(z).view(B, T_new, H, D).transpose(1, 2)
         V = self.v_proj(z).view(B, T_new, H, D).transpose(1, 2)
@@ -105,22 +139,172 @@ class GWTBLayer(nn.Module):
         T_total = K.shape[2]
         new_kv = (K, V) if use_cache else None
 
-        # Causal slice from precomputed mask: rows = q positions, cols = k positions
         causal_mask = self._causal[
             position_offset: position_offset + T_new, :T_total
-        ]                                                          # (T_new, T_total)
-        # SDPA expects an additive bias or boolean (True=keep). We use boolean
-        # form with attn_mask: True=keep, False=mask.
+        ]
         out = F.scaled_dot_product_attention(
             Q, K, V,
-            attn_mask=causal_mask.unsqueeze(0).unsqueeze(0),       # (1,1,T_new,T_total)
+            attn_mask=causal_mask.unsqueeze(0).unsqueeze(0),
             dropout_p=self.dropout.p if self.training else 0.0,
             is_causal=False,
-        )                                                           # (B,H,T_new,D)
+        )
         out = out.transpose(1, 2).contiguous().view(B, T_new, self.d_gw)
-        z_attn = self.workspace_norm(z + self.attn_out(out))       # residual inside workspace
+        z_attn = self.workspace_norm(z + self.attn_out(out))
+        delta = self.broadcast(z_attn)                               # (B,T_new,d_model)
+        return delta, new_kv
 
-        # ---- 3. Broadcast / Global Ignition ----
-        delta = self.broadcast(z_attn)                              # (B,T_new,d_model)
-        gated = self.broadcast_gate * delta
-        return x + gated, new_kv
+    # ------------------------------------------------------------------
+    # Forward
+    # ------------------------------------------------------------------
+
+    def forward(
+        self,
+        x: torch.Tensor,                                              # (B, T_new, d_model)
+        past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        position_offset: int = 0,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        z = self.compress_norm(self.compress(x))                      # (B, T_new, d_gw)
+        delta, new_kv = self._run_workspace_pipeline(z, past_kv, position_offset, use_cache)
+        return x + self.broadcast_gate * delta, new_kv
+
+
+# ---------------------------------------------------------------------------
+# CompetitiveGWTBLayer
+# ---------------------------------------------------------------------------
+
+class BidProjector(nn.Module):
+    """
+    Single specialist bid: a residual projection of x.
+
+    bid = x + delta(x)
+
+    delta is a 2-layer bottleneck MLP initialised to output zero.
+    At init: bid ≡ x for all K projectors → competition starts uniform →
+    CompetitiveGWTBLayer output equals GWTBLayer output.
+    During training: each projector learns a specialised deviation from x.
+    """
+
+    def __init__(self, d_model: int):
+        super().__init__()
+        # Bottleneck MLP: d_model → d_model//4 → d_model
+        hidden = max(d_model // 4, 1)
+        self.fc1 = nn.Linear(d_model, hidden, bias=True)
+        self.fc2 = nn.Linear(hidden, d_model, bias=True)
+        # Zero-init output layer → delta = 0 at init → bid = x
+        nn.init.zeros_(self.fc2.weight)
+        nn.init.zeros_(self.fc2.bias)
+        nn.init.normal_(self.fc1.weight, std=0.02)
+        nn.init.zeros_(self.fc1.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Residual: bid = x + GELU(fc1(x)) @ fc2
+        delta = self.fc2(F.gelu(self.fc1(x)))
+        return x + delta
+
+
+class CompetitiveGWTBLayer(GWTBLayer):
+    """
+    Winner-take-all competition for the Global Workspace bottleneck.
+
+    K BidProjectors extract K specialist views from x. A shared ScoreHead
+    rates each bid. The softmax-weighted combination enters the bottleneck
+    compression → workspace SA → broadcast pipeline. The broadcast is added
+    back to the *original* x, not to the competed combination.
+
+    See module docstring for full design rationale.
+    """
+
+    def __init__(self, config: MTLNNConfig):
+        super().__init__(config)
+        K = getattr(config, "n_competitive_bids", 3)
+        self.n_bids = K
+        self.hard_winner = getattr(config, "competitive_hard_winner", False)
+
+        # K specialist projectors (all start as identity)
+        self.bid_projectors = nn.ModuleList(
+            [BidProjector(config.d_model) for _ in range(K)]
+        )
+
+        # Shared score head: bid → scalar relevance score.
+        # Zero-init output → all scores start at 0 → uniform softmax at init.
+        score_hidden = max(config.d_model // 4, 1)
+        self.score_head = nn.Sequential(
+            nn.Linear(config.d_model, score_hidden, bias=True),
+            nn.GELU(),
+            nn.Linear(score_hidden, 1, bias=True),
+        )
+        nn.init.zeros_(self.score_head[-1].weight)
+        nn.init.zeros_(self.score_head[-1].bias)
+        nn.init.normal_(self.score_head[0].weight, std=0.02)
+        nn.init.zeros_(self.score_head[0].bias)
+
+        # Diagnostics: mean bid weights and competition entropy from the last
+        # forward call. Non-persistent buffers — for monitoring only.
+        self.register_buffer(
+            "last_winner_weights", torch.ones(K) / K, persistent=False
+        )
+        self.register_buffer(
+            "last_competition_entropy", torch.zeros(()), persistent=False
+        )
+
+    def _compete(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Extract K bids, score them, return weighted combination.
+
+        x       : (B, T, d_model)
+        returns : (B, T, d_model)  — weighted combination that enters workspace
+        """
+        B, T, D = x.shape
+        K = self.n_bids
+
+        # 1. K specialist bids, each (B, T, d_model)
+        bids: List[torch.Tensor] = [proj(x) for proj in self.bid_projectors]
+
+        # 2. Score each bid
+        scores = torch.cat(
+            [self.score_head(bid) for bid in bids], dim=-1
+        )   # (B, T, K)
+
+        # 3. Normalise: soft (training) or hard (inference when configured)
+        if self.hard_winner and not self.training:
+            winner_idx = scores.argmax(dim=-1)                          # (B, T)
+            weights = F.one_hot(winner_idx, K).to(x.dtype)             # (B, T, K)
+        else:
+            weights = F.softmax(scores, dim=-1)                         # (B, T, K)
+
+        # 4. Weighted combination: Σ_k w_k · bid_k → (B, T, d_model)
+        bids_stack = torch.stack(bids, dim=2)                           # (B, T, K, D)
+        combined = (weights.unsqueeze(-1) * bids_stack).sum(dim=2)     # (B, T, D)
+
+        # 5. Diagnostics (no_grad: detached from compute graph)
+        with torch.no_grad():
+            mean_weights = weights.detach().mean(dim=(0, 1))            # (K,)
+            self.last_winner_weights = mean_weights
+            # Shannon entropy of competition weights
+            ent = -(weights * (weights + 1e-8).log()).sum(dim=-1).mean()
+            self.last_competition_entropy = ent.detach()
+
+        return combined
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        position_offset: int = 0,
+        use_cache: bool = False,
+    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+        # Competition: which specialist view enters the workspace bottleneck
+        x_workspace = self._compete(x)                                  # (B, T, d_model)
+
+        # Compress the competed view into the bottleneck
+        z = self.compress_norm(self.compress(x_workspace))              # (B, T, d_gw)
+
+        # Workspace SA + broadcast (inherited pipeline, reused without modification)
+        delta, new_kv = self._run_workspace_pipeline(
+            z, past_kv, position_offset, use_cache
+        )
+
+        # Broadcast added to ORIGINAL x — competition determines workspace input,
+        # broadcast enriches the full specialist stream.
+        return x + self.broadcast_gate * delta, new_kv

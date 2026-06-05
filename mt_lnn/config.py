@@ -65,6 +65,16 @@ class MTLNNConfig:
     # in exchange for the layer-wise ignition semantics the paper prescribes.
     gwtb_per_block: bool = False
 
+    # Competitive Global Workspace (Phase A, 2026-06-06)
+    # When True, the top-level GWTBLayer is replaced with CompetitiveGWTBLayer.
+    # K specialist bid projectors (residual init → all bids start as x → zero-
+    # impact at init) compete via a score head. Winner's representation enters
+    # the workspace bottleneck; broadcast is added back to the *original* x.
+    # Only applies when gwtb_per_block=False (top-level GWTB mode).
+    use_competitive_gwtb: bool = False
+    n_competitive_bids: int = 3          # K concurrent workspace bids
+    competitive_hard_winner: bool = False  # True: argmax at inference, soft in training
+
     # Global coherence (Orch-OR collapse, complementary to GWTB)
     coherence_sparsity: float = 0.1  # keep top 10% of attention scores
     coherence_heads: int = 4
@@ -113,6 +123,23 @@ class MTLNNConfig:
     scale_gate_skip_threshold: float = 0.0
     sparse_resonance_kernel: bool = False
     sparse_resonance_top_k: int = 1
+
+    # Hebbian Regularizer (Phase D, 2026-06-06)
+    # Loss-level Hebbian co-activation term: L_hebb = -α × mean(out ⊙ x_in)
+    # α is modulated by global LAVI mean (persistent mode → stronger consolidation).
+    # Does NOT change forward() — purely a training loss term.
+    # use_hebbian=False (default) → zero impact on anything.
+    use_hebbian: bool = False
+    hebbian_lr: float = 1e-4          # base co-activation weight
+    hebbian_lavi_gate: bool = True    # gate α by LAVI (False → constant α)
+
+    # Predictive State Head / World Model (Phase C, 2026-06-06)
+    # When True, a PredictiveStateHead is mounted after final_norm.
+    # Training: L_total = L_lm + world_model_loss_weight × L_wm
+    # Inference: last_pred_error buffer updated for monitoring + LAVI linkage.
+    use_world_model: bool = False
+    world_model_loss_weight: float = 0.01   # small: LM loss always dominates
+    world_model_hidden_ratio: float = 0.5   # bottleneck width relative to d_model
 
     # EEG-inspired rhythm gate (LAVI). Default OFF — no impact on existing code.
     # use_rhythm: attach LAVIEstimator to each MTLNNLayer; modulates the τ-scale

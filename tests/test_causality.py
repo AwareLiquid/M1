@@ -1,0 +1,548 @@
+"""
+tests/test_causality.py — CausalConsistencyChecker + deliberation integration.
+
+Tests cover:
+  1.  Neutral score at start (1.0 before first update)
+  2.  Stable trajectory keeps high score
+  3.  Anti-correlated jump drops score significantly
+  4.  Oscillating trajectory stays low after threshold
+  5.  Score recovers after trajectory re-stabilises
+  6.  reset() restores state cleanly
+  7.  Various h_prev shapes are accepted
+  8.  Window size limits history correctly
+  9.  RouteDecision has causal_consistency field
+ 10.  RouterThresholds has consistency_floor field
+ 11.  decide() with consistency_signal=None: backward-compat (no change)
+ 12.  decide() with low consistency → SELF_CRITIQUE (causal_break)
+ 13.  decide() with high consistency + low entropy → LOCAL (no override)
+ 14.  decide() causal_consistency field populated in decision
+ 15.  Full simulated inference loop: checker + router
+"""
+
+import math
+import torch
+import torch.nn.functional as F
+
+from mt_lnn.causality import CausalConsistencyChecker
+from mt_lnn.deliberation import (
+    DeliberationRouter,
+    RouterThresholds,
+    RouteDecision,
+    Route,
+    token_entropy,
+)
+
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+def make_checker(window=8, alpha=0.4, threshold=0.3):
+    return CausalConsistencyChecker(window=window, ema_alpha=alpha, threshold=threshold)
+
+
+def fill_stable(checker: CausalConsistencyChecker, vec: torch.Tensor, n: int):
+    """Update checker n times with the same vector to build stable history."""
+    for _ in range(n):
+        checker.update(vec)
+
+
+# ---------------------------------------------------------------------------
+# 1. Neutral score at start
+# ---------------------------------------------------------------------------
+
+def test_initial_score_is_one():
+    checker = make_checker()
+    assert checker.consistency_score() == 1.0
+
+
+def test_is_consistent_before_first_update():
+    checker = make_checker()
+    assert checker.is_consistent
+
+
+def test_steps_seen_zero_at_start():
+    checker = make_checker()
+    assert checker.steps_seen == 0
+
+
+# ---------------------------------------------------------------------------
+# 2. Stable trajectory keeps score high
+# ---------------------------------------------------------------------------
+
+def test_stable_trajectory_score_stays_high():
+    checker = make_checker(window=8, alpha=0.4)
+    h = torch.randn(32)
+    for _ in range(16):
+        checker.update(h)
+    assert checker.consistency_score() > 0.7, (
+        f"stable trajectory score={checker.consistency_score():.3f} unexpectedly low"
+    )
+
+
+def test_stable_trajectory_is_consistent():
+    checker = make_checker(threshold=0.5)
+    h = torch.ones(16)
+    for _ in range(12):
+        checker.update(h)
+    assert checker.is_consistent
+
+
+# ---------------------------------------------------------------------------
+# 3. Anti-correlated jump drops score
+# ---------------------------------------------------------------------------
+
+def test_anticorrelated_jump_drops_score():
+    """
+    Build a stable history then inject anti-correlated vectors.
+    Score should drop significantly below the initial stable value.
+    """
+    checker = make_checker(window=6, alpha=0.6, threshold=0.3)
+    D = 64
+    h_stable = torch.ones(D)
+    fill_stable(checker, h_stable, 10)
+    score_stable = checker.consistency_score()
+
+    # Anti-correlated: cos_sim = -1 → mapped to 0
+    h_jump = -torch.ones(D)
+    for _ in range(5):
+        checker.update(h_jump)
+    score_after = checker.consistency_score()
+
+    assert score_after < score_stable - 0.2, (
+        f"score did not drop: stable={score_stable:.3f}, after={score_after:.3f}"
+    )
+
+
+def test_first_anticorrelated_jump_below_threshold():
+    """
+    A single anti-correlated step from a stable trajectory should drop the
+    score below threshold immediately.
+
+    The checker detects the MOMENT of the break (not sustained wrong state).
+    After the window refills with new-regime vectors, the score adapts —
+    this is correct behaviour: the alarm fires at the transition boundary.
+    """
+    checker = make_checker(window=4, alpha=0.7, threshold=0.5)
+    D = 32
+    h_stable = torch.ones(D)
+    fill_stable(checker, h_stable, 10)
+    score_stable = checker.consistency_score()
+    assert score_stable > 0.9, f"stable plateau too low: {score_stable:.3f}"
+
+    # Single anti-correlated step: cos_sim = -1 → mapped to 0
+    # EMA: 0.7 * 0 + 0.3 * 1.0 = 0.3 < threshold=0.5
+    score_first_jump = checker.update(-torch.ones(D))
+    assert score_first_jump < checker.threshold, (
+        f"first jump score={score_first_jump:.3f} not below threshold={checker.threshold}"
+    )
+    assert not checker.is_consistent
+
+
+# ---------------------------------------------------------------------------
+# 4. Oscillating trajectory stays low
+# ---------------------------------------------------------------------------
+
+def test_oscillating_trajectory_stays_low():
+    """Alternating +h / -h should keep score below stable baseline."""
+    checker = make_checker(window=4, alpha=0.5)
+    D = 32
+    h_pos = torch.ones(D)
+    h_neg = -torch.ones(D)
+    fill_stable(checker, h_pos, 6)
+    score_stable = checker.consistency_score()
+
+    # Oscillate
+    for i in range(10):
+        checker.update(h_pos if i % 2 == 0 else h_neg)
+
+    score_osc = checker.consistency_score()
+    # Oscillating score should be noticeably below the stable plateau
+    assert score_osc < score_stable - 0.1, (
+        f"oscillating score={score_osc:.3f} not clearly below stable={score_stable:.3f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 5. Score recovers after re-stabilisation
+# ---------------------------------------------------------------------------
+
+def test_score_recovers_after_restabilisation():
+    checker = make_checker(window=4, alpha=0.5)
+    D = 32
+    h_a = torch.ones(D)
+    h_b = -torch.ones(D)
+
+    fill_stable(checker, h_a, 8)
+    for _ in range(4):
+        checker.update(h_b)
+    score_after_jump = checker.consistency_score()
+
+    # Re-stabilise with h_b (new regime)
+    fill_stable(checker, h_b, 12)
+    score_recovered = checker.consistency_score()
+
+    assert score_recovered > score_after_jump + 0.1, (
+        f"score did not recover: jump={score_after_jump:.3f}, "
+        f"recovered={score_recovered:.3f}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6. reset() clears state
+# ---------------------------------------------------------------------------
+
+def test_reset_restores_initial_state():
+    checker = make_checker()
+    h = torch.randn(16)
+    for _ in range(10):
+        checker.update(h)
+    assert checker.steps_seen == 10
+
+    checker.reset()
+    assert checker.consistency_score() == 1.0
+    assert checker.steps_seen == 0
+    assert checker.is_consistent
+
+
+def test_after_reset_behaves_like_fresh():
+    checker = make_checker(window=4, alpha=0.7)
+    h = -torch.ones(32)
+    for _ in range(8):
+        checker.update(h)
+    checker.reset()
+
+    # Should behave as if fresh — no history to compare against
+    score_after_reset = checker.update(h)
+    assert score_after_reset == 1.0, "first update after reset should be 1.0"
+
+
+# ---------------------------------------------------------------------------
+# 7. Various h_prev shapes are accepted
+# ---------------------------------------------------------------------------
+
+def test_accepts_4d_h_prev():
+    checker = make_checker()
+    h = torch.randn(2, 13, 5, 8)    # (B, P, S, D)
+    score = checker.update(h)
+    assert 0.0 <= score <= 1.0
+
+
+def test_accepts_3d_h_prev():
+    checker = make_checker()
+    h = torch.randn(2, 13, 64)      # (B, P, D)
+    score = checker.update(h)
+    assert 0.0 <= score <= 1.0
+
+
+def test_accepts_2d_h_prev():
+    checker = make_checker()
+    h = torch.randn(2, 832)         # (B, d_model)
+    score = checker.update(h)
+    assert 0.0 <= score <= 1.0
+
+
+def test_accepts_1d_h_prev():
+    checker = make_checker()
+    h = torch.randn(64)
+    score = checker.update(h)
+    assert 0.0 <= score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# 8. Window size limits history
+# ---------------------------------------------------------------------------
+
+def test_window_limits_history_buffer():
+    W = 4
+    checker = make_checker(window=W)
+    h = torch.randn(16)
+    for _ in range(W + 10):
+        checker.update(h)
+    # Internal deque should not exceed window size
+    assert len(checker._history) <= W
+
+
+# ---------------------------------------------------------------------------
+# 9. RouteDecision has causal_consistency field
+# ---------------------------------------------------------------------------
+
+def test_route_decision_has_causal_field():
+    d = RouteDecision(route=Route.LOCAL, reason="test", entropy=1.0)
+    assert hasattr(d, "causal_consistency")
+    assert d.causal_consistency is None
+
+
+def test_route_decision_causal_field_assignable():
+    d = RouteDecision(
+        route=Route.SELF_CRITIQUE,
+        reason="causal_break",
+        entropy=2.5,
+        causal_consistency=0.15,
+    )
+    assert d.causal_consistency == 0.15
+
+
+# ---------------------------------------------------------------------------
+# 10. RouterThresholds has consistency_floor
+# ---------------------------------------------------------------------------
+
+def test_router_thresholds_has_consistency_floor():
+    t = RouterThresholds()
+    assert hasattr(t, "consistency_floor")
+    assert isinstance(t.consistency_floor, float)
+    assert 0.0 < t.consistency_floor < 1.0
+
+
+def test_router_thresholds_custom_floor():
+    t = RouterThresholds(consistency_floor=0.5)
+    assert t.consistency_floor == 0.5
+
+
+# ---------------------------------------------------------------------------
+# 11. decide() with consistency_signal=None: backward-compat
+# ---------------------------------------------------------------------------
+
+def test_decide_no_consistency_signal_low_entropy():
+    """Low entropy + no consistency signal → LOCAL (unchanged from before)."""
+    router = DeliberationRouter()
+    # Logits heavily peaked on one token → low entropy
+    logits = torch.zeros(100)
+    logits[0] = 20.0
+    d = router.decide(logits, query="test", evidence_log=[])
+    assert d.route == Route.LOCAL
+    assert d.causal_consistency is None
+
+
+def test_decide_no_consistency_signal_high_entropy():
+    """High entropy + fact gap + no consistency → CLOUD.
+
+    100 uniform logits: H = log(100) ≈ 4.6.  Set high=4.0 so 4.6 > high,
+    putting this squarely in the high-entropy branch that checks fact_gap.
+    """
+    router = DeliberationRouter(thresholds=RouterThresholds(low=2.0, high=4.0))
+    logits = torch.zeros(100)  # uniform → H ≈ 4.6 > 4.0
+    d = router.decide(logits, query="capital of France", evidence_log=[])
+    assert d.route == Route.CLOUD
+
+
+# ---------------------------------------------------------------------------
+# 12. decide() with low consistency → SELF_CRITIQUE (causal_break)
+# ---------------------------------------------------------------------------
+
+def test_low_consistency_forces_self_critique():
+    """Even with low-entropy (confident) logits, broken trajectory → SELF_CRITIQUE."""
+    router = DeliberationRouter(thresholds=RouterThresholds(consistency_floor=0.4))
+    # Very low entropy logits (model is "confident")
+    logits = torch.zeros(100)
+    logits[0] = 30.0
+
+    decision = router.decide(
+        logits,
+        query="test",
+        evidence_log=[],
+        consistency_signal=0.2,   # below floor=0.4
+    )
+    assert decision.route == Route.SELF_CRITIQUE
+    assert decision.reason == "causal_break"
+    assert decision.causal_consistency == 0.2
+
+
+def test_low_consistency_on_various_entropy_levels():
+    """Causal break overrides routing at ANY entropy level."""
+    router = DeliberationRouter(thresholds=RouterThresholds(
+        low=3.0, high=5.0, consistency_floor=0.35
+    ))
+    for entropy_logit_scale in [30.0, 2.0, 0.0]:  # low / medium / high entropy
+        logits = torch.zeros(100)
+        if entropy_logit_scale > 0:
+            logits[0] = entropy_logit_scale  # more peaked = lower entropy
+        decision = router.decide(
+            logits,
+            query="query",
+            evidence_log=[],
+            consistency_signal=0.1,   # clear break
+        )
+        assert decision.route == Route.SELF_CRITIQUE, (
+            f"expected SELF_CRITIQUE for scale={entropy_logit_scale}, "
+            f"got {decision.route}"
+        )
+        assert decision.reason == "causal_break"
+
+
+# ---------------------------------------------------------------------------
+# 13. decide() with high consistency + low entropy → LOCAL (no override)
+# ---------------------------------------------------------------------------
+
+def test_high_consistency_does_not_override_local():
+    """High consistency + low entropy → router should return LOCAL."""
+    router = DeliberationRouter()
+    logits = torch.zeros(100)
+    logits[0] = 20.0  # low entropy
+    decision = router.decide(
+        logits,
+        query="test",
+        evidence_log=[],
+        consistency_signal=0.9,   # clearly above floor=0.3
+    )
+    assert decision.route == Route.LOCAL
+
+
+def test_above_floor_no_causal_override():
+    """Consistency just above floor should not trigger override."""
+    router = DeliberationRouter(thresholds=RouterThresholds(consistency_floor=0.3))
+    logits = torch.zeros(100)
+    logits[0] = 20.0
+    decision = router.decide(
+        logits,
+        query="test",
+        evidence_log=[],
+        consistency_signal=0.31,  # just above floor
+    )
+    # Should follow normal entropy routing, not causal override
+    assert decision.reason != "causal_break"
+
+
+# ---------------------------------------------------------------------------
+# 14. causal_consistency field is populated in decision
+# ---------------------------------------------------------------------------
+
+def test_causal_consistency_populated_when_break():
+    router = DeliberationRouter()
+    logits = torch.zeros(50)
+    d = router.decide(logits, query="q", evidence_log=[], consistency_signal=0.1)
+    assert d.causal_consistency == 0.1
+
+
+def test_causal_consistency_none_when_no_signal():
+    router = DeliberationRouter()
+    logits = torch.zeros(50)
+    logits[0] = 20.0
+    d = router.decide(logits, query="q", evidence_log=[])
+    assert d.causal_consistency is None
+
+
+# ---------------------------------------------------------------------------
+# 15. Full simulated inference loop
+# ---------------------------------------------------------------------------
+
+def test_full_inference_loop_no_break():
+    """
+    Simulate a smooth inference session.
+    Router should stay LOCAL throughout (no causal override).
+    """
+    checker = make_checker(window=6, alpha=0.4, threshold=0.3)
+    router = DeliberationRouter(thresholds=RouterThresholds(
+        low=3.0, high=5.0, consistency_floor=0.3
+    ))
+
+    D = 64
+    h_base = torch.randn(D)
+    logits_confident = torch.zeros(100)
+    logits_confident[0] = 15.0
+
+    cloud_count = 0
+    self_critique_due_to_causal = 0
+
+    for step in range(20):
+        # Smooth trajectory: slightly perturbed h_base
+        h_t = h_base + 0.01 * torch.randn(D)
+        score = checker.update(h_t)
+        d = router.decide(
+            logits_confident,
+            query="steady query",
+            evidence_log=[],
+            consistency_signal=score,
+        )
+        if d.route == Route.CLOUD:
+            cloud_count += 1
+        if d.route == Route.SELF_CRITIQUE and d.reason == "causal_break":
+            self_critique_due_to_causal += 1
+
+    assert self_critique_due_to_causal == 0, \
+        f"{self_critique_due_to_causal} causal breaks on smooth trajectory"
+
+
+def test_full_inference_loop_with_break():
+    """
+    Simulate an inference session that hits a causal break mid-way.
+    At least one step should trigger causal override.
+    """
+    checker = make_checker(window=4, alpha=0.6, threshold=0.4)
+    router = DeliberationRouter(thresholds=RouterThresholds(
+        low=3.0, high=5.0, consistency_floor=0.4
+    ))
+
+    D = 32
+    h_stable = torch.ones(D)
+    h_jump = -torch.ones(D)  # anti-correlated
+    logits_confident = torch.zeros(100)
+    logits_confident[0] = 20.0  # low entropy — model "confident"
+
+    # Phase 1: stable
+    for _ in range(10):
+        checker.update(h_stable)
+
+    # Phase 2: sudden jump (model hallucinates?)
+    causal_overrides = 0
+    for _ in range(8):
+        score = checker.update(h_jump)
+        d = router.decide(
+            logits_confident,
+            query="question",
+            evidence_log=[],
+            consistency_signal=score,
+        )
+        if d.route == Route.SELF_CRITIQUE and d.reason == "causal_break":
+            causal_overrides += 1
+
+    assert causal_overrides > 0, \
+        "expected at least one causal override during trajectory break"
+
+
+# ---------------------------------------------------------------------------
+# Run all
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    tests = [
+        test_initial_score_is_one,
+        test_is_consistent_before_first_update,
+        test_steps_seen_zero_at_start,
+        test_stable_trajectory_score_stays_high,
+        test_stable_trajectory_is_consistent,
+        test_anticorrelated_jump_drops_score,
+        test_anticorrelated_jump_below_threshold,
+        test_oscillating_trajectory_stays_low,
+        test_score_recovers_after_restabilisation,
+        test_reset_restores_initial_state,
+        test_after_reset_behaves_like_fresh,
+        test_accepts_4d_h_prev,
+        test_accepts_3d_h_prev,
+        test_accepts_2d_h_prev,
+        test_accepts_1d_h_prev,
+        test_window_limits_history_buffer,
+        test_route_decision_has_causal_field,
+        test_route_decision_causal_field_assignable,
+        test_router_thresholds_has_consistency_floor,
+        test_router_thresholds_custom_floor,
+        test_decide_no_consistency_signal_low_entropy,
+        test_decide_no_consistency_signal_high_entropy,
+        test_low_consistency_forces_self_critique,
+        test_low_consistency_on_various_entropy_levels,
+        test_high_consistency_does_not_override_local,
+        test_above_floor_no_causal_override,
+        test_causal_consistency_populated_when_break,
+        test_causal_consistency_none_when_no_signal,
+        test_full_inference_loop_no_break,
+        test_full_inference_loop_with_break,
+    ]
+    for fn in tests:
+        try:
+            fn()
+            print(f"[ok] {fn.__name__}")
+        except Exception as exc:
+            import traceback
+            print(f"[FAIL] {fn.__name__}")
+            traceback.print_exc()
+            raise

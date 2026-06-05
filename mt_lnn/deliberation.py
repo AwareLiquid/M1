@@ -41,6 +41,10 @@ class RouterThresholds:
 
     low: float = 3.0    # below this → trust local decode
     high: float = 5.0   # above this → consider cloud (if fact gap)
+    # Phase B (2026-06-06): causal consistency floor.
+    # When CausalConsistencyChecker reports score < consistency_floor,
+    # the router forces SELF_CRITIQUE regardless of token entropy.
+    consistency_floor: float = 0.3
 
 
 @dataclass
@@ -52,6 +56,9 @@ class RouteDecision:
     entropy: float
     semantic_entropy: Optional[float] = None
     fact_gap: Optional[bool] = None
+    # Phase B (2026-06-06): causal consistency score from CausalConsistencyChecker.
+    # Populated when consistency_signal is passed to decide(). None otherwise.
+    causal_consistency: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +172,34 @@ class DeliberationRouter:
         *,
         query: str,
         evidence_log: Sequence[dict],
+        consistency_signal: Optional[float] = None,
     ) -> RouteDecision:
-        """Decide a route given current logits and session state."""
+        """Decide a route given current logits and session state.
+
+        Parameters
+        ----------
+        logits : next-token logit vector (or batch of logits — last row used).
+        query : the current user query (for fact-gap detection).
+        evidence_log : prior evidence rows from capsule.
+        consistency_signal : optional CausalConsistencyChecker score ∈ [0, 1].
+            When provided and below RouterThresholds.consistency_floor, the
+            router forces SELF_CRITIQUE regardless of token entropy.
+            Pass None (default) to skip causal consistency checking entirely.
+        """
         h = token_entropy(logits)
         t = self.thresholds
+
+        # Phase B: causal consistency pre-check.
+        # A broken trajectory (sudden h_prev jump) overrides entropy routing —
+        # the model should re-examine its reasoning before emitting the next
+        # token, even if entropy looks low (confidently wrong).
+        if consistency_signal is not None and consistency_signal < t.consistency_floor:
+            return RouteDecision(
+                route=Route.SELF_CRITIQUE,
+                reason="causal_break",
+                entropy=h,
+                causal_consistency=consistency_signal,
+            )
 
         if h < t.low:
             return RouteDecision(route=Route.LOCAL, reason="low_entropy", entropy=h)

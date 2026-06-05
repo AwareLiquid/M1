@@ -21,7 +21,7 @@ from .phi_spectral import (
 from .mt_lnn_layer import MTLNNLayer, ProtofilamentLTC, LateralCoupling, MAPGate, MultiScaleResonance
 from .mt_attention import MicrotubuleAttention
 from .global_coherence import GlobalCoherenceLayer
-from .gwtb import GWTBLayer
+from .gwtb import GWTBLayer, CompetitiveGWTBLayer, BidProjector
 from .embedding import MTLNNEmbedding, RotaryEmbedding
 from .parallel_scan import pscan, pscan_sequential, pscan_constant_A
 from .llama_adapter import (
@@ -50,6 +50,9 @@ from .deliberation import (
     lexical_fact_gap,
 )
 from .rhythm import LAVIEstimator, GlobalRhythmController
+from .causality import CausalConsistencyChecker
+from .world_model import PredictiveStateHead
+from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
     OracleResult,
@@ -103,6 +106,8 @@ __all__ = [
     "MicrotubuleAttention",
     "GlobalCoherenceLayer",
     "GWTBLayer",
+    "CompetitiveGWTBLayer",
+    "BidProjector",
     "MTLNNEmbedding",
     "RotaryEmbedding",
     "pscan",
@@ -132,6 +137,9 @@ __all__ = [
     "lexical_fact_gap",
     "LAVIEstimator",
     "GlobalRhythmController",
+    "CausalConsistencyChecker",
+    "PredictiveStateHead",
+    "HebbianRegularizer",
     "OracleClient",
     "OracleResult",
     "MockOracleClient",
