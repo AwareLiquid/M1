@@ -291,6 +291,15 @@ class MTLNNModel(nn.Module):
 
         x = self.embedding(input_ids)                         # (B, T_new, d_model)
 
+        # Phase C → LAVI linkage: distribute the PREVIOUS step's world-model
+        # prediction error to all blocks before the loop so LAVIEstimator can
+        # use it as a supplementary transience signal.
+        # Uses last_pred_error (a buffer holding last forward's value — causal).
+        if self.world_model_head is not None:
+            _wm_err = self.world_model_head.last_pred_error.item()
+            for _blk in self.blocks:
+                _blk.lnn._last_wm_pred_error = _wm_err
+
         new_cache = ModelCacheStruct(
             token_count=position_offset + input_ids.shape[1]
         ) if use_cache else None

@@ -142,6 +142,14 @@ def train(args):
         d_head=args.d_model // args.n_heads,
         max_seq_len=args.seq_len,
         dropout=args.dropout,
+        # v2.0 modules — all default False to preserve existing behaviour
+        gwtb_n_heads=args.gwtb_n_heads,
+        use_competitive_gwtb=args.competitive_gwtb,
+        n_competitive_bids=args.n_bids,
+        use_world_model=args.world_model,
+        world_model_loss_weight=args.world_model_weight,
+        use_hebbian=args.hebbian,
+        hebbian_lr=args.hebbian_lr,
         **cfg_kwargs,
     )
     model = MTLNNModel(config).to(device)
@@ -233,6 +241,10 @@ def train(args):
                     raw_loss = out["loss"]
                 loss = raw_loss / args.grad_accum
 
+            # Track auxiliary losses for logging (detached from graph)
+            _wm_loss   = out.get("world_model_loss")
+            _hebb_loss = out.get("hebbian_loss")
+
             scaler.scale(loss).backward()
             accum_loss_sum += loss.item() * args.grad_accum
             accum_count += 1
@@ -252,11 +264,23 @@ def train(args):
                 avg_loss = accum_loss_sum / max(accum_count, 1)
                 ppl = math.exp(min(avg_loss, 20.0))
                 tps = (args.log_every * args.batch * args.seq_len) / max(time.time() - t0, 1e-3)
+                # Build aux loss suffix for display
+                aux_parts = []
+                if _wm_loss is not None:
+                    aux_parts.append(f"wm={_wm_loss.item():.4f}")
+                if _hebb_loss is not None:
+                    aux_parts.append(f"hebb={_hebb_loss.item():.4f}")
+                aux_str = " | " + " ".join(aux_parts) if aux_parts else ""
                 msg = (f"step {step:6d} | loss {avg_loss:.4f} | ppl {ppl:.2f} | "
-                       f"lr {scheduler.current_lr:.2e} | {tps:.0f} tok/s")
+                       f"lr {scheduler.current_lr:.2e} | {tps:.0f} tok/s{aux_str}")
                 print(msg)
-                log({"train/loss": avg_loss, "train/ppl": ppl,
-                     "train/lr": scheduler.current_lr, "train/tokens_per_sec": tps},
+                log_dict = {"train/loss": avg_loss, "train/ppl": ppl,
+                            "train/lr": scheduler.current_lr, "train/tokens_per_sec": tps}
+                if _wm_loss is not None:
+                    log_dict["train/world_model_loss"] = _wm_loss.item()
+                if _hebb_loss is not None:
+                    log_dict["train/hebbian_loss"] = _hebb_loss.item()
+                log(log_dict,
                     step=step)
                 accum_loss_sum, accum_count = 0.0, 0
                 t0 = time.time()
@@ -314,6 +338,8 @@ def parse_args():
     # generalise well past the training length.
     p.add_argument("--seq_len",       type=int,   default=512)
     p.add_argument("--dropout",       type=float, default=0.1)
+    p.add_argument("--gwtb_n_heads",  type=int,   default=4,
+                   help="Number of GWTB workspace attention heads (must divide d_model//gwtb_ratio)")
     # Training — defaults chosen for a 125M model on a single A100/3090.
     # Global batch = batch * grad_accum * #GPUs. With batch=8 and grad_accum=64
     # we hit the recommended global batch of 512 (critical for stable τ
@@ -346,6 +372,19 @@ def parse_args():
                    help="Number of target slots supervised by the direct extraction head")
     p.add_argument("--target_loss_weight", type=float, default=0.0,
                    help="Optional auxiliary direct-target loss weight during normal LM training")
+    # ---- v2.0 modules (all off by default) ----
+    p.add_argument("--competitive_gwtb", action="store_true",
+                   help="[Phase A] Enable CompetitiveGWTBLayer: K-bid workspace competition")
+    p.add_argument("--n_bids", type=int, default=3,
+                   help="[Phase A] Number of specialist bids competing for workspace (default 3)")
+    p.add_argument("--world_model", action="store_true",
+                   help="[Phase C] Enable PredictiveStateHead: next-state self-supervised loss")
+    p.add_argument("--world_model_weight", type=float, default=0.01,
+                   help="[Phase C] Weight of world-model MSE loss (default 0.01)")
+    p.add_argument("--hebbian", action="store_true",
+                   help="[Phase D] Enable HebbianRegularizer: co-activation loss term")
+    p.add_argument("--hebbian_lr", type=float, default=1e-4,
+                   help="[Phase D] Base Hebbian learning rate α (default 1e-4)")
     return p.parse_args()
 
 

@@ -50,6 +50,13 @@ class MTResidualAdapter(nn.Module):
             map_hidden_dim=config.map_hidden_dim,
             dropout=config.dropout,
             attention_dropout=0.0,
+            # Disable features that require model-level loss aggregation.
+            # In a standalone adapter there is no outer model.forward() to
+            # collect last_pred_error / _hebb_signal, so these params would
+            # never receive gradients — a silent dead-parameter bug.
+            use_predictive_coding=False,
+            use_world_model=False,
+            use_hebbian=False,
         )
         self.mt_layer = MTLNNLayer(mt_config)
         self.scale = nn.Parameter(torch.tensor(float(config.init_scale)))

@@ -25,40 +25,40 @@ v2.0 在此基础上增加四个正交模块，每个都有独立开关，默认
 ## 2. 完整模块地图 (v2.0)
 
 ```
-mt_lnn/                                       STATUS
+mt_lnn/                                       STATUS        TEST FILE
 ├── config.py              MTLNNConfig         ✅ 已实现
 ├── embedding.py           RoPE + TokenEmbed   ✅ 已实现
 ├── mt_attention.py        GQA 极性注意力       ✅ 已实现
-├── mt_lnn_layer.py        13原丝 LTC + 侧向耦合 ✅ 已实现
-│   └── (内含)             κ-gate κ动态尺度门    ✅ 已实现
-├── rhythm.py              LAVI节律门控          ✅ 2026-06-06 完成
-│   ├── LAVIEstimator      per-protofilament 节律检测
+├── mt_lnn_layer.py        13原丝 LTC + 侧向耦合 ✅ 已实现      test_model.py
+│   ├── (内含) κ-gate      动态τ尺度门           ✅ 已实现
+│   └── (内含) _hebb_signal Hebbian 信号采集     ✅ Phase D
+├── rhythm.py              LAVI节律门控          ✅ 2026-06-06  test_rhythm.py
+│   ├── LAVIEstimator      per-protofilament 节律检测  (13测试)
 │   └── GlobalRhythmController 跨层节律校正
 ├── gwtb.py                GWT 压缩→SA→广播     ✅ 已实现
-│   └── CompetitiveGWTBLayer 多源竞争广播       🔨 Phase A (进行中)
+│   └── CompetitiveGWTBLayer 多源竞争广播       ✅ Phase A     test_gwt_competition.py
 ├── global_coherence.py    sparse top-k Orch-OR  ✅ 已实现
-├── causality.py           因果一致性检测         🔲 Phase B
-├── world_model.py         预测隐态头             🔲 Phase C
-├── plasticity.py          Hebbian 正则           🔲 Phase D
-├── deliberation.py        熵三级路由             ✅ 已实现
-│   └── (Phase B 扩展)     增加因果一致性信号输入  🔲 Phase B
-├── model.py               MTLNNModel            ✅ 已实现
-│   └── (Phase C 扩展)     挂载 PredictiveStateHead 🔲 Phase C
+├── causality.py           因果一致性检测         ✅ Phase B     test_causality.py
+├── world_model.py         预测隐态头             ✅ Phase C     test_world_model.py
+├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
+├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
+├── model.py               MTLNNModel (A-D集成)  ✅ 已实现      test_model.py
+├── llama_adapter.py       HF 模型 MT 残差适配器  ✅ 已实现      test_llama_adapter.py
 ├── anesthesia.py          AVP 麻醉验证           ✅ 已实现
 ├── phi_hat.py             Φ̂ kNN 估算            ✅ 已实现
 ├── phi_iit.py             IIT 4.0 Φ (可选)      ✅ 已实现
-├── memory.py              SQLite 持久 h_prev     ✅ 已实现
-├── capsule.py             信念状态 + 证据日志    ✅ 已实现
+├── memory.py              SQLite 持久 h_prev     ✅ 已实现      test_memory.py
+├── capsule.py             信念状态 + 证据日志    ✅ 已实现      test_capsule_v2.py
 ├── streaming.py           state-only O(1) 推理   ✅ 已实现
-├── llama_adapter.py       HF 模型 MT 残差适配器  ✅ 已实现
 ├── recipes.py             Phase 5b 一键接入      ✅ 已实现
-├── deliberation.py        慎思路由               ✅ 已实现
 ├── cloud_client.py        云端 Oracle 客户端     ✅ 已实现
 ├── observability.py       JSONL 指标写入         ✅ 已实现
 ├── reasoning_trace.py     推理时间线             ✅ 已实现
-├── parallel_scan.py       pscan (Blelloch)       ✅ 已实现
+├── parallel_scan.py       pscan (Blelloch)       ✅ 已实现      test_parallel_scan.py
 └── quantum_coupling.py    量子耦合 (可选)        ✅ 已实现
 ```
+
+**Test coverage**: 195 tests, 195 pass (100%).
 
 ---
 

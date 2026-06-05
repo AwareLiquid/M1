@@ -510,9 +510,13 @@ class MTLNNLayer(nn.Module):
 
         # 1b. LAVI rhythmicity signal (optional, computed before resonance so it
         #     can gate the τ-scale blend inside the resonance bank).
+        #     World-model integration (Phase C linkage): MTLNNModel.forward() sets
+        #     self._last_wm_pred_error before the block loop when use_world_model=True.
+        #     High pred_error → model was surprised → LAVI nudged toward transient.
         lavi = None
         if self.lavi_estimator is not None:
-            lavi = self.lavi_estimator(h_prev, x_split)               # (B,T,P,1)
+            wm_err = getattr(self, "_last_wm_pred_error", 0.0)
+            lavi = self.lavi_estimator(h_prev, x_split, pred_error=wm_err)
 
         # 2. Run the resonance bank. It accepts h_prev in either form and
         # returns the per-scale state we need to cache.

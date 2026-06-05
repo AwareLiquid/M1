@@ -55,11 +55,29 @@ class LAVIEstimator(nn.Module):
         # Initialised to 0: LAVI starts at 0.5 (neutral) for cosine_sim = 0.
         self.bias = nn.Parameter(torch.zeros(n_protofilaments))
 
+        # World-model integration gate (Phase C linkage).
+        # When PredictiveStateHead.last_pred_error is passed as pred_error,
+        # this scalar scales its influence on LAVI.
+        # Init = 0.0 → no effect at start; learned to be useful if world_model
+        # is also enabled.  Always zero when pred_error=0.0 (default).
+        self.pred_error_scale = nn.Parameter(torch.zeros(()))
+
     def forward(
         self,
         h_prev: torch.Tensor,
         x_split: torch.Tensor,
+        pred_error: float = 0.0,
     ) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        h_prev     : (B, P, S, D) or None
+        x_split    : (B, T, P, D)
+        pred_error : float — world model prediction error from the previous step.
+                     High error → model surprised → LAVI nudged toward transient
+                     (lower). Requires use_world_model=True in config; defaults
+                     to 0.0 (no effect) otherwise.
+        """
         B, T, P, D = x_split.shape
 
         if h_prev is None:
@@ -77,7 +95,6 @@ class LAVIEstimator(nn.Module):
         # Build reference sequence aligned to current T positions:
         #   t=0       → uses h_ref (state from before this chunk)
         #   t=1..T-1  → uses x_split[:,t-1,:,:] (within-chunk autoregression)
-        # This gives a causal, position-local similarity signal.
         prev = torch.cat(
             [h_ref.unsqueeze(1), x_split[:, :-1, :, :]],
             dim=1,
@@ -85,7 +102,12 @@ class LAVIEstimator(nn.Module):
 
         sim = F.cosine_similarity(prev, x_split, dim=-1)  # (B, T, P)
 
-        lavi = torch.sigmoid(sim + self.bias.view(1, 1, P))  # (B, T, P)
+        # World-model correction: high pred_error nudges LAVI downward (transient).
+        # tanh(pred_error_scale) ∈ (-1,1); pred_error ≥ 0 → correction ≥ 0.
+        # When pred_error=0 or pred_error_scale=0 → no effect.
+        wm_correction = torch.tanh(self.pred_error_scale) * float(pred_error)
+
+        lavi = torch.sigmoid(sim + self.bias.view(1, 1, P) - wm_correction)
         return lavi.unsqueeze(-1)  # (B, T, P, 1)
 
 
