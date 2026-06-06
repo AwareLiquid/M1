@@ -66,6 +66,8 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 
+from .utils import unit_cosine_similarity
+
 
 class CausalConsistencyChecker:
     """
@@ -192,13 +194,9 @@ class CausalConsistencyChecker:
 
     def _cosine_similarity(self, h_flat: torch.Tensor) -> float:
         """Cosine of current vector to the window mean, mapped to [0, 1]."""
-        h_norm = F.normalize(h_flat.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
         hist_stack = torch.stack(list(self._history), dim=0)   # (N, D)
         mean_ref = hist_stack.mean(dim=0)
-        mean_norm = F.normalize(mean_ref.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
-        raw_sim = torch.dot(h_norm, mean_norm).item()
-        sim_01 = (raw_sim + 1.0) / 2.0            # 0 = anti-correlated, 1 = aligned
-        return max(0.0, min(1.0, sim_01))
+        return unit_cosine_similarity(h_flat, mean_ref)
 
     def _subspace_similarity(self, h_flat: torch.Tensor) -> float:
         """
