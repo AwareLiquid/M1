@@ -1,0 +1,10 @@
+{
+  "id": "muningan/mt-lnn-simple-test",
+  "title": "MT LNN Simple Test",
+  "code_file": "test.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true
+}
