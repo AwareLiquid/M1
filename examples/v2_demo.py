@@ -122,8 +122,8 @@ def run_training(model: MTLNNModel, device: str, n_steps: int = 20) -> dict:
         history["pred_coding"].append(pred.item() if pred is not None else 0.0)
 
         if step % 5 == 0:
-            wm_str   = f"wm={wm.item():.4f}"   if wm   is not None else "wm=N/A"
-            hb_str   = f"hebb={hebb.item():.5f}" if hebb is not None else "hebb=N/A"
+            wm_str   = f"wm={wm.item():.4f}"     if wm   is not None else "wm=N/A"
+            hb_str   = f"hebb={hebb.item():+.2e}" if hebb is not None else "hebb=N/A"
             pred_str = f"pred={pred.item():.4f}" if pred is not None else "pred=N/A"
             print(f"  step {step:3d} | total={lm_loss:.4f} | {wm_str} | {hb_str} | {pred_str}")
 
@@ -207,11 +207,24 @@ def show_competition_diagnostics(model: MTLNNModel, device: str):
     max_w    = max(weights)
     dominant = weights.index(max_w)
 
+    # Structural divergence: pairwise cosine similarity of bid_projector fc2
+    # weights.  This is the LEARNED specialization, separate from per-step
+    # bid weights (which only differ when noise is injected at training).
+    import torch.nn.functional as F
+    fc2s = torch.stack([p.fc2.weight.flatten() for p in model.gwtb.bid_projectors], dim=0)
+    fc2_norm = F.normalize(fc2s + 1e-8 * torch.randn_like(fc2s), dim=-1)
+    sim = (fc2_norm @ fc2_norm.t()).abs()
+    K = sim.shape[0]
+    off_diag_mean = (sim - torch.eye(K, device=sim.device)).abs().sum().item() / (K * (K - 1))
+
     print(f"\n  [Phase A] Workspace competition diagnostics:")
-    print(f"    Bid weights : {' | '.join(f'bid{i}={w:.3f}' for i, w in enumerate(weights))}")
-    print(f"    Dominant bid: bid{dominant} ({max_w:.3f})")
-    print(f"    Competition entropy: {entropy:.3f} "
+    print(f"    Eval-mode bid weights : "
+          f"{' | '.join(f'bid{i}={w:.3f}' for i, w in enumerate(weights))}")
+    print(f"    Dominant bid          : bid{dominant} ({max_w:.3f})")
+    print(f"    Competition entropy   : {entropy:.3f} "
           f"(0=monopoly, {math.log(len(weights)):.2f}=uniform)")
+    print(f"    Bid-projector pairwise|cos|: {off_diag_mean:.4f} "
+          f"(↓ over training = orthogonality penalty working)")
 
 
 # ---------------------------------------------------------------------------

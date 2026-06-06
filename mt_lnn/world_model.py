@@ -101,11 +101,8 @@ class PredictiveStateHead(nn.Module):
         nn.init.normal_(self.predictor[0].weight, std=0.02)
         nn.init.zeros_(self.predictor[0].bias)
 
-        # Diagnostic buffers — updated every forward, no gradient
+        # Diagnostic buffer — updated every forward, no gradient
         self.register_buffer("last_pred_error", torch.zeros(()), persistent=False)
-        # Per-position prediction error for the last batch (mean over B)
-        # Shape: (T,) or () if T=1.  Used by downstream monitoring.
-        self.register_buffer("last_error_by_position", torch.zeros(1), persistent=False)
 
     def forward(
         self,
@@ -143,18 +140,7 @@ class PredictiveStateHead(nn.Module):
             sq_err = residual.pow(2).mean(dim=-1)  # (B, T-1)
 
             pred_loss = sq_err.mean()              # scalar
-
-            # Per-position diagnostic
             with torch.no_grad():
                 self.last_pred_error = pred_loss.detach()
-                # Mean over batch, shape (T-1,)
-                self.last_error_by_position = sq_err.detach().mean(dim=0)
-
-        elif x.shape[1] == 1 and pred_next.shape[1] == 1:
-            # Single-step inference: compute error vs last known state
-            # (this is approximate — stored for monitoring only)
-            with torch.no_grad():
-                # No target at T=1; keep last error unchanged
-                pass
 
         return pred_next, pred_loss

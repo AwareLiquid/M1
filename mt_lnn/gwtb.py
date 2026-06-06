@@ -220,6 +220,9 @@ class CompetitiveGWTBLayer(GWTBLayer):
         K = getattr(config, "n_competitive_bids", 3)
         self.n_bids = K
         self.hard_winner = getattr(config, "competitive_hard_winner", False)
+        # Symmetry-breaking config (P0 fix, 2026-06-07):
+        self.score_noise_scale = float(getattr(config, "competitive_score_noise", 0.5))
+        self.ortho_penalty_weight = float(getattr(config, "competitive_ortho_weight", 0.01))
 
         # K specialist projectors (all start as identity)
         self.bid_projectors = nn.ModuleList(
@@ -228,6 +231,7 @@ class CompetitiveGWTBLayer(GWTBLayer):
 
         # Shared score head: bid → scalar relevance score.
         # Zero-init output → all scores start at 0 → uniform softmax at init.
+        # (Symmetry is broken by competitive_score_noise during training, not by init.)
         score_hidden = max(config.d_model // 4, 1)
         self.score_head = nn.Sequential(
             nn.Linear(config.d_model, score_hidden, bias=True),
@@ -248,12 +252,25 @@ class CompetitiveGWTBLayer(GWTBLayer):
             "last_competition_entropy", torch.zeros(()), persistent=False
         )
 
+        # Orthogonality penalty (computed in _compete during training, picked up
+        # by MTLNNModel.forward and added to total loss). None at eval.
+        self._last_ortho_penalty: "Optional[torch.Tensor]" = None
+
     def _compete(self, x: torch.Tensor) -> torch.Tensor:
         """
         Extract K bids, score them, return weighted combination.
 
         x       : (B, T, d_model)
         returns : (B, T, d_model)  — weighted combination that enters workspace
+
+        Symmetry-breaking (P0 fix, 2026-06-07):
+        - Training: Gaussian noise is added to scores BEFORE softmax. Without
+          this, K identical bid projectors → identical bids → identical scores
+          → softmax gradient is zero by symmetry → bid_projectors never diverge.
+          DeepSeekMoE-style noise injection guarantees gradients carry signal.
+        - Orthogonality penalty on bid_projectors' output layers actively pushes
+          specialist projectors apart in weight space. Stored in
+          self._last_ortho_penalty for MTLNNModel.forward to add to total loss.
         """
         B, T, D = x.shape
         K = self.n_bids
@@ -261,10 +278,17 @@ class CompetitiveGWTBLayer(GWTBLayer):
         # 1. K specialist bids, each (B, T, d_model)
         bids: List[torch.Tensor] = [proj(x) for proj in self.bid_projectors]
 
-        # 2. Score each bid
+        # 2. Score each bid (shared score_head)
         scores = torch.cat(
             [self.score_head(bid) for bid in bids], dim=-1
         )   # (B, T, K)
+
+        # 2b. Symmetry-breaking noise during training.
+        # Even when all bids are identical at init, noisy scores → different
+        # weights per step → gradient signal flows into different bids → over
+        # many steps, bid_projectors diverge.
+        if self.training and self.score_noise_scale > 0.0:
+            scores = scores + torch.randn_like(scores) * self.score_noise_scale
 
         # 3. Normalise: soft (training) or hard (inference when configured)
         if self.hard_winner and not self.training:
@@ -277,11 +301,29 @@ class CompetitiveGWTBLayer(GWTBLayer):
         bids_stack = torch.stack(bids, dim=2)                           # (B, T, K, D)
         combined = (weights.unsqueeze(-1) * bids_stack).sum(dim=2)     # (B, T, D)
 
-        # 5. Diagnostics (no_grad: detached from compute graph)
+        # 5. Orthogonality penalty (only during training, when weight > 0)
+        # Pushes the K bid output-projection matrices apart in weight space.
+        # Without this, bids could re-converge after noise-induced divergence.
+        if self.training and self.ortho_penalty_weight > 0.0 and K > 1:
+            # Stack fc2 weights from K bid projectors: each is (d_model, hidden)
+            fc2_stack = torch.stack(
+                [proj.fc2.weight for proj in self.bid_projectors], dim=0
+            )   # (K, d_model, hidden)
+            # Flatten and L2-normalise each projector's flattened weight
+            W_flat = fc2_stack.flatten(1)                               # (K, d_model*hidden)
+            W_norm = F.normalize(W_flat, dim=-1, eps=1e-8)              # (K, d_model*hidden)
+            # Pairwise cosine similarity (K, K)
+            sim_matrix = W_norm @ W_norm.t()
+            # Penalise OFF-DIAGONAL (we want different projectors to be orthogonal)
+            off_diag_mask = 1.0 - torch.eye(K, device=W_flat.device, dtype=W_flat.dtype)
+            self._last_ortho_penalty = (sim_matrix.pow(2) * off_diag_mask).sum() / (K * (K - 1))
+        else:
+            self._last_ortho_penalty = None
+
+        # 6. Diagnostics (no_grad: detached from compute graph)
         with torch.no_grad():
             mean_weights = weights.detach().mean(dim=(0, 1))            # (K,)
             self.last_winner_weights = mean_weights
-            # Shannon entropy of competition weights
             ent = -(weights * (weights + 1e-8).log()).sum(dim=-1).mean()
             self.last_competition_entropy = ent.detach()
 

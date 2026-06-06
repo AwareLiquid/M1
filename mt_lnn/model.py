@@ -418,6 +418,16 @@ class MTLNNModel(nn.Module):
                     loss = loss + hebb_loss
                     result["hebbian_loss"] = hebb_loss.detach()
 
+            # Phase A: orthogonality penalty for CompetitiveGWTBLayer (training only)
+            # Pushes bid projectors apart in weight space (DeepSeekMoE-style).
+            from .gwtb import CompetitiveGWTBLayer
+            if (self.gwtb is not None
+                and isinstance(self.gwtb, CompetitiveGWTBLayer)
+                and self.gwtb._last_ortho_penalty is not None):
+                ortho = self.gwtb._last_ortho_penalty
+                loss = loss + self.gwtb.ortho_penalty_weight * ortho
+                result["ortho_penalty"] = ortho.detach()
+
             result["loss"] = loss
 
         return result

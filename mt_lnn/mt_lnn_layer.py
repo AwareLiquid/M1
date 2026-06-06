@@ -548,12 +548,23 @@ class MTLNNLayer(nn.Module):
         h_flat = h_gated.reshape(B, T, P * D)
         out = self.dropout(self.out_proj(h_flat))                      # (B,T,d_model)
 
-        # Phase D: Hebbian co-activation signal.
-        # out ⊙ x (post × pre): positive when output and input are co-active.
-        # Stored as a plain Python attribute (not detached) so the gradient
-        # flows through it when HebbianRegularizer.compute_loss() returns it.
+        # Phase D: Hebbian CENTERED-COVARIANCE signal (P0 fix, 2026-06-07).
+        # The original mean(out ⊙ x) was always ≈ 0 on untrained nets because
+        # random projections have zero mean correlation. The centered form
+        # measures FLUCTUATION correlation, which is non-zero even at init.
+        #
+        # Mathematical equivalence:
+        #   mean((out - mean(out)) ⊙ (x - mean(x)))
+        #   = mean(out ⊙ x) - mean(out) · mean(x)
+        #   ≈ cov(out, x) at the elementwise level
+        #
+        # This is the standard Hebbian-covariance form used in modern
+        # neuroscience-inspired learning (Oja 1989, Földiák 1990).
+        # Subtract over (batch, time) dims while keeping the feature dim.
         if self.use_hebbian:
-            self._hebb_signal = (out * x).mean()
+            out_centered = out - out.mean(dim=(0, 1), keepdim=True)
+            x_centered = x - x.mean(dim=(0, 1), keepdim=True)
+            self._hebb_signal = (out_centered * x_centered).mean()
         else:
             self._hebb_signal = None
 
