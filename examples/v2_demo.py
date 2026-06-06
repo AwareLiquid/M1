@@ -142,7 +142,9 @@ def run_inference_demo(model: MTLNNModel, device: str):
     """
     model.eval()
     cfg = model.config
-    checker  = CausalConsistencyChecker(window=6, ema_alpha=0.5, threshold=0.35)
+    checker  = CausalConsistencyChecker(
+        window=6, ema_alpha=0.5, threshold=0.35, method="subspace"
+    )
     router   = DeliberationRouter(thresholds=RouterThresholds(
         low=3.0, high=5.0, consistency_floor=0.35
     ))

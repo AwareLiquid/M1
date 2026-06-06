@@ -144,7 +144,11 @@ class MTLNNConfig:
     # Inference: last_pred_error buffer updated for monitoring + LAVI linkage.
     use_world_model: bool = False
     world_model_loss_weight: float = 0.01   # small: LM loss always dominates
-    world_model_hidden_ratio: float = 0.5   # bottleneck width relative to d_model
+    world_model_hidden_ratio: float = 0.5   # predictor bottleneck width rel. to proj_dim
+    # v2.1 — BYOL / V-JEPA EMA target encoder (prevents representational collapse).
+    world_model_proj_ratio: float = 0.5     # latent proj dim relative to d_model
+    world_model_ema_decay: float = 0.99     # EMA momentum for the target projector
+    world_model_use_ema_target: bool = True # False → trainable stop-grad target (ablation)
 
     # EEG-inspired rhythm gate (LAVI). Default OFF — no impact on existing code.
     # use_rhythm: attach LAVIEstimator to each MTLNNLayer; modulates the τ-scale

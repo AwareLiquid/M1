@@ -88,6 +88,23 @@ class CausalConsistencyChecker:
     threshold : float
         Score below which `is_consistent` returns False.
         Should match RouterThresholds.consistency_floor.
+    method : str
+        Trajectory-break detector:
+          "cosine"   — cosine similarity of the current vector to the window
+                       mean, mapped to [0,1]. Simple and cheap, but on
+                       anisotropic hidden states (all vectors share a dominant
+                       direction) the similarity saturates near 1 and rarely
+                       fires on genuine breaks.
+          "subspace" — project the current (centered) vector onto the principal
+                       subspace of the recent window; the residual energy that
+                       falls OUTSIDE that subspace is the novelty. Centering +
+                       subspace removal cancels the shared anisotropic direction,
+                       so only genuinely new directions register as breaks.
+                       Recommended for real hidden states. O(window·D²) SVD on a
+                       tiny window → microseconds on CPU.
+    energy_keep : float
+        (subspace method) Fraction of window variance the principal subspace
+        must capture. Higher → stricter subspace, more sensitive to novelty.
     """
 
     def __init__(
@@ -95,14 +112,21 @@ class CausalConsistencyChecker:
         window: int = 8,
         ema_alpha: float = 0.4,
         threshold: float = 0.3,
+        method: str = "cosine",
+        energy_keep: float = 0.9,
     ):
         self.window = max(1, window)
         self.ema_alpha = float(ema_alpha)
         self.threshold = float(threshold)
+        if method not in ("cosine", "subspace"):
+            raise ValueError(f"method must be 'cosine' or 'subspace', got {method!r}")
+        self.method = method
+        self.energy_keep = float(energy_keep)
 
         # Circular buffer of recent (normalised) h vectors — deque for O(1) append/pop
         self._history: deque = deque(maxlen=self.window)
         self._ema_score: float = 1.0   # start fully consistent
+        self._last_eff_rank: float = 1.0
         self._step: int = 0
 
     # ------------------------------------------------------------------
@@ -124,18 +148,11 @@ class CausalConsistencyChecker:
         if h_flat.numel() == 0:
             return self._ema_score
 
-        h_norm = F.normalize(h_flat.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
-
         if len(self._history) > 0:
-            # Reference: mean of the recent window (raw, then normalised)
-            hist_stack = torch.stack(list(self._history), dim=0)   # (N, D)
-            mean_ref = hist_stack.mean(dim=0)
-            mean_norm = F.normalize(mean_ref.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
-
-            # Cosine similarity ∈ [-1, 1] → mapped to [0, 1]
-            raw_sim = torch.dot(h_norm, mean_norm).item()
-            sim_01 = (raw_sim + 1.0) / 2.0        # 0 = anti-correlated, 1 = aligned
-            sim_01 = max(0.0, min(1.0, sim_01))   # numerical clamp
+            if self.method == "subspace":
+                sim_01 = self._subspace_similarity(h_flat)
+            else:
+                sim_01 = self._cosine_similarity(h_flat)
 
             # EMA smoothing: alpha weights the new observation
             self._ema_score = (
@@ -147,6 +164,77 @@ class CausalConsistencyChecker:
         self._history.append(h_flat.clone())
         self._step += 1
         return self._ema_score
+
+    # ------------------------------------------------------------------
+    # Detectors
+    # ------------------------------------------------------------------
+
+    def _cosine_similarity(self, h_flat: torch.Tensor) -> float:
+        """Cosine of current vector to the window mean, mapped to [0, 1]."""
+        h_norm = F.normalize(h_flat.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
+        hist_stack = torch.stack(list(self._history), dim=0)   # (N, D)
+        mean_ref = hist_stack.mean(dim=0)
+        mean_norm = F.normalize(mean_ref.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
+        raw_sim = torch.dot(h_norm, mean_norm).item()
+        sim_01 = (raw_sim + 1.0) / 2.0            # 0 = anti-correlated, 1 = aligned
+        return max(0.0, min(1.0, sim_01))
+
+    def _subspace_similarity(self, h_flat: torch.Tensor) -> float:
+        """
+        Novelty via principal-subspace residual (anisotropy-robust).
+
+        1. Center the window and the current vector by the window mean
+           (removes the shared/anisotropic direction).
+        2. SVD the centered window; keep the top-k right singular vectors that
+           capture `energy_keep` of the variance.
+        3. Project the centered current vector onto that subspace; the residual
+           energy outside it is the novelty ∈ [0, 1].
+        4. consistency = 1 - novelty   (1 = lies in history subspace = smooth).
+
+        Falls back to cosine when the window has < 2 samples or is degenerate.
+        """
+        hist_stack = torch.stack(list(self._history), dim=0).float()   # (N, D)
+        if hist_stack.shape[0] < 2:
+            return self._cosine_similarity(h_flat)
+
+        mean = hist_stack.mean(dim=0, keepdim=True)                    # (1, D)
+        Mc = hist_stack - mean                                         # (N, D)
+        hc = h_flat - mean.squeeze(0)                                  # (D,)
+
+        hc_norm = hc.norm()
+        if hc_norm < 1e-8:
+            # Current vector equals the window mean → maximally consistent.
+            self._last_eff_rank = 1.0
+            return 1.0
+
+        try:
+            _, s, Vh = torch.linalg.svd(Mc, full_matrices=False)      # Vh: (r, D)
+        except Exception:
+            return self._cosine_similarity(h_flat)
+
+        energy = (s ** 2)
+        total = energy.sum()
+        if total < 1e-12:
+            # History collapsed to a point → any deviation is novel.
+            self._last_eff_rank = 1.0
+            novelty = 1.0
+            return max(0.0, 1.0 - novelty)
+
+        # Effective rank (participation ratio) — exposed as a diagnostic.
+        self._last_eff_rank = (total ** 2 / (energy ** 2).sum()).item()
+
+        # Keep the top-k directions capturing `energy_keep` of the variance.
+        cum = torch.cumsum(energy, dim=0) / total
+        k = int((cum < self.energy_keep).sum().item()) + 1
+        k = max(1, min(k, Vh.shape[0]))
+        Vk = Vh[:k]                                                   # (k, D)
+
+        # Reconstruct hc inside the subspace; residual is the novel component.
+        coeffs = Vk @ hc                                             # (k,)
+        recon = Vk.t() @ coeffs                                      # (D,)
+        residual = hc - recon
+        novelty = (residual.norm() / (hc_norm + 1e-8)).clamp(0.0, 1.0).item()
+        return max(0.0, 1.0 - novelty)
 
     # ------------------------------------------------------------------
     # Read-only properties
@@ -166,6 +254,18 @@ class CausalConsistencyChecker:
         """Number of update() calls since last reset."""
         return self._step
 
+    @property
+    def effective_rank(self) -> float:
+        """
+        Participation ratio of the most recent window (subspace method only).
+
+        ≈ 1 → trajectory collapsed to a line (highly correlated states).
+        Higher → the recent window spans more independent directions, which
+        rises sharply right after an abrupt topic switch introduces a new one.
+        Always 1.0 under the cosine method (not computed).
+        """
+        return self._last_eff_rank
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -174,11 +274,13 @@ class CausalConsistencyChecker:
         """Clear history and restore score to 1.0 (e.g. at session start)."""
         self._history.clear()
         self._ema_score = 1.0
+        self._last_eff_rank = 1.0
         self._step = 0
 
     def __repr__(self) -> str:
         return (
             f"CausalConsistencyChecker("
+            f"method={self.method}, "
             f"score={self._ema_score:.3f}, "
             f"steps={self._step}, "
             f"window={self.window})"

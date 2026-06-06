@@ -207,6 +207,9 @@ class MTLNNModel(nn.Module):
             self.world_model_head = PredictiveStateHead(
                 config.d_model,
                 hidden_ratio=getattr(config, "world_model_hidden_ratio", 0.5),
+                proj_ratio=getattr(config, "world_model_proj_ratio", 0.5),
+                ema_decay=getattr(config, "world_model_ema_decay", 0.99),
+                use_ema_target=getattr(config, "world_model_use_ema_target", True),
             )
         else:
             self.world_model_head = None
@@ -295,6 +298,9 @@ class MTLNNModel(nn.Module):
         # prediction error to all blocks before the loop so LAVIEstimator can
         # use it as a supplementary transience signal.
         # Uses last_pred_error (a buffer holding last forward's value — causal).
+        # As of v2.1 this buffer is the NORMALISED surprise ∈ [0,1] (1-cos)/2,
+        # so the LAVI correction wm_correction = tanh(scale)·pred_error stays
+        # bounded regardless of representation magnitude.
         if self.world_model_head is not None:
             _wm_err = self.world_model_head.last_pred_error.item()
             for _blk in self.blocks:
@@ -521,8 +527,11 @@ class MTLNNModel(nn.Module):
             diag["global_rhythm_scale"] = torch.tanh(self.global_rhythm.scale).item()
 
         # Phase C: world model diagnostics
+        #   world_model_pred_error      : normalised surprise ∈ [0,1] (LAVI input)
+        #   world_model_pred_error_raw  : raw latent MSE magnitude
         if self.world_model_head is not None:
             diag["world_model_pred_error"] = self.world_model_head.last_pred_error.item()
+            diag["world_model_pred_error_raw"] = self.world_model_head.last_pred_error_raw.item()
 
         # Phase D: Hebbian diagnostics
         if self.hebbian_reg is not None:

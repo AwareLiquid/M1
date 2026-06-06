@@ -1,13 +1,13 @@
 """
 tests/test_world_model.py — PredictiveStateHead test suite.
 
-Tests cover:
-  1.  Output shape matches input
+Tests cover (v2.1 — BYOL / V-JEPA EMA target encoder):
+  1.  Output latent shape (B, T, proj_dim)
   2.  No loss returned for T=1 (single-step inference)
   3.  Loss returned and finite for T>1 (training sequence)
   4.  Loss is a non-negative scalar
-  5.  Gradient flows to all head params
-  6.  Zero-init: predictions start near zero at init
+  5.  Gradient flows to all *trainable* head params (target_proj is frozen)
+  6.  Target projector is a frozen EMA copy that tracks the online projector
   7.  Loss decreases during training steps (head can learn)
   8.  Full MTLNNModel with use_world_model=True — forward shape
   9.  world_model_loss present in output when use_world_model=True + labels
@@ -62,7 +62,9 @@ def test_output_shape_matches_input():
     head = PredictiveStateHead(d_model=D)
     x = torch.randn(B, T, D)
     pred, loss = head(x)
-    assert pred.shape == (B, T, D), f"expected {(B,T,D)}, got {pred.shape}"
+    # Latent prediction in proj space (proj_ratio=0.5 → D//2).
+    assert pred.shape == (B, T, head.proj_dim), \
+        f"expected {(B, T, head.proj_dim)}, got {pred.shape}"
 
 
 def test_output_shape_single_step():
@@ -70,7 +72,7 @@ def test_output_shape_single_step():
     head = PredictiveStateHead(d_model=D)
     x = torch.randn(B, T, D)
     pred, loss = head(x)
-    assert pred.shape == (B, T, D)
+    assert pred.shape == (B, T, head.proj_dim)
     assert loss is None, "T=1 should return no loss"
 
 
@@ -127,23 +129,61 @@ def test_gradient_flow_through_head():
     loss.backward()
     assert x.grad is not None
     for name, p in head.named_parameters():
-        assert p.grad is not None, f"param {name} has no gradient"
+        if not p.requires_grad:
+            # target_proj is a frozen EMA copy — intentionally no gradient.
+            assert "target_proj" in name, f"unexpected frozen param {name}"
+            continue
+        assert p.grad is not None, f"trainable param {name} has no gradient"
 
 
 # ---------------------------------------------------------------------------
-# 6. Zero-init: predictions near zero at init
+# 6. EMA target encoder: frozen copy that tracks the online projector
 # ---------------------------------------------------------------------------
 
-def test_predictions_near_zero_at_init():
-    """Last layer is zero-init → predictor(x) ≈ 0 at init."""
+def test_target_proj_is_frozen():
+    """target_proj must not require grad (stop-grad target prevents collapse)."""
+    head = PredictiveStateHead(d_model=64)
+    for p in head.target_proj.parameters():
+        assert not p.requires_grad, "target_proj should be frozen (no backprop)"
+
+
+def test_target_proj_initialised_to_online():
+    """At init the EMA target equals the online projector."""
+    head = PredictiveStateHead(d_model=64)
+    assert torch.allclose(
+        head.target_proj.weight, head.online_proj.weight
+    ), "target_proj should start as a copy of online_proj"
+
+
+def test_ema_target_tracks_online_after_update():
+    """
+    After the online projector moves and a training forward triggers the EMA
+    update, the target should move toward (but lag behind) the online weights.
+    """
+    torch.manual_seed(0)
+    head = PredictiveStateHead(d_model=64, ema_decay=0.9)
+    # Perturb the online projector to create a gap.
+    with torch.no_grad():
+        head.online_proj.weight.add_(torch.randn_like(head.online_proj.weight))
+    gap_before = (head.target_proj.weight - head.online_proj.weight).abs().mean().item()
+
+    x = torch.randn(2, 8, 64)
+    head(x)  # training forward (T>1) → _update_target() runs
+
+    gap_after = (head.target_proj.weight - head.online_proj.weight).abs().mean().item()
+    assert gap_after < gap_before, \
+        f"EMA target did not move toward online: {gap_before:.4f} → {gap_after:.4f}"
+
+
+def test_pred_error_normalised_to_unit_interval():
+    """The exposed surprise signal must be a normalised value in [0, 1]."""
     torch.manual_seed(0)
     head = PredictiveStateHead(d_model=64)
-    x = torch.randn(2, 8, 64)
-    with torch.no_grad():
-        pred, _ = head(x)
-    # All predictions should be exactly 0 (fc2.weight = fc2.bias = 0)
-    assert pred.abs().max().item() < 1e-7, \
-        f"predictions not near zero at init: max={pred.abs().max().item():.2e}"
+    # Drive a forward with large-magnitude states; normalised error must stay [0,1].
+    x = torch.randn(2, 8, 64) * 100.0
+    head(x)
+    err = head.last_pred_error.item()
+    assert 0.0 <= err <= 1.0, f"normalised pred_error out of range: {err}"
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +358,7 @@ def test_compute_loss_false():
     head = PredictiveStateHead(d_model=64)
     x = torch.randn(2, 8, 64)
     pred, loss = head(x, compute_loss=False)
-    assert pred.shape == x.shape
+    assert pred.shape == (2, 8, head.proj_dim)
     assert loss is None
 
 
@@ -356,7 +396,10 @@ if __name__ == "__main__":
         test_loss_present_for_sequence,
         test_loss_non_negative,
         test_gradient_flow_through_head,
-        test_predictions_near_zero_at_init,
+        test_target_proj_is_frozen,
+        test_target_proj_initialised_to_online,
+        test_ema_target_tracks_online_after_update,
+        test_pred_error_normalised_to_unit_interval,
         test_loss_decreases_during_training,
         test_model_with_world_model_forward,
         test_model_world_model_head_not_none,
