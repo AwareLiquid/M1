@@ -251,6 +251,11 @@ def train(args):
 
             if (step + 1) % args.grad_accum == 0:
                 scaler.unscale_(optimizer)
+                # Targeted clip on the world-model head first: its auxiliary
+                # self-supervised loss must never destabilise the LM objective.
+                if getattr(model, "world_model_head", None) is not None:
+                    torch.nn.utils.clip_grad_norm_(
+                        model.world_model_head.parameters(), args.world_model_grad_clip)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                 scaler.step(optimizer)
                 scaler.update()
@@ -381,6 +386,8 @@ def parse_args():
                    help="[Phase C] Enable PredictiveStateHead: next-state self-supervised loss")
     p.add_argument("--world_model_weight", type=float, default=0.01,
                    help="[Phase C] Weight of world-model MSE loss (default 0.01)")
+    p.add_argument("--world_model_grad_clip", type=float, default=1.0,
+                   help="[Phase C] Separate grad-norm clip for the world-model head (default 1.0)")
     p.add_argument("--hebbian", action="store_true",
                    help="[Phase D] Enable HebbianRegularizer: co-activation loss term")
     p.add_argument("--hebbian_lr", type=float, default=1e-4,

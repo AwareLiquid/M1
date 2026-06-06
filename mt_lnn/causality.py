@@ -130,6 +130,27 @@ class CausalConsistencyChecker:
         self._step: int = 0
 
     # ------------------------------------------------------------------
+    # Construction
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def from_config(cls, config, **overrides) -> "CausalConsistencyChecker":
+        """
+        Build a checker from an MTLNNConfig's causal_check_* fields.
+
+        Lets a single config drive the whole pipeline. Any keyword in
+        `overrides` takes precedence over the config value (e.g. a longer
+        window for a specific session).
+        """
+        kwargs = dict(
+            window=getattr(config, "causal_check_window", 8),
+            threshold=getattr(config, "causal_check_threshold", 0.3),
+            method=getattr(config, "causal_check_method", "cosine"),
+        )
+        kwargs.update(overrides)
+        return cls(**kwargs)
+
+    # ------------------------------------------------------------------
     # Core update
     # ------------------------------------------------------------------
 

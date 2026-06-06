@@ -149,6 +149,21 @@ class MTLNNConfig:
     world_model_proj_ratio: float = 0.5     # latent proj dim relative to d_model
     world_model_ema_decay: float = 0.99     # EMA momentum for the target projector
     world_model_use_ema_target: bool = True # False → trainable stop-grad target (ablation)
+    world_model_warmup_steps: int = 1000    # EMA warm-up (gentler decay early in training)
+
+    # Causal consistency checker (Phase B). The checker is a stateless
+    # inference-time monitor (not part of the model graph), but its defaults
+    # live here so a single config drives the whole pipeline. Construct with
+    # CausalConsistencyChecker.from_config(cfg).
+    #   method="cosine"  : cheap, back-compat default. Saturates on anisotropic
+    #                      hidden states (rarely fires on real breaks).
+    #   method="subspace": principal-subspace residual, anisotropy-robust.
+    #                      Recommended for real hidden states. Tuning tip: pair
+    #                      with a higher consistency_floor (subspace scores sit
+    #                      higher in stable regimes, drop sharply on a break).
+    causal_check_method: str = "cosine"
+    causal_check_window: int = 5
+    causal_check_threshold: float = 0.3
 
     # EEG-inspired rhythm gate (LAVI). Default OFF — no impact on existing code.
     # use_rhythm: attach LAVIEstimator to each MTLNNLayer; modulates the τ-scale

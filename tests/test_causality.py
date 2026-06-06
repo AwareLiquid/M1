@@ -501,6 +501,167 @@ def test_full_inference_loop_with_break():
 
 
 # ---------------------------------------------------------------------------
+# Phase B v2.1: subspace method (anisotropy-robust break detection)
+# ---------------------------------------------------------------------------
+
+def _aniso_stable(D=32, scale=0.1):
+    """Large shared component + small perturbation in subspace span{e1,e2}."""
+    base = torch.zeros(D); base[0] = 10.0
+    p = torch.zeros(D)
+    p[1] = torch.randn(1).item() * scale
+    p[2] = torch.randn(1).item() * scale
+    return base + p
+
+
+def _aniso_switched(D=32, scale=0.1):
+    """Same large shared component, perturbation switched to span{e3,e4}."""
+    base = torch.zeros(D); base[0] = 10.0
+    p = torch.zeros(D)
+    p[3] = torch.randn(1).item() * scale
+    p[4] = torch.randn(1).item() * scale
+    return base + p
+
+
+def test_subspace_detects_break_cosine_blind():
+    """
+    The headline anisotropy case: a dominant shared direction masks a real
+    topic switch from the cosine detector, but the subspace detector catches
+    it. subspace must dip below 0.5 (here below the 0.35 self-critique floor),
+    while cosine moves < 0.1.
+    """
+    torch.manual_seed(0)
+    results = {}
+    for method in ("cosine", "subspace"):
+        torch.manual_seed(0)  # identical vector stream for a fair comparison
+        c = CausalConsistencyChecker(window=6, ema_alpha=0.6,
+                                     threshold=0.35, method=method)
+        for _ in range(8):
+            c.update(_aniso_stable())
+        pre = c.consistency_score()
+        min_during = pre
+        for _ in range(8):
+            c.update(_aniso_switched())
+            min_during = min(min_during, c.consistency_score())
+        results[method] = (pre, min_during)
+
+    cos_pre, cos_min = results["cosine"]
+    sub_pre, sub_min = results["subspace"]
+
+    # Cosine is essentially blind: barely moves through the switch.
+    assert abs(cos_pre - cos_min) < 0.1, \
+        f"cosine unexpectedly reacted: {cos_pre:.3f} -> {cos_min:.3f}"
+    # Subspace fires hard enough to cross the self-critique floor.
+    assert sub_min < 0.5, f"subspace did not fire on the break: min={sub_min:.3f}"
+    assert sub_pre - sub_min > 0.3, \
+        f"subspace drop too small: {sub_pre:.3f} -> {sub_min:.3f}"
+
+
+def test_cosine_method_is_backward_compatible():
+    """
+    method='cosine' (the default) must reproduce the exact pre-v2.1 mapping:
+    EMA of (cos(h, window_mean)+1)/2.  Verified against a manual computation.
+    """
+    torch.manual_seed(1)
+    D = 16
+    vecs = [torch.randn(D) for _ in range(5)]
+
+    c = CausalConsistencyChecker(window=8, ema_alpha=0.4, threshold=0.3,
+                                 method="cosine")
+    # Manual reference replicating the documented algorithm.
+    import torch.nn.functional as F
+    hist = []
+    ref = 1.0
+    for v in vecs:
+        score = c.update(v)
+        if hist:
+            mean_ref = torch.stack(hist, dim=0).mean(dim=0)
+            hn = F.normalize(v.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
+            mn = F.normalize(mean_ref.unsqueeze(0), dim=-1, eps=1e-8).squeeze(0)
+            sim01 = max(0.0, min(1.0, (torch.dot(hn, mn).item() + 1.0) / 2.0))
+            ref = 0.4 * sim01 + 0.6 * ref
+        hist.append(v.clone())
+        assert abs(score - ref) < 1e-5, f"cosine drift: {score:.6f} vs {ref:.6f}"
+
+
+def test_effective_rank_diagnostic_tracks_complexity():
+    """
+    effective_rank ≈ 1 for a near-colinear window, and rises when the window
+    spans several independent directions.
+    """
+    torch.manual_seed(2)
+    D = 32
+    base = torch.randn(D)
+
+    # Colinear window (scaled copies of one direction) → eff_rank ≈ 1.
+    c1 = CausalConsistencyChecker(window=6, method="subspace")
+    for k in range(6):
+        c1.update(base * (1.0 + 0.01 * k))
+    assert c1.effective_rank < 1.5, f"colinear eff_rank too high: {c1.effective_rank:.2f}"
+
+    # Diverse window (independent directions) → eff_rank well above 1.
+    c2 = CausalConsistencyChecker(window=6, method="subspace")
+    for _ in range(6):
+        c2.update(torch.randn(D))
+    assert c2.effective_rank > 2.0, f"diverse eff_rank too low: {c2.effective_rank:.2f}"
+
+
+def test_invalid_method_raises():
+    try:
+        CausalConsistencyChecker(method="bogus")
+    except ValueError:
+        return
+    raise AssertionError("expected ValueError for unknown method")
+
+
+def test_from_config_builds_checker():
+    """CausalConsistencyChecker.from_config reads causal_check_* fields."""
+    from mt_lnn.config import MTLNNConfig
+    cfg = MTLNNConfig(
+        vocab_size=64, d_model=104, n_layers=1, n_heads=13, n_kv_heads=1,
+        d_head=8, max_seq_len=32, gwtb_n_heads=1,
+        causal_check_method="subspace",
+        causal_check_window=7,
+        causal_check_threshold=0.42,
+    )
+    c = CausalConsistencyChecker.from_config(cfg)
+    assert c.method == "subspace"
+    assert c.window == 7
+    assert abs(c.threshold - 0.42) < 1e-9
+    # Overrides win.
+    c2 = CausalConsistencyChecker.from_config(cfg, window=3)
+    assert c2.window == 3 and c2.method == "subspace"
+
+
+def test_subspace_break_triggers_self_critique():
+    """
+    End-to-end: an anisotropic break drives the subspace score below the
+    router's consistency_floor, forcing SELF_CRITIQUE even on low-entropy
+    (confident-looking) logits.
+    """
+    torch.manual_seed(0)
+    c = CausalConsistencyChecker(window=6, ema_alpha=0.6,
+                                 threshold=0.35, method="subspace")
+    router = DeliberationRouter(thresholds=RouterThresholds(
+        low=3.0, high=5.0, consistency_floor=0.35))
+
+    for _ in range(8):
+        c.update(_aniso_stable())
+
+    # Low-entropy logits (confident) — without the causal check this routes LOCAL.
+    confident_logits = torch.zeros(64); confident_logits[3] = 20.0
+
+    fired = False
+    for _ in range(8):
+        score = c.update(_aniso_switched())
+        d = router.decide(confident_logits, query="q", evidence_log=[],
+                          consistency_signal=score)
+        if d.route == Route.SELF_CRITIQUE and d.reason == "causal_break":
+            fired = True
+            break
+    assert fired, "subspace break failed to trigger causal self-critique override"
+
+
+# ---------------------------------------------------------------------------
 # Run all
 # ---------------------------------------------------------------------------
 
@@ -536,6 +697,12 @@ if __name__ == "__main__":
         test_causal_consistency_none_when_no_signal,
         test_full_inference_loop_no_break,
         test_full_inference_loop_with_break,
+        test_subspace_detects_break_cosine_blind,
+        test_cosine_method_is_backward_compatible,
+        test_effective_rank_diagnostic_tracks_complexity,
+        test_invalid_method_raises,
+        test_from_config_builds_checker,
+        test_subspace_break_triggers_self_critique,
     ]
     for fn in tests:
         try:

@@ -96,6 +96,10 @@ class PredictiveStateHead(nn.Module):
         If True (default), use the EMA target encoder (recommended — prevents
         collapse). If False, fall back to a *trainable* target projector with
         stop-grad on its output (a weaker baseline, kept for ablation).
+    warmup_steps : int
+        Number of initial EMA updates that use a gentler decay (0.9) before
+        switching to `ema_decay`. Lets the target track the fast-moving online
+        projector early in training. Set 0 to disable warm-up.
 
     Notes
     -----
@@ -113,6 +117,7 @@ class PredictiveStateHead(nn.Module):
         proj_ratio: float = 0.5,
         ema_decay: float = 0.99,
         use_ema_target: bool = True,
+        warmup_steps: int = 1000,
     ):
         super().__init__()
         self.d_model = d_model
@@ -124,32 +129,38 @@ class PredictiveStateHead(nn.Module):
         self.proj_dim = proj_dim
 
         # Online projector: x_t → latent.  Trained by backprop.
+        # Small-scale init (NOT zero — a zero latent has an undefined direction
+        # after L2 normalisation).
         self.online_proj = nn.Linear(d_model, proj_dim, bias=False)
+        nn.init.normal_(self.online_proj.weight, std=0.02)
 
-        # Predictor: online latent → predicted *next* latent.  The asymmetry
-        # that breaks the symmetry and prevents collapse.
+        # Predictor: online latent → predicted *next* latent.  This online-only
+        # head is the asymmetry that breaks symmetry and prevents collapse.
+        # Output layer kept small so the initial prediction is near the
+        # projector output (not exactly zero — see online_proj note above).
         self.predictor = nn.Sequential(
             nn.Linear(proj_dim, hidden_dim, bias=True),
             nn.GELU(),
             nn.Linear(hidden_dim, proj_dim, bias=True),
         )
+        nn.init.normal_(self.predictor[0].weight, std=0.02)
+        nn.init.zeros_(self.predictor[0].bias)
+        nn.init.normal_(self.predictor[-1].weight, std=0.02)
+        nn.init.zeros_(self.predictor[-1].bias)
 
-        # Target projector: x_{t+1} → target latent.  EMA of online_proj; no
-        # gradient flows through it (stop-grad on the target).
+        # Target projector: x_{t+1} → target latent.  A frozen EMA copy of
+        # online_proj (no gradient flows through it). Created AFTER online_proj
+        # is initialised so the two are guaranteed identical at step 0.
         self.target_proj = nn.Linear(d_model, proj_dim, bias=False)
         self.target_proj.weight.data.copy_(self.online_proj.weight.data)
         for p in self.target_proj.parameters():
             p.requires_grad = False
 
-        # Small-scale init (NOT zero — a zero latent has an undefined direction
-        # after L2 normalisation).  Predictor output layer kept small so the
-        # initial prediction is near the projector output.
-        nn.init.normal_(self.online_proj.weight, std=0.02)
-        self.target_proj.weight.data.copy_(self.online_proj.weight.data)
-        nn.init.normal_(self.predictor[0].weight, std=0.02)
-        nn.init.zeros_(self.predictor[0].bias)
-        nn.init.normal_(self.predictor[-1].weight, std=0.02)
-        nn.init.zeros_(self.predictor[-1].bias)
+        # EMA warm-up: early in training online_proj moves fast, so a fixed
+        # high decay leaves the target lagging too far. Use a gentler decay
+        # (0.9) for the first `warmup_steps` updates, then the configured decay.
+        self.warmup_steps = int(warmup_steps)
+        self._ema_step = 0
 
         # Diagnostic buffers — updated every forward, no gradient.
         #   last_pred_error      : normalised surprise ∈ [0, 1]  (LAVI input)
@@ -159,8 +170,13 @@ class PredictiveStateHead(nn.Module):
 
     @torch.no_grad()
     def _update_target(self) -> None:
-        """EMA update: target_proj ← decay·target_proj + (1-decay)·online_proj."""
-        d = self.ema_decay
+        """EMA update: target_proj ← decay·target_proj + (1-decay)·online_proj.
+
+        Uses a gentler decay (0.9) during the warm-up window so the target can
+        keep up with the fast-moving online projector early in training.
+        """
+        self._ema_step += 1
+        d = self.ema_decay if self._ema_step > self.warmup_steps else min(self.ema_decay, 0.9)
         for tgt, src in zip(self.target_proj.parameters(), self.online_proj.parameters()):
             tgt.mul_(d).add_(src.detach(), alpha=1.0 - d)
 

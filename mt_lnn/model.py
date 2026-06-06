@@ -210,6 +210,7 @@ class MTLNNModel(nn.Module):
                 proj_ratio=getattr(config, "world_model_proj_ratio", 0.5),
                 ema_decay=getattr(config, "world_model_ema_decay", 0.99),
                 use_ema_target=getattr(config, "world_model_use_ema_target", True),
+                warmup_steps=getattr(config, "world_model_warmup_steps", 1000),
             )
         else:
             self.world_model_head = None

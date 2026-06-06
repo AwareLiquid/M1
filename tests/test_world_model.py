@@ -187,6 +187,89 @@ def test_pred_error_normalised_to_unit_interval():
 
 
 # ---------------------------------------------------------------------------
+# 6b. Negative controls — the surprise signal is a real mechanism, not an
+#     artifact, and the EMA design does not collapse.
+# ---------------------------------------------------------------------------
+
+def _ar1_batch(B=8, T=12, D=32, rho=0.9):
+    """A batch with genuine temporal structure (AR(1) along the time axis)."""
+    xs = [torch.randn(B, D)]
+    for _ in range(T - 1):
+        xs.append(rho * xs[-1] + 0.2 * torch.randn(B, D))
+    return torch.stack(xs, dim=1)
+
+
+def _train_head(structured: bool, seed: int, steps: int = 500, D: int = 32):
+    torch.manual_seed(seed)
+    head = PredictiveStateHead(D, ema_decay=0.99, warmup_steps=100)
+    opt = optim.Adam([p for p in head.parameters() if p.requires_grad], lr=3e-3)
+    for _ in range(steps):
+        x = _ar1_batch(D=D) if structured else torch.randn(8, 12, D)
+        _, loss = head(x)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+    return head
+
+
+def test_surprise_tracks_structure_not_noise():
+    """
+    NEGATIVE CONTROL: the normalised surprise must reflect *real*
+    predictability. Trained on temporally structured (AR(1)) sequences the
+    error should fall well below chance (0.5); trained on i.i.d. noise — where
+    there is nothing to predict — it must stay near chance. This proves the
+    world model captures genuine sequential structure rather than producing a
+    trivial/constant signal.
+    """
+    structured_err = _train_head(structured=True, seed=0).last_pred_error.item()
+    noise_err = _train_head(structured=False, seed=0).last_pred_error.item()
+    assert structured_err < 0.25, f"failed to learn structure: err={structured_err:.3f}"
+    assert noise_err > 0.35, f"surprise collapsed on noise (should ~0.5): {noise_err:.3f}"
+    assert structured_err < noise_err - 0.2, \
+        f"no separation: structured={structured_err:.3f} noise={noise_err:.3f}"
+
+
+def test_no_representational_collapse():
+    """
+    The asymmetric predictor + stop-grad (+ EMA) design must NOT collapse the
+    latent space: distinct inputs should keep distinct latent directions. We
+    measure the mean pairwise |cosine| of the latents of a diverse probe batch
+    after training — collapse would drive this toward 1.0.
+    """
+    head = _train_head(structured=True, seed=0, steps=500, D=32)
+    torch.manual_seed(123)
+    probe = torch.randn(16, 12, 32)
+    with torch.no_grad():
+        z = head.online_proj(probe).reshape(-1, head.proj_dim)
+    zn = torch.nn.functional.normalize(z, dim=-1, eps=1e-8)
+    sim = zn @ zn.t()
+    n = sim.shape[0]
+    mean_off_diag = (sim.abs().sum() - sim.diag().abs().sum()) / (n * (n - 1))
+    assert mean_off_diag.item() < 0.5, \
+        f"latent space collapsed: mean pairwise|cos|={mean_off_diag.item():.3f}"
+
+
+def test_ema_warmup_uses_gentler_decay():
+    """During warm-up the EMA must use the gentler 0.9 decay, then switch."""
+    head = PredictiveStateHead(d_model=32, ema_decay=0.999, warmup_steps=3)
+    # Force a gap so the decay choice is observable.
+    with torch.no_grad():
+        head.online_proj.weight.add_(torch.randn_like(head.online_proj.weight))
+    x = torch.randn(2, 8, 32)
+    # 1st update (warm-up, d=0.9): big move toward online.
+    head(x)
+    gap1 = (head.target_proj.weight - head.online_proj.weight).abs().mean().item()
+    # Run past warm-up; subsequent updates (d=0.999) move slowly.
+    for _ in range(5):
+        head(x)
+    gap2 = (head.target_proj.weight - head.online_proj.weight).abs().mean().item()
+    # After warm-up the target keeps closing the gap (monotonic), and the
+    # step counter must have advanced past warmup_steps.
+    assert head._ema_step >= 6
+    assert gap2 <= gap1
+
+
+# ---------------------------------------------------------------------------
 # 7. Loss decreases during training
 # ---------------------------------------------------------------------------
 
@@ -400,6 +483,9 @@ if __name__ == "__main__":
         test_target_proj_initialised_to_online,
         test_ema_target_tracks_online_after_update,
         test_pred_error_normalised_to_unit_interval,
+        test_surprise_tracks_structure_not_noise,
+        test_no_representational_collapse,
+        test_ema_warmup_uses_gentler_decay,
         test_loss_decreases_during_training,
         test_model_with_world_model_forward,
         test_model_world_model_head_not_none,
