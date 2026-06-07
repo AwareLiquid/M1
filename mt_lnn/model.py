@@ -215,6 +215,30 @@ class MTLNNModel(nn.Module):
         else:
             self.world_model_head = None
 
+        # P3.1 multi-source GWT: when the competitive workspace AND the predictive
+        # world model are both active and gwtb_external_bids is set, the world
+        # model submits its *expectation* of the current state as an extra bid in
+        # the workspace competition. A residual, zero-GATED adapter maps the
+        # predicted latent (proj_dim) back to d_model:
+        #     world_bid = x + gate · adapter(predictor(online_proj(x)))
+        # gate is init 0 → world_bid == x at init → competition (all bids == x,
+        # uniform scores) is unchanged → bit-identical output at init (zero
+        # regression). The adapter weights are init small-but-nonzero so the gate
+        # has a live gradient and the world model can *learn* to bid usefully.
+        self._world_gwtb_bid = (
+            getattr(config, "gwtb_external_bids", False)
+            and self.world_model_head is not None
+            and getattr(self.gwtb, "accept_external_bids", False)
+        )
+        if self._world_gwtb_bid:
+            self.world_bid_adapter = nn.Linear(
+                self.world_model_head.proj_dim, config.d_model, bias=False
+            )
+            nn.init.normal_(self.world_bid_adapter.weight, std=0.02)
+            self.world_bid_gate = nn.Parameter(
+                torch.tensor(float(getattr(config, "gwtb_external_bid_gate_init", 0.0)))
+            )
+
         # Hebbian Regularizer (Phase D).
         # Collects per-block co-activation signals from MTLNNLayer._hebb_signal
         # and returns -α × mean as a training loss term.
@@ -334,10 +358,27 @@ class MTLNNModel(nn.Module):
         # Top-level GWTB (only if gwtb_per_block=False).
         if self.gwtb is not None:
             gwtb_past = cache.gwtb_kv if cache is not None else None
-            x, gwtb_new_kv = self.gwtb(
-                x, past_kv=gwtb_past, position_offset=position_offset,
-                use_cache=use_cache,
-            )
+            # P3.1: build the world model's expectation bid (residual, zero-gated
+            # at init → no effect until the gate learns to open).
+            external_bids = None
+            if getattr(self, "_world_gwtb_bid", False):
+                z_pred = self.world_model_head.predictor(
+                    self.world_model_head.online_proj(x)
+                )                                                 # (B, T, proj_dim)
+                world_bid = x + self.world_bid_gate * self.world_bid_adapter(z_pred)
+                external_bids = [world_bid]
+            if external_bids is not None:
+                # Only the CompetitiveGWTBLayer accepts external bids; the base
+                # GWTBLayer keeps its original signature (zero regression).
+                x, gwtb_new_kv = self.gwtb(
+                    x, past_kv=gwtb_past, position_offset=position_offset,
+                    use_cache=use_cache, external_bids=external_bids,
+                )
+            else:
+                x, gwtb_new_kv = self.gwtb(
+                    x, past_kv=gwtb_past, position_offset=position_offset,
+                    use_cache=use_cache,
+                )
             if use_cache:
                 new_cache.gwtb_kv = gwtb_new_kv
 
@@ -559,6 +600,10 @@ class MTLNNModel(nn.Module):
                 diag["gwtb_competition_entropy"] = self.gwtb.last_competition_entropy.item()
                 for k, w in enumerate(self.gwtb.last_winner_weights.tolist()):
                     diag[f"gwtb_bid{k}_weight"] = w
+                # P3.1: external (multi-source) bid mass + the world-model bid gate.
+                diag["gwtb_external_bid_weight"] = self.gwtb.last_external_weight.item()
+                if getattr(self, "_world_gwtb_bid", False):
+                    diag["gwtb_world_bid_gate"] = self.world_bid_gate.item()
         else:
             # Per-block GWTB — report mean / spread across blocks
             gates = [b.gwtb.broadcast_gate.item() for b in self.blocks if b.has_gwtb]

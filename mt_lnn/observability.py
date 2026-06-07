@@ -90,6 +90,8 @@ _V2_DIAG_KEYS = (
     "gwtb_bid1_weight",
     "gwtb_bid2_weight",
     "gwtb_broadcast_gate",
+    "gwtb_external_bid_weight",    # P3.1 multi-source: mass on external module bids
+    "gwtb_world_bid_gate",         # P3.1: learned trust in the world-model bid
     # Phase C — predictive world model
     "world_model_pred_error",     # normalised surprise ∈ [0, 1]
     "world_model_pred_error_raw", # raw latent MSE magnitude

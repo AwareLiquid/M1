@@ -79,6 +79,15 @@ class MTLNNConfig:
     # competition stays at uniform 1/K forever (DeepSeekMoE "routing collapse" failure).
     competitive_score_noise: float = 0.5  # Gaussian noise σ on scores during training
     competitive_ortho_weight: float = 0.01  # weight of bid-projector orthogonality penalty
+    # P3.1 multi-source GWT (2026-06-07): let *external* modules (e.g. the
+    # predictive world model) submit their own bids into the workspace
+    # competition alongside the K internal BidProjectors. When ON, the model
+    # builds a residual, zero-init-gated adapter per external source so that at
+    # init each external bid == x (identical-to-internal) → competition stays
+    # uniform → output is bit-identical to the no-external-bid path (zero
+    # regression). The competition then learns how much to trust each source.
+    gwtb_external_bids: bool = False
+    gwtb_external_bid_gate_init: float = 0.0  # residual gate init for external bids
 
     # Global coherence (Orch-OR collapse, complementary to GWTB)
     coherence_sparsity: float = 0.1  # keep top 10% of attention scores

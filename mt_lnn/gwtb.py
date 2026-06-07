@@ -213,6 +213,16 @@ class CompetitiveGWTBLayer(GWTBLayer):
     back to the *original* x, not to the competed combination.
 
     See module docstring for full design rationale.
+
+    P3.1 multi-source GWT (2026-06-07)
+    ----------------------------------
+    forward() / _compete() optionally accept ``external_bids`` — a list of
+    (B, T, d_model) tensors submitted by *other* modules (e.g. the predictive
+    world model's expectation of the current state). They join the competition
+    on equal footing with the internal specialists via the shared score_head.
+    The invariant is preserved: no external bids → identical to internal-only.
+    If a caller supplies an external bid that equals x (as a zero-init residual
+    adapter does at init), the init-identity property still holds.
     """
 
     def __init__(self, config: MTLNNConfig):
@@ -243,6 +253,11 @@ class CompetitiveGWTBLayer(GWTBLayer):
         nn.init.normal_(self.score_head[0].weight, std=0.02)
         nn.init.zeros_(self.score_head[0].bias)
 
+        # P3.1: whether this layer accepts external module bids (the model only
+        # passes them when configured). The mechanism is identity-preserving:
+        # external bids absent → behaviour is bit-identical to before.
+        self.accept_external_bids = bool(getattr(config, "gwtb_external_bids", False))
+
         # Diagnostics: mean bid weights and competition entropy from the last
         # forward call. Non-persistent buffers — for monitoring only.
         self.register_buffer(
@@ -251,17 +266,33 @@ class CompetitiveGWTBLayer(GWTBLayer):
         self.register_buffer(
             "last_competition_entropy", torch.zeros(()), persistent=False
         )
+        # P3.1: total softmax mass placed on EXTERNAL bids in the last forward
+        # (0.0 when no external bids participated). A health signal: how much
+        # the workspace currently relies on other modules vs its own specialists.
+        self.register_buffer(
+            "last_external_weight", torch.zeros(()), persistent=False
+        )
 
         # Orthogonality penalty (computed in _compete during training, picked up
         # by MTLNNModel.forward and added to total loss). None at eval.
         self._last_ortho_penalty: "Optional[torch.Tensor]" = None
 
-    def _compete(self, x: torch.Tensor) -> torch.Tensor:
+    def _compete(
+        self,
+        x: torch.Tensor,
+        external_bids: "Optional[List[torch.Tensor]]" = None,
+    ) -> torch.Tensor:
         """
-        Extract K bids, score them, return weighted combination.
+        Extract K internal bids (+ any external bids), score them, return the
+        weighted combination that enters the workspace bottleneck.
 
-        x       : (B, T, d_model)
-        returns : (B, T, d_model)  — weighted combination that enters workspace
+        x             : (B, T, d_model)
+        external_bids : optional list of (B, T, d_model) tensors submitted by
+                        *other* modules (P3.1 multi-source GWT). Each competes on
+                        equal footing with the internal BidProjector bids via the
+                        shared score_head. None / empty → behaviour is identical
+                        to the internal-only path (zero regression).
+        returns       : (B, T, d_model)  — weighted combination
 
         Symmetry-breaking (P0 fix, 2026-06-07):
         - Training: Gaussian noise is added to scores BEFORE softmax. Without
@@ -271,17 +302,34 @@ class CompetitiveGWTBLayer(GWTBLayer):
         - Orthogonality penalty on bid_projectors' output layers actively pushes
           specialist projectors apart in weight space. Stored in
           self._last_ortho_penalty for MTLNNModel.forward to add to total loss.
+          (External bids carry no fc2 weights here, so the penalty is unchanged
+          — it still only separates the internal specialists.)
         """
         B, T, D = x.shape
         K = self.n_bids
 
         # 1. K specialist bids, each (B, T, d_model)
         bids: List[torch.Tensor] = [proj(x) for proj in self.bid_projectors]
+        n_internal = len(bids)
+
+        # 1b. P3.1: append validated external bids (multi-source competition).
+        n_external = 0
+        if external_bids:
+            for j, eb in enumerate(external_bids):
+                if eb is None:
+                    continue
+                if eb.shape != x.shape:
+                    raise ValueError(
+                        f"external bid {j} has shape {tuple(eb.shape)}, expected "
+                        f"{tuple(x.shape)} (B, T, d_model) to match x"
+                    )
+                bids.append(eb)
+                n_external += 1
 
         # 2. Score each bid (shared score_head)
         scores = torch.cat(
             [self.score_head(bid) for bid in bids], dim=-1
-        )   # (B, T, K)
+        )   # (B, T, K + n_external)
 
         # 2b. Symmetry-breaking noise during training.
         # Even when all bids are identical at init, noisy scores → different
@@ -322,10 +370,17 @@ class CompetitiveGWTBLayer(GWTBLayer):
 
         # 6. Diagnostics (no_grad: detached from compute graph)
         with torch.no_grad():
-            mean_weights = weights.detach().mean(dim=(0, 1))            # (K,)
-            self.last_winner_weights = mean_weights
+            mean_weights = weights.detach().mean(dim=(0, 1))            # (K + n_external,)
+            # Keep last_winner_weights reporting the INTERNAL specialists so the
+            # shape is stable (== K) for existing observability; the external
+            # mass is reported separately below.
+            self.last_winner_weights = mean_weights[:n_internal]
             ent = -(weights * (weights + 1e-8).log()).sum(dim=-1).mean()
             self.last_competition_entropy = ent.detach()
+            if n_external > 0:
+                self.last_external_weight = mean_weights[n_internal:].sum()
+            else:
+                self.last_external_weight = torch.zeros((), device=x.device)
 
         return combined
 
@@ -335,9 +390,12 @@ class CompetitiveGWTBLayer(GWTBLayer):
         past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         position_offset: int = 0,
         use_cache: bool = False,
+        external_bids: "Optional[List[torch.Tensor]]" = None,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
-        # Competition: which specialist view enters the workspace bottleneck
-        x_workspace = self._compete(x)                                  # (B, T, d_model)
+        # Competition: which specialist view enters the workspace bottleneck.
+        # external_bids (P3.1) let other modules compete for the workspace; None
+        # → internal-only, identical to the pre-P3.1 behaviour.
+        x_workspace = self._compete(x, external_bids=external_bids)     # (B, T, d_model)
 
         # Compress the competed view into the bottleneck
         z = self.compress_norm(self.compress(x_workspace))              # (B, T, d_gw)
