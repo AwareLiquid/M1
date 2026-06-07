@@ -26,7 +26,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 
 from mt_lnn import MTLNNConfig, MTLNNModel
-from mt_lnn.utils import make_param_groups, WarmupCosineScheduler, save_checkpoint
+from mt_lnn.utils import (
+    make_param_groups, WarmupCosineScheduler, save_checkpoint, load_checkpoint,
+)
+from mt_lnn.observability import JsonlMetricWriter, record_v2_metrics
 
 
 # ---------------------------------------------------------------------------
@@ -181,6 +184,22 @@ def train(args):
     amp_dtype = torch.bfloat16 if (device == "cuda" and torch.cuda.is_bf16_supported()) else torch.float16
 
     # ------------------------------------------------------------------
+    # Resume (cross-session continuation, e.g. Kaggle's 12h cap)
+    # ------------------------------------------------------------------
+    start_step = 0
+    if args.resume:
+        if os.path.exists(args.resume):
+            base_model = getattr(model, "_orig_mod", model)
+            ckpt = load_checkpoint(args.resume, base_model, optimizer)
+            start_step = int(ckpt.get("step", 0))
+            # Fast-forward the LR schedule by the number of optimiser steps taken.
+            for _ in range(start_step // max(args.grad_accum, 1)):
+                scheduler.step()
+            print(f"[resume] restored from {args.resume} at step {start_step}")
+        else:
+            print(f"[resume] checkpoint {args.resume} not found — starting fresh")
+
+    # ------------------------------------------------------------------
     # W&B
     # ------------------------------------------------------------------
     wandb_run = None
@@ -196,6 +215,21 @@ def train(args):
             print(f"[W&B] init failed: {e}; falling back to console logging.")
             wandb_run = None
 
+    # ------------------------------------------------------------------
+    # v2.0 module observability — JSONL (the "eyes" for long pre-training)
+    # ------------------------------------------------------------------
+    metrics_writer = None
+    if args.metrics_jsonl:
+        metrics_writer = JsonlMetricWriter(
+            args.metrics_jsonl,
+            static_fields={
+                "run": args.wandb_run_name or "mt-lnn",
+                "n_params_M": round(n_params / 1e6, 2),
+            },
+        )
+        print(f"[observability] v2 module metrics → {args.metrics_jsonl} "
+              f"(every {args.metrics_every} steps)")
+
     def log(metrics: dict, step: int, histograms: dict = None):
         if wandb_run is not None:
             payload = dict(metrics)
@@ -209,7 +243,7 @@ def train(args):
     # Training loop
     # ------------------------------------------------------------------
     os.makedirs(args.ckpt_dir, exist_ok=True)
-    step = 0
+    step = start_step
     accum_loss_sum = 0.0
     accum_count = 0
     t0 = time.time()
@@ -290,6 +324,11 @@ def train(args):
                 accum_loss_sum, accum_count = 0.0, 0
                 t0 = time.time()
 
+            # ---- v2.0 module metrics → JSONL (bounded scalars, for monitoring) ----
+            if metrics_writer is not None and step % args.metrics_every == 0:
+                base_model = getattr(model, "_orig_mod", model)
+                record_v2_metrics(metrics_writer, base_model, step)
+
             # ---- Eval + diagnostics ----
             if step % args.eval_every == 0:
                 val_ppl = evaluate(model, val_loader, device, max_batches=args.eval_batches)
@@ -321,6 +360,8 @@ def train(args):
     save_checkpoint(base_model, optimizer, step, 0.0,
                     os.path.join(args.ckpt_dir, "final.pt"), config)
     print(f"Training complete. Final checkpoint: {args.ckpt_dir}/final.pt")
+    if metrics_writer is not None:
+        metrics_writer.close()
     if wandb_run is not None:
         wandb_run.finish()
 
@@ -392,6 +433,13 @@ def parse_args():
                    help="[Phase D] Enable HebbianRegularizer: co-activation loss term")
     p.add_argument("--hebbian_lr", type=float, default=1e-4,
                    help="[Phase D] Base Hebbian learning rate α (default 1e-4)")
+    # ---- Observability + resume ----
+    p.add_argument("--metrics_jsonl", type=str, default=None,
+                   help="If set, append v2.0 module metrics (bounded scalars) to this JSONL file")
+    p.add_argument("--metrics_every", type=int, default=100,
+                   help="Step interval for v2.0 module metric records (default 100)")
+    p.add_argument("--resume", type=str, default=None,
+                   help="Resume from a checkpoint .pt (restores model/optimizer/step)")
     return p.parse_args()
 
 
