@@ -36,43 +36,68 @@ if not os.path.exists(DIR):
     subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)
 os.chdir(DIR)
 
-# CRITICAL: Kaggle ships a torch build matched to the assigned GPU (e.g. the
-# P100 is compute-capability sm_60, which recent torch wheels have *dropped*).
-# Installing datasets/transformers can silently upgrade torch to a build with
-# no sm_60 kernels → "CUDA error: no kernel image is available for execution on
-# the device" on the first forward pass. Pin the pre-installed torch via a pip
-# constraints file so the extras resolve their deps but can NEVER replace torch.
-import torch as _pretorch  # noqa: E402  (Kaggle pre-installs a GPU-matched torch)
-_torch_public = _pretorch.__version__.split("+")[0]   # strip +cuXXX local tag
+# CRITICAL GPU/torch compatibility (diagnosed 2026-06-07 from a failed run):
+# Kaggle's *pre-installed* torch (2.10.0+cu128) DROPPED Pascal (sm_60) kernels
+# — its supported set is sm_70..sm_120 — yet Kaggle still hands out Tesla P100
+# (sm_60) GPUs. On such a node the very first CUDA op dies with
+# "CUDA error: no kernel image is available for execution on the device".
+# get_device_capability() only reads device props (no kernel launch), so we can
+# detect the mismatch up front and, if needed, install a torch build that still
+# ships Pascal kernels (Pascal support was removed in torch 2.7, so 2.6.0+cu124
+# is the last safe line). train.py / prepare_data.py run in *subprocesses*, so
+# they pick up whatever torch we settle on here.
+import torch as _pretorch  # noqa: E402  (Kaggle pre-installs torch)
+_cap = _pretorch.cuda.get_device_capability(0) if _pretorch.cuda.is_available() else None
+_dev = _pretorch.cuda.get_device_name(0) if _pretorch.cuda.is_available() else "cpu"
+print(f"[env] pre-installed torch {_pretorch.__version__} | device={_dev} | "
+      f"capability={_cap}")
+
+if _cap is not None and _cap[0] < 7:
+    # Pascal (or older): the cu128 wheel can't run here. Install a Pascal-capable
+    # torch. cu124 wheels for 2.6.0 include sm_50..sm_90; forward-compatible with
+    # the newer Kaggle driver.
+    print(f"[env] {_dev} (sm_{_cap[0]}{_cap[1]}) is NOT supported by the "
+          f"pre-installed torch — installing Pascal-compatible torch 2.6.0+cu124")
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-q",
+         "torch==2.6.0", "torchvision==0.21.0",
+         "--index-url", "https://download.pytorch.org/whl/cu124"],
+        check=True,
+    )
+
+# Whatever torch is now current, pin it so the extras' dep resolution can't
+# replace it. Query a fresh interpreter (the parent's `torch` may be stale after
+# a reinstall above).
+_torch_public = subprocess.check_output(
+    [sys.executable, "-c", "import torch;print(torch.__version__.split('+')[0])"]
+).decode().strip()
 _constraints = "/tmp/pip-constraints.txt"
 with open(_constraints, "w") as _f:
-    # `==X.Y.Z` (no local segment) matches the installed `X.Y.Z+cuNNN` build,
-    # so this pins without forcing a reinstall.
+    # `==X.Y.Z` (no local segment) matches the installed `X.Y.Z+cuNNN` build.
     _f.write(f"torch=={_torch_public}\n")
-print(f"[env] pinning torch=={_torch_public} (pre-installed, GPU-matched) "
-      f"so pip cannot upgrade it")
+print(f"[env] pinning torch=={_torch_public} for the extras install")
 subprocess.run(
     [sys.executable, "-m", "pip", "install", "-q", "-c", _constraints,
      "datasets", "transformers", "tokenizers", "tqdm", "einops"],
     check=True,
 )
 
-import torch  # noqa: E402  (after pip install)
-print(f"torch {torch.__version__} | cuda={torch.cuda.is_available()} "
-      f"| device={torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu'}")
-# Fail fast & loud if torch can't actually run a kernel on this GPU, instead of
-# burning the data-tokenisation time only to crash on the first forward pass.
-if torch.cuda.is_available():
-    try:
-        _probe = (torch.ones(8, device="cuda") * 2).sum().item()
-        assert _probe == 16.0
-        print(f"[env] CUDA kernel probe OK on {torch.cuda.get_device_name(0)}")
-    except Exception as _e:  # pragma: no cover
-        raise RuntimeError(
-            f"torch {torch.__version__} cannot execute kernels on "
-            f"{torch.cuda.get_device_name(0)} (likely a compute-capability "
-            f"mismatch from a torch upgrade): {_e}"
-        )
+# Fail fast & loud if torch still can't execute a kernel on this GPU — BEFORE
+# the ~7-min data tokenisation, not on the first training forward pass. Run in a
+# fresh subprocess so it reflects the final installed torch.
+_probe = subprocess.run(
+    [sys.executable, "-c",
+     "import torch;"
+     "ok=(torch.ones(8,device='cuda')*2).sum().item()==16.0;"
+     "print('torch',torch.__version__,'on',torch.cuda.get_device_name(0),'OK' if ok else 'BAD');"
+     "assert ok"],
+)
+if _probe.returncode != 0:
+    raise RuntimeError(
+        f"torch on {_dev} (capability {_cap}) still cannot execute CUDA "
+        f"kernels after the compatibility install step — aborting before "
+        f"tokenisation."
+    )
 
 WORK = "/kaggle/working"
 DATA_DIR = os.path.join(WORK, "data")
