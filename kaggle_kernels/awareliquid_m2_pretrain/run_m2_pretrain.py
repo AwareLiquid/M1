@@ -149,9 +149,22 @@ else:
 # STABILITY-VALIDATION run: short. grad_accum=1 so `step` == optimizer step,
 # making "first ~1000 steps" monitoring unambiguous. Flip STEPS up (and
 # grad_accum to 64) once metrics confirm health.
+#
+# MEMORY (diagnosed 2026-06-07 from the v3 run): the 131.4M model at batch 8 ×
+# seq 512 OOM'd on a 16 GB T4 — it reached 15.04 GiB allocated at the forward's
+# cross-entropy with only 321 MiB free. That OOM was in the *forward* of step 1;
+# backward needs strictly more, so batch 8 can never fit on a 16 GB card (both
+# the T4 and the Pascal P100 Kaggle hands out are 16 GB). Drop the per-device
+# micro-batch to 4 (still grad_accum=1 → step == optimizer step) and turn on the
+# allocator's expandable_segments to curb fragmentation. Raise M2_BATCH via env
+# only after confirming headroom on the assigned GPU.
 STEPS = int(os.environ.get("M2_STEPS", "1200"))
-BATCH = int(os.environ.get("M2_BATCH", "8"))
+BATCH = int(os.environ.get("M2_BATCH", "4"))
 GRAD_ACCUM = int(os.environ.get("M2_GRAD_ACCUM", "1"))
+
+# Reduce CUDA fragmentation OOMs (the v3 crash had 244 MiB reserved-but-unallocated
+# at the moment it ran out). Inherited by the train.py subprocess.
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 cmd = [
     sys.executable, "train.py",
