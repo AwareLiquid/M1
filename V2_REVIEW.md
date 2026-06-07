@@ -191,3 +191,71 @@
 但是它们**没有任何一个被证明能在训练中产生有用信号**。这不是 bug，是"研究原型 vs 生产实现"的差距。
 
 下一步的正确做法是：先实施 P0 的修复（让 Phase A 和 Phase D 真的工作），再写**机制有效性测试**（这些测试会暴露当前所有"实现"的脆弱），最后才考虑 P1/P2 的架构升级。
+
+---
+
+## 8. v2.1 修复实施与验证（2026-06-07 更新）
+
+P0/P1 修复已全部落地并通过机制有效性测试（216/216 通过）。以下是逐项验证结果。
+
+### 8.1 重大科学发现：防崩塌的真正机制是 stop-grad + 预测头，不是 EMA
+
+在实现 Phase C 的 EMA target encoder 时，我们做了一个**严格的三方对照实验**（AR(1) 结构化数据，跨 3 个随机种子，600 步训练，d_model=32），纠正了一个常见误解——"没有 EMA 的自监督预测就会崩塌"。
+
+实测 pairwise |cosine|（衡量不同输入的潜表示是否塌缩到同一方向，→1 = 完全崩塌）：
+
+| 配置 | 机制 | pairwise &#124;cos&#124; | 收敛步 | 最终 err | 结论 |
+|---|---|---|---|---|---|
+| **Naive** | 无 stop-grad，无预测头，带 bias | **1.000** [1.000, 1.000] | — | — | **100% 崩塌** |
+| **SimSiam** | stop-grad + 预测头（`use_ema_target=False`） | **0.331** | ~74 | 0.038 | 不崩塌 |
+| **BYOL** | stop-grad + 预测头 + EMA（默认） | **0.336** | ~72 | 0.042 | 不崩塌 |
+
+**关键结论**：
+1. 崩塌的根因是**梯度对称性**——`naive` 让梯度同时流入预测端和目标端，最优解就是输出常数。一旦加上 **stop-grad（切断目标端梯度）+ 非对称预测头**，崩塌就被数学性地阻止（这正是 SimSiam, Chen & He 2021 的结论）。
+2. 我们的 `PredictiveStateHead` 还额外用了**无偏置 + L2 归一化投影器**——即使没有 bias 也无法塌缩到常数（符号翻转把损失钉在 chance 水平）。这是比标准 BYOL 更鲁棒的设计。
+3. **EMA 不是防崩塌的必要条件**。在本规模下，EMA（BYOL）与无 EMA（SimSiam）几乎等价（cos 0.336 vs 0.331，收敛步 72 vs 74）。EMA 的价值在大规模训练中体现为**更稳定的慢速目标**，因此我们仍将 `use_ema_target=True` 作为默认，并加了 warm-up（前 1000 步用 0.9 的温和 decay 让目标跟上快速移动的 online 投影器）。
+
+> ⚠️ 诚实修正：原始任务清单要求写一个"关闭 EMA 就崩塌"的反向控制测试。但实证表明**这是错误的**——我们的非 EMA 分支是 SimSiam，本身防崩塌。因此我们改写了一个**真正有意义且为真**的反向控制（见 8.4），而不是测试一个伪命题。
+
+### 8.2 Phase C — PredictiveStateHead（已修复）
+
+- **MSE 自预测 → BYOL/V-JEPA 风格**：`online_proj → predictor`（在线，可训练）预测 **stop-grad 的 EMA target** `target_proj`（冻结）。损失在 **L2 归一化潜空间**计算（scale-free）。
+- **归一化惊喜信号**：`last_pred_error = (1 - cos)/2 ∈ [0, 1]`，供 LAVI 消费——`wm_correction = tanh(scale)·pred_error` 现在**有界**，不再随表示幅度漂移。
+- demo 实测：world_model 损失 0.42 → 0.03（真的在学），`world_model_pred_error = 0.0193`（在 [0,1] 内）。
+
+### 8.3 Phase B — CausalConsistencyChecker（已修复）
+
+- 新增 `method="subspace"`：把当前（去均值）隐态投影到近期窗口的主子空间，**子空间外的残差能量**就是 novelty。去均值 + 子空间剔除消掉了各向异性的公共方向，因此只有**真正的新方向**才会被记为断裂。
+- **各向异性对照测试**（`test_subspace_detects_break_cosine_blind`）的惊人结果：
+  - **cosine 方法**：主题切换前后变化 **0.000**（完全失明）
+  - **subspace 方法**：变化 **0.414**，最低点 0.172（跌破 0.35 自我批评阈值）
+- 默认仍是 `method="cosine"`（向后兼容），demo 已切换到 `subspace`。
+
+### 8.4 新增的机制有效性测试（+9，共 216 通过）
+
+| 测试 | 验证内容 | 类型 |
+|---|---|---|
+| `test_surprise_tracks_structure_not_noise` | 结构化数据 err→0.05，纯噪声 err→0.5 | **反向控制** |
+| `test_no_representational_collapse` | 训练后不同输入潜表示仍分散（&#124;cos&#124;<0.5） | 正向验证 |
+| `test_subspace_detects_break_cosine_blind` | subspace 跌破 0.5、cosine 变化<0.1 | 对照 |
+| `test_cosine_method_is_backward_compatible` | cosine 路径与旧实现逐位一致 | 回归 |
+| `test_effective_rank_diagnostic_tracks_complexity` | 共线→秩≈1，多样→秩>2 | 诊断 |
+| `test_subspace_break_triggers_self_critique` | 端到端：断裂触发 SELF_CRITIQUE | 集成 |
+| `test_ema_target_*`（×3） | EMA 目标冻结、初始相等、追踪 online | 机制 |
+| `test_ema_warmup_uses_gentler_decay` | warm-up 用 0.9 decay | 机制 |
+
+### 8.5 工程化
+
+- **EMA warm-up**：`world_model_warmup_steps`（默认 1000）。
+- **配置统一**：新增 `causal_check_{method,window,threshold}` + `CausalConsistencyChecker.from_config(cfg)`。
+- **独立梯度裁剪**：`train.py` 对 world-model head 单独裁剪（`--world_model_grad_clip`），辅助损失不会冲击 LM 主目标。
+- **死代码**：`world_model.py` init 顺序重排，删除冗余的 target_proj 双重复制。
+
+### 8.6 仍未完成（P2/P3，非阻塞，可在预训练期间并行）
+
+- 可观测性指标（JSONL，每 100 步）— **预训练前必须完成**
+- 边界测试（连续断裂 / 长期稳定性）
+- ARCHITECTURE.md / README / PRD 参数参考
+- 提取重复 cosine-sim 到 utils.py
+- 真正的多源 GWT 外部投标接口
+- 优雅降级机制 / TorchScript 导出 / 24h 长训练验证

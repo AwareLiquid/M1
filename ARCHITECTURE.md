@@ -184,7 +184,7 @@ module_bids 来源 (通过 MTLNNModel.forward 可选注入):
 
 ---
 
-### 4.3 Phase B — CausalConsistencyChecker 🔲 待实现
+### 4.3 Phase B — CausalConsistencyChecker ✅ 已实现 (v2.1)
 
 **生物原型**: 前额叶皮层对推理链进行持续的"预测误差"监测——当当前输出违背已建立的因果结构时，产生错误信号并触发重新评估。
 
@@ -214,9 +214,19 @@ class CausalConsistencyChecker:
 
 **deliberation.py 改动**: `RouteDecision` 新增可选字段，`decide()` 新增可选参数。完全向后兼容。
 
+**v2.1 实现要点 — 两种 method**:
+
+`CausalConsistencyChecker(window, ema_alpha, threshold, method="cosine"|"subspace", energy_keep=0.9)`。
+
+- `method="cosine"` (默认，向后兼容): `unit_cosine_similarity(h_t, mean(window))` ∈ [0,1]。
+- `method="subspace"` (各向异性鲁棒): 对 LLM 隐态而言，余弦相似度因 anisotropy（所有隐态共享一个主导方向）而饱和接近 1，对真实的因果断裂"失明"。子空间残差法先**用窗口均值中心化**（移除共享方向），对中心化窗口做 SVD，保留捕获 `energy_keep` 方差的前 k 个右奇异向量，把中心化的当前向量投影到该子空间，**子空间外的残差能量 = 新颖度**，`consistency = 1 - novelty`。实测：话题切换时 cosine delta ≈ 0.000（盲），subspace ≈ 0.414（min 0.172 越过 0.35 触发地板）。
+- `effective_rank` 属性: `(Σλ)² / Σλ²`（participation ratio），表征当前表示维度，写入诊断 `causal_effective_rank`。
+- `from_config(config, **overrides)` classmethod: 读取 `causal_check_*` 字段构造。
+- 共享工具: cosine→[0,1] 仿射映射统一为 `utils.unit_cosine_similarity()`。
+
 ---
 
-### 4.4 Phase C — PredictiveStateHead 🔲 待实现
+### 4.4 Phase C — PredictiveStateHead ✅ 已实现 (v2.1)
 
 **生物原型**: 预测编码理论 (Friston Free Energy Principle) — 大脑持续预测下一时刻的感知状态，以预测误差驱动学习。现有 `VectorizedMultiScaleResonance.use_predictive_coding` 只在**τ尺度之间**预测（慢τ预测快τ），缺少 token 级别的前向预测。
 
@@ -240,9 +250,21 @@ class PredictiveStateHead(nn.Module):
 
 **与 rhythm.py 的联动**: PredictiveStateHead 的误差信号可以增强 LAVIEstimator — 当预测误差突增，也标志着瞬态模式应该启动。
 
+**v2.1 实现要点 — BYOL/V-JEPA 自预测，防表示坍缩**:
+
+朴素方案 `predict(h_t) → h_{t+1}.detach()` 让模型"预测自己"，会导致**表示坍缩**（所有输入映射到同一潜方向，pairwise|cos|→1，surprise 信号失去意义）。v2.1 改为 BYOL (arxiv 2006.07733) / V-JEPA (arxiv 2404.08471) 风格的非对称自蒸馏：
+
+- `online_proj: Linear(d_model, proj_dim, bias=False)` + `predictor: [Linear→GELU→Linear]`（在线分支，可训练）。
+- `target_proj: Linear(d_model, proj_dim, bias=False)`，`requires_grad=False`，由 online_proj 的 **EMA** 跟踪（`ema_decay=0.99`，stop-grad），并在 `warmup_steps` 内使用更温和的 decay（≤0.9）以避免早期目标过僵。
+- 损失在**归一化潜向量**上：`residual = normalize(online) - normalize(target); loss = residual²·sum(-1).mean()`。
+- **surprise 信号归一化到 [0,1]**: `last_pred_error = ((1 - cos) · 0.5).clamp(0,1)`，供 LAVI 稳定耦合（`wm_correction = tanh(pred_error_scale)·pred_error`）；同时保留原始 MSE 量级 `last_pred_error_raw` 供调试。
+- 初始化顺序修复: 先初始化 online_proj (std=0.02)，再 copy 到 target_proj；predictor 用 small-init（非零）。
+
+**科学发现 (见 V2_REVIEW.md §8)**: 实测发现 `use_ema_target=False` 分支（stop-grad + predictor + 无偏归一化投影）即 **SimSiam** (Chen & He 2021)，**本身就不坍缩**（3 seeds pairwise|cos|≈0.33）。即 EMA 对本架构的防坍缩**非必需**；EMA 在此规模下收敛速度≈SimSiam（非传言的 +25%）。`use_ema_target` 因此作为消融开关保留，默认 True。
+
 ---
 
-### 4.5 Phase D — HebbianRegularizer 🔲 待实现
+### 4.5 Phase D — HebbianRegularizer ✅ 已实现 (v2.1)
 
 **生物原型**: Hebb 法则 — "neurons that fire together, wire together"。激活模式相关的突触应当被巩固，减少灾难性遗忘。
 
@@ -361,8 +383,36 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | Phase | 模块 | 关键文件 | 工作量 |
 |---|---|---|---|
 | ✅ 已完成 | LAVI节律门控 | `rhythm.py` | 完成 |
-| 🔨 A | CompetitiveGWTBLayer | `gwtb.py` (扩展) | 1-2 周 |
-| 🔲 B | CausalConsistencyChecker | `causality.py` + `deliberation.py` | 2-3 周 |
-| 🔲 C | PredictiveStateHead | `world_model.py` + `model.py` | 2-3 周 |
-| 🔲 D | HebbianRegularizer | `plasticity.py` + `train.py` | 2-3 周 |
-| 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 6-12 月 |
+| ✅ A | CompetitiveGWTBLayer | `gwtb.py` (扩展) | 完成 |
+| ✅ B | CausalConsistencyChecker (cosine + subspace) | `causality.py` + `deliberation.py` | 完成 (v2.1) |
+| ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
+| ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
+| ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
+| 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |
+
+---
+
+## 10. v2.0/v2.1 参数调优参考
+
+所有开关默认 **False/关闭**，零回归。下表为已验证的安全默认与调优方向。
+
+| Config 字段 | 默认 | 作用 | 调优提示 |
+|---|---|---|---|
+| `use_competitive_gwtb` | False | Phase A 多源竞争广播 | 开启后监控 `gwtb_competition_entropy`：→0 表示路由坍缩（某一源垄断），→log(K) 表示均匀；坍缩时降低 `gwtb_broadcast_init` |
+| `gwtb_broadcast_init` | 0.01 | 门控残差初值 | 过大会早期主导主干，保持 ≤0.05 |
+| `use_world_model` | False | Phase C 预测头 | 训练损失加 `world_model_loss_weight × L_wm` |
+| `world_model_loss_weight` | 0.01 | 预测损失权重 | 极小以保证 LM loss 主导；>0.05 可能干扰语言建模 |
+| `world_model_proj_ratio` | 0.5 | 潜投影维 / d_model | 更小→更强瓶颈、更省算力 |
+| `world_model_ema_decay` | 0.99 | target_proj EMA 动量 | 大模型可调到 0.996–0.999；监控 `world_model_pred_error` 不应长期贴 0（坍缩）或贴 1（不学习） |
+| `world_model_use_ema_target` | True | False=SimSiam 消融 | 实测两者均不坍缩；保留作对照 |
+| `world_model_warmup_steps` | 1000 | EMA 温和期 | 与总步数同量级缩放 |
+| `world_model_grad_clip` | 1.0 (train.py) | 预测头专属梯度裁剪 | 先于全局裁剪，防早期 surprise 爆梯度 |
+| `use_hebbian` | False | Phase D 巩固正则 | 训练损失加 Hebbian 项；监控 `hebbian_signal_mean` |
+| `hebbian_lr` | 1e-4 | 共激活权重 | 过大→过度巩固、灾难性偏置 |
+| `hebbian_lavi_gate` | True | α 由 LAVI 门控 | 关闭则 α 恒定 |
+| `causal_check_method` | "cosine" | Phase B 一致性度量 | LLM 隐态各向异性强时用 "subspace" |
+| `causal_check_window` | 5 | 历史窗口 | subspace 法需 ≥2 才生效 |
+| `causal_check_threshold` | 0.3 | 自我批判触发地板 | consistency < threshold → 强制 SELF_CRITIQUE |
+| `global_rhythm` | False | 跨层节律聚合 | 监控 `global_rhythm_scale` |
+
+**观测建议**: 预训练中每 100 步调用 `record_v2_metrics(writer, model, step, checker)`，所有标量写入 JSONL（`world_model_pred_error`、`gwtb_competition_entropy` 等均归一化到 [0,1] 或有界），便于离线绘制坍缩/路由健康曲线。

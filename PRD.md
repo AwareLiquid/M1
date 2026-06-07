@@ -209,6 +209,35 @@ For AwareLiquid's target use cases:
 
 ---
 
+### F8 — Bio-Inspired Cognitive Modules (Track A, P1, 2026-06-07, v2.1)
+
+Four orthogonal brain-inspired modules + observability. **All default OFF, zero regression**, never change the `mt_lnn_layer.py` forward/parallel_scan signature, all gated behind config flags, each backed by tests + negative controls.
+
+| Sub-feature | Requirement | Status |
+|---|---|---|
+| **Phase A** `CompetitiveGWTBLayer` | Multi-source bids → score → winner broadcast; degenerates to `GWTBLayer` when `module_bids=None` | ✅ `mt_lnn/gwtb.py` |
+| Competition-collapse guard | `gwtb_competition_entropy` diagnostic (0=monopoly, log K=uniform) | ✅ `test_gwt_competition.py` |
+| **Phase B** `CausalConsistencyChecker` | `consistency_score ∈ [0,1]`; `cosine` (default) + anisotropy-robust `subspace` method | ✅ `mt_lnn/causality.py` |
+| Subspace beats cosine on anisotropy | Topic-switch: cosine Δ≈0.000 (blind) vs subspace Δ≈0.414 | ✅ `test_subspace_detects_break_cosine_blind` |
+| `effective_rank` diagnostic | Participation ratio `(Σλ)²/Σλ²` tracks representation complexity | ✅ `test_effective_rank_diagnostic_tracks_complexity` |
+| Deliberation integration | consistency < threshold → forced SELF_CRITIQUE (backward-compatible optional field) | ✅ `test_subspace_break_triggers_self_critique` |
+| **Phase C** `PredictiveStateHead` | BYOL/V-JEPA online-predictor + EMA stop-grad `target_proj`; loss on L2-normalised latents | ✅ `mt_lnn/world_model.py` |
+| No representational collapse | pairwise \|cos\| < 0.5 (vs naïve self-prediction ≈ 1.000) | ✅ `test_no_representational_collapse` |
+| Normalised surprise → LAVI | `last_pred_error ∈ [0,1]`; raw MSE kept as `last_pred_error_raw` | ✅ `test_pred_error_normalised_to_unit_interval` |
+| Surprise tracks structure not noise | structured < 0.25, noise > 0.35, separation > 0.2 | ✅ `test_surprise_tracks_structure_not_noise` |
+| EMA warmup | gentler decay (≤0.9) for first `warmup_steps` | ✅ `test_ema_warmup_uses_gentler_decay` |
+| **Phase D** `HebbianRegularizer` | LAVI-gated co-activation loss term (training only, no forward change) | ✅ `mt_lnn/plasticity.py` |
+| **Observability** | `record_v2_metrics(writer, model, step, checker)` → JSONL, all scalars bounded [0,1], every 100 steps | ✅ `mt_lnn/observability.py` |
+| Targeted grad clip | `--world_model_grad_clip` (default 1.0) before global clip | ✅ `train.py` |
+| Config opt-in | `use_competitive_gwtb` / `use_world_model` / `use_hebbian` all default False | ✅ `mt_lnn/config.py` |
+| Test coverage | +9 mechanism/negative-control tests; full suite 219 tests, all pass | ✅ `tests/` |
+
+**Scientific finding (Phase C) — SimSiam vs BYOL:** Rigorous empirical investigation (3 seeds) corrected the common assumption that any non-EMA self-prediction collapses. Our `use_ema_target=False` branch is a **SimSiam** design (stop-grad + predictor + bias-free L2-normalised projector) and is **provably collapse-free on its own** (pairwise |cos| ≈ 0.33). Only naïve self-prediction (no stop-grad, no predictor) collapsed (≈1.000). EMA's role is convergence/quality, **not** collapse-prevention — at this scale EMA ≈ SimSiam (not the rumored +25%). `use_ema_target` is retained as an ablation switch (default True). Full analysis: [V2_REVIEW.md](V2_REVIEW.md) §8.
+
+**Product angle — what this changes for users:** these modules give AwareLiquid measurable *cognitive* signals beyond raw PPL: a competition-health index (GWT routing not collapsing), a per-step causal-consistency / topic-break detector (drives self-critique), a predictive-surprise channel (novelty detection feeding the rhythm gate), and Hebbian consolidation against catastrophic forgetting. All are exposed as bounded scalars in `get_mt_diagnostics()` / JSONL for audit trails (B3) and long-run monitoring.
+
+---
+
 ## 6. Acceptance Criteria (v2.0 headline metrics)
 
 ### Track B (must hit for v2.0 ship)

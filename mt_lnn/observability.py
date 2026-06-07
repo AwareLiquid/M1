@@ -76,6 +76,103 @@ class JsonlMetricWriter:
         self.close()
 
 
+# ---------------------------------------------------------------------------
+# v2.0 module observability — the "eyes" for long pre-training runs.
+# ---------------------------------------------------------------------------
+
+# Canonical scalar keys pulled from MTLNNModel.get_mt_diagnostics(). Only the
+# v2.0 module metrics are selected here so the JSONL stays small and focused.
+# All values are plain Python floats (JSON-serialisable, not tensors).
+_V2_DIAG_KEYS = (
+    # Phase A — competitive workspace
+    "gwtb_competition_entropy",   # 0 = monopoly, log(K) = uniform
+    "gwtb_bid0_weight",
+    "gwtb_bid1_weight",
+    "gwtb_bid2_weight",
+    "gwtb_broadcast_gate",
+    # Phase C — predictive world model
+    "world_model_pred_error",     # normalised surprise ∈ [0, 1]
+    "world_model_pred_error_raw", # raw latent MSE magnitude
+    # Phase D — Hebbian plasticity
+    "hebbian_signal_mean",
+    "hebbian_lavi_temperature",
+    # LAVI rhythm
+    "lavi_mean",
+    "rhythm_scale_mean",
+    "global_rhythm_scale",
+)
+
+
+def v2_module_metrics(
+    model: Any,
+    step: Optional[int] = None,
+    checker: Any = None,
+) -> Dict[str, Any]:
+    """Collect a flat, scalar metric dict for the four v2.0 modules.
+
+    The single source of truth is ``model.get_mt_diagnostics()`` (which already
+    returns Python scalars). Only the v2.0 module keys are kept. An optional
+    ``CausalConsistencyChecker`` (Phase B) is a stateless inference-time object,
+    not part of the model graph, so it is passed in separately when available.
+
+    Parameters
+    ----------
+    model : MTLNNModel
+        A model exposing ``get_mt_diagnostics()``.
+    step : int, optional
+        Training step, copied into the row when provided.
+    checker : CausalConsistencyChecker, optional
+        When given, ``causal_consistency`` and ``causal_effective_rank`` are
+        added from its current state.
+
+    Returns
+    -------
+    dict
+        ``{step?, <v2 diag keys present>, causal_*?}`` — all values are floats.
+        Keys absent from diagnostics (module disabled) are simply omitted.
+    """
+    metrics: Dict[str, Any] = {}
+    if step is not None:
+        metrics["step"] = int(step)
+
+    diag = model.get_mt_diagnostics() if hasattr(model, "get_mt_diagnostics") else {}
+    for key in _V2_DIAG_KEYS:
+        if key in diag and diag[key] is not None:
+            metrics[key] = float(diag[key])
+
+    if checker is not None:
+        # consistency_score() and effective_rank are both plain floats.
+        score = getattr(checker, "consistency_score", None)
+        if callable(score):
+            metrics["causal_consistency"] = float(checker.consistency_score())
+        eff = getattr(checker, "effective_rank", None)
+        if eff is not None:
+            metrics["causal_effective_rank"] = float(eff)
+
+    return metrics
+
+
+def record_v2_metrics(
+    writer: "JsonlMetricWriter",
+    model: Any,
+    step: int,
+    checker: Any = None,
+) -> Dict[str, Any]:
+    """Convenience: collect v2.0 module metrics and append them to a JSONL writer.
+
+    Intended to be called every N steps during pre-training (e.g. every 100)::
+
+        writer = JsonlMetricWriter("metrics.jsonl", static_fields={"run": "125m"})
+        if step % 100 == 0:
+            record_v2_metrics(writer, model, step, checker)
+
+    Returns the metric dict that was written (handy for stdout logging too).
+    """
+    metrics = v2_module_metrics(model, step=step, checker=checker)
+    writer.write("v2_modules", metrics)
+    return metrics
+
+
 def cache_summary(cache: Any) -> Dict[str, Any]:
     """Return a small, serializable cache summary.
 

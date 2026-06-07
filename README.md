@@ -570,13 +570,34 @@ GWTBLayer or CompetitiveGWTBLayer [KV cache, Phase A: multi-source competition]
    ↓
 GlobalCoherenceLayer              [KV cache, sparse top-k, Orch-OR collapse gate]
    ↓
-[PredictiveStateHead]             [Phase C, opt-in]
-    predict h_{t+1} from h_t → world_model_loss (training only)
+[PredictiveStateHead]             [Phase C, opt-in, BYOL/V-JEPA self-distillation]
+    online_proj→predictor vs EMA target_proj (stop-grad) → world_model_loss
+    normalised surprise last_pred_error ∈ [0,1] feeds LAVI rhythm
    ↓
 LayerNorm → lm_head (weight-tied)
    ↓
 logits
 ```
+
+### v2.0/v2.1 bio-inspired modules (opt-in, default OFF, zero regression)
+
+Four orthogonal brain-inspired modules, each behind its own config flag. All default
+**OFF**, add no overhead when disabled, and never change the `mt_lnn_layer.py` forward
+signature. Monitor them during pretraining via `record_v2_metrics()` (all scalars,
+bounded to [0,1], every 100 steps).
+
+| Module | Flag | Biological prior | Mechanism |
+|---|---|---|---|
+| **Phase A — CompetitiveGWTB** | `use_competitive_gwtb` | GWT (Baars/Dehaene): conscious content wins by competition | Multi-source bids → score → winner broadcast; `gwtb_competition_entropy` guards against routing collapse |
+| **Phase B — CausalConsistencyChecker** | (inference object) | PFC predictive-error monitoring of reasoning chains | `cosine` or anisotropy-robust `subspace`-residual novelty; consistency < threshold → forced SELF_CRITIQUE |
+| **Phase C — PredictiveStateHead** | `use_world_model` | Predictive coding (Friston free energy) | BYOL/V-JEPA online-predictor + **EMA stop-grad target** (no representational collapse); normalised surprise ∈ [0,1] feeds LAVI |
+| **Phase D — HebbianRegularizer** | `use_hebbian` | Hebbian consolidation ("fire together, wire together") | LAVI-gated co-activation loss term (training only; no forward change) |
+
+> **Scientific note (Phase C):** the `use_ema_target=False` branch is a *SimSiam* design
+> (stop-grad + predictor + bias-free L2-normalised projector) and is **provably
+> collapse-free on its own** — verified empirically across 3 seeds (pairwise |cos| ≈ 0.33
+> vs naïve self-prediction's 1.000). EMA mainly aids convergence/quality, not
+> collapse-prevention. Full analysis in [V2_REVIEW.md](V2_REVIEW.md) §8.
 
 ### Two inference modes
 
@@ -604,7 +625,12 @@ mt_lnn/
                        + LAVIEstimator hook + rhythm blend in scale gate
   rhythm.py            LAVIEstimator (cosine-sim rhythmicity per protofilament)
                        + GlobalRhythmController (cross-layer correction)
-  gwtb.py              GWTBLayer — compress → workspace SA → broadcast
+  gwtb.py              GWTBLayer + CompetitiveGWTBLayer (Phase A multi-source bid)
+  causality.py         CausalConsistencyChecker (Phase B; cosine + subspace method)
+  world_model.py       PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
+  plasticity.py        HebbianRegularizer (Phase D; LAVI-gated consolidation loss)
+  deliberation.py      DeliberationRouter (entropy 3-way + causal-consistency floor)
+  observability.py     JSONL metric writer + v2_module_metrics / record_v2_metrics
   global_coherence.py  GlobalCoherenceLayer (sparse top-k + Orch-OR collapse gate)
   anesthesia.py        AnesthesiaController — runtime forward hooks for AVP
   phi_hat.py           Φ̂ kNN entropy estimator + anesthesia sweep + test result
@@ -618,8 +644,8 @@ train.py               BinDataset / DummyDataset, AMP, torch.compile, W&B,
 eval.py                PPL, long-context sliding-window PPL, collapse-gate stats,
                        W_lat heatmaps, Φ̂ + AVP CLI
 demo.py                KV-cached autoregressive streaming generation
-tests/test_model.py    Full architecture test suite (21 tests, all pass)
-tests/test_rhythm.py   Rhythm gate test suite (13 tests, all pass)
+tests/                 Full test suite (219 tests, all pass): model, rhythm,
+                       causality (subspace), world_model (BYOL), observability, ...
 ```
 
 ## Design references

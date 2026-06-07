@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 # ---------------------------------------------------------------------------
@@ -97,6 +98,24 @@ def count_parameters(model: nn.Module) -> Dict[str, int]:
 def get_causal_mask(T: int, device: torch.device) -> torch.Tensor:
     """(T, T) lower-triangular boolean mask; True = keep."""
     return torch.tril(torch.ones(T, T, dtype=torch.bool, device=device))
+
+
+# ---------------------------------------------------------------------------
+# Cosine helpers (shared convention: map cos ∈ [-1, 1] → unit interval [0, 1])
+# ---------------------------------------------------------------------------
+
+def unit_cosine_similarity(a: torch.Tensor, b: torch.Tensor, eps: float = 1e-8) -> float:
+    """Cosine similarity of two 1-D vectors, affinely mapped to [0, 1].
+
+    0.0 = anti-aligned, 0.5 = orthogonal, 1.0 = aligned. Returns a plain float
+    so it is JSON-serialisable and free of autograd state. Used by the Phase B
+    causal-consistency checker; the world model uses the complementary
+    ``1 - cos`` (surprise) form inline because it reduces over a batch.
+    """
+    a_n = F.normalize(a.unsqueeze(0), dim=-1, eps=eps).squeeze(0)
+    b_n = F.normalize(b.unsqueeze(0), dim=-1, eps=eps).squeeze(0)
+    raw = torch.dot(a_n, b_n).item()                  # ∈ [-1, 1]
+    return max(0.0, min(1.0, (raw + 1.0) / 2.0))
 
 
 # ---------------------------------------------------------------------------
