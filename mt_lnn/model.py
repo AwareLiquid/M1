@@ -9,6 +9,7 @@ A `LayerCache` per layer is the tuple (kv, h_prev). The full cache is a list
 of LayerCache, one per block. Pass `use_cache=True` to enable.
 """
 
+import math
 from typing import List, Optional, Tuple, Dict, Union
 import torch
 import torch.nn as nn
@@ -239,6 +240,15 @@ class MTLNNModel(nn.Module):
                 torch.tensor(float(getattr(config, "gwtb_external_bid_gate_init", 0.0)))
             )
 
+        # P3.2 graceful degradation: finiteness guards on auxiliary v2 module
+        # contributions. _degradation_counts tracks how often each module was
+        # skipped over the whole run (a monitoring "eye"); it is process state,
+        # not a checkpoint buffer.
+        self.use_graceful_degradation = bool(
+            getattr(config, "use_graceful_degradation", True)
+        )
+        self._degradation_counts: Dict[str, int] = {}
+
         # Hebbian Regularizer (Phase D).
         # Collects per-block co-activation signals from MTLNNLayer._hebb_signal
         # and returns -α × mean as a training loss term.
@@ -275,6 +285,27 @@ class MTLNNModel(nn.Module):
         self.apply(lambda m: init_weights(m, config))
         nn.init.normal_(self.target_queries, mean=0.0, std=0.02)
         init_mt_params(self, config)
+
+    # ------------------------------------------------------------------
+    # Graceful degradation (P3.2)
+    # ------------------------------------------------------------------
+
+    def _aux_or_skip(self, name: str, value: "Optional[torch.Tensor]"):
+        """
+        Finiteness guard for an AUXILIARY v2 contribution.
+
+        Returns ``value`` unchanged when it is None, when graceful degradation is
+        disabled, or when it is finite. Otherwise returns None and records a
+        degradation event under ``name`` — the caller then simply skips adding
+        this term, so a transient NaN/Inf in one bio-inspired module does not
+        propagate into the main loss / parameters and abort a long run.
+        """
+        if value is None or not self.use_graceful_degradation:
+            return value
+        if torch.isfinite(value).all():
+            return value
+        self._degradation_counts[name] = self._degradation_counts.get(name, 0) + 1
+        return None
 
     # ------------------------------------------------------------------
     # Forward
@@ -328,6 +359,12 @@ class MTLNNModel(nn.Module):
         # bounded regardless of representation magnitude.
         if self.world_model_head is not None:
             _wm_err = self.world_model_head.last_pred_error.item()
+            # P3.2: a non-finite surprise must not corrupt the LAVI rhythm gate.
+            if self.use_graceful_degradation and not math.isfinite(_wm_err):
+                self._degradation_counts["lavi_surprise"] = (
+                    self._degradation_counts.get("lavi_surprise", 0) + 1
+                )
+                _wm_err = 0.0
             for _blk in self.blocks:
                 _blk.lnn._last_wm_pred_error = _wm_err
 
@@ -366,6 +403,13 @@ class MTLNNModel(nn.Module):
                     self.world_model_head.online_proj(x)
                 )                                                 # (B, T, proj_dim)
                 world_bid = x + self.world_bid_gate * self.world_bid_adapter(z_pred)
+                # P3.2: a non-finite world bid must not corrupt the competition —
+                # fall back to bidding the raw state x (always a valid competitor).
+                if self.use_graceful_degradation and not torch.isfinite(world_bid).all():
+                    self._degradation_counts["world_bid"] = (
+                        self._degradation_counts.get("world_bid", 0) + 1
+                    )
+                    world_bid = x
                 external_bids = [world_bid]
             if external_bids is not None:
                 # Only the CompetitiveGWTBLayer accepts external bids; the base
@@ -448,20 +492,30 @@ class MTLNNModel(nn.Module):
                 ignore_index=-100,
             )
             
+            # P3.2: every AUXILIARY term below is finiteness-guarded via
+            # _aux_or_skip — a NaN/Inf in one bio-inspired module is dropped for
+            # this step (and counted) rather than poisoning `loss`. The primary
+            # cross-entropy above is never guarded (a NaN there is a real fault).
             if getattr(self.config, "use_predictive_coding", False):
                 pred_error_sum = sum(b.lnn.resonance.last_pred_error for b in self.blocks)
                 result["pred_loss"] = pred_error_sum
-                loss = loss + self.config.predictive_loss_weight * pred_error_sum
+                pred_ok = self._aux_or_skip("pred_loss", pred_error_sum)
+                if pred_ok is not None:
+                    loss = loss + self.config.predictive_loss_weight * pred_ok
 
             # Phase C: world model prediction loss
             if _world_model_loss is not None:
-                wm_weight = getattr(self.config, "world_model_loss_weight", 0.01)
-                loss = loss + wm_weight * _world_model_loss
-                result["world_model_loss"] = _world_model_loss.detach()
+                wm_ok = self._aux_or_skip("world_model_loss", _world_model_loss)
+                if wm_ok is not None:
+                    wm_weight = getattr(self.config, "world_model_loss_weight", 0.01)
+                    loss = loss + wm_weight * wm_ok
+                    result["world_model_loss"] = wm_ok.detach()
 
             # Phase D: Hebbian co-activation loss (training only)
             if self.hebbian_reg is not None and self.training:
-                hebb_loss = self.hebbian_reg.compute_loss(self)
+                hebb_loss = self._aux_or_skip(
+                    "hebbian_loss", self.hebbian_reg.compute_loss(self)
+                )
                 if hebb_loss is not None:
                     loss = loss + hebb_loss
                     result["hebbian_loss"] = hebb_loss.detach()
@@ -472,9 +526,10 @@ class MTLNNModel(nn.Module):
             if (self.gwtb is not None
                 and isinstance(self.gwtb, CompetitiveGWTBLayer)
                 and self.gwtb._last_ortho_penalty is not None):
-                ortho = self.gwtb._last_ortho_penalty
-                loss = loss + self.gwtb.ortho_penalty_weight * ortho
-                result["ortho_penalty"] = ortho.detach()
+                ortho = self._aux_or_skip("ortho_penalty", self.gwtb._last_ortho_penalty)
+                if ortho is not None:
+                    loss = loss + self.gwtb.ortho_penalty_weight * ortho
+                    result["ortho_penalty"] = ortho.detach()
 
             result["loss"] = loss
 
@@ -612,6 +667,16 @@ class MTLNNModel(nn.Module):
                 diag["gwtb_broadcast_gate_mean"] = gates_t.mean().item()
                 diag["gwtb_broadcast_gate_std"]  = gates_t.std().item()
                 diag["gwtb_d_gw"] = float(self.blocks[0].gwtb.d_gw)
+
+        # P3.2: graceful-degradation event counters (cumulative over the run).
+        # A nonzero value here during a long pre-train run flags a misbehaving
+        # module without crashing it — an early-warning "eye".
+        if getattr(self, "_degradation_counts", None):
+            diag["degradation_events_total"] = float(
+                sum(self._degradation_counts.values())
+            )
+            for _name, _cnt in self._degradation_counts.items():
+                diag[f"degradation_{_name}"] = float(_cnt)
         return diag
 
     def get_mt_histograms(self) -> Dict[str, torch.Tensor]:

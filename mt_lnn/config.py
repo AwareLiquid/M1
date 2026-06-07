@@ -89,6 +89,17 @@ class MTLNNConfig:
     gwtb_external_bids: bool = False
     gwtb_external_bid_gate_init: float = 0.0  # residual gate init for external bids
 
+    # P3.2 graceful degradation (2026-06-07): wrap the AUXILIARY v2 module
+    # contributions (world-model loss, GWTB orthogonality penalty, Hebbian loss,
+    # the world-model workspace bid, and the LAVI surprise signal) in finiteness
+    # guards. If a bio-inspired module emits NaN/Inf on some step, that module's
+    # contribution is dropped for that step (and counted) instead of poisoning
+    # the main LM loss and killing a multi-day pre-training run. Zero-regression
+    # by construction: on finite values the guards are no-ops. The PRIMARY
+    # cross-entropy loss is never masked (a NaN there is a real failure that must
+    # surface). Set False to let faults crash loudly during debugging.
+    use_graceful_degradation: bool = True
+
     # Global coherence (Orch-OR collapse, complementary to GWTB)
     coherence_sparsity: float = 0.1  # keep top 10% of attention scores
     coherence_heads: int = 4
