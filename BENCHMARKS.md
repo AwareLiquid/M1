@@ -498,3 +498,115 @@ This was a benchmark-tooling problem, not an architecture problem. Next: rerun o
 | **Qwen-2.5-3B** | **0.117 %** | **−34.4 %** |
 
 Three different bases, three independent training runs, consistent PPL drop in the −28 % to −34 % band — and the drop **gets bigger** as the base scales. The MT residual adapter is not a small-model artefact.
+
+
+## v2.0 bio-inspired modules + engineering features (2026-06-07)
+
+The AwareLiquid-M2 line adds four bio-inspired auxiliary modules to the MT-LNN
+backbone (Phase A competitive GWT, Phase C predictive world model, Phase D
+Hebbian plasticity, plus the LAVI surprise→rhythm linkage) and two engineering
+hardening features (P3.1 multi-source GWT bidding, P3.2 graceful degradation).
+Every one defaults to a no-op-equivalent or OFF and is covered by a dedicated
+test module. **Full suite: 254 tests passing** (`python -m pytest tests/ -q`).
+
+### P3.1 — multi-source GWT external bidding
+
+The competitive Global-Workspace bottleneck (`CompetitiveGWTBLayer`) now accepts
+**external bids**: a module outside the backbone can submit a `(B, T, d_model)`
+proposal that competes on equal footing with the layer's internal bids via the
+shared score head + softmax. The first consumer is the predictive world model,
+which bids its one-step expectation into the workspace through a residual,
+zero-gated adapter — so the bid is **identity at init** (the gate starts at 0,
+the model is bit-for-bit unchanged) yet the gate keeps a live gradient and can
+learn to route workspace mass toward the prediction when it helps.
+
+| Property | Verification |
+|---|---|
+| No external bids ⇒ identical to pre-P3.1 forward | ✅ test |
+| External bid == x ⇒ init-identity preserved | ✅ test (max\|Δ\| < 1e-3) |
+| Open gate routes attention mass to the world bid | ✅ test |
+| Shape-mismatched bid raises; `None` entries skipped | ✅ test |
+| Gradient flows back into the external bid + gate | ✅ test |
+| Diagnostics expose `gwtb_external_bid_weight`, `gwtb_world_bid_gate` | ✅ test |
+
+Test module: `tests/test_multisource_gwt.py` (12 tests).
+
+### P3.2 — module graceful degradation
+
+A multi-day pre-training run must survive a transient NaN/Inf in any bio-inspired
+auxiliary term. Every **auxiliary** contribution — world-model loss, GWTB
+orthogonality penalty, Hebbian loss, the world-model workspace bid, and the LAVI
+surprise signal — is wrapped in a finiteness guard (`_aux_or_skip`). A faulty
+term is **dropped for that step and counted** instead of poisoning the loss. The
+**primary cross-entropy is never guarded** (a NaN there is a real failure that
+must surface). Zero-regression by construction: on finite values the guards are
+no-ops. `use_graceful_degradation=False` lets faults propagate for debugging.
+
+| Fault injected | Behaviour with guard ON | Behaviour with guard OFF |
+|---|---|---|
+| World-model loss → NaN | dropped, main loss finite, counted | NaN reaches main loss |
+| Hebbian loss → NaN | dropped, main loss finite, counted | — |
+| World-model **bid** → NaN | falls back to raw state, counted | — |
+| LAVI surprise → non-finite | reset to 0.0, counted | — |
+| Backward after a guarded fault | all gradients finite (training lives) | — |
+| Healthy run | **no guard ever fires**, counters empty | — |
+
+Degradation events surface in `get_mt_diagnostics()` as
+`degradation_events_total` + per-module `degradation_<name>` (keys present only
+when something actually fired). Test module:
+`tests/test_graceful_degradation.py` (9 tests), including an OFF-switch test that
+proves the guard is load-bearing.
+
+### TorchScript export + on-device latency
+
+`mt_lnn/export.py` traces the model's **logits path** (a `LogitsOnlyWrapper`
+running eval with `use_lnn_recurrence=False`, which makes the fixed-shape graph
+well defined) to a deployable TorchScript artifact. The full `forward` returns a
+dict and threads a dataclass cache with Python control flow, so it isn't
+scriptable; `trace` also bakes in the sequence length (global coherence has a
+seq-length-dependent reduction), so **one artifact per target shape**. Export is
+a pure opt-in utility — importing it has no effect on the model (pinned by test).
+
+CLI: `python scripts/export_torchscript.py --ckpt <ckpt> --batch 1 --seq_len 256 --optimize --out mt_lnn_ts.pt`
+
+Measured on the **125M-class backbone** (831 d × 12 L × 13 H, all v2 modules ON),
+batch 1 × seq 128, `optimize_for_inference`, single desktop CPU:
+
+| Path | ms / forward (128 tok) | ms / token | vs eager |
+|---|---:|---:|---:|
+| Eager | 304.8 | 2.381 | 1.00× |
+| **TorchScript (optimized)** | **187.6** | **1.466** | **1.62×** |
+
+- **Numerical parity: bit-exact** (max\|traced − eager\| = 0.0).
+- **1.47 ms/token** is amortized full-sequence prefill (the parallel-forward
+  path), comfortably under the **< 50 ms/token** on-device target.
+- The same trace at toy scale (0.3M params) runs **0.14 ms/token** at 1.5×
+  speedup.
+
+Test module: `tests/test_torchscript_export.py` (7 tests): trace/eager parity,
+save+load+rerun at the traced shape, `optimize_for_inference` fidelity, latency
+benchmarking sanity, and zero model mutation.
+
+### Engineering features (training-run robustness)
+
+| Feature | Where | Status |
+|---|---|---|
+| Cross-session checkpoint resume (`--resume`) | `train.py`, M2 kernel auto-detects attached/last.pt | ✅ |
+| Streaming JSONL v2 module-health metrics | `train.py --metrics_jsonl` (every N steps) | ✅ |
+| Graceful degradation counters in diagnostics | `get_mt_diagnostics()` | ✅ |
+| Pascal-GPU (sm_60 / P100) torch auto-repair | M2 kernel (installs torch 2.6.0+cu124) | ✅ |
+| 16 GB-GPU memory fit (batch 4 + expandable_segments) | M2 kernel | ✅ |
+| TorchScript deployment artifact + latency report | `mt_lnn/export.py`, `scripts/export_torchscript.py` | ✅ |
+
+### 125M from-scratch pretraining (AwareLiquid-M2) — in progress
+
+131.4M-param MT-LNN (832 d × 12 L × 13 H, GQA=1, seq 512) pretraining on
+WikiText-103 (gpt2 BPE) with all four v2.0 modules ON, on Kaggle. The
+stability-validation run is short (1200 steps, batch 4, grad_accum 1) to confirm
+no representational/routing collapse before committing to the multi-day full run.
+
+Status: stability run executing after clearing two infra blockers — the Pascal
+sm_60 / torch-2.10-cu128 kernel mismatch and a 16 GB-GPU OOM (batch 8 → 4 at
+seq 512). **125M training/PPL + v2 module-health metrics (competition entropy,
+world-model prediction error, surprise, Hebbian/EMA dynamics) are pending this
+run and will be filled in here once validation passes.**
