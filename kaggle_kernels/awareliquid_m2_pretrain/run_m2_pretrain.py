@@ -35,8 +35,24 @@ DIR = "/kaggle/working/M1"
 if not os.path.exists(DIR):
     subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)
 os.chdir(DIR)
+
+# CRITICAL: Kaggle ships a torch build matched to the assigned GPU (e.g. the
+# P100 is compute-capability sm_60, which recent torch wheels have *dropped*).
+# Installing datasets/transformers can silently upgrade torch to a build with
+# no sm_60 kernels → "CUDA error: no kernel image is available for execution on
+# the device" on the first forward pass. Pin the pre-installed torch via a pip
+# constraints file so the extras resolve their deps but can NEVER replace torch.
+import torch as _pretorch  # noqa: E402  (Kaggle pre-installs a GPU-matched torch)
+_torch_public = _pretorch.__version__.split("+")[0]   # strip +cuXXX local tag
+_constraints = "/tmp/pip-constraints.txt"
+with open(_constraints, "w") as _f:
+    # `==X.Y.Z` (no local segment) matches the installed `X.Y.Z+cuNNN` build,
+    # so this pins without forcing a reinstall.
+    _f.write(f"torch=={_torch_public}\n")
+print(f"[env] pinning torch=={_torch_public} (pre-installed, GPU-matched) "
+      f"so pip cannot upgrade it")
 subprocess.run(
-    [sys.executable, "-m", "pip", "install", "-q",
+    [sys.executable, "-m", "pip", "install", "-q", "-c", _constraints,
      "datasets", "transformers", "tokenizers", "tqdm", "einops"],
     check=True,
 )
@@ -44,6 +60,19 @@ subprocess.run(
 import torch  # noqa: E402  (after pip install)
 print(f"torch {torch.__version__} | cuda={torch.cuda.is_available()} "
       f"| device={torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu'}")
+# Fail fast & loud if torch can't actually run a kernel on this GPU, instead of
+# burning the data-tokenisation time only to crash on the first forward pass.
+if torch.cuda.is_available():
+    try:
+        _probe = (torch.ones(8, device="cuda") * 2).sum().item()
+        assert _probe == 16.0
+        print(f"[env] CUDA kernel probe OK on {torch.cuda.get_device_name(0)}")
+    except Exception as _e:  # pragma: no cover
+        raise RuntimeError(
+            f"torch {torch.__version__} cannot execute kernels on "
+            f"{torch.cuda.get_device_name(0)} (likely a compute-capability "
+            f"mismatch from a torch upgrade): {_e}"
+        )
 
 WORK = "/kaggle/working"
 DATA_DIR = os.path.join(WORK, "data")
