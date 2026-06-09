@@ -150,8 +150,8 @@
 \textbf{Microtubule Liquid Neural Network:}
 \begin{itemize}
     \item \textbf{Replacing the Cache Wall:} We completely discard the traditional $O(T)$ KV Cache, introducing an \textbf{$O(1)$ Working Memory Decay} matrix. Context size scales infinitely with zero added memory footprint.
-    \item \textbf{Replacing Static FFNs:} The architecture integrates 13 parallel, continuous-time liquid network pathways equipped with \textit{endogenous compute skipping}.
-    \item \textbf{Native Conscious Computing:} The world's first AI architecture to break the "Anesthesia Benchmark," capable of generating language while tracking an inherent cognitive collapse metric ($\hat{\Phi}$).
+    \item \textbf{Replacing Static FFNs:} The architecture integrates 13 parallel, continuous-time liquid network pathways with \textit{optional sparse-resonance compute gating}.
+    \item \textbf{Conscious-Computing Instrumentation:} The backbone generates language while natively tracking an integrated-information proxy ($\hat{\Phi}$) under an \textit{Anesthesia Validation Protocol} --- a quantitative, reproducible probe of representational collapse (not a solved consciousness claim).
 \end{itemize}
 \end{column}
 \begin{column}{0.4\textwidth}
@@ -164,8 +164,8 @@
 \begin{frame}{Deep Dive: Shattering the Next-Token Paradigm}
 \begin{itemize}
     \item \textbf{Predictive Coding System:} Moving beyond pure ``next word guessing'', MT-LNN introduces inter-scale predictive coding. Abstract reasoning channels natively self-supervise faster perception channels, forcing deep logic comprehension.
-    \item \textbf{Endogenous Compute Skipping:} Utilizing dynamic $\kappa$ logic gates, the architecture autonomously shuts off dormant channels mid-computation, yielding \textbf{exponential ROI cost-savings} on inference chips.
-    \item \textbf{Explainable Causal Logging:} Say goodbye to black boxes. MT-LNN state matrices are natively parsed by \textit{Causal Chain} and \textit{Self-Monitor} extraction heads, rendering internal logical stepping completely observable.
+    \item \textbf{Sparse-Resonance Compute Gating:} Optional dynamic $\kappa$ scale-gates can deactivate dormant channels mid-computation, trading a small accuracy budget for \textbf{measured CPU throughput gains} (see the sparse-resonance ablation).
+    \item \textbf{Explainable Causal Logging:} Moving away from black boxes. MT-LNN state matrices are parsed by \textit{Causal Chain} and \textit{Self-Monitor} extraction heads, making internal logical stepping directly inspectable.
 \end{itemize}
 \end{frame}
 
@@ -386,7 +386,7 @@ Conscious Core Eval & \textcolor{green}{Yes} & \textcolor{red}{No} & \textcolor{
 \begin{frame}{Uncharted Territory 1: Edge \& IoT Devices}
 \begin{itemize}
     \item \textbf{Solving the Hardware Bottleneck:} We are migrating advanced models directly into highly-constrained hardware: wearable AR glasses, native automotive local hubs, and flagship smartphones.
-    \item \textbf{True ``Always-On'' Intelligence:} Our architecture supports continuous real-time audio/video processing. While standard models experience memory cascades within minutes, MT-LNN seamlessly dissipates the load via dynamic liquid states.
+    \item \textbf{Toward ``Always-On'' Intelligence:} The backbone is modality-agnostic --- it exposes a \textit{multimodal injection path} (vision-patch and feature-projector frontends fuse non-text streams into the token sequence). Where standard models suffer memory cascades on long streams, MT-LNN dissipates the load via dynamic liquid states rather than an ever-growing cache. (Pretrained vision/audio towers are a roadmap item.)
 \end{itemize}
 \end{frame}
 
@@ -397,10 +397,11 @@ Conscious Core Eval & \textcolor{green}{Yes} & \textcolor{red}{No} & \textcolor{
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Current Status: Million-Token RAG Demo}
+\begin{frame}{Current Status: A Runnable Stack, Not Just a Paper}
 \begin{itemize}
-    \item \textbf{Not Just a Visionary Paper:} We have fully escaped the academic whiteboard. At this very moment, we possess a mature, running Python/Gradio UI integrating a natively functioning AI sandbox.
-    \item \textbf{Ready to Deploy:} The codebase is fully containerized. It runs entirely offline on a standard PC or fits natively into an enterprise intranet. It is not an idea----it is a functional intelligence asset today.
+    \item \textbf{Beyond the whiteboard:} The architecture is implemented end-to-end with native autoregressive \texttt{generate()} (KV-cache decoding, top-k/top-p sampling) and an interactive Python/Gradio sandbox UI.
+    \item \textbf{Serving \& packaging:} An OpenAI-style FastAPI server (completions + SSE streaming) and a Docker image package the model for offline, on-prem deployment on a standard PC or enterprise intranet --- no external API dependency.
+    \item \textbf{Validated by tests:} 280+ automated tests cover the backbone, incremental decoding, generation, serving, and the multimodal injection path. (RAG / retrieval integration is a roadmap item, not yet shipped.)
 \end{itemize}
 \end{frame}
 
@@ -410,7 +411,7 @@ Conscious Core Eval & \textcolor{green}{Yes} & \textcolor{red}{No} & \textcolor{
     \vspace{0.4em}
     \item \textbf{Phase 2: Enterprise Deployment (Months 1-6):} Secure funding to train a native 7B enterprise model explicitly fine-tuned for dense RAG and local inference. Establish initial recurring B2B sales pipelines.
     \vspace{0.4em}
-    \item \textbf{Phase 3: The A.G.I Checkmate (Months 6-18):} Scale to an H100 orbital cluster. Introduce multimodal processing and challenge the legacy Transformer architecture on a 100B+ parameter scale across global LLM arenas.
+    \item \textbf{Phase 3: Scale \& Multimodal (Months 6-18):} Scale on an H100 cluster. The modality-agnostic injection path is already in place; Phase 3 trains the pretrained vision/audio towers on top of it and pushes toward 100B+ parameter scale to challenge legacy Transformers across global LLM arenas.
 \end{enumerate}
 \end{frame}
 

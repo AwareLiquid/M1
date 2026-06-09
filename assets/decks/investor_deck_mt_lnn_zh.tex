@@ -126,7 +126,7 @@
 \textbf{预测编码与 $O(1)$ 微管液态系统：}
 \begin{itemize}
     \item \textbf{重构前馈与缓存墙：} 抛弃标准 Transformer 中耗费显存的静态 FFN 和 $O(T)$ KV 缓存，替换为 13 个平行的多尺度连续时间网络以及 \textbf{$O(1)$ 工作记忆衰减矩阵}。
-    \item \textbf{内置解释性与跳过机制：} 引入动态计算跳过（Endogenous Compute Skipping）指数级节省显存算力。内置因果链与自我监控提取头，打破大模型黑盒困境。
+    \item \textbf{内置解释性与跳过机制：} 提供可选的稀疏共振算力门控（Sparse-Resonance Compute Gating），以小幅精度预算换取实测 CPU 吞吐提升。内置因果链与自我监控提取头，使内部推理步骤可被直接检视。
 \end{itemize}
 \end{column}
 \begin{column}{0.4\textwidth}
@@ -156,7 +156,7 @@
 \begin{frame}{深度解析：$O(1)$ 工作记忆与算力跳过}
 \begin{itemize}
     \item \textbf{打破注意力上下文瓶颈：} MT-LNN 引入指数衰减的全局工作记忆（Decay Working Memory）。新 Token 的整合开销为极其严格的常量 $O(1)$，彻底消灭了 GPU 推理时的内存刺客。
-    \item \textbf{动态算力跳过 (Compute Skipping)：} 仿生大脑，在面对高度冗余或简单的上下文区间时，休眠的原丝通道会被原生覆盖掩码跳过计算（Masked out），直接实现云计算算力的指数级成本节约。
+    \item \textbf{动态算力跳过 (Compute Skipping)：} 仿生大脑，在面对高度冗余或简单的上下文区间时，可选地令休眠的原丝通道被掩码跳过计算（Masked out），以小幅精度预算换取实测的 CPU 算力节约（详见稀疏共振消融）。
     \item \textbf{量子启发耦合：} 创新性引入类似量子物理的隐状态交互，使不同频段通道之间在时间流中实现信息平稳交换过渡。
 \end{itemize}
 \end{frame}
@@ -414,7 +414,7 @@
 \begin{frame}{蓝海下沉市场 1：IoT 与边缘嵌入设备}
 \begin{itemize}
     \item \textbf{解决物理芯片发热与功耗瓶颈：} 模型不仅体积小，而且对内存读写的极速优化使得我们能将其无缝嵌入到功耗受限的可穿戴 AR 交互外设和车载中枢内。
-    \item \textbf{全天候陪伴式流信息处理：} 现存主流 AI 无法承载几十小时全时段开启音视频输入捕捉，而 MT-LNN 随时间递进的连续动态吸收机制天然适用这类连绵不断的外界数据流场景。
+    \item \textbf{迈向全天候流式处理：} 骨干网络与模态无关——已开放\textbf{多模态注入通路}（视觉 patch 与特征投影前端将非文本流融合进 token 序列）。面对长流输入，MT-LNN 依靠动态液态状态消化负载，而非依赖不断膨胀的缓存。（预训练视觉/音频塔为路线图项目，尚未交付。）
 \end{itemize}
 \end{frame}
 
@@ -426,10 +426,11 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{当前进展：成熟的长文本 RAG Demo 演示}
+\begin{frame}{当前进展：可运行的完整技术栈，而不止是论文}
 \begin{itemize}
-    \item \textbf{工程化验证进度稳健：} 目前技术不仅具备深厚的理论与论文基础验证，且已实现完整的模型级封装工程化。我们结合了最新组件搭建了流畅运作的大规模文档推理前端平台。
-    \item \textbf{优秀的交付适应性：} Demo已完成标准化装箱打包测试。能即刻满足本地脱网部署演示要求，或快速封装成微服务流交付并入传统企业的已有网络中，打通产品化最后一公里。
+    \item \textbf{超越白板阶段：} 架构已端到端实现，具备原生自回归 \texttt{generate()}（KV-cache 解码、top-k/top-p 采样）及可交互的 Python/Gradio 沙盒前端。
+    \item \textbf{服务化与打包：} 提供 OpenAI 风格的 FastAPI 服务（completions + SSE 流式）与 Docker 镜像，可离线、私有化部署于普通 PC 或企业内网，无需任何外部 API 依赖。
+    \item \textbf{由测试背书：} 280+ 项自动化测试覆盖骨干网络、增量解码、文本生成、服务化与多模态注入通路。（RAG / 检索集成为路线图项目，尚未交付。）
 \end{itemize}
 \end{frame}
 
@@ -439,7 +440,7 @@
     \vspace{0.5em}
     \item \textbf{二阶段架构规模化 (随后的 6-12 个月内)：} 着手引入充足起步的高算力集群资源，开发训练并推出完全原生结构的大规格 7B (70亿) 级底层大模型组件架构。与初期 B 端合作伙伴深度联合开发落地闭环体系与行业最佳实践案例。
     \vspace{0.5em}
-    \item \textbf{三阶段迈向下一代泛化多模态基座 (未来 18 个月以上)：} 跨越多模态，使用超千亿宏大数据集参与大规模通用联合训练。并用该极致常数时间效能最终推动更高度的泛化 AGI 理解引擎构建计划底座。
+    \item \textbf{三阶段规模化与多模态基座 (未来 18 个月以上)：} 与模态无关的注入通路已就位；本阶段在其之上训练预训练视觉/音频塔，并使用超千亿数据集参与大规模联合训练，用极致常数时间效能推动更高度的泛化理解引擎底座。
 \end{enumerate}
 \end{frame}
 
