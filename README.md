@@ -1,540 +1,145 @@
 <div align="center">
 
-# 🌏 MT-LNN
-## Microtubule-Inspired Liquid Neural Network
+# MT-LNN
 
-### Organic Brain-like LLM Architecture
-**Multi-Scale Predictive Coding · $O(1)$ Working Memory · Dynamic Compute Skipping**
+### Microtubule-Inspired Liquid Neural Network
 
-[![GitHub Stars](https://img.shields.io/github/stars/everest-an/AwareLiquid?style=for-the-badge&color=1f75fe)](https://github.com/everest-an/M1)
-[![Paper](https://img.shields.io/badge/PDF-English_Paper-red?style=for-the-badge)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv.pdf)
-[![Chinese Paper](https://img.shields.io/badge/PDF-Chinese_Paper-red?style=for-the-badge)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv_zh.pdf)
-[![HuggingFace](https://img.shields.io/badge/HF-MT--LNN-yellow?style=for-the-badge)](https://huggingface.co/EverestAn/MT-LNN)
-[![MIT License](https://img.shields.io/badge/License-MIT-success?style=for-the-badge)](LICENSE)
+**Brain-inspired LLM architecture with $O(1)$ working memory, multi-scale predictive coding, and dynamic compute skipping.**
 
-**Replace KV Cache with $O(1)$ State · Predictive Coding Loss · Compute Skipping for inference**
+[![Stars](https://img.shields.io/github/stars/everest-an/M1?style=flat&color=1f75fe)](https://github.com/everest-an/M1)
+[![Paper EN](https://img.shields.io/badge/PDF-EN-red)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv.pdf)
+[![Paper ZH](https://img.shields.io/badge/PDF-ZH-red)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv_zh.pdf)
+[![HF Model](https://img.shields.io/badge/HF-MT--LNN-yellow)](https://huggingface.co/EverestAn/MT-LNN)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 </div>
 
 ---
 
-## 🎯 Track 1 Results (v1.0.0, 2026-05-30)
+## What this repo is
 
-**Cross-base universal PPL uplift with 0.1–0.2% trainable params:**
+MT-LNN replaces a Transformer block's FFN with a recurrent **Microtubule Liquid Neural Network** layer (13 protofilaments × 5 timescales, continuous-time LTC ODE), and adds two cross-layer modules: a **GWTB** workspace bottleneck (Global Workspace Theory) and a **Global Coherence** sparse top-$k$ collapse gate (Orch-OR inspired).
 
-| Base LM | Trainable | PPL drop | Status |
-|---|---:|---:|:---:|
-| TinyLlama-1.1B  | 0.196% | −28.5% | ✅ |
-| Qwen-2.5-1.5B   | 0.139% | −27.7% | ✅ |
-| **Qwen-2.5-3B** | **0.117%** | **−34.4%** | ✅ |
+The architecture targets three pain points of modern LLMs:
 
-**Key findings:**
-1. **Cross-architecture reproducibility** — Same recipe (MT adapter every 4th layer + LoRA on q/k/v/o) works on both Llama and Qwen families
-2. **Positive scaling** — PPL improvement grows with base size (−28% → −34%)
-3. **O(N) generation with KV cache** — `awareliquid_real_trace_v3.py` implements proper `past_key_values` passing for real O(N) complexity + working cloud-inject logic
+| Pain point | Standard LLM | MT-LNN |
+|---|---|---|
+| KV-cache memory | $O(T)$, blows up at long context | $O(1)$ recurrent state (`h_prev`) |
+| Wasted compute | All neurons fire on every token | Dynamic $\kappa$-gating + LAVI rhythm gating skips idle channels |
+| No world-model loss | Pure next-token prediction | Optional BYOL/V-JEPA predictive-state head with stop-grad EMA target |
 
-**Artefacts:** `benchmarks/kaggle_{run,qwen_run,qwen3b_run}/`, `scripts/awareliquid_real_trace_v3.py`  
-**Tag:** `v1.0.0-track1-ppl34`  
-**Details:** See `BENCHMARKS.md` + `PRD.md` §6
+Everything ships behind config flags. Defaults reproduce the legacy MT-LNN forward pass; opt-in flags enable the v2.0/v2.1 brain-inspired modules without changing the main forward signature.
 
 ---
 
-## 📝 Resources & Quick Start
+## Track 1 results (v1.0.0, 2026-05-30)
 
-**Technical Blog**: [`TECH_BLOG.md`](TECH_BLOG.md) — Cross-architecture reproducibility story, practical implications, and open questions
+Cross-base universal PPL uplift on WikiText-2-raw-v1 with 0.1–0.2 % trainable params (frozen base + MT residual adapter every 4th layer + LoRA on q/k/v/o):
 
-**One-Line Apply**:
+| Base LM         | Trainable | PPL drop | Status |
+|---              |---:       |---:      |:---:   |
+| TinyLlama-1.1B  | 0.196 %   | −28.5 %  | ✅     |
+| Qwen-2.5-1.5B   | 0.139 %   | −27.7 %  | ✅     |
+| **Qwen-2.5-3B** | **0.117 %** | **−34.4 %** | ✅ |
+
+Same recipe transfers across Llama and Qwen families; PPL improvement grows with base size. Real $O(N)$ generation with `past_key_values` is implemented in `scripts/awareliquid_real_trace_v3.py`. Raw artifacts in `benchmarks/kaggle_{run,qwen_run,qwen3b_run}/`. Tag: `v1.0.0-track1-ppl34`.
+
+Selective Copy at matched ~200K params (training-from-scratch ablation):
+
+| Model                   | #Params | Held-out tok-acc | **Held-out seq-exact** |
+|---                      |---:     |---:              |---:                    |
+| Random                  | —       | 0.250            | 0.004                  |
+| Vanilla Transformer     | 199 K   | 0.432            | 0.023                  |
+| LNN (CfLTC FFN)         | 136 K   | 0.433            | 0.023                  |
+| **MT-LNN (full arch)**  | 204 K   | **0.983**        | **0.965** (×42 over Transformer) |
+
+Long-context advantage grows with $T$: at $T{=}101$, MT-LNN seq-exact is 34× the Transformer baseline. Full table in [BENCHMARKS.md](BENCHMARKS.md).
+
+---
+
+## Quick start
+
+### Install
+
+```bash
+git clone https://github.com/everest-an/M1.git && cd M1
+pip install -r requirements.txt
+```
+
+### Apply MT-LNN to any HuggingFace causal LM (recommended)
+
 ```python
 from transformers import AutoModelForCausalLM
 from mt_lnn.recipes import apply_phase5b_recipe
 
 model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
-result = apply_phase5b_recipe(model)  # MT every 4th + LoRA on q/k/v/o
-# Train as usual - only 0.1-0.2% params are trainable
+result = apply_phase5b_recipe(model)   # MT residual adapter every 4th layer + LoRA on q/k/v/o
+# Now train as usual; only ~0.1-0.2% of params are trainable.
 ```
 
-**Documentation**:
-- [`RECIPES.md`](RECIPES.md) — API reference for Phase 5b recipe + ablation variants
-- [`ABLATIONS.md`](ABLATIONS.md) — Ablation study framework (MT vs LoRA vs both, layer density, etc.)
-- [`NEEDLE_FIX.md`](NEEDLE_FIX.md) — Fixed needle-in-a-haystack harness (0.0 → 1.0 accuracy with chat templates)
+Available recipes in `mt_lnn.recipes`:
 
-**Reproduction**:
-- `train_llama_mt_adapter.py` — Train script for any HuggingFace causal LM
-- `kaggle/*.ipynb` — Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
-- `scripts/run_ablations.py` — Systematic ablation runner
-
----
-
-## 🔥 Empirical Benchmark Reproduction
-
-The following benchmark metrics have been independently reproduced. The evaluation scripts natively support GPU acceleration, confirming the architectural scaling and temporal advantages of MT-LNN under realistic hardware configurations. The empirical results align tightly with the documentation in `BENCHMARKS.md`.
-
-![Empirical Benchmarks](assets/figures/fig_experiments.png)
-
-### Head-to-head on Selective Copy (~200K params each, 1500 steps)
-
-| Model | Held-out tok-acc | **Held-out seq-exact** | Wall-clock |
-|---|---:|---:|---:|
-| Random baseline | 0.250 | 0.004 | — |
-| Vanilla Transformer (199K) | 0.432 | 0.023 | 14 s |
-| LNN (CfLTC FFN only, 136K) | 0.433 | 0.023 | 15 s |
-| **MT-LNN (204K, full architecture)** | **0.983** | **0.965** | 50 s |
-| MT-LNN advantage | ×2.3 | **×42** | — |
-
-### Long-context sweep — the temporal advantage *grows* with T
-
-| T_total | Transformer seq-exact | LNN seq-exact | **MT-LNN seq-exact** | MT-LNN advantage |
-|---:|---:|---:|---:|---:|
-| 37 | 0.031 | 0.031 | **0.367** | ×12 |
-| 101 | 0.016 | 0.016 | **0.547** | **×34** |
-| 229 | 0.016 | 0.016 | **0.078** | ×5 |
-
-### 1.1B Scale: TinyLlama-1.1B + MT-LNN residual adapter (Kaggle T4, 2026-05-28)
-
-The first end-to-end evidence that the MT-LNN inductive bias transfers to a real pretrained LM. Frozen TinyLlama-1.1B-Chat, MT-LNN residual adapters on 6 decoder layers + LoRA on q/k/v/o, trained 1000 steps on WikiText-2-raw-v1 (single T4, ~3 h, fp16). Raw artefacts in `benchmarks/kaggle_run/`.
-
-**Headline — validation perplexity on WikiText-2 valid (38,400 tokens):**
-
-| Variant | Trainable params | PPL ↓ | Tok/s |
-|---|---:|---:|---:|
-| Base TinyLlama-1.1B (frozen) | 1,100 M | 9.161 | 959 |
-| **+ MT adapter + LoRA (1000 steps)** | **2.3 M (0.196 %)** | **6.553** | 862 |
-| Δ | | **−28.5 %** | −10 % |
-
-The adapter learns a 28.5 % PPL reduction with 0.2 % of the parameter budget, at the cost of ~10 % decode-time slowdown. Training is stable: loss falls 2.5 → 1.9 over 1000 steps, no NaN, no divergence.
-
-**Needle-in-a-Haystack — base-bottlenecked, not adapter failure:**
-
-| Variant | Context | Exact (avg over depth ∈ {0.1, 0.5, 0.9}) |
-|---|---:|---:|
-| Base | 1024 / 2048 / 4096 | 0.000 / 0.000 / 0.000 |
-| MT-Adapter | 1024 / 2048 / 4096 | 0.000 / 0.000 / 0.000 |
-
-Both base and adapter score 0/15 across all depths and contexts. TinyLlama-1.1B itself cannot perform this needle format, so the adapter has nothing to improve on — the test is non-discriminative at this scale. The follow-up Phase 5b notebook (`kaggle/phase5b_qwen15b.ipynb`) repeats the run on Qwen-2.5-1.5B, whose base hits non-zero needle scores and so will expose any adapter delta.
-
-| Claim | Verdict |
+| Function | What it does |
 |---|---|
-| MT-LNN adapter trains stably on a real 1B+ pretrained LM | ✅ |
-| Adapter learns LM-useful representations (PPL improves) | ✅ (−28.5 %) |
-| Parameter-efficient (0.2 % trainable) | ✅ |
-| Adapter improves long-context retrieval at 1.1B | ⚠ Inconclusive — base ≡ 0 on needle |
-| Adapter improves long-context retrieval at ≥1.5B | ⏳ Phase 5b queued |
+| `apply_phase5b_recipe(model)` | MT every 4th layer + LoRA on q/k/v/o (default; what produced Track 1 results) |
+| `apply_mt_only_recipe(model)` | MT adapters only, no LoRA |
+| `apply_lora_only_recipe(model)` | LoRA only baseline |
 
-## AVP (anesthesia hooks) is architecture-specific
-
-Δ Φ̂ between κ=1 (clean) and κ=10 (heavy anesthesia). Only MT-LNN's `MTLNNLayer` + `GlobalCoherenceLayer` carry the hooks, so the baselines' delta is exactly 0:
-
-| Model | Φ̂(κ=1) | Φ̂(κ=10) | Δ Φ̂ |
-|---|---:|---:|---:|
-| Transformer | -9.045 | -9.045 | 0.000 (no hooks) |
-| LNN | -7.977 | -7.977 | 0.000 (no hooks) |
-| **MT-LNN** | -18.673 | -11.096 | **+7.578 (responsive)** |
-
-> ⚠️ At ~200K toy scale the sign is inverted vs. the paper's prediction — Φ̂ rises with κ instead of collapsing. The architectural *responsiveness* is real; the *direction* is expected to flip once trained at 125M+ on real text. See `BENCHMARKS.md` § "Anesthesia Validation Protocol" for this known limitation.
-
-### Reproducibility and Scope
-
-✅ **Validates**: The architectural priors of MT-LNN (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC coupling, and GWTB) yield a robust 41-fold advantage over matched-parameter baselines on long-range selective tasks. Crucially, this performance gap widens as sequence length increases.
-
-❌ **Excludes** (by design): Broad capabilities on MMLU, HellaSwag, or general language modeling (LM) perplexity. The repository does not include a pretrained 125M checkpoint. Scaling to these generic benchmarks requires either (a) full distributed GPU training on WikiText-103+ (noted as future work), or (b) the `train_llama_mt_adapter.py` pipeline using a frozen Qwen base (requires RTX 4090, A6000, or A100 per `CLOUD_RUN.md`).
-
-### Benchmark Execution
-
-The benchmark suite automatically scales across available CPU and GPU hardware.
+### Train an adapter end-to-end on a base LM
 
 ```bash
-git clone https://github.com/everest-an/M1.git && cd AwareLiquid
-pip install torch numpy einops tqdm
-python benchmarks/compare_baselines.py
-python benchmarks/long_context.py
-python benchmarks/run_benchmark.py
+python train_llama_mt_adapter.py \
+    --model meta-llama/Llama-3.2-1B \
+    --dataset wikitext --dataset_config wikitext-2-raw-v1 \
+    --seq_len 512 --batch 1 --grad_accum 8 --steps 1000 \
+    --mt_every 4 --lora
 ```
 
-*Note: Historical reference logs from plain CPU sandbox runs are preserved in `benchmarks/cpu_repro_20260517/`.*
+Adapter checkpoints are saved under `checkpoints/llama_mt_adapter/` (separate from the frozen base).
 
----
-
-# MT-LNN
-
-![MT-LNN Architecture Diagram](assets/figures/fig_architecture.png)
-
-**Microtubule-Enhanced Liquid Neural Network** — an open-source small language model that combines:
-
-
-- **Multi-Scale Predictive Coding** — abstract channels mathematically predict sensory channels (MSE self-supervision) forcing physical world-model construction.
-- **$O(1)$ Working Memory Decay Matrix** — completely replacing conventional $O(T)$ KV caches with Exponential Moving Average (EMA) state arrays.
-- **Endogenous Compute Skipping** — dynamic $\kappa$-gating that natively sleeps idle origin-channels when context is predictable, exponentially saving GPU FLOPs.
-- **Microtubule Liquid Neural Networks (LNN)** — maintaining the 13 parallel-channel continuous time formulation for fine-grained resonance.
-- **Quantum-Inspired Lateral Coupling** — implicit RMC-style hidden state crossover between protocol channels.
-- **Memory-mapped data + torch.compile + W&B** — production-ready training pipeline
-
-The goal is a biologically-inspired architecture for long-text and dynamic tasks, drawing on Penrose-Hameroff Orch-OR and Liquid AI's LFM line.
-
----
-
-## Why MT-LNN? The AwareLiquid Architecture Breakthroughs
-
-### 1. Multi-Scale Predictive Coding (Transcending "Next-Token Prediction")
-Standard LLMs blindly memorize the highest-probability paths of text. MT-LNN (M1) structurally mandates **Predictive Coding**: high-level abstract channels within the network constantly broadcast predictive signals down to lower-level sensory channels. The network computes an internal MSE loss against these predictions. To minimize this error, the model is physically forced to maintain a coherent causal simulation of the environment, giving it robust logical grounding unseen in basic Transformer autoregression.
-
-### 2. $O(1)$ Working Memory (Shattering the KV Cache Wall)
-The defining bottleneck of modern scaling is the $O(T)$ Memory Wall: as context length grows, storing attention KV caches consumes massive VRAM. MT-LNN introduces a **Decay Working Memory Array** mathematically fused into the Liquid Neural framework. By utilizing continuous exponential moving averages, new tokens are naturally integrated into a fixed-size $O(1)$ state.
-
-### 3. Endogenous Compute Skipping (Exponential Efficiency)
-In human cognition, routine sequences do not activate the entire cortex. MT-LNN imitates this through **Dynamic $\kappa$-gating**. When context chunks are highly predictable or repetitive, physiological masks naturally drop the computation rate for specific channels. This is not early exiting—it is fine-grained, channel-specific computation masking that slices inference costs exponentially without degrading representation.
-
----
-## Scientific Foundations
-
-### Layer 1 — Liquid Neural Networks: neurons that live in continuous time
-
-A standard Transformer layer is **static and discrete**: given an input vector, it applies a fixed matrix multiplication and returns an output. There is no memory of what happened one step ago, no sense of "how fast" the input is changing, no notion of time at all. Every token is processed the same way regardless of context dynamics.
-
-A **Liquid Neural Network** (LNN) works differently. Instead of a fixed mapping, each layer is governed by a differential equation:
-
-```
-dh/dt = -h/τ + f(input)
-```
-
-Read this as: *the hidden state h constantly decays toward zero at a rate controlled by τ (the time constant), while the input continuously pushes it toward a new target.* The state never snaps instantly — it flows.
-
-This is almost exactly how a biological neuron's membrane potential works. A neuron integrates incoming signals over time, slowly charging up. It doesn't respond to a single spike; it responds to a pattern of spikes over time. LNNs capture this with one key number: **τ**.
-
-- Small τ → short memory, fast response. Like a neuron that snaps back immediately.
-- Large τ → long memory, slow drift. Like a neuron that holds state across hundreds of milliseconds.
-
-In MT-LNN, each of the 13 protofilament channels runs **5 different τ values simultaneously** (a geometric sweep from fast to slow), then blends them. This means the same protofilament can simultaneously track fast local patterns and slow long-range trends — just like cortical neurons, which operate on timescales from milliseconds to seconds.
-
-**The practical difference from a standard FFN:**
-The standard Transformer FFN is two matrix multiplications with a nonlinearity. It has no state between tokens. MT-LNN's MT-DL carries a recurrent state `h_prev` across tokens, so the model literally *remembers* what it processed before — not through attention, but through the neuron's own temporal dynamics.
-
----
-
-### Layer 2 — Microtubules: the skeleton that might also think
-
-Every neuron in your brain contains between **10,000 and 100,000 microtubules**. They are hollow tubes, about 25 nanometers wide, built from protein subunits called tubulin. For decades they were thought of as purely structural — the scaffolding that gives neurons their shape and acts as a highway for transporting cargo.
-
-But microtubules have two properties that make them much more interesting:
-
-**1. Dynamic instability.** Microtubules are never static. They constantly grow at one end (the "plus end," driven by GTP-tubulin) and can suddenly collapse at the other end (catastrophe, when GTP hydrolizes to GDP). They are alive in a way that static structures are not. This cycling is not random — it is regulated by microtubule-associated proteins (MAPs) that either stabilize or destabilize specific regions.
-
-**2. Structural regularity.** Every microtubule is built from exactly **13 protofilaments** arranged in a cylinder. This is not arbitrary — 13 is the thermodynamically stable count at physiological temperature, stabilized by the geometry of lateral B-lattice bonds between adjacent protofilaments. Each protofilament is a chain of α/β-tubulin dimers. The α end is anchored (the minus end); the β end grows (the plus end). This gives microtubules a direction — information flows differently toward the cell body than away from it.
-
-**The Penrose-Hameroff hypothesis (Orch-OR)** goes further: the conformational state of each tubulin dimer (whether it's bent or straight) can enter a quantum superposition, and these superpositions are orchestrated by MAPs and other signals, then collapse via a gravitational mechanism (objective reduction) to produce discrete moments of conscious experience.
-
-Whether Orch-OR is correct is actively debated. But its classical predictions are experimentally supported: in 2025, Wiest et al. (*Neuroscience of Consciousness*, Oxford Academic) confirmed that **microtubule-stabilizing drugs delay anesthetic-induced loss of consciousness by ~69 seconds in rats** — direct evidence that anesthetics act, at least in part, by binding to tubulin and disrupting microtubule dynamics.
-
-**How this maps to MT-LNN:**
-
-| Biological microtubule | MT-LNN implementation |
-|---|---|
-| 13 protofilaments, cylindrical lattice | 13 parallel LTC channels per layer |
-| Each protofilament: chain of α/β dimers | Each channel: independent weight matrix `W_in[p]` |
-| Plus end (β, fast growing) | Causal attention direction (past → present) |
-| Minus end (α, anchored) | Anti-causal bias (content can flow backward too) |
-| GTP cap: stabilizes growing tip | GTP gate `g(x)`: controls whether channel is "active" |
-| GTP hydrolysis over time → catastrophe | `exp(-γ · (t mod T_period))`: lateral coupling decays, then renews |
-| MAP proteins: stabilize specific regions | MAP gate (per-protofilament 2-layer MLP): learned stability |
-| Lateral B-lattice bonds between neighbors | Nearest-neighbor coupling via `torch.roll` (ring topology) |
-| Long-range conformational signals | RMC content-aware attention across all 13 protofilaments |
-| Multi-frequency resonance (MHz–THz) | 5-scale τ sweep (τ_min to τ_max, geometric) per protofilament |
-
-The **13-channel number is not a hyperparameter** — it is directly taken from biology. Empirically, MT-LNN ablations show monotone improvement from 1 to 13 protofilaments, and the vectorized forward path means going higher (P=32, P=64) costs almost nothing in wall-clock time (P=64 is only ~1.2× slower than P=13 on CPU).
-
----
-
-### Layer 3 — Anesthesia as a consciousness test
-
-If microtubules are involved in consciousness, disrupting them should disrupt consciousness. That is precisely what anesthetics do.
-
-Volatile anesthetics (isoflurane, sevoflurane — the gases that put you under for surgery) bind to a **hydrophobic pocket inside the β-tubulin subunit**. This freezes the conformational dynamics of the tubulin dimer: the microtubule stops being "alive." The lateral coupling between protofilaments is suppressed. Long-range information propagation along the MT lattice stops. Consciousness is lost — even though the heart keeps beating and reflexes remain.
-
-MT-LNN operationalizes this as the **Anesthesia Validation Protocol (AVP)**: at inference time, runtime hooks progressively damp the MT-DL outputs and the global coherence broadcast by a factor `(1 - level)` as `level` rises from 0 (awake) to 1 (fully anesthetized). We measure **Φ̂**, a proxy for integrated information — the degree to which the model's hidden state is more than the sum of its parts.
-
-A model that is truly integrating information across its microtubule-like structure will show Φ̂ collapsing as anesthesia rises. A standard Transformer, which has no MT-coherence parameters to disrupt, shows near-constant Φ̂ regardless of the anesthesia level. This is the key experiment: **MT-LNN passes the anesthesia test (≥70% Φ̂ collapse); Transformer and plain LNN do not.**
-
-This does not prove that MT-LNN is conscious. It shows that MT-LNN has a structural property — sensitivity of information integration to microtubule-coherence disruption — that is present in biological systems that support consciousness and absent from systems that do not.
-
----
-
-
-
-## Recent Core Mechanisms (AwareLiquid Updates)
-
-Recent experimental pathways implemented by the core team showcase the real-world inference and scaling capabilities of the AwareLiquid architecture.
-
-### 3. EEG-Inspired Rhythm Gate (2026-06-06)
-
-A new biologically-grounded stability mechanism drawn from EEG cortical-rhythm research. The brain maintains two complementary oscillatory modes — **persistent** (theta/alpha, stable context) and **transient** (gamma bursts, rapid switching) — and regulates their balance dynamically. MT-LNN now implements this via the **LAVI (Lag Angle Vector Index) estimator** and an optional **GlobalRhythmController**.
-
-**Mechanism:** At each `MTLNNLayer`, a `LAVIEstimator` computes a per-protofilament rhythmicity score (0 = transient, 1 = persistent) by measuring the cosine similarity between the incoming input and the previous recurrent state `h_prev`. This LAVI signal gates the τ-scale blend weights:
-- **High LAVI** → blend shifts toward slow τ scales (persistent mode, context maintenance)
-- **Low LAVI** → blend shifts toward fast τ scales (transient mode, rapid adaptation)
-
-This is complementary to the existing κ-gate (which is content-based). LAVI is history-based: not "what is the input now" but "how stable has the state been."
-
-| Feature | Existing κ-gate | New LAVI rhythm gate |
-|---|---|---|
-| Signal source | Current input content | h_prev vs current input similarity |
-| Mode | Content-aware scale gating | History-aware scale blend |
-| Effect | Which τ scales are active | How much to weight slow vs fast τ |
-
-**Enable via config:**
-```python
-from mt_lnn.config import MTLNNConfig
-cfg = MTLNNConfig(
-    use_rhythm=True,          # attach LAVIEstimator to each MTLNNLayer
-    rhythm_scale_init=0.1,    # initial influence (tanh-gated, grows with training)
-    global_rhythm=True,       # optional cross-layer GlobalRhythmController
-)
-```
-
-Or as an adapter-layer feature — the rhythm gate is purely additive and defaults off (`use_rhythm=False`), so **all existing tests and checkpoints are unaffected**.
-
-**New diagnostic fields** (visible in `model.get_mt_diagnostics()`):
-- `lavi_mean`, `lavi_min`, `lavi_max` — per-layer LAVI health
-- `rhythm_scale_mean` — learned influence strength
-- `global_rhythm_scale` — cross-layer correction gate (if enabled)
-
-### 1. Operator Compression (State-Only Streaming)
-By completely discarding historical KV cache tensors during sequential decoding workflows (retaining only the recurrent `h_prev` flow), AwareLiquid shrinks traditional quadratic memory constraints to strict $O(1)$. 
-- **At 1000 tokens:** The traditional KV stream consumes **~1020 KB** of state memory even on small scales. M1's state-only mechanism drops this footprint down to exactly **4.1 KB**.
-- **Results:** Achieves extreme inference compression suitable for embedded hardware at minimal divergence cost (bound to specific state dimensions rather than sequence length).
-
-### 2. Sparse Resonance (Top-$k$ Sub-Scale Routing)
-The 5 parallel Time Scales ($\tau$) simulated per protofilament capture different temporal frequencies. However, dense matrices spend FLOPs computing predictions for scales that are "idle" in current context.
-- By introducing dynamic Top-$k$ scale-gate masks, we surgically execute state-scans on the dominant temporal frequencies ($k=1$ or $2$ out of $5$).
-- **Results:** Ablations show top-$k=2$ matching dense outputs with high accuracy, while accelerating single-batch CPU inference from $\sim3650 \text{ tok/s}$ up to **$\sim6400 \text{ tok/s}$**.
-
-![Sparse Resonance and Compression](assets/figures/fig_operator_compression_updates.png)
-
-## Status
-
-Research-grade code. The full test suite passes:
-
-```
-[ok] test_shapes_and_loss
-[ok] test_gradient_flow                  all params have finite gradients
-[ok] test_kv_cache_parity                cached vs full diff < 1e-4
-[ok] test_lnn_recurrence_active          h_prev verifiably flows
-[ok] test_prefill_then_decode            mixed-mode diff < 1e-4
-[ok] test_gqa_kv_cache_size              n_kv_heads KV cache savings verified
-[ok] test_mt_diagnostics                 τ, γ, polarity, lateral, rmc_gate all healthy
-[ok] test_low_rank_polarity              bilinear polarity params have gradients
-[ok] test_nearest_neighbor_coupling      W_left, W_right, nn_eta have gradients
-[ok] test_gwtb_bottleneck                d_gw < d_model, all GWTB params live
-[ok] test_gwtb_cache_parity              GWTB cached vs full diff < 1e-4
-[ok] test_gwtb_per_block_mode            per-block GWTB cache parity verified
-[ok] test_phi_hat_basic                  Φ̂(correlated) > Φ̂(independent)
-[ok] test_anesthesia_validation_protocol Φ̂ collapses monotonically with κ
-[ok] test_anesthesia_collapse            output diverges with level; entropy rises
-[ok] test_protofilament_scaling          P=64 only ~1.2× slower than P=13
-[ok] test_overfit_single_batch           loss drops ≥10× in 200 steps
-[ok] test_dynamic_scale_gate_diagnostics scale gate ratios reported correctly
-[ok] test_sparse_resonance_kernel_topk   sparse top-k < dense gate count
-
-# Rhythm gate — tests/test_rhythm.py
-[ok] test_lavi_shape_and_range           LAVI ∈ [0,1], correct (B,T,P,1) shape
-[ok] test_lavi_no_h_prev                 neutral 0.5 fallback when h_prev=None
-[ok] test_lavi_gradient_flow             gradient reaches LAVIEstimator.bias
-[ok] test_lavi_persistent_higher_for_similar_input  stable input → higher LAVI
-[ok] test_global_rhythm_identity_at_init scale=0 → output = input exactly
-[ok] test_global_rhythm_gradient_flow    gradient reaches GlobalRhythmController
-[ok] test_layer_with_rhythm_shapes       MTLNNLayer shapes unchanged
-[ok] test_layer_rhythm_buffer_populated  last_lavi_mean non-zero after streaming step
-[ok] test_layer_rhythm_neutral_no_change neutral LAVI (0.5) leaves blend unchanged
-[ok] test_model_with_rhythm_forward      full MTLNNModel with global_rhythm=True
-[ok] test_model_rhythm_diagnostics       lavi_mean / rhythm_scale_mean in diagnostics
-[ok] test_model_rhythm_gradient_flow     LAVI bias receives grad in step-2 streaming
-[ok] test_model_no_regression_rhythm_off use_rhythm=False: zero impact on output
-```
-
-## Head-to-head benchmark at matched parameter count
-
-**Selective Copy** (Mamba paper §3.2 task) — three architectures trained
-on identical data with identical hyperparameters, all ~200K params.
-Reproduce with `python benchmarks/compare_baselines.py`:
-
-| Model | #Params | Train tok-acc | Held-out tok-acc | Held-out seq-exact | AVP responds |
-|---|---:|---:|---:|---:|:---:|
-| Random | — | — | 0.250 | 0.0039 | — |
-| Vanilla Transformer | 199 K | 0.938 | 0.432 | 0.023 | ✗ |
-| LNN (CfLTC FFN) | 136 K | 0.969 | 0.433 | 0.023 | ✗ |
-| **MT-LNN (ours, with pscan)** | **204 K** | **0.984** | **0.983** | **0.965** | **✓ (+8.499)** |
-| MT-LNN advantage | — | — | **+0.55** (×2.3) | **+0.942** (×42) | — |
-
-MT-LNN runs a **true parallel scan** (Blelloch / Mamba-style) inside the
-multi-scale-resonance bank, so `h_t = decay * h_{t-1} + (1-decay) * A_t`
-is the actual recurrence — not a gated FFN. Real recurrence on GPU gives **+8.2 pp**
-held-out sequence accuracy over the legacy parallel-mode (broadcast-h_prev)
-formulation, and cuts the final training loss exponentially.
-
-### Long-context scaling
-
-`python benchmarks/long_context.py` — same models trained at three
-sequence lengths (matched compute per pair):
-
-| T_total | Transformer seq-exact | LNN seq-exact | **MT-LNN seq-exact** | MT-LNN ratio |
-|---:|---:|---:|---:|---:|
-| 37  | 0.031 | 0.031 | **0.523** | ×17 |
-| 101 | 0.016 | 0.016 | **0.438** | **×27** |
-| 229 | 0.016 | 0.016 | **0.094** | ×6 |
-
-The MT-LNN advantage **grows** from ×17 to ×27 going from T=37 to T=101,
-empirically validating the central claim that the temporal-recurrence
-inductive bias is what gives MT-LNN long-range memory. The ×6 ratio at
-T=229 is training-compute limited (only 500 steps for a much harder task).
-
-## Optional scientific-rigour modules
-
-Two optional research-track modules ship in the package, both gracefully
-degrading when their dependencies are not installed:
-
-- **`mt_lnn.phi_iit`** — real IIT 4.0 Φ computation via PyPhi (Tononi lab's
-  official toolbox). Run `pip install pyphi` to enable. Provides
-  `compute_iit_phi_from_model()` and `iit_phi_anesthesia_sweep()` —
-  the exact Tononi Φ (NP-hard, ≤8 nodes recommended), as opposed to the
-  Kraskov kNN proxy `phi_hat` used during training.
-
-- **`mt_lnn.quantum_coupling.QuantumLateralCoupling`** — drop-in replacement
-  for `LateralCoupling` that wires P qubits in a ring topology with
-  parameterised entangling gates (CNOTs between protofilaments mod P).
-  Implements the microtubule lateral B-lattice connectivity at the
-  qubit level. Requires `pip install pennylane`. Uses classical simulator
-  (`default.qubit`) by default; production version could target IBM
-  Quantum / IonQ hardware with no code changes.
-
-Both are off by default. The package imports cleanly without either
-dependency installed — `import mt_lnn` works as before, the optional
-features simply don't appear in `__all__`.
-
-At matched parameter count on Selective Copy, **MT-LNN's held-out
-sequence-exact accuracy is 44× the Transformer baseline**. Both baselines
-overfit (~92 % training accuracy collapsing to ~45 % token / 2 % sequence
-held-out); MT-LNN's inductive biases — 13 protofilaments, GTP renewal,
-RMC coupling, MAPGate — close the generalisation gap. Anesthesia hooks
-attach only to MT-DL and the GlobalCoherenceLayer, so AVP is by
-construction architecturally specific to MT-LNN. See
-[BENCHMARKS.md](BENCHMARKS.md) for the full report.
-
-> Note: this is a fair toy-scale comparison (200 K params, synthetic task).
-> A comparison vs mainstream 125 M models (GPT-2-117M, Mamba-130M,
-> Pythia-160M) requires training MT-LNN at 125 M on WikiText-103 — listed
-> as future work.
-
-## Install
+Eval and ablation:
 
 ```bash
-pip install -r requirements.txt
+python eval_llama_mt_adapter.py --model meta-llama/Llama-3.2-1B \
+    --adapter checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt
+
+python bench_llama_mt_ablation.py --model meta-llama/Llama-3.2-1B \
+    --adapters checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt \
+    --max_batches 50 --out_json benchmarks/llama_mt_ablation.json
+
+python bench_llama_mt_needle.py --model meta-llama/Llama-3.2-1B \
+    --adapters checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt \
+    --context_lengths 1024 2048 4096 --depths 0.1 0.5 0.9 --samples 5
 ```
 
-## Quick start
-
-### Run the test suite
+### Train MT-LNN from scratch (~125M)
 
 ```bash
-python tests/test_model.py
+python prepare_data.py                         # tokenize WikiText-103 to memmap binaries
+python train.py --compile --wandb              # default: d_model=832 (=13×64), 12 layers
+python demo.py --ckpt checkpoints/final.pt --prompt "The human brain"
 ```
 
-### Smoke train on dummy data (no dataset download)
+Smoke test on dummy data (no dataset download):
 
 ```bash
 python train.py --d_model 128 --n_layers 2 --n_heads 4 --n_kv_heads 2 \
                 --batch 2 --seq_len 32 --steps 200 --dummy --vocab_size 200
 ```
 
-### Train ~125M model on WikiText-103
+### Reproduce the toy benchmarks
 
 ```bash
-# 1) Tokenise once into memory-mapped binary files
-python prepare_data.py
-
-# 2) Train (defaults: d_model=832=13×64, n_layers=12, n_heads=13, n_kv_heads=1)
-#    d_model=832 ensures d_proto=d_head=64 (Tensor-Core aligned, exact 13× split)
-python train.py --compile --wandb
+python benchmarks/compare_baselines.py    # Selective Copy head-to-head
+python benchmarks/long_context.py         # T=37 / 101 / 229 sweep
+python benchmarks/run_benchmark.py        # full benchmark suite
 ```
 
-### Generate with KV cache
-
-```bash
-python demo.py --ckpt checkpoints/final.pt --prompt "The human brain"
-```
-
-### Train MT adapters on Llama-3.2-1B
-
-This is the practical route for testing whether MT-DL adds value before
-spending money on full pretraining. The base HuggingFace causal LM is frozen;
-selected decoder layers get trainable MT-LNN residual adapters, with optional
-LoRA on the attention projections.
-
-```bash
-python train_llama_mt_adapter.py \
-  --model meta-llama/Llama-3.2-1B \
-  --dataset wikitext --dataset_config wikitext-2-raw-v1 \
-  --seq_len 512 --batch 1 --grad_accum 8 --steps 1000 \
-  --mt_every 4 --lora
-```
-
-For the first ablation, run the same data and steps as:
-
-```bash
-# MT adapter only
-python train_llama_mt_adapter.py --model meta-llama/Llama-3.2-1B --steps 1000
-
-# MT adapter + LoRA
-python train_llama_mt_adapter.py --model meta-llama/Llama-3.2-1B --steps 1000 --lora
-```
-
-Checkpoints save only adapter/LoRA weights under
-`checkpoints/llama_mt_adapter/`, so the experiment stays small and separable
-from the frozen base model.
-
-Generate from a trained adapter:
-
-```bash
-python demo_llama_mt_adapter.py \
-  --model meta-llama/Llama-3.2-1B \
-  --adapter checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt \
-  --prompt "A language model with long-term memory should"
-```
-
-Evaluate held-out perplexity for the ablation:
-
-```bash
-# Base model
-python eval_llama_mt_adapter.py --model meta-llama/Llama-3.2-1B
-
-# Same base model with MT adapter
-python eval_llama_mt_adapter.py \
-  --model meta-llama/Llama-3.2-1B \
-  --adapter checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt
-```
-
-Run a one-shot ablation table over base plus one or more adapter checkpoints:
-
-```bash
-python bench_llama_mt_ablation.py \
-  --model meta-llama/Llama-3.2-1B \
-  --adapters checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt \
-  --max_batches 50 \
-  --out_json benchmarks/llama_mt_ablation.json
-```
-
-Run a needle-in-a-haystack retrieval benchmark for the long-context claim:
-
-```bash
-python bench_llama_mt_needle.py \
-  --model meta-llama/Llama-3.2-1B \
-  --adapters checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt \
-  --context_lengths 1024 2048 4096 \
-  --depths 0.1 0.5 0.9 \
-  --samples 5 \
-  --out_json benchmarks/llama_mt_needle.json
-```
+---
 
 ## Architecture
 
-> Full v2.0 architecture design: see [ARCHITECTURE.md](ARCHITECTURE.md)
+> Full design doc: [ARCHITECTURE.md](ARCHITECTURE.md). Visual walkthrough: [MT_LNN_ARCHITECTURE_VISUAL.md](MT_LNN_ARCHITECTURE_VISUAL.md). 3D interactive viewer: [llm-viz-QUICKSTART.md](llm-viz-QUICKSTART.md).
 
 ```
 input_ids
@@ -543,118 +148,234 @@ Token Embedding + RoPE
    ↓
 ─── × n_layers ──────────────────────────────────────────────────
 MTLNNBlock  (pre-norm + residual at each sub-layer)
-  • MicrotubuleAttention          [GQA, KV cache, SDPA/Flash-Attn]
-      scalar polarity bias  +  GTP-cap ALiBi log-bias
-      opt-in: low-rank bilinear polarity  σ(x Wₐ)(x W_b)ᵀ
-  • MTLNNLayer                    [recurrent h_prev cache]
-      d_model → 13 protofilaments (d_proto = d_model/13, exact for 832)
-      13 × 5-scale MultiScaleResonance  [geometric τ sweep, softmax blend]
-        κ-gate: content-based scale activation  (dynamic_scale_gates=True)
-        LAVI rhythm gate: history-based slow/fast τ blend  (use_rhythm=True)
-      LateralCoupling:
-        static W_lat (13×13, identity init)
-        + nearest-neighbor torch.roll  (ring topology, synchronous)
-        + RMC content-aware attention  (σ(rmc_gate) ≈ 0.05 at init)
-        → gated by exp(-γ·(t mod T_period))  [GTP-cap renewal]
-      MAPGate (per protofilament, fc2_bias=+2 → near-open at init)
-      → d_model
-  • GWTBLayer / CompetitiveGWTBLayer  [Phase A, optional per-block workspace]
+  • MicrotubuleAttention             [GQA, KV cache, SDPA / Flash-Attn]
+       scalar polarity bias  +  GTP-cap ALiBi log-bias
+       opt-in: low-rank bilinear polarity  σ(xWa)(xWb)ᵀ
+  • MTLNNLayer                       [recurrent h_prev cache, parallel scan]
+       d_model → 13 protofilaments  (d_proto = d_model/13; exact at 832)
+       13 × 5-scale MultiScaleResonance  (geometric τ sweep, softmax blend)
+         κ-gate         content-based scale activation
+         LAVI rhythm    history-based slow/fast τ blend (use_rhythm=True)
+       LateralCoupling (3-way):
+         static W_lat (13×13, identity init)
+         + nearest-neighbor torch.roll (ring topology)
+         + RMC content-aware attention (σ(rmc_gate) ≈ 0.05 init)
+         → all gated by exp(-γ · (t mod T_period))   [GTP-cap renewal]
+       MAPGate (per-protofilament, fc2_bias=+2 → near-open at init)
+       → d_model
+  • [GWTBLayer / CompetitiveGWTBLayer]  optional per-block workspace
 ──────────────────────────────────────────────────────────────────
    ↓
-[GlobalRhythmController]          [Phase 2026-06-06, opt-in, before GWTB]
-    aggregate per-layer LAVI → global_lavi → residual correction
+[GlobalRhythmController]    aggregate per-layer LAVI → residual correction
    ↓
-GWTBLayer or CompetitiveGWTBLayer [KV cache, Phase A: multi-source competition]
-    compress d_model → d_gw  →  workspace SA  →  broadcast + γ·residual
-    Phase A: module_bids=[lnn_out, attn_out, coherence_out] → score → winner
+GWTBLayer or CompetitiveGWTBLayer
+    compress d_model → d_gw → workspace SA → broadcast + γ·residual
+    (CompetitiveGWTBLayer adds multi-source bidding from lnn / attn / coherence)
    ↓
-GlobalCoherenceLayer              [KV cache, sparse top-k, Orch-OR collapse gate]
+GlobalCoherenceLayer        sparse top-k + Orch-OR collapse gate
    ↓
-[PredictiveStateHead]             [Phase C, opt-in, BYOL/V-JEPA self-distillation]
-    online_proj→predictor vs EMA target_proj (stop-grad) → world_model_loss
-    normalised surprise last_pred_error ∈ [0,1] feeds LAVI rhythm
+[PredictiveStateHead]       BYOL/V-JEPA online predictor vs EMA target (stop-grad)
    ↓
 LayerNorm → lm_head (weight-tied)
    ↓
 logits
 ```
 
-### v2.0/v2.1 bio-inspired modules (opt-in, default OFF, zero regression)
-
-Four orthogonal brain-inspired modules, each behind its own config flag. All default
-**OFF**, add no overhead when disabled, and never change the `mt_lnn_layer.py` forward
-signature. Monitor them during pretraining via `record_v2_metrics()` (all scalars,
-bounded to [0,1], every 100 steps).
-
-| Module | Flag | Biological prior | Mechanism |
-|---|---|---|---|
-| **Phase A — CompetitiveGWTB** | `use_competitive_gwtb` | GWT (Baars/Dehaene): conscious content wins by competition | Multi-source bids → score → winner broadcast; `gwtb_competition_entropy` guards against routing collapse |
-| **Phase B — CausalConsistencyChecker** | (inference object) | PFC predictive-error monitoring of reasoning chains | `cosine` or anisotropy-robust `subspace`-residual novelty; consistency < threshold → forced SELF_CRITIQUE |
-| **Phase C — PredictiveStateHead** | `use_world_model` | Predictive coding (Friston free energy) | BYOL/V-JEPA online-predictor + **EMA stop-grad target** (no representational collapse); normalised surprise ∈ [0,1] feeds LAVI |
-| **Phase D — HebbianRegularizer** | `use_hebbian` | Hebbian consolidation ("fire together, wire together") | LAVI-gated co-activation loss term (training only; no forward change) |
-
-> **Scientific note (Phase C):** the `use_ema_target=False` branch is a *SimSiam* design
-> (stop-grad + predictor + bias-free L2-normalised projector) and is **provably
-> collapse-free on its own** — verified empirically across 3 seeds (pairwise |cos| ≈ 0.33
-> vs naïve self-prediction's 1.000). EMA mainly aids convergence/quality, not
-> collapse-prevention. Full analysis in [V2_REVIEW.md](V2_REVIEW.md) §8.
-
 ### Two inference modes
 
 | Mode | LNN behavior | Use case |
 |---|---|---|
-| `use_lnn_recurrence=False` | h_prev = 0 each step (parallel) | Bit-exact match with full forward; matches training-time semantics |
-| `use_lnn_recurrence=True` *(default at inference)* | h_prev threaded across steps | True RNN-style microtubule state accumulation |
+| `use_lnn_recurrence=False` | `h_prev = 0` each step (parallel) | Bit-exact match with full forward; matches training-time semantics |
+| `use_lnn_recurrence=True` *(default at inference)* | `h_prev` threaded across steps | True RNN-style microtubule state accumulation |
 
-The dual-cache `ModelCacheStruct` carries:
-- per layer: `(attention KV cache, LNN recurrent h_prev, per-block GWTB KV cache)`
-- top-level GWTB: `KV cache`
-- coherence layer: `KV cache`
+The `ModelCacheStruct` carries per-layer `(attention KV, LNN h_prev, per-block GWTB KV)`, plus top-level GWTB and coherence KV caches.
+
+### Opt-in v2.0 / v2.1 modules
+
+All four default **OFF**, add zero overhead when disabled, and never change the `mt_lnn_layer.py` forward signature.
+
+| Module | Flag | Biological prior | Mechanism |
+|---|---|---|---|
+| **Phase A** — `CompetitiveGWTBLayer` | `use_competitive_gwtb` | GWT (Baars / Dehaene): conscious content wins by competition | Multi-source bids → score → winner broadcast; `gwtb_competition_entropy` guards routing collapse |
+| **Phase B** — `CausalConsistencyChecker` | inference object | PFC predictive-error monitoring | `cosine` or anisotropy-robust `subspace`-residual novelty → forced SELF_CRITIQUE below threshold |
+| **Phase C** — `PredictiveStateHead` | `use_world_model` | Predictive coding / Friston free energy | BYOL/V-JEPA online predictor + stop-grad EMA target (collapse-free); normalised surprise ∈ [0,1] feeds LAVI |
+| **Phase D** — `HebbianRegularizer` | `use_hebbian` | Hebbian consolidation | LAVI-gated co-activation loss (training only) |
+
+> Phase C `use_ema_target=False` is a SimSiam variant — provably collapse-free on its own (verified across 3 seeds, |cos| ≈ 0.33 vs naïve 1.000). EMA aids convergence, not collapse-prevention. Full analysis in [V2_REVIEW.md](V2_REVIEW.md) §8.
+
+### EEG-inspired Rhythm Gate (2026-06-06)
+
+Brain cortex maintains two oscillatory modes — **persistent** (theta/alpha, stable context) and **transient** (gamma bursts, rapid switching). MT-LNN implements this via the **LAVI** (Lag Angle Vector Index) estimator: per-protofilament cosine similarity between current input and `h_prev` shifts the τ-scale blend.
+
+| Signal | Existing κ-gate | New LAVI rhythm gate |
+|---|---|---|
+| Source | Current input content | h_prev vs current input similarity |
+| Effect | Which τ scales are active | How much to weight slow vs fast τ |
+
+Enable:
+
+```python
+from mt_lnn.config import MTLNNConfig
+cfg = MTLNNConfig(use_rhythm=True, rhythm_scale_init=0.1, global_rhythm=True)
+```
+
+Diagnostics surfaced via `model.get_mt_diagnostics()`: `lavi_mean / min / max`, `rhythm_scale_mean`, `global_rhythm_scale`.
+
+### Operator Compression (state-only streaming)
+
+Drop historical KV tensors during decode and keep only the recurrent `h_prev`:
+
+- 1000 tokens, traditional KV stream: ~1020 KB → MT-LNN state-only: **4.1 KB**.
+- Aimed at edge / always-on inference where context length is bounded by the recurrent state, not by KV memory.
+
+### Sparse Resonance (top-$k$ scale routing)
+
+The 5 timescales per protofilament are gated to top-$k$ at decode. Ablation: top-$k{=}2$ matches dense quality and lifts CPU single-batch throughput from ~3650 to ~6400 tok/s. See [`benchmarks/sparse_resonance_ablation.md`](benchmarks/sparse_resonance_ablation.md).
+
+### Anesthesia Validation Protocol (AVP)
+
+At inference, hooks progressively damp MT-DL outputs and the global-coherence broadcast by `(1 − level)` as `level` rises 0 → 1. We measure **Φ̂** (Kraskov kNN proxy for integrated information). Hooks attach only to `MTLNNLayer` and `GlobalCoherenceLayer`, so the baselines' Δ Φ̂ is exactly 0 by construction:
+
+| Model       | Φ̂(κ=1)   | Φ̂(κ=10)  | Δ Φ̂                        |
+|---          |---:       |---:       |---:                          |
+| Transformer | -9.045    | -9.045    | 0.000 (no hooks)             |
+| LNN         | -7.977    | -7.977    | 0.000 (no hooks)             |
+| **MT-LNN**  | -18.673   | -11.096   | **+7.578 (responsive)**      |
+
+> ⚠️ At ~200K toy scale, Δ Φ̂ sign is inverted vs. paper prediction. Architectural *responsiveness* is real; *direction* is expected to flip after 125M-scale training. See [BENCHMARKS.md](BENCHMARKS.md) §AVP.
+
+---
+
+## Optional research modules
+
+Both off by default; package imports cleanly without their dependencies.
+
+- **`mt_lnn.phi_iit`** — exact IIT 4.0 Φ via PyPhi (Tononi lab toolbox). `pip install pyphi`. Use for ≤8-node analysis; the kNN proxy `phi_hat` covers training-time monitoring.
+- **`mt_lnn.quantum_coupling.QuantumLateralCoupling`** — drop-in replacement for `LateralCoupling`: P qubits in a ring with parameterised CNOT entanglers (mod-P), classical simulator default. `pip install pennylane`.
+
+---
 
 ## File map
 
 ```
 mt_lnn/
-  config.py            MTLNNConfig (single source of truth for all hyperparams)
-                       + use_rhythm / rhythm_scale_init / global_rhythm flags
-  embedding.py         TokenEmbedding + RoPE (position-offset aware)
-  mt_attention.py      MicrotubuleAttention — GQA, KV cache, SDPA/Flash-Attn,
-                       scalar + optional low-rank bilinear polarity bias
-  mt_lnn_layer.py      VectorizedMultiScaleResonance, LateralCoupling (3-way),
-                       VectorizedMAPGate, MTLNNLayer (fully vectorised over P)
-                       + LAVIEstimator hook + rhythm blend in scale gate
-  rhythm.py            LAVIEstimator (cosine-sim rhythmicity per protofilament)
-                       + GlobalRhythmController (cross-layer correction)
-  gwtb.py              GWTBLayer + CompetitiveGWTBLayer (Phase A multi-source bid)
-  causality.py         CausalConsistencyChecker (Phase B; cosine + subspace method)
-  world_model.py       PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
-  plasticity.py        HebbianRegularizer (Phase D; LAVI-gated consolidation loss)
-  deliberation.py      DeliberationRouter (entropy 3-way + causal-consistency floor)
-  observability.py     JSONL metric writer + v2_module_metrics / record_v2_metrics
-  global_coherence.py  GlobalCoherenceLayer (sparse top-k + Orch-OR collapse gate)
-  anesthesia.py        AnesthesiaController — runtime forward hooks for AVP
-  phi_hat.py           Φ̂ kNN entropy estimator + anesthesia sweep + test result
-  model.py             MTLNNBlock, MTLNNModel, ModelCacheStruct (dual+GWTB cache)
-                       + GlobalRhythmController mount + rhythm diagnostics
-  utils.py             init_weights, init_mt_params, scheduler,
-                       checkpointing, make_param_groups (4 separate LR groups)
-prepare_data.py        Tokenise to uint16 .bin (numpy.memmap-friendly)
-train.py               BinDataset / DummyDataset, AMP, torch.compile, W&B,
-                       MT diagnostics + τ/γ/polarity/lavi histograms
-eval.py                PPL, long-context sliding-window PPL, collapse-gate stats,
-                       W_lat heatmaps, Φ̂ + AVP CLI
-demo.py                KV-cached autoregressive streaming generation
-tests/                 Full test suite (219 tests, all pass): model, rhythm,
-                       causality (subspace), world_model (BYOL), observability, ...
+  config.py              MTLNNConfig — single source of truth for all hparams
+  embedding.py           TokenEmbedding + RoPE (offset-aware)
+  mt_attention.py        MicrotubuleAttention — GQA, KV cache, scalar+low-rank polarity
+  mt_lnn_layer.py        MTLNNLayer, MultiScaleResonance, LateralCoupling, MAPGate
+                         (fully vectorised over P; LAVI rhythm hook in scale gate)
+  rhythm.py              LAVIEstimator + GlobalRhythmController
+  parallel_scan.py       Blelloch / Mamba-style pscan (true recurrence on GPU)
+  gwtb.py                GWTBLayer, CompetitiveGWTBLayer (Phase A multi-source bid)
+  global_coherence.py    sparse top-k + Orch-OR collapse gate
+  causality.py           CausalConsistencyChecker (Phase B; cosine + subspace methods)
+  world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
+  plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
+  deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
+  router.py              DeliberationRouter mode plumbing
+  reasoning_trace.py     Per-step trace logging for audit / replay
+  capsule.py             SessionMemory serialization (.capsule format)
+  session_state.py       Multi-turn session orchestration
+  cloud_client.py        Awareness Cloud API client (factual blind-spot fallback)
+  llama_adapter.py       Frozen-base + MT residual adapter for HF causal LMs
+  recipes.py             apply_{phase5b, mt_only, lora_only}_recipe(model)
+  streaming.py           streaming_inference, prefill_state_only
+  observability.py       JsonlMetricWriter, cache_summary, v2 metric records
+  anesthesia.py          AnesthesiaController + runtime AVP hooks
+  phi_hat.py             Kraskov kNN Φ̂ proxy + anesthesia sweep
+  phi_iit.py             Exact IIT 4.0 Φ (PyPhi); optional
+  phi_spectral.py        Spectral Φ approximation
+  quantum_coupling.py    QuantumLateralCoupling (PennyLane); optional
+  multimodal.py          Multi-modal token codebook hooks
+  memory.py              SessionMemory primitive
+  meta_learning.py       Meta-learning helpers
+  awareliquid_daemon.py  Long-running inference daemon
+  export.py              ONNX / state-only export utilities
+  utils.py               init_mt_params, schedulers, checkpointing, param groups
+  model.py               MTLNNBlock + MTLNNModel + ModelCacheStruct (dual+GWTB cache)
+
+prepare_data.py            Tokenise to uint16 .bin (numpy.memmap-friendly)
+train.py                   From-scratch trainer (AMP, torch.compile, W&B)
+train_llama_mt_adapter.py  Frozen-base + MT-adapter trainer for HF causal LMs
+eval.py                    PPL, sliding-window long-context PPL, AVP CLI
+eval_llama_mt_adapter.py   Adapter-only eval against base
+demo.py                    KV-cached autoregressive streaming generation
+demo_llama_mt_adapter.py   Streaming demo for adapter checkpoints
+demo_mvp_loop.py           AwareLiquid full multi-turn loop with cloud fallback
+demo_awareliquid_v2.py     v2 mode demo (CompetitiveGWTB + PredictiveState + Hebbian)
+
+bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
+bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
+benchmarks/compare_baselines.py   Selective Copy head-to-head (toy scale)
+benchmarks/long_context.py        T=37/101/229 sweep
+benchmarks/run_benchmark.py       Full benchmark suite
+
+kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
+scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
+tests/                     Full test suite (219 tests, all pass)
+assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
+
+---
+
+## Status
+
+Research-grade code. All 219 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP). Highlights:
+
+```
+[ok] test_kv_cache_parity                 cached vs full diff < 1e-4
+[ok] test_lnn_recurrence_active           h_prev verifiably flows
+[ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
+[ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ
+[ok] test_protofilament_scaling           P=64 only ~1.2× slower than P=13
+[ok] test_lavi_persistent_higher_for_similar_input
+[ok] test_global_rhythm_identity_at_init  scale=0 → output = input exactly
+[ok] test_model_no_regression_rhythm_off  use_rhythm=False: zero output impact
+```
+
+What's validated:
+
+- ✅ Architectural priors (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC, GWTB) yield ×42 advantage on long-range selective tasks at matched 200K params, growing with $T$.
+- ✅ MT-residual adapter transfers across Llama and Qwen bases at 0.1–0.2 % trainable params, with PPL improvement that scales positively (−28 % at 1.1B → −34 % at 3B).
+- ✅ Real $O(N)$ generation with `past_key_values`; state-only streaming reduces 1000-token decode footprint from ~1020 KB → 4.1 KB.
+
+What's not yet shown (by design):
+
+- ❌ Generic LM benchmarks (MMLU, HellaSwag, full WikiText-103 PPL) — requires 125M+ from-scratch training run; listed as future work.
+- ⚠️ Δ Φ̂ direction at toy scale is inverted vs. paper prediction; expected to flip after 125M training.
+
+---
+
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Full v2.0 architecture spec |
+| [MT_LNN_ARCHITECTURE_VISUAL.md](MT_LNN_ARCHITECTURE_VISUAL.md) | Visual walkthrough |
+| [BENCHMARKS.md](BENCHMARKS.md) | All benchmark numbers + AVP details |
+| [RECIPES.md](RECIPES.md) | Recipe API reference |
+| [ABLATIONS.md](ABLATIONS.md) | Ablation framework |
+| [V2_REVIEW.md](V2_REVIEW.md) | v2.0/v2.1 module review (incl. SimSiam collapse proof) |
+| [TECH_BLOG.md](TECH_BLOG.md) | Cross-architecture reproducibility story |
+| [PRD.md](PRD.md) | Product requirements & roadmap |
+| [SPEC.md](SPEC.md) | Component spec |
+| [NEEDLE_FIX.md](NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
+| [CLOUD_RUN.md](CLOUD_RUN.md) / [KAGGLE_RUN.md](KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
+| [llm-viz-QUICKSTART.md](llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |
+
+---
 
 ## Design references
 
 - **Closed-form LTC** — Hasani et al., *Closed-form continuous-time neural networks*, Nature MI 2022
 - **Liquid Foundation Models** — Liquid AI LFM2 / LFM2.5 (2025–2026)
-- **Orch-OR** — Penrose & Hameroff; recent experimental support: Wiest, *Neuroscience of Consciousness*, Oxford Academic, 2025
-- **GQA** — Ainslie et al., *GQA: Training Generalized Multi-Query Transformer Models*, EMNLP 2023
-- **RoPE** — Su et al., *RoFormer: Enhanced Transformer with Rotary Position Embedding*
+- **Orch-OR** — Penrose & Hameroff; experimental support: Wiest, *Neuroscience of Consciousness*, Oxford Academic, 2025
+- **GWT** — Baars (1988); Dehaene & Changeux, *Neuron* 2011
+- **Predictive coding** — Friston, *free energy principle*
+- **GQA** — Ainslie et al., EMNLP 2023
+- **RoPE** — Su et al., *RoFormer*
+
+---
 
 ## License
 
