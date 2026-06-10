@@ -23,6 +23,20 @@ from .mt_attention import MicrotubuleAttention
 from .global_coherence import GlobalCoherenceLayer
 from .gwtb import GWTBLayer, CompetitiveGWTBLayer, BidProjector
 from .embedding import MTLNNEmbedding, RotaryEmbedding
+from .multimodal import (
+    ModalityProjector,
+    VisionPatchEmbed,
+    CLIPVisionTower,
+    CLIPModalityEncoder,
+    fuse,
+    build_modality_pad_mask,
+)
+from .spatial import (
+    GridCellEncoding,
+    SpatialCoordEncoder,
+    PointCloudEncoder,
+    VoxelPatchEmbed,
+)
 from .parallel_scan import pscan, pscan_sequential, pscan_constant_A
 from .llama_adapter import (
     MTAdapterConfig,
@@ -48,6 +62,14 @@ from .deliberation import (
     token_entropy,
     semantic_entropy,
     lexical_fact_gap,
+)
+from .thinking import (
+    StepTrace,
+    ThinkingTrace,
+    self_consistency_vote,
+    generate_with_thinking,
+    render_trace_markdown,
+    render_trace_html,
 )
 from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
@@ -110,6 +132,17 @@ __all__ = [
     "BidProjector",
     "MTLNNEmbedding",
     "RotaryEmbedding",
+    "ModalityProjector",
+    "VisionPatchEmbed",
+    "CLIPVisionTower",
+    "CLIPModalityEncoder",
+    "fuse",
+    "build_modality_pad_mask",
+    # Spatial computation frontends (grid-cell code, point clouds, voxels)
+    "GridCellEncoding",
+    "SpatialCoordEncoder",
+    "PointCloudEncoder",
+    "VoxelPatchEmbed",
     "pscan",
     "pscan_sequential",
     "pscan_constant_A",
@@ -135,6 +168,13 @@ __all__ = [
     "token_entropy",
     "semantic_entropy",
     "lexical_fact_gap",
+    # Self-thinking serve path (live router-driven generation + trace)
+    "StepTrace",
+    "ThinkingTrace",
+    "self_consistency_vote",
+    "generate_with_thinking",
+    "render_trace_markdown",
+    "render_trace_html",
     "LAVIEstimator",
     "GlobalRhythmController",
     "CausalConsistencyChecker",

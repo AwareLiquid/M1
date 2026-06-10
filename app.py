@@ -17,6 +17,22 @@ import torch.nn.functional as F
 import gradio as gr
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+# Optional self-thinking serve path. Lives in mt_lnn.thinking and imports
+# only torch + mt_lnn.deliberation, so the demo degrades gracefully (the
+# "Self-Thinking" tab simply hides) if the package isn't on the path — e.g.
+# when app.py is deployed standalone to a Space.
+try:
+    from mt_lnn.thinking import (
+        generate_with_thinking,
+        render_trace_markdown,
+        render_trace_html,
+    )
+    from mt_lnn.deliberation import RouterThresholds
+    _THINKING_AVAILABLE = True
+except Exception as _exc:  # pragma: no cover — optional feature
+    print(f"[MT-LNN] self-thinking tab disabled — {_exc}")
+    _THINKING_AVAILABLE = False
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
@@ -164,6 +180,45 @@ def chat_stream(
 
 
 # ---------------------------------------------------------------------------
+# Self-thinking generation (Layer 2 router → live thinking trace)
+# ---------------------------------------------------------------------------
+
+def think_generate(
+    prompt: str,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    low_thr: float,
+    high_thr: float,
+    n_critique: int,
+):
+    """Run the deliberation-router generation and return (text, summary, html).
+
+    The router classifies each decode step as LOCAL / SELF_CRITIQUE / CLOUD
+    by next-token entropy; uncertain steps are re-decoded via a token-level
+    self-consistency vote (genuine "self-thinking"). The public demo has no
+    cloud oracle, so CLOUD steps are flagged and fall back to self-critique.
+    """
+    if not _THINKING_AVAILABLE:
+        return "self-thinking unavailable (mt_lnn not importable)", "", ""
+    if not prompt.strip():
+        return "", "", ""
+    thresholds = RouterThresholds(low=float(low_thr), high=float(high_thr))
+    text, trace = generate_with_thinking(
+        _model,
+        _tokenizer,
+        prompt,
+        max_new_tokens=int(max_new_tokens),
+        temperature=float(temperature),
+        top_p=float(top_p),
+        n_critique_samples=int(n_critique),
+        thresholds=thresholds,
+        device=DEVICE,
+    )
+    return text, render_trace_markdown(trace), render_trace_html(trace)
+
+
+# ---------------------------------------------------------------------------
 # Gradio UI
 # ---------------------------------------------------------------------------
 
@@ -215,6 +270,45 @@ with gr.Blocks(title="MT-LNN Demo") as demo:
             inputs=[prompt_box, max_tok, temp, top_k_sl, top_p_sl],
             outputs=output_box,
         )
+
+    if _THINKING_AVAILABLE:
+        with gr.Tab("🧠 Self-Thinking"):
+            gr.Markdown(
+                "**自我思考 / Self-thinking.** Each token is routed by a "
+                "3-way deliberation policy: confident tokens decode locally "
+                "(green); uncertain tokens are *reconsidered* via a "
+                "self-consistency vote (orange, underlined if revised); "
+                "tokens needing an external fact are flagged for the cloud "
+                "(red). Hover any token to see its entropy.\n\n"
+                "_Policy lives in `mt_lnn/deliberation.py`; the live decode "
+                "mechanism + trace in `mt_lnn/thinking.py` — zero coupling to "
+                "the backbone._"
+            )
+            think_prompt = gr.Textbox(
+                lines=4, label="Prompt",
+                placeholder="Ask something the model may be unsure about…",
+            )
+            with gr.Row():
+                think_max  = gr.Slider(16, 256, value=96, step=16, label="Max new tokens")
+                think_temp = gr.Slider(0.1, 2.0, value=0.8, step=0.05, label="Temperature")
+                think_topp = gr.Slider(0.0, 1.0, value=0.9, step=0.05, label="Top-p")
+            with gr.Row():
+                think_low  = gr.Slider(0.5, 5.0, value=3.0, step=0.1,
+                                       label="Low entropy threshold (→ local)")
+                think_high = gr.Slider(1.0, 8.0, value=5.0, step=0.1,
+                                       label="High entropy threshold (→ cloud)")
+                think_nc   = gr.Slider(2, 8, value=3, step=1,
+                                       label="Self-critique samples")
+            think_btn = gr.Button("Think & Generate", variant="primary")
+            think_out = gr.Textbox(lines=6, label="Response", interactive=False)
+            think_summary = gr.Markdown()
+            think_html = gr.HTML(label="Thinking trace")
+            think_btn.click(
+                fn=think_generate,
+                inputs=[think_prompt, think_max, think_temp, think_topp,
+                        think_low, think_high, think_nc],
+                outputs=[think_out, think_summary, think_html],
+            )
 
     gr.Markdown(
         "---\n"

@@ -42,6 +42,10 @@ mt_lnn/                                       STATUS        TEST FILE
 ├── world_model.py         预测隐态头             ✅ Phase C     test_world_model.py
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
+├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
+│   ├── generate_with_thinking  路由驱动逐 token 生成 (模型无关)
+│   ├── self_consistency_vote   SELF_CRITIQUE 重解码 (token 级自洽投票)
+│   └── ThinkingTrace / render_*  内存思考轨迹 + 前端渲染
 ├── model.py               MTLNNModel (A-D集成)  ✅ 已实现      test_model.py
 ├── llama_adapter.py       HF 模型 MT 残差适配器  ✅ 已实现      test_llama_adapter.py
 ├── anesthesia.py          AVP 麻醉验证           ✅ 已实现
@@ -55,10 +59,35 @@ mt_lnn/                                       STATUS        TEST FILE
 ├── observability.py       JSONL 指标写入         ✅ 已实现
 ├── reasoning_trace.py     推理时间线             ✅ 已实现
 ├── parallel_scan.py       pscan (Blelloch)       ✅ 已实现      test_parallel_scan.py
+├── multimodal.py          视觉/任意模态前端       ✅ 已实现      test_multimodal.py
+│   ├── VisionPatchEmbed   ViT patch → d_model token
+│   ├── ModalityProjector  任意特征 → d_model token
+│   └── CLIPModalityEncoder 冻结 CLIP → d_model token  test_multimodal_clip.py
+├── spatial.py             空间计算前端 (栅格细胞)  ✅ 已实现      test_spatial.py
+│   ├── GridCellEncoding   六边形/Fourier 位置码 (0参数, 固定)
+│   ├── SpatialCoordEncoder 连续坐标(+特征) → d_model token
+│   ├── PointCloudEncoder  PointNet 式点云 → d_model token
+│   └── VoxelPatchEmbed    Conv3d 体素patch → d_model token
 └── quantum_coupling.py    量子耦合 (可选)        ✅ 已实现
 ```
 
-**Test coverage**: 195 tests, 195 pass (100%).
+**模态前端契约 (multimodal.py / spatial.py)**: 所有前端统一产出 `(B, N, d_model)`
+token,经 `fuse()` 与文本 token 拼接后由 `MTLNNModel.forward(inputs_embeds=...)`
+进入 backbone。**这些模块从不 import model.py,与核心零耦合** —— 训练时与模型一同
+放进 optimizer 即可。`spatial.py` 的 `GridCellEncoding` 是受内嗅皮层栅格细胞启发的
+固定(0 参数)多尺度周期位置码,与正在跑的 `grid-cell-emergence` 实验同源。
+
+**自我思考 serve 路径 (thinking.py)**: 把 `deliberation.py` 的*策略*（LOCAL /
+SELF_CRITIQUE / CLOUD 三级路由）变成可在 demo 中逐 token 运行的*机制*。每步用
+router 判定路由：低熵直接本地解码；不确定的 token 通过 token 级自洽投票
+(`self_consistency_vote`) *重新斟酌*（这正是 `deliberation.py` 留下的
+"Future: N-sample re-decode" 钩子）；需外部事实的 token 标记为 cloud。**仅 import
+torch + deliberation,不碰 model.py** —— 适配 Qwen/Llama/MT-LNN `serve.pt`。在线
+交互轨迹放内存 (`ThinkingTrace`),与 `reasoning_trace.py` 的离线 JSONL 持久化分工
+明确。`app.py` 新增 "🧠 Self-Thinking" tab,可选导入失败则该 tab 自动隐藏（优雅降级）。
+
+**Test coverage**: 314 tests in `tests/` (含 `test_spatial.py` 12 项空间前端测试、
+`test_thinking.py` 10 项自我思考测试)。
 
 ---
 
@@ -354,11 +383,17 @@ Phase A GWT竞争      ✓(+2)              ✓扩展             ✓(+1)
 Phase B 因果检测      ✓(+2)                      ✓(+1可选)  ✓(+1)
 Phase C 预测头        ✓(+2)                                 ✓(+1)
 Phase D Hebbian      ✓(+2)   ✓(读buffer)                         ✓(+1)
+模态前端 spatial      —        —             —        —          —(仅用 inputs_embeds 入口)  —
 ─────────────────────────────────────────────────────────────────────────────────
 风险等级:             低      极低          低      极低        低     低
 ```
 
 所有改动都通过**可选参数 + 默认 False**实现，不破坏任何现有测试路径。
+
+**`spatial.py` / `multimodal.py` 耦合 = 零**:这两个模块不触碰上表任何一列。它们
+只依赖 backbone 早已稳定的 `forward(inputs_embeds=...)` 入口契约(产出 `(B,N,d_model)`
+→ `fuse()` → 入模型),既不改 `config.py` 也不改 `model.py`,因此对训练路径无任何
+风险。新增能力走"前端 + 融合"而非"改核心",是本仓库扩张模态能力的标准模式。
 
 ---
 
