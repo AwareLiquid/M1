@@ -43,6 +43,8 @@ from .spatial import SpatialCoordEncoder
 from .multimodal import fuse
 from .deliberation import DeliberationRouter, Route, RouterThresholds
 from .thinking import StepTrace, ThinkingTrace, self_consistency_vote
+from .causality import CausalConsistencyChecker
+from .causal_steering import CausalActivationSteerer
 
 __all__ = ["SpatialThinkingResult", "SpatialReasoner"]
 
@@ -89,6 +91,18 @@ class SpatialReasoner(nn.Module):
         ``coord_dim`` / ``feat_dim`` when omitted.
     router : a :class:`DeliberationRouter`; a default one is built otherwise.
     thresholds : entropy thresholds for the default router.
+    checker : optional :class:`CausalConsistencyChecker`. When supplied,
+        :meth:`reason` walks the model's *per-position belief trajectory* through
+        it and feeds the resulting consistency score to the router as
+        ``consistency_signal`` — so a position where the trajectory jumps abruptly
+        is flagged for deliberation even when its token entropy looks confident.
+        ``None`` (default) keeps the original entropy-only behaviour.
+    steerer : optional :class:`CausalActivationSteerer`. Requires ``checker``.
+        When supplied, each position's state is tested against the legal causal
+        subspace and the off-subspace drift is surfaced as a per-position
+        diagnostic in the trace (see :meth:`reason`). ``None`` (default) is a
+        no-op. Both are plain attributes (no params) — fully decoupled and
+        backward-compatible.
     """
 
     def __init__(
@@ -100,6 +114,8 @@ class SpatialReasoner(nn.Module):
         encoder: Optional[SpatialCoordEncoder] = None,
         router: Optional[DeliberationRouter] = None,
         thresholds: Optional[RouterThresholds] = None,
+        checker: Optional[CausalConsistencyChecker] = None,
+        steerer: Optional[CausalActivationSteerer] = None,
     ):
         super().__init__()
         self.model = model
@@ -109,6 +125,11 @@ class SpatialReasoner(nn.Module):
         )
         # The router is policy-only (no params); kept as a plain attribute.
         self.router = router or DeliberationRouter(thresholds=thresholds)
+        # Optional causal-trajectory monitor + actuator (both default off).
+        if steerer is not None and checker is None:
+            raise ValueError("steerer requires a checker (it reads the checker's subspace)")
+        self.checker = checker
+        self.steerer = steerer
 
     # ------------------------------------------------------------- perception
     def perceive(
@@ -149,11 +170,38 @@ class SpatialReasoner(nn.Module):
         out = self.model(inputs_embeds=embeds, use_lnn_recurrence=True)
         logits = out["logits"]                                 # (B, N(+T), V)
 
+        # Reset the causal monitor so each scene starts with a clean trajectory.
+        if self.checker is not None:
+            self.checker.reset()
+
         trace = ThinkingTrace()
         for n in range(n_spatial):
             pos_logits = logits[:, n, :]                       # (B, V)
+
+            # --- causal-trajectory signal (optional) ----------------------
+            # Treat the per-position logits as the observable "belief state"
+            # and walk it through the checker; an abrupt jump lowers the
+            # consistency score, which the router treats as a reason to think.
+            consistency_signal: Optional[float] = None
+            steer_note = ""
+            if self.checker is not None:
+                consistency_signal = self.checker.update(pos_logits)
+                if self.steerer is not None:
+                    # Diagnostic only: how far this position drifted OUT of the
+                    # legal causal subspace (corrective re-feed of the steered
+                    # state belongs to a recurrent decode loop that owns the
+                    # state — kept out of this one-shot pass to avoid coupling
+                    # to model internals).
+                    res = self.steerer.steer(pos_logits, self.checker,
+                                             score=consistency_signal)
+                    if res.applied:
+                        steer_note = (f" | steer:off-subspace drift "
+                                      f"{res.correction_norm:.3g} "
+                                      f"(k={res.subspace_dim})")
+
             decision = self.router.decide(
                 pos_logits, query=query, evidence_log=[],
+                consistency_signal=consistency_signal,
             )
             n_resamples = 0
             sem_h: Optional[float] = None
@@ -173,7 +221,7 @@ class SpatialReasoner(nn.Module):
                 token_text="",
                 entropy=decision.entropy,
                 route=decision.route.value,
-                reason=decision.reason,
+                reason=decision.reason + steer_note,
                 n_resamples=n_resamples,
                 sem_entropy=sem_h,
                 revised=revised,

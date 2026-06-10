@@ -198,6 +198,68 @@ class CausalConsistencyChecker:
         mean_ref = hist_stack.mean(dim=0)
         return unit_cosine_similarity(h_flat, mean_ref)
 
+    def principal_subspace(
+        self, energy_keep: Optional[float] = None
+    ) -> Optional[tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Expose the principal subspace of the recent trajectory window.
+
+        This is the *public, reusable* half of the subspace detector: it returns
+        the orthonormal basis that spans the directions the recent hidden states
+        actually move along — i.e. the "legal" causal subspace. Downstream
+        consumers (notably :class:`~mt_lnn.causal_steering.CausalActivationSteerer`,
+        which steers a drifting state back onto this subspace) reuse it instead
+        of re-running their own SVD, so the detector and the steerer always agree
+        on what "consistent" means.
+
+        Parameters
+        ----------
+        energy_keep : optional override of the instance ``energy_keep`` — the
+            fraction of window variance the returned basis must capture. Higher
+            → larger (stricter) subspace.
+
+        Returns
+        -------
+        ``(Vk, mean)`` where ``Vk`` is ``(k, D)`` orthonormal rows spanning the
+        principal subspace of the *mean-centered* window, and ``mean`` is the
+        ``(D,)`` window mean (the centering offset). Returns ``None`` when there
+        is insufficient (< 2) or degenerate history to define a subspace.
+
+        Notes
+        -----
+        The basis is computed on the **centered** window, so ``mean`` must be
+        subtracted before projecting and added back afterwards. This is what
+        cancels the shared anisotropic direction that would otherwise dominate.
+        """
+        keep = self.energy_keep if energy_keep is None else float(energy_keep)
+        if len(self._history) < 2:
+            return None
+
+        hist_stack = torch.stack(list(self._history), dim=0).float()   # (N, D)
+        mean = hist_stack.mean(dim=0)                                  # (D,)
+        Mc = hist_stack - mean.unsqueeze(0)                            # (N, D)
+
+        try:
+            _, s, Vh = torch.linalg.svd(Mc, full_matrices=False)      # Vh: (r, D)
+        except Exception:
+            return None
+
+        energy = (s ** 2)
+        total = energy.sum()
+        if total < 1e-12:
+            # History collapsed to a point → no meaningful subspace.
+            self._last_eff_rank = 1.0
+            return None
+
+        # Effective rank (participation ratio) — exposed as a diagnostic.
+        self._last_eff_rank = (total ** 2 / (energy ** 2).sum()).item()
+
+        # Keep the top-k directions capturing `keep` of the variance.
+        cum = torch.cumsum(energy, dim=0) / total
+        k = int((cum < keep).sum().item()) + 1
+        k = max(1, min(k, Vh.shape[0]))
+        return Vh[:k], mean                                          # (k, D), (D,)
+
     def _subspace_similarity(self, h_flat: torch.Tensor) -> float:
         """
         Novelty via principal-subspace residual (anisotropy-robust).
@@ -205,48 +267,35 @@ class CausalConsistencyChecker:
         1. Center the window and the current vector by the window mean
            (removes the shared/anisotropic direction).
         2. SVD the centered window; keep the top-k right singular vectors that
-           capture `energy_keep` of the variance.
+           capture `energy_keep` of the variance (via :meth:`principal_subspace`).
         3. Project the centered current vector onto that subspace; the residual
            energy outside it is the novelty ∈ [0, 1].
         4. consistency = 1 - novelty   (1 = lies in history subspace = smooth).
 
         Falls back to cosine when the window has < 2 samples or is degenerate.
         """
-        hist_stack = torch.stack(list(self._history), dim=0).float()   # (N, D)
-        if hist_stack.shape[0] < 2:
+        if len(self._history) < 2:
             return self._cosine_similarity(h_flat)
 
-        mean = hist_stack.mean(dim=0, keepdim=True)                    # (1, D)
-        Mc = hist_stack - mean                                         # (N, D)
-        hc = h_flat - mean.squeeze(0)                                  # (D,)
-
+        # Center on the window mean first. If the current vector *equals* that
+        # mean, the trajectory hasn't moved at all → maximally consistent. This
+        # must be checked BEFORE the subspace branch so a fully colinear /
+        # collapsed window (no usable subspace) still reads as stable rather
+        # than as a break.
+        hist_stack = torch.stack(list(self._history), dim=0).float()   # (N, D)
+        mean = hist_stack.mean(dim=0)                                  # (D,)
+        hc = h_flat - mean                                            # (D,)
         hc_norm = hc.norm()
         if hc_norm < 1e-8:
-            # Current vector equals the window mean → maximally consistent.
             self._last_eff_rank = 1.0
             return 1.0
 
-        try:
-            _, s, Vh = torch.linalg.svd(Mc, full_matrices=False)      # Vh: (r, D)
-        except Exception:
-            return self._cosine_similarity(h_flat)
-
-        energy = (s ** 2)
-        total = energy.sum()
-        if total < 1e-12:
-            # History collapsed to a point → any deviation is novel.
-            self._last_eff_rank = 1.0
-            novelty = 1.0
-            return max(0.0, 1.0 - novelty)
-
-        # Effective rank (participation ratio) — exposed as a diagnostic.
-        self._last_eff_rank = (total ** 2 / (energy ** 2).sum()).item()
-
-        # Keep the top-k directions capturing `energy_keep` of the variance.
-        cum = torch.cumsum(energy, dim=0) / total
-        k = int((cum < self.energy_keep).sum().item()) + 1
-        k = max(1, min(k, Vh.shape[0]))
-        Vk = Vh[:k]                                                   # (k, D)
+        basis = self.principal_subspace()
+        if basis is None:
+            # Window collapsed to a point but the current vector moved off it →
+            # a genuinely novel direction with no legal subspace to support it.
+            return 0.0
+        Vk, _mean = basis
 
         # Reconstruct hc inside the subspace; residual is the novel component.
         coeffs = Vk @ hc                                             # (k,)

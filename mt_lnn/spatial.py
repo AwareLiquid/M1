@@ -62,6 +62,7 @@ import torch.nn as nn
 
 __all__ = [
     "GridCellEncoding",
+    "PlaceCellCode",
     "SpatialCoordEncoder",
     "PointCloudEncoder",
     "VoxelPatchEmbed",
@@ -156,6 +157,155 @@ class GridCellEncoding(nn.Module):
         # phase[b,n,j] = <coords[b,n,:], wave_vectors[j,:]>  → (B, N, n_waves)
         phase = torch.matmul(coords, self.wave_vectors.t())
         return torch.cat([torch.cos(phase), torch.sin(phase)], dim=-1)
+
+
+# ---------------------------------------------------------------------------
+# Place-cell population code  (supervised TARGET for path integration)
+# ---------------------------------------------------------------------------
+
+class PlaceCellCode(nn.Module):
+    """Population of place cells over an arena → a soft target distribution.
+
+    Classification note — this is the *output target* side of spatial
+    computation, the dual of the input-side :class:`GridCellEncoding`:
+
+    * :class:`GridCellEncoding` turns a coordinate INTO model tokens (input).
+    * :class:`PlaceCellCode` turns a coordinate into a supervised TARGET — the
+      population activity a path-integrating network is trained to predict.
+
+    Why this lives here (and why it matters)
+    ----------------------------------------
+    Hexagonal **grid cells** do not appear by training a recurrent net to
+    localise against *arbitrary* targets. Sorscher et al. 2019 ("A unified
+    theory for the origin of grid cells") showed the *shape of the place-cell
+    target* is the decisive lever: a plain single-bump **Gaussian** code rarely
+    yields grids, whereas a **difference-of-Gaussians** (DoG / center–surround /
+    "Mexican-hat") target reliably triggers hexagonal grid emergence in the
+    recurrent layer. Until now that recipe lived only inside the throwaway
+    ``grid_cell_emergence`` experiment script; pinning it here makes the
+    emergence lever a first-class, tested, reusable capability of the spatial
+    stack (and removes the duplicated, untested copy).
+
+    ``forward(pos) -> softmax target`` maps ``(B, …, coord_dim)`` positions to
+    ``(B, …, n_place)`` non-negative rows summing to 1, ready as the target of a
+    cross-entropy / KL path-integration loss.
+
+    Parameters
+    ----------
+    n_place : number of place fields (target dimensionality).
+    arena : arena extent. A float (square/cube ``[0, arena]^coord_dim``) or a
+        per-axis sequence of length ``coord_dim``.
+    coord_dim : spatial dimensionality of a position (2 for the grid-cell case).
+    sigma : place-field width (centre Gaussian std, in arena units).
+    mode : ``"gaussian"`` (proven, stable) or ``"dog"`` (the grid-emergence
+        trigger). DoG is the recommended setting when the *goal* is to grow
+        grid cells in the recurrent layer.
+    dog_surround : surround std as a multiple of ``sigma`` (DoG only). ~2 is
+        the canonical center–surround ratio.
+    dog_amp : surround amplitude, kept strictly in ``(0, 1)``. The peak at the
+        field centre is ``1 - dog_amp``; ``dog_amp == 1`` collapses the peak to
+        zero, the softmax target goes uniform and the loss floors at ``ln N``
+        (the bug that invalidated the first DoG sweep). Values outside ``(0, 1)``
+        raise.
+    dog_temp : softmax sharpening temperature (DoG only). Raw DoG values span
+        only ``~[-dog_amp, 1-dog_amp]`` — far flatter than Gaussian logits — so
+        a small temperature is required to restore a peaked yet center–surround
+        target the network can actually fit.
+    centers : optional explicit field centres ``(n_place, coord_dim)``. When
+        omitted, centres are drawn uniformly in the arena from a fixed ``seed``
+        so the target code is reproducible across runs/models.
+    seed : RNG seed for the random centre layout (ignored if ``centers`` given).
+
+    Notes
+    -----
+    Centres are stored as a non-trainable buffer (the target geometry is fixed,
+    exactly like real place fields). The module has **zero learnable
+    parameters** and never imports the backbone — fully decoupled.
+    """
+
+    def __init__(
+        self,
+        n_place: int = 512,
+        arena: float = 2.2,
+        coord_dim: int = 2,
+        sigma: float = 0.12,
+        mode: str = "gaussian",
+        dog_surround: float = 2.0,
+        dog_amp: float = 0.5,
+        dog_temp: float = 0.05,
+        centers: Optional[torch.Tensor] = None,
+        seed: int = 123,
+    ):
+        super().__init__()
+        if n_place < 1:
+            raise ValueError(f"n_place must be >= 1, got {n_place}")
+        if coord_dim < 1:
+            raise ValueError(f"coord_dim must be >= 1, got {coord_dim}")
+        if mode not in ("gaussian", "dog"):
+            raise ValueError(f"mode must be 'gaussian' or 'dog', got {mode!r}")
+        if mode == "dog" and not (0.0 < dog_amp < 1.0):
+            raise ValueError(
+                f"dog_amp must be in the open interval (0, 1), got {dog_amp} "
+                "(amp>=1 collapses the centre peak → uniform target → loss floors at ln N)"
+            )
+        if sigma <= 0:
+            raise ValueError(f"sigma must be > 0, got {sigma}")
+
+        self.n_place = n_place
+        self.coord_dim = coord_dim
+        self.sigma = float(sigma)
+        self.mode = mode
+        self.dog_surround = float(dog_surround)
+        self.dog_amp = float(dog_amp)
+        self.dog_temp = float(dog_temp)
+
+        # Per-axis arena extent → shape (coord_dim,).
+        if isinstance(arena, (int, float)):
+            extent = torch.full((coord_dim,), float(arena))
+        else:
+            extent = torch.as_tensor(arena, dtype=torch.float32)
+            if extent.shape != (coord_dim,):
+                raise ValueError(
+                    f"arena sequence must have length coord_dim={coord_dim}, "
+                    f"got shape {tuple(extent.shape)}"
+                )
+
+        if centers is not None:
+            centers = torch.as_tensor(centers, dtype=torch.float32)
+            if centers.shape != (n_place, coord_dim):
+                raise ValueError(
+                    f"centers must be (n_place={n_place}, coord_dim={coord_dim}), "
+                    f"got {tuple(centers.shape)}"
+                )
+        else:
+            # Reproducible uniform layout, independent of global RNG state.
+            g = torch.Generator().manual_seed(int(seed))
+            centers = torch.rand(n_place, coord_dim, generator=g) * extent
+
+        self.register_buffer("place_centers", centers, persistent=True)
+
+    def forward(self, pos: torch.Tensor) -> torch.Tensor:
+        """``(B, …, coord_dim) -> (B, …, n_place)`` softmax place-cell target."""
+        if pos.shape[-1] != self.coord_dim:
+            raise ValueError(
+                f"expected positions (…, coord_dim={self.coord_dim}), "
+                f"got shape {tuple(pos.shape)}"
+            )
+        centers = self.place_centers.to(pos.dtype)
+        # Squared distance from every position to every field centre.
+        # pos: (…, 1, D)  centres: (n_place, D)  → d2: (…, n_place)
+        d2 = ((pos.unsqueeze(-2) - centers) ** 2).sum(dim=-1)
+        s1 = self.sigma
+        if self.mode == "gaussian":
+            # Single-bump Gaussian logits → softmax over fields.
+            return torch.softmax(-d2 / (2.0 * s1 * s1), dim=-1)
+        # Difference-of-Gaussians with a sub-unity surround (positive centre
+        # peak) and a sharpening temperature — the grid-emergence trigger.
+        s2 = s1 * self.dog_surround
+        center = torch.exp(-d2 / (2.0 * s1 * s1))
+        surround = torch.exp(-d2 / (2.0 * s2 * s2))
+        dog = (center - self.dog_amp * surround) / self.dog_temp
+        return torch.softmax(dog, dim=-1)
 
 
 # ---------------------------------------------------------------------------

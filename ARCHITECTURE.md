@@ -39,6 +39,9 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── CompetitiveGWTBLayer 多源竞争广播       ✅ Phase A     test_gwt_competition.py
 ├── global_coherence.py    sparse top-k Orch-OR  ✅ 已实现
 ├── causality.py           因果一致性检测         ✅ Phase B     test_causality.py
+│   └── principal_subspace()  暴露合法因果子空间基 (供 steerer 复用, 不重复 SVD)
+├── causal_steering.py      因果激活转向 (STARS)    ✅ 已实现      test_causal_steering.py
+│   └── CausalActivationSteerer  检测到断裂时把隐态正交投影回合法子空间 (0参数)
 ├── world_model.py         预测隐态头             ✅ Phase C     test_world_model.py
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
@@ -64,7 +67,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   ├── ModalityProjector  任意特征 → d_model token
 │   └── CLIPModalityEncoder 冻结 CLIP → d_model token  test_multimodal_clip.py
 ├── spatial.py             空间计算前端 (栅格细胞)  ✅ 已实现      test_spatial.py
-│   ├── GridCellEncoding   六边形/Fourier 位置码 (0参数, 固定)
+│   ├── GridCellEncoding   六边形/Fourier 位置码 (0参数, 固定; 输入侧)
+│   ├── PlaceCellCode      位置细胞群体码 (高斯/DoG, 0参数; 监督靶/输出侧)
 │   ├── SpatialCoordEncoder 连续坐标(+特征) → d_model token
 │   ├── PointCloudEncoder  PointNet 式点云 → d_model token
 │   └── VoxelPatchEmbed    Conv3d 体素patch → d_model token
@@ -87,7 +91,16 @@ MT-LNN −0.064),无栅格;改用 difference-of-Gaussians (Mexican-hat) 靶并�
 (`run_dog2`,`GC_PLACE_DOG=1 GC_DOG_TEMP=0.05`) 后 **GRU grid_score_max 升至 +0.284**
 (接近栅格),MT-LNN 仍为 −0.072。复现了 Sorscher et al. 2019 的核心结论(DoG 是
 触发条件);MT-LNN 在此极简设置 (6k step / CPU) 下未涌现栅格,留待更长训练验证。
-DoG 默认关闭以保留已验证的高斯路径(见 `kaggle_kernels/grid_cell_emergence/`)。
+
+**空间优化 (2026-06):把 DoG 触发条件提升为一等能力 (`PlaceCellCode`)**。此前
+"place-cell 靶" 这一决定栅格涌现的关键杠杆只埋在一次性的 `grid_cell_emergence`
+实验脚本里(未测、不可复用)。现把它抽成 `spatial.py` 的 `PlaceCellCode` 模块 ——
+`(B,…,coord_dim) → (B,…,n_place)` 的 softmax 监督靶,`mode="gaussian"|"dog"`。它是
+`GridCellEncoding`(输入侧:坐标→token)的**对偶**(输出侧:坐标→路径积分监督靶)。
+关键校验内置:`dog_amp ∈ (0,1)` 强制为开区间 —— `amp≥1` 会把中心峰压平→均匀靶→loss
+卡在 `ln N`(正是首次 DoG sweep 失效的 bug)。0 参数、不 import backbone(零耦合),
+6 项单测固定契约(行和为 1、DoG≠高斯、非法参数报错、种子可复现)。默认仍用已验证的
+高斯路径(见 `kaggle_kernels/grid_cell_emergence/`)。
 
 **自我思考 serve 路径 (thinking.py)**: 把 `deliberation.py` 的*策略*（LOCAL /
 SELF_CRITIQUE / CLOUD 三级路由）变成可在 demo 中逐 token 运行的*机制*。每步用
@@ -107,9 +120,24 @@ SELF_CRITIQUE（重新斟酌）/ CLOUD（需外部事实），不确定位置触
 **只 import 公开 API**（`spatial` 编码器 / `multimodal.fuse` / `deliberation` 路由 /
 `thinking` 轨迹）,通过 `forward(inputs_embeds=...) → out["logits"]` 契约触碰 backbone,
 **无新增耦合**;它是 `nn.Module`,编码器可与模型联合训练,而 `reason()` 在 no_grad 下运行。
+`SpatialReasoner` 新增**可选** `checker` / `steerer` 两个入参(默认 `None`,完全向后兼容):
+传入后会把 backbone 逐位置的"信念轨迹"喂给 `CausalConsistencyChecker`,得到的一致性
+分数作为 `consistency_signal` 交给 router —— 即使某位置 token 熵低看似自信,只要轨迹
+发生突跳也会被标记去审议;`steerer` 则把该位置偏离合法因果子空间的程度作为诊断写入轨迹。
 
-**Test coverage**: 321 tests in `tests/` (含 `test_spatial.py` 12 项空间前端测试、
-`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py` 7 项空间思考测试)。
+**因果激活转向 (causal_steering.py, STARS 启发)**: `CausalConsistencyChecker` 只*检测*
+LNN 隐态轨迹的突跳,`CausalActivationSteerer` 则*纠正*它 —— 当检测到断裂(一致性分数
+低于 `floor`)时,把漂移的隐态**正交投影**回"合法因果子空间"(近期轨迹真正所处的方向)。
+几何上严格对应 STARS("Inference-time Stiefel Activation Steering", ICLR 2026):子空间
+基 `Vk` 是正交行(Stiefel 流形上一点),转向即沿该子空间的正交投影,只移除落在合法子空间
+*之外*的"非法"新颖分量,绝不引入任意新方向。**纯 Python、0 参数、不 import model.py**;
+不重复造 SVD —— 通过 `CausalConsistencyChecker.principal_subspace()` 公共方法复用同一个
+子空间,确保"检测器"与"执行器"对"何为一致"的定义永远一致。可选 `adaptive` 增益:断裂越深
+拉回越强。全程 opt-in,不接线则行为完全不变。
+
+**Test coverage**: 347 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+`PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
+7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试)。
 
 ---
 
@@ -442,6 +470,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ 已完成 | LAVI节律门控 | `rhythm.py` | 完成 |
 | ✅ A | CompetitiveGWTBLayer | `gwtb.py` (扩展) | 完成 |
 | ✅ B | CausalConsistencyChecker (cosine + subspace) | `causality.py` + `deliberation.py` | 完成 (v2.1) |
+| ✅ B+ | CausalActivationSteerer (STARS 启发, 子空间正交投影) | `causal_steering.py` + `spatial_reasoning.py` (可选接线) | 完成 |
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |

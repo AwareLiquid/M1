@@ -26,6 +26,7 @@ from mt_lnn.model import MTLNNModel
 from mt_lnn.multimodal import fuse
 from mt_lnn.spatial import (
     GridCellEncoding,
+    PlaceCellCode,
     SpatialCoordEncoder,
     PointCloudEncoder,
     VoxelPatchEmbed,
@@ -80,6 +81,72 @@ def test_gridcell_rejects_wrong_coord_dim():
     enc = GridCellEncoding(coord_dim=2)
     with pytest.raises(ValueError):
         enc(torch.rand(1, 4, 3))
+
+
+# --- PlaceCellCode (supervised path-integration target) -------------------
+
+def test_placecell_rows_are_valid_softmax_target():
+    pc = PlaceCellCode(n_place=128, coord_dim=2, mode="gaussian")
+    out = pc(torch.rand(3, 7, 2) * 2.2)
+    assert out.shape == (3, 7, 128)
+    assert (out >= 0).all()                                # non-negative
+    assert torch.allclose(out.sum(-1), torch.ones(3, 7), atol=1e-5)   # rows sum to 1
+
+
+def test_placecell_no_learnable_params_and_reproducible():
+    a = PlaceCellCode(n_place=64, coord_dim=2, seed=7)
+    b = PlaceCellCode(n_place=64, coord_dim=2, seed=7)
+    c = PlaceCellCode(n_place=64, coord_dim=2, seed=8)
+    assert sum(p.numel() for p in a.parameters()) == 0     # fixed target geometry
+    assert torch.equal(a.place_centers, b.place_centers)   # same seed → same layout
+    assert not torch.equal(a.place_centers, c.place_centers)
+
+
+def test_placecell_explicit_centers_respected():
+    centers = torch.tensor([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+    pc = PlaceCellCode(n_place=3, coord_dim=2, centers=centers)
+    assert torch.equal(pc.place_centers, centers)
+    # A position exactly on a centre should put the most mass on that field.
+    out = pc(torch.tensor([[1.0, 1.0]]))
+    assert out.argmax(-1).item() == 1
+
+
+def test_placecell_dog_differs_from_gaussian_center_surround():
+    centers = torch.tensor([[1.1, 1.1]])                   # single field, arena centre
+    g = PlaceCellCode(n_place=1, coord_dim=2, centers=centers, mode="gaussian")
+    d = PlaceCellCode(n_place=1, coord_dim=2, centers=centers, mode="dog",
+                      dog_surround=2.0, dog_amp=0.5, dog_temp=0.05)
+    # With one field, softmax over a single logit is always 1.0 — to observe the
+    # center-surround SHAPE we compare the pre-softmax response across a grid of
+    # distances by using many fields on a line and reading the response profile.
+    line = torch.stack([torch.linspace(0.0, 2.2, 32), torch.full((32,), 1.1)], dim=-1)
+    fields = torch.stack([torch.linspace(0.0, 2.2, 16), torch.full((16,), 1.1)], dim=-1)
+    gg = PlaceCellCode(n_place=16, coord_dim=2, centers=fields, mode="gaussian")
+    dd = PlaceCellCode(n_place=16, coord_dim=2, centers=fields, mode="dog",
+                       dog_surround=2.0, dog_amp=0.5, dog_temp=0.05)
+    og = gg(line)
+    od = dd(line)
+    # DoG must yield a measurably different target distribution than Gaussian.
+    assert (og - od).abs().max() > 1e-3
+    # Both remain valid distributions.
+    assert torch.allclose(og.sum(-1), torch.ones(32), atol=1e-5)
+    assert torch.allclose(od.sum(-1), torch.ones(32), atol=1e-5)
+
+
+def test_placecell_invalid_args_raise():
+    with pytest.raises(ValueError):
+        PlaceCellCode(n_place=0)
+    with pytest.raises(ValueError):
+        PlaceCellCode(mode="banana")
+    with pytest.raises(ValueError):
+        PlaceCellCode(mode="dog", dog_amp=1.0)              # collapses peak → uniform
+    with pytest.raises(ValueError):
+        PlaceCellCode(mode="dog", dog_amp=0.0)
+    with pytest.raises(ValueError):
+        PlaceCellCode(sigma=0.0)
+    pc = PlaceCellCode(coord_dim=2)
+    with pytest.raises(ValueError):
+        pc(torch.rand(1, 4, 3))                             # wrong coord_dim
 
 
 # --- SpatialCoordEncoder --------------------------------------------------

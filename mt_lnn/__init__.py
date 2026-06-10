@@ -33,6 +33,7 @@ from .multimodal import (
 )
 from .spatial import (
     GridCellEncoding,
+    PlaceCellCode,
     SpatialCoordEncoder,
     PointCloudEncoder,
     VoxelPatchEmbed,
@@ -74,6 +75,7 @@ from .thinking import (
 from .spatial_reasoning import SpatialThinkingResult, SpatialReasoner
 from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
+from .causal_steering import CausalActivationSteerer, SteerResult
 from .world_model import PredictiveStateHead
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
@@ -141,6 +143,7 @@ __all__ = [
     "build_modality_pad_mask",
     # Spatial computation frontends (grid-cell code, point clouds, voxels)
     "GridCellEncoding",
+    "PlaceCellCode",
     "SpatialCoordEncoder",
     "PointCloudEncoder",
     "VoxelPatchEmbed",
@@ -182,6 +185,8 @@ __all__ = [
     "LAVIEstimator",
     "GlobalRhythmController",
     "CausalConsistencyChecker",
+    "CausalActivationSteerer",
+    "SteerResult",
     "PredictiveStateHead",
     "HebbianRegularizer",
     "OracleClient",
