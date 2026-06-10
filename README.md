@@ -198,6 +198,7 @@ All four default **OFF**, add zero overhead when disabled, and never change the 
 |---|---|---|---|
 | **Phase A** — `CompetitiveGWTBLayer` | `use_competitive_gwtb` | GWT (Baars / Dehaene): conscious content wins by competition | Multi-source bids → score → winner broadcast; `gwtb_competition_entropy` guards routing collapse |
 | **Phase B** — `CausalConsistencyChecker` | inference object | PFC predictive-error monitoring | `cosine` or anisotropy-robust `subspace`-residual novelty → forced SELF_CRITIQUE below threshold |
+| **Phase B+** — `CausalActivationSteerer` | inference object | error-driven re-stabilisation | STARS-inspired: on a detected break, orthogonally project the drifting state back onto the legal causal subspace (reuses the checker's `principal_subspace()` — no duplicated SVD) |
 | **Phase C** — `PredictiveStateHead` | `use_world_model` | Predictive coding / Friston free energy | BYOL/V-JEPA online predictor + stop-grad EMA target (collapse-free); normalised surprise ∈ [0,1] feeds LAVI |
 | **Phase D** — `HebbianRegularizer` | `use_hebbian` | Hebbian consolidation | LAVI-gated co-activation loss (training only) |
 
@@ -268,7 +269,8 @@ mt_lnn/
   parallel_scan.py       Blelloch / Mamba-style pscan (true recurrence on GPU)
   gwtb.py                GWTBLayer, CompetitiveGWTBLayer (Phase A multi-source bid)
   global_coherence.py    sparse top-k + Orch-OR collapse gate
-  causality.py           CausalConsistencyChecker (Phase B; cosine + subspace methods)
+  causality.py           CausalConsistencyChecker (Phase B; cosine + subspace methods; principal_subspace())
+  causal_steering.py     CausalActivationSteerer (Phase B+; STARS-inspired subspace projection)
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
@@ -287,6 +289,8 @@ mt_lnn/
   phi_spectral.py        Spectral Φ approximation
   quantum_coupling.py    QuantumLateralCoupling (PennyLane); optional
   multimodal.py          Multi-modal token codebook hooks
+  spatial.py             Spatial frontends: GridCellEncoding, PlaceCellCode (DoG target), PointCloud/Voxel
+  spatial_reasoning.py   SpatialReasoner (perception + deliberation; optional causal checker/steerer)
   memory.py              SessionMemory primitive
   meta_learning.py       Meta-learning helpers
   awareliquid_daemon.py  Long-running inference daemon

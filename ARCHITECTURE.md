@@ -499,6 +499,10 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | `causal_check_method` | "cosine" | Phase B 一致性度量 | LLM 隐态各向异性强时用 "subspace" |
 | `causal_check_window` | 5 | 历史窗口 | subspace 法需 ≥2 才生效 |
 | `causal_check_threshold` | 0.3 | 自我批判触发地板 | consistency < threshold → 强制 SELF_CRITIQUE |
+| `CausalActivationSteerer(strength)` | 1.0 | 移除非法残差的比例 | 1.0=全投影到合法子空间;过小则纠正不足,留过多漂移 |
+| `CausalActivationSteerer(floor)` | 0.3 | 转向触发地板 | 应与 `causal_check_threshold` 对齐,检测/路由/转向共用一个阈值 |
+| `CausalActivationSteerer(adaptive)` | True | 增益随断裂深度缩放 | 浅跳轻推、深断用满 `strength`;False=触发即固定 strength |
+| `CausalActivationSteerer(energy_keep)` | None | 合法子空间占窗口方差比例 | None=沿用 checker 的 `energy_keep`(检测器与执行器锁步);调高→子空间更大、更宽容 |
 | `global_rhythm` | False | 跨层节律聚合 | 监控 `global_rhythm_scale` |
 
 **观测建议**: 预训练中每 100 步调用 `record_v2_metrics(writer, model, step, checker)`，所有标量写入 JSONL（`world_model_pred_error`、`gwtb_competition_entropy` 等均归一化到 [0,1] 或有界），便于离线绘制坍缩/路由健康曲线。
