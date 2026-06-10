@@ -78,7 +78,16 @@ mt_lnn/                                       STATUS        TEST FILE
 token,经 `fuse()` 与文本 token 拼接后由 `MTLNNModel.forward(inputs_embeds=...)`
 进入 backbone。**这些模块从不 import model.py,与核心零耦合** —— 训练时与模型一同
 放进 optimizer 即可。`spatial.py` 的 `GridCellEncoding` 是受内嗅皮层栅格细胞启发的
-固定(0 参数)多尺度周期位置码,与正在跑的 `grid-cell-emergence` 实验同源。
+固定(0 参数)多尺度周期位置码,与 `grid-cell-emergence` 实验同源。
+
+**实验日志 — grid-cell emergence (2026-06, 本地 CPU, 6k steps, n_place=512)**:
+路径积分任务下对比 GRU 与 MT-LNN 是否自发涌现栅格细胞。关键发现:place-cell 调谐
+决定一切——纯高斯靶 (`run_full`) 两个模型 grid_score_max 均为负 (GRU −0.038 /
+MT-LNN −0.064),无栅格;改用 difference-of-Gaussians (Mexican-hat) 靶并加锐化温度
+(`run_dog2`,`GC_PLACE_DOG=1 GC_DOG_TEMP=0.05`) 后 **GRU grid_score_max 升至 +0.284**
+(接近栅格),MT-LNN 仍为 −0.072。复现了 Sorscher et al. 2019 的核心结论(DoG 是
+触发条件);MT-LNN 在此极简设置 (6k step / CPU) 下未涌现栅格,留待更长训练验证。
+DoG 默认关闭以保留已验证的高斯路径(见 `kaggle_kernels/grid_cell_emergence/`)。
 
 **自我思考 serve 路径 (thinking.py)**: 把 `deliberation.py` 的*策略*（LOCAL /
 SELF_CRITIQUE / CLOUD 三级路由）变成可在 demo 中逐 token 运行的*机制*。每步用
