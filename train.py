@@ -60,7 +60,15 @@ class BinDataset(Dataset):
         start = min(base + np.random.randint(0, self.stride), max_start)
         chunk = self.data[start: start + self.seq_len + 1].astype(np.int64)
         x = torch.from_numpy(chunk[:-1])
-        y = torch.from_numpy(chunk[1:])
+        # HF / MTLNNModel convention: labels are ALIGNED with inputs
+        # (labels[i] ↔ input token i). MTLNNModel.forward shifts internally
+        # (shift_logits = logits[:, :-1] vs shift_labels = labels[:, 1:]) to
+        # build the next-token target. Returning chunk[1:] here would DOUBLE-
+        # shift, so the model would optimise a skip-one objective (predict
+        # chunk[i+2] from chunk[:i]) — looks healthy in train loss (PPL ~20)
+        # but wrecks autoregressive generation (true next-token PPL ~800+).
+        # See tests/test_label_alignment.py.
+        y = x.clone()
         return x, y
 
 
@@ -75,7 +83,9 @@ class DummyDataset(Dataset):
 
     def __getitem__(self, idx):
         ids = torch.randint(0, self.vocab_size, (self.seq_len + 1,))
-        return ids[:-1], ids[1:]
+        x = ids[:-1]
+        # labels aligned with inputs; MTLNNModel shifts internally (see BinDataset).
+        return x, x.clone()
 
 
 # ---------------------------------------------------------------------------
