@@ -313,7 +313,7 @@ class MTLNNModel(nn.Module):
 
     def forward(
         self,
-        input_ids: torch.Tensor,                              # (B, T_new)
+        input_ids: Optional[torch.Tensor] = None,             # (B, T_new)
         cache: Optional[ModelCacheStruct] = None,
         pad_mask: Optional[torch.Tensor] = None,              # (B, T_total) bool
         labels: Optional[torch.Tensor] = None,                # (B, T_new) for causal LM loss
@@ -323,9 +323,15 @@ class MTLNNModel(nn.Module):
         use_cache: bool = False,
         position_offset: Optional[int] = None,
         use_lnn_recurrence: bool = True,
+        inputs_embeds: Optional[torch.Tensor] = None,         # (B, T_new, d_model)
     ) -> Dict[str, torch.Tensor]:
         """
         Args:
+          inputs_embeds: pre-computed (B, T_new, d_model) embeddings used INSTEAD
+            of looking up input_ids. This is the multimodal injection point: fuse
+            text token embeddings (model.embed_tokens) with projected image/audio
+            features (see mt_lnn.multimodal) along the sequence dim and pass the
+            result here. Exactly one of input_ids / inputs_embeds must be given.
           use_cache: build/extend the KV+coherence cache for incremental decoding.
           use_lnn_recurrence: if True (default for inference), thread h_prev across
             steps so the LNN behaves as a true RNN. Set False to match the
@@ -340,6 +346,11 @@ class MTLNNModel(nn.Module):
           - target_loss: scalar (only if direct_target_labels provided)
           - cache:    new ModelCacheStruct (only if use_cache=True)
         """
+        if (input_ids is None) == (inputs_embeds is None):
+            raise ValueError(
+                "provide exactly one of input_ids or inputs_embeds"
+            )
+
         # Infer absolute position offset
         if position_offset is None:
             if (cache is not None and len(cache.layers) > 0
@@ -348,7 +359,16 @@ class MTLNNModel(nn.Module):
             else:
                 position_offset = 0
 
-        x = self.embedding(input_ids)                         # (B, T_new, d_model)
+        if inputs_embeds is not None:
+            if inputs_embeds.shape[-1] != self.config.d_model:
+                raise ValueError(
+                    f"inputs_embeds last dim {inputs_embeds.shape[-1]} != "
+                    f"d_model {self.config.d_model}"
+                )
+            x = self.embedding.dropout(inputs_embeds)         # (B, T_new, d_model)
+        else:
+            x = self.embedding(input_ids)                     # (B, T_new, d_model)
+        T_new = x.shape[1]
 
         # Phase C → LAVI linkage: distribute the PREVIOUS step's world-model
         # prediction error to all blocks before the loop so LAVIEstimator can
@@ -369,7 +389,7 @@ class MTLNNModel(nn.Module):
                 _blk.lnn._last_wm_pred_error = _wm_err
 
         new_cache = ModelCacheStruct(
-            token_count=position_offset + input_ids.shape[1]
+            token_count=position_offset + T_new
         ) if use_cache else None
         for i, block in enumerate(self.blocks):
             layer_cache = (cache.layers[i] if (cache is not None and i < len(cache.layers)) else None)
@@ -441,7 +461,7 @@ class MTLNNModel(nn.Module):
         _world_model_loss: Optional[torch.Tensor] = None
         if self.world_model_head is not None:
             _, _world_model_loss = self.world_model_head(
-                x, compute_loss=(self.training and input_ids.shape[1] > 1)
+                x, compute_loss=(self.training and T_new > 1)
             )
 
         logits = self.lm_head(x)                              # (B, T_new, vocab_size)
@@ -755,3 +775,115 @@ class MTLNNModel(nn.Module):
             if h_states is None:
                 return None
             return mem.restore_cache(h_states)
+
+    # ------------------------------------------------------------------
+    # Multimodal helper: token embeddings for fusion with other modalities
+    # ------------------------------------------------------------------
+
+    def embed_tokens(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """Return raw token embeddings (B, T, d_model) WITHOUT dropout.
+
+        Use this to build a fused multimodal sequence: concatenate these with
+        projected image/audio features (see :mod:`mt_lnn.multimodal`) along the
+        sequence axis, then pass the result to ``forward(inputs_embeds=...)``.
+        The embedding dropout is applied inside ``forward`` so fused and
+        text-only paths are treated identically.
+        """
+        return self.embedding.token_embed(input_ids)
+
+    # ------------------------------------------------------------------
+    # Autoregressive generation (native, KV-cache incremental decoding)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _filter_top_k(logits: torch.Tensor, top_k: int) -> torch.Tensor:
+        """Keep only the top-k logits per row; rest → -inf. logits: (B, V)."""
+        if top_k <= 0 or top_k >= logits.size(-1):
+            return logits
+        kth = torch.topk(logits, top_k, dim=-1).values[:, -1, None]   # (B, 1)
+        return logits.masked_fill(logits < kth, float("-inf"))
+
+    @staticmethod
+    def _filter_top_p(logits: torch.Tensor, top_p: float) -> torch.Tensor:
+        """Nucleus filtering: drop the low-probability tail beyond cumulative
+        mass top_p, always keeping at least one token. logits: (B, V)."""
+        if not (0.0 < top_p < 1.0):
+            return logits
+        sorted_logits, sorted_idx = torch.sort(logits, descending=True, dim=-1)
+        cum_probs = torch.softmax(sorted_logits, dim=-1).cumsum(dim=-1)
+        # Mark tokens whose *preceding* cumulative mass already exceeded top_p.
+        remove = cum_probs - torch.softmax(sorted_logits, dim=-1) >= top_p
+        remove_scattered = torch.zeros_like(remove).scatter(-1, sorted_idx, remove)
+        return logits.masked_fill(remove_scattered, float("-inf"))
+
+    @torch.no_grad()
+    def generate(
+        self,
+        input_ids: torch.Tensor,                   # (B, T_prompt)
+        max_new_tokens: int = 128,
+        do_sample: bool = True,
+        temperature: float = 0.8,
+        top_k: int = 0,
+        top_p: float = 0.9,
+        eos_token_id: Optional[int] = None,
+        pad_token_id: Optional[int] = None,
+        cache: Optional["ModelCacheStruct"] = None,
+        return_cache: bool = False,
+    ):
+        """Batch autoregressive decoding with O(1)-per-step KV-cache reuse.
+
+        Returns the full token tensor ``(B, T_prompt + n_generated)``. With
+        ``return_cache=True`` returns ``(tokens, cache)`` so a conversation can
+        be continued (or persisted via :meth:`save_state`).
+
+        Per-sequence EOS: once a row emits ``eos_token_id`` it is "finished" and
+        all subsequent positions are filled with ``pad_token_id`` (defaults to
+        ``eos_token_id``); decoding stops early once every row has finished.
+        """
+        was_training = self.training
+        self.eval()
+        device = next(self.parameters()).device
+        input_ids = input_ids.to(device)
+        if input_ids.dim() == 1:
+            input_ids = input_ids.unsqueeze(0)
+        B = input_ids.shape[0]
+        if pad_token_id is None:
+            pad_token_id = eos_token_id if eos_token_id is not None else 0
+
+        # 1. Prefill the prompt (continuing from a prior cache if supplied).
+        out = self.forward(input_ids, cache=cache, use_cache=True)
+        cache = out["cache"]
+        logits = out["logits"][:, -1, :]                      # (B, V)
+        generated = input_ids
+        unfinished = torch.ones(B, dtype=torch.bool, device=device)
+
+        # 2. Incremental decode.
+        for _ in range(max_new_tokens):
+            if do_sample:
+                logits = logits / max(temperature, 1e-6)
+                logits = self._filter_top_k(logits, top_k)
+                logits = self._filter_top_p(logits, top_p)
+                probs = torch.softmax(logits, dim=-1)
+                next_tok = torch.multinomial(probs, num_samples=1)   # (B, 1)
+            else:
+                next_tok = logits.argmax(dim=-1, keepdim=True)       # (B, 1)
+
+            # Finished rows emit pad and are frozen.
+            next_tok = torch.where(
+                unfinished.unsqueeze(1), next_tok,
+                torch.full_like(next_tok, pad_token_id),
+            )
+            generated = torch.cat([generated, next_tok], dim=1)
+
+            if eos_token_id is not None:
+                unfinished = unfinished & (next_tok.squeeze(1) != eos_token_id)
+                if not unfinished.any():
+                    break
+
+            out = self.forward(next_tok, cache=cache, use_cache=True)
+            cache = out["cache"]
+            logits = out["logits"][:, -1, :]
+
+        if was_training:
+            self.train()
+        return (generated, cache) if return_cache else generated

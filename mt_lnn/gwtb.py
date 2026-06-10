@@ -102,9 +102,20 @@ class GWTBLayer(nn.Module):
 
         self.dropout = nn.Dropout(config.dropout)
 
-        causal = torch.tril(torch.ones(config.max_seq_len, config.max_seq_len,
-                                       dtype=torch.bool))
+        self._build_causal(config.max_seq_len)
+
+    def _build_causal(self, seq_len: int) -> None:
+        dev = self._causal.device if hasattr(self, "_causal") else None
+        causal = torch.tril(torch.ones(seq_len, seq_len, dtype=torch.bool, device=dev))
         self.register_buffer("_causal", causal, persistent=False)
+        self._causal_len = seq_len
+
+    def _maybe_extend_causal(self, needed: int) -> None:
+        """Grow the causal mask on demand so decoding past max_seq_len stays
+        correct instead of silently truncating the attention mask."""
+        if needed <= self._causal_len:
+            return
+        self._build_causal(max(needed, self._causal_len * 2))
 
     # ------------------------------------------------------------------
     # Internal: workspace SA pipeline
@@ -139,6 +150,7 @@ class GWTBLayer(nn.Module):
         T_total = K.shape[2]
         new_kv = (K, V) if use_cache else None
 
+        self._maybe_extend_causal(max(position_offset + T_new, T_total))
         causal_mask = self._causal[
             position_offset: position_offset + T_new, :T_total
         ]
@@ -340,8 +352,9 @@ class CompetitiveGWTBLayer(GWTBLayer):
 
         # 3. Normalise: soft (training) or hard (inference when configured)
         if self.hard_winner and not self.training:
+            n_total = scores.shape[-1]                                  # K + n_external
             winner_idx = scores.argmax(dim=-1)                          # (B, T)
-            weights = F.one_hot(winner_idx, K).to(x.dtype)             # (B, T, K)
+            weights = F.one_hot(winner_idx, n_total).to(x.dtype)       # (B, T, K+ext)
         else:
             weights = F.softmax(scores, dim=-1)                         # (B, T, K)
 

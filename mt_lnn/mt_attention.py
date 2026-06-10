@@ -120,10 +120,22 @@ class MicrotubuleAttention(nn.Module):
         # We slice these by [position_offset:position_offset+T_new, :T_total]
         # in the forward path so no fresh arange / tensor allocations occur.
         # ------------------------------------------------------------------
-        idx = torch.arange(config.max_seq_len)
+        self._build_pos_buffers(config.max_seq_len)
+
+    def _build_pos_buffers(self, seq_len: int) -> None:
+        dev = self._delta.device if hasattr(self, "_delta") else None
+        idx = torch.arange(seq_len, device=dev)
         delta = idx[:, None] - idx[None, :]                  # (L, L) signed int
         self.register_buffer("_delta", delta.float(), persistent=False)
         self.register_buffer("_causal", (delta >= 0), persistent=False)
+        self._pos_len = seq_len
+
+    def _maybe_extend_pos(self, needed: int) -> None:
+        """Grow the precomputed distance/causal matrices on demand so decoding
+        past max_seq_len stays correct instead of silently truncating the bias."""
+        if needed <= self._pos_len:
+            return
+        self._build_pos_buffers(max(needed, self._pos_len * 2))
 
     @staticmethod
     def _build_alibi_gamma(n_heads: int, base_gamma: float) -> torch.Tensor:
@@ -202,7 +214,8 @@ class MicrotubuleAttention(nn.Module):
         H = self.n_heads
         L = float(self.max_seq_len)
 
-        # Precomputed distance / causal slices
+        # Precomputed distance / causal slices (lazily extended past max_seq_len)
+        self._maybe_extend_pos(max(q_start + T_q, k_len))
         delta  = self._delta[q_start: q_start + T_q, :k_len]          # (T_q, T_k)
         causal = self._causal[q_start: q_start + T_q, :k_len]         # (T_q, T_k) bool
 
