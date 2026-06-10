@@ -68,6 +68,9 @@ mt_lnn/                                       STATUS        TEST FILE
 │   ├── SpatialCoordEncoder 连续坐标(+特征) → d_model token
 │   ├── PointCloudEncoder  PointNet 式点云 → d_model token
 │   └── VoxelPatchEmbed    Conv3d 体素patch → d_model token
+├── spatial_reasoning.py   空间思考 (感知+审议)     ✅ 已实现      test_spatial_reasoning.py
+│   ├── SpatialReasoner     SpatialCoordEncoder + backbone + 路由
+│   └── SpatialThinkingResult  逐空间位置 ThinkingTrace + uncertain_positions()
 └── quantum_coupling.py    量子耦合 (可选)        ✅ 已实现
 ```
 
@@ -86,8 +89,18 @@ torch + deliberation,不碰 model.py** —— 适配 Qwen/Llama/MT-LNN `serve.pt
 交互轨迹放内存 (`ThinkingTrace`),与 `reasoning_trace.py` 的离线 JSONL 持久化分工
 明确。`app.py` 新增 "🧠 Self-Thinking" tab,可选导入失败则该 tab 自动隐藏（优雅降级）。
 
-**Test coverage**: 314 tests in `tests/` (含 `test_spatial.py` 12 项空间前端测试、
-`test_thinking.py` 10 项自我思考测试)。
+**空间思考 (spatial_reasoning.py)**: 把上面两块*收敛*成一个能力 —— 用
+`SpatialCoordEncoder` 感知场景 (perception),再让 `deliberation.py` 的路由对
+backbone *逐空间位置*的预测做审议 (deliberation)。`SpatialReasoner.reason()` 返回
+一个 `ThinkingTrace`,其每一步对应一个空间 token:router 判 LOCAL（自信）/
+SELF_CRITIQUE（重新斟酌）/ CLOUD（需外部事实），不确定位置触发自洽投票。
+`uncertain_positions()` 即"模型在场景里何处停下来思考"的地图——这就是"空间思考"。
+**只 import 公开 API**（`spatial` 编码器 / `multimodal.fuse` / `deliberation` 路由 /
+`thinking` 轨迹）,通过 `forward(inputs_embeds=...) → out["logits"]` 契约触碰 backbone,
+**无新增耦合**;它是 `nn.Module`,编码器可与模型联合训练,而 `reason()` 在 no_grad 下运行。
+
+**Test coverage**: 321 tests in `tests/` (含 `test_spatial.py` 12 项空间前端测试、
+`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py` 7 项空间思考测试)。
 
 ---
 

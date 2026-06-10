@@ -1,0 +1,182 @@
+"""
+spatial_reasoning.py — 空间思考: spatial perception + self-thinking deliberation.
+
+This module is the *convergence* of two capabilities that already ship
+separately:
+
+  * ``spatial.py``   — grid-cell / coordinate frontends that turn a spatial
+                       scene into ``(B, N, d_model)`` tokens (perception);
+  * ``thinking.py`` / ``deliberation.py`` — the entropy-based router that
+                       decides, per token, whether the model is confident,
+                       should self-critique, or needs an external fact
+                       (deliberation).
+
+:class:`SpatialReasoner` wires a :class:`SpatialCoordEncoder` to an MT-LNN
+backbone and runs the deliberation router over the backbone's *per-spatial-
+position* predictions. The output is a :class:`ThinkingTrace` whose steps are
+spatial positions rather than decode steps — i.e. **a map of where in the
+scene the model is uncertain** and where it had to reconsider. That is the
+concrete meaning of "空间思考" here: uncertainty-aware reasoning over space.
+
+Coupling / classification
+-------------------------
+* Imports only public APIs: ``spatial`` (encoder), ``deliberation`` (router),
+  ``thinking`` (trace data structures + self-consistency vote). It touches the
+  MT-LNN backbone solely through the documented ``forward(inputs_embeds=...)``
+  → ``out["logits"]`` contract — **no new coupling** to model internals.
+* It is an ``nn.Module`` so the spatial encoder trains jointly with the model
+  when you want it to; ``reason()`` itself runs under ``no_grad``.
+* Works alongside text: pass ``text_embeds`` and the spatial tokens are fused
+  ahead of them via :func:`multimodal.fuse`, so the same backbone reasons over
+  a mixed (spatial + language) sequence.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import torch
+import torch.nn as nn
+
+from .spatial import SpatialCoordEncoder
+from .multimodal import fuse
+from .deliberation import DeliberationRouter, Route, RouterThresholds
+from .thinking import StepTrace, ThinkingTrace, self_consistency_vote
+
+__all__ = ["SpatialThinkingResult", "SpatialReasoner"]
+
+
+@dataclass
+class SpatialThinkingResult:
+    """Outcome of :meth:`SpatialReasoner.reason`.
+
+    Attributes
+    ----------
+    logits        : ``(B, N, V)`` backbone logits over the spatial tokens
+                    (and any fused text tokens).
+    trace         : :class:`ThinkingTrace` with one step per *spatial* token —
+                    its ``route`` flags whether the model was confident
+                    (LOCAL), reconsidered (SELF_CRITIQUE) or wanted external
+                    grounding (CLOUD) at that position.
+    n_spatial     : number of spatial tokens scored (the first ``n_spatial``
+                    positions of the sequence).
+    """
+
+    logits: torch.Tensor
+    trace: ThinkingTrace
+    n_spatial: int
+
+    def uncertain_positions(self) -> List[int]:
+        """Indices of spatial tokens the router did **not** mark LOCAL.
+
+        These are the positions where the model "stopped to think" — the
+        spatial analogue of the thinking trace's self-critique steps.
+        """
+        return [s.index for s in self.trace.steps if s.route != Route.LOCAL.value]
+
+
+class SpatialReasoner(nn.Module):
+    """Perceive a spatial scene, then deliberate over it with the router.
+
+    Parameters
+    ----------
+    model : an MT-LNN backbone exposing ``forward(inputs_embeds=...)`` and
+        returning a dict with a ``"logits"`` entry, plus ``config.d_model``.
+    coord_dim : coordinate dimensionality (2 → hexagonal grid-cell code).
+    feat_dim : optional per-point feature width (0 = coordinates only).
+    encoder : a pre-built :class:`SpatialCoordEncoder`; one is constructed from
+        ``coord_dim`` / ``feat_dim`` when omitted.
+    router : a :class:`DeliberationRouter`; a default one is built otherwise.
+    thresholds : entropy thresholds for the default router.
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        *,
+        coord_dim: int = 2,
+        feat_dim: int = 0,
+        encoder: Optional[SpatialCoordEncoder] = None,
+        router: Optional[DeliberationRouter] = None,
+        thresholds: Optional[RouterThresholds] = None,
+    ):
+        super().__init__()
+        self.model = model
+        d_model = int(model.config.d_model)
+        self.encoder = encoder or SpatialCoordEncoder(
+            d_model, coord_dim=coord_dim, feat_dim=feat_dim,
+        )
+        # The router is policy-only (no params); kept as a plain attribute.
+        self.router = router or DeliberationRouter(thresholds=thresholds)
+
+    # ------------------------------------------------------------- perception
+    def perceive(
+        self,
+        coords: torch.Tensor,
+        feats: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """``(B, N, coord_dim) -> (B, N, d_model)`` spatial tokens."""
+        return self.encoder(coords, feats)
+
+    # ------------------------------------------------------------- reasoning
+    @torch.no_grad()
+    def reason(
+        self,
+        coords: torch.Tensor,
+        feats: Optional[torch.Tensor] = None,
+        *,
+        text_embeds: Optional[torch.Tensor] = None,
+        n_critique_samples: int = 3,
+        query: str = "",
+    ) -> SpatialThinkingResult:
+        """Run perception → backbone → per-position deliberation.
+
+        The spatial tokens occupy the first ``N`` sequence positions (fused
+        ahead of ``text_embeds`` when provided). We score exactly those ``N``
+        positions: for each we ask the router whether the prediction is
+        confident; uncertain positions trigger a self-consistency vote, and the
+        decision is logged as one :class:`StepTrace`.
+        """
+        self.model.eval()
+        spatial_tokens = self.perceive(coords, feats)          # (B, N, d)
+        n_spatial = spatial_tokens.shape[1]
+
+        # Fuse spatial tokens ahead of any text tokens (multimodal contract).
+        embeds = (fuse(spatial_tokens, text_embeds)
+                  if text_embeds is not None else spatial_tokens)
+
+        out = self.model(inputs_embeds=embeds, use_lnn_recurrence=True)
+        logits = out["logits"]                                 # (B, N(+T), V)
+
+        trace = ThinkingTrace()
+        for n in range(n_spatial):
+            pos_logits = logits[:, n, :]                       # (B, V)
+            decision = self.router.decide(
+                pos_logits, query=query, evidence_log=[],
+            )
+            n_resamples = 0
+            sem_h: Optional[float] = None
+            revised = False
+            if decision.route in (Route.SELF_CRITIQUE, Route.CLOUD):
+                # "Stop and think" at this spatial position: re-decide the
+                # most-likely class via a self-consistency vote.
+                base_id = int(pos_logits.reshape(-1, pos_logits.shape[-1])[-1]
+                              .argmax().item())
+                chosen, sem_h, n_resamples = self_consistency_vote(
+                    pos_logits, n_samples=n_critique_samples,
+                )
+                revised = chosen != base_id
+            trace.steps.append(StepTrace(
+                index=n,
+                token_id=-1,            # spatial position, not a vocab token
+                token_text="",
+                entropy=decision.entropy,
+                route=decision.route.value,
+                reason=decision.reason,
+                n_resamples=n_resamples,
+                sem_entropy=sem_h,
+                revised=revised,
+            ))
+
+        return SpatialThinkingResult(logits=logits, trace=trace, n_spatial=n_spatial)

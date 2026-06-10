@@ -71,6 +71,7 @@ from .thinking import (
     render_trace_markdown,
     render_trace_html,
 )
+from .spatial_reasoning import SpatialThinkingResult, SpatialReasoner
 from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
 from .world_model import PredictiveStateHead
@@ -175,6 +176,9 @@ __all__ = [
     "generate_with_thinking",
     "render_trace_markdown",
     "render_trace_html",
+    # 空间思考: spatial perception + deliberation over space
+    "SpatialThinkingResult",
+    "SpatialReasoner",
     "LAVIEstimator",
     "GlobalRhythmController",
     "CausalConsistencyChecker",
