@@ -130,46 +130,41 @@ class TrajectoryGenerator:
         self.dt = dt
         self.device = device
         self.border = 0.03 * arena
-        # Fixed place-field centres (shared across the whole experiment).
-        g = torch.rand(n_place, 2, generator=torch.Generator().manual_seed(123))
-        self.place_centers = (g * arena).to(device)        # (N_place, 2)
         self.place_sigma = place_sigma
-        # Place-cell tuning curve selects the emergence regime (Sorscher et
-        # al. 2019, "A unified theory for the origin of grid cells"): plain
-        # Gaussian fields rarely yield grids, whereas a *difference-of-
-        # Gaussians* (center-surround / Mexican-hat) target is a known trigger
-        # for hexagonal grid emergence. Default is the proven, learnable
-        # Gaussian code; set GC_PLACE_DOG=1 to opt into the (experimental) DoG.
-        self.use_dog = os.environ.get("GC_PLACE_DOG", "0") == "1"
-        self.dog_surround = float(os.environ.get("GC_DOG_SURROUND", "2.0"))
-        # Surround amplitude < 1 keeps a strictly POSITIVE peak at the field
-        # centre (center−amp·surround = 1−amp at d=0). amp==1 is degenerate:
-        # the peak collapses to 0, the softmax target goes ~uniform and the
-        # network cannot learn (loss floors at ln N) — the bug that invalidated
-        # the first DoG sweep. Keep amp in (0, 1).
-        self.dog_amp = float(os.environ.get("GC_DOG_AMP", "0.5"))
-        # Softmax temperature for the DoG target. The raw DoG values span only
-        # ~[-amp, 1-amp] (magnitude ~1), which — unlike the Gaussian logits
-        # (range ~0..-9) — is far too flat: over N=512 cells the softmax stays
-        # near-uniform and the loss floors at ln N. Dividing by a small temp
-        # restores a sharp, peaked-yet-center-surround target the net can fit.
-        self.dog_temp = float(os.environ.get("GC_DOG_TEMP", "0.05"))
+        # Place-cell target = the single source of truth in mt_lnn.spatial.
+        # The DoG (center-surround / Mexican-hat) recipe that triggers hexagonal
+        # grid emergence (Sorscher et al. 2019) used to be re-implemented inline
+        # here; it now lives ONCE in PlaceCellCode (validated, dog_amp∈(0,1)
+        # enforced). This script simply parameterises and calls it, so the
+        # experiment and the library can never drift apart.
+        #   GC_PLACE_DOG=1 → DoG target (the grid-emergence trigger);
+        #   default        → the proven single-bump Gaussian code.
+        use_dog = os.environ.get("GC_PLACE_DOG", "0") == "1"
+        try:
+            from mt_lnn.spatial import PlaceCellCode
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(
+                "TrajectoryGenerator now delegates the place-cell target to "
+                "mt_lnn.spatial.PlaceCellCode, but the M1 repo could not be "
+                "imported. Ensure the repo clone succeeded (HAVE_REPO)."
+            ) from e
+        # PlaceCellCode's default centre layout (seed=123, rand(n_place,2)*arena)
+        # is byte-identical to the layout this script used before the refactor,
+        # so historical runs remain directly comparable.
+        self.place_code = PlaceCellCode(
+            n_place=n_place, arena=arena, coord_dim=2, sigma=place_sigma,
+            mode="dog" if use_dog else "gaussian",
+            dog_surround=float(os.environ.get("GC_DOG_SURROUND", "2.0")),
+            dog_amp=float(os.environ.get("GC_DOG_AMP", "0.5")),
+            dog_temp=float(os.environ.get("GC_DOG_TEMP", "0.05")),
+            seed=123,
+        ).to(device)
+        self.use_dog = use_dog
+        self.place_centers = self.place_code.place_centers     # (N_place, 2)
 
     def _place_activity(self, pos):                        # pos (B, T, 2)
-        # Squared distance from every position to every place-field centre.
-        d2 = ((pos.unsqueeze(2) - self.place_centers.view(1, 1, -1, 2)) ** 2).sum(-1)
-        s1 = self.place_sigma
-        if not self.use_dog:
-            # Original single-bump Gaussian code (softmax → valid target dist).
-            return torch.softmax(-d2 / (2 * s1 ** 2), dim=-1)              # (B,T,N)
-        # Difference-of-Gaussians with a sub-unity surround amplitude (positive
-        # centre peak) and a sharpening temperature; softmax then yields a
-        # peaked, center-surround-structured target valid for the CE loss.
-        s2 = self.place_sigma * self.dog_surround
-        center = torch.exp(-d2 / (2 * s1 ** 2))
-        surround = torch.exp(-d2 / (2 * s2 ** 2))
-        dog = (center - self.dog_amp * surround) / self.dog_temp
-        return torch.softmax(dog, dim=-1)                                  # (B,T,N)
+        # (B,T,2) → (B,T,N_place) softmax target, computed by the shared module.
+        return self.place_code(pos)
 
     def generate(self, batch, seq_len):
         dev = self.device
