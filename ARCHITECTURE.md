@@ -135,9 +135,20 @@ LNN 隐态轨迹的突跳,`CausalActivationSteerer` 则*纠正*它 —— 当检
 子空间,确保"检测器"与"执行器"对"何为一致"的定义永远一致。可选 `adaptive` 增益:断裂越深
 拉回越强。全程 opt-in,不接线则行为完全不变。
 
-**Test coverage**: 347 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**L3 因果空间转向 demo 原型 (`examples/demo_causal_spatial_steering.py`)**:把上述检测+
+转向放进一个**递归轨迹回路**里跑通端到端(检测器/执行器本身只*诊断*,真正的纠正回灌属于
+"拥有状态"的循环,故放在 demo 而非 `spatial_reasoning.py` 一次性路径里,保持零 model.py
+耦合)。智能体在 2D 竞技场沿平滑路径移动,信念态落在一个 2 维合法流形(=合法因果子空间)上;
+中途注入一次"瞬移"幻觉把信念态推出流形之外,在递归态里**持续传播**。对比两条 rollout:
+**无转向** → 离流形漂移永久滞留 (off-manifold ≈ 4.2),检测器分数却自愈回升(说明"只检测
+不够");**有转向** → 在瞬移那一步检测到断裂、正交投影掉非法分量并回灌,**off-manifold 塌回
+≈ 0.07–0.22 并保持**。仅依赖 `causality`+`causal_steering` 公开 API,确定性可复现,CPU 秒级,
+`--plot` 出对比图。由 `tests/test_demo_causal_spatial_steering.py` 10 项测试固定其行为契约。
+
+**Test coverage**: 349 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
-7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试)。
+7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试、
+`test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试)。
 
 ---
 
@@ -471,6 +482,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ A | CompetitiveGWTBLayer | `gwtb.py` (扩展) | 完成 |
 | ✅ B | CausalConsistencyChecker (cosine + subspace) | `causality.py` + `deliberation.py` | 完成 (v2.1) |
 | ✅ B+ | CausalActivationSteerer (STARS 启发, 子空间正交投影) | `causal_steering.py` + `spatial_reasoning.py` (可选接线) | 完成 |
+| ✅ L3 原型 | 因果空间转向 demo (递归回路: 检测断裂→正交投影回灌→轨迹恢复) | `examples/demo_causal_spatial_steering.py` + `test_demo_causal_spatial_steering.py` | 完成 (路演原型) |
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
