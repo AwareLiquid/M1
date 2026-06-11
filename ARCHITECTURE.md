@@ -126,6 +126,10 @@ SELF_CRITIQUE（重新斟酌）/ CLOUD（需外部事实），不确定位置触
 传入后会把 backbone 逐位置的"信念轨迹"喂给 `CausalConsistencyChecker`,得到的一致性
 分数作为 `consistency_signal` 交给 router —— 即使某位置 token 熵低看似自信,只要轨迹
 发生突跳也会被标记去审议;`steerer` 则把该位置偏离合法因果子空间的程度作为诊断写入轨迹。
+另新增**可选** `memory` 入参(L2 `SpatialMemory`,默认 `None`):`remember(coords)` 把感知到的
+场景显式写入位置索引记忆,`reason()` 则额外报告每个空间位置的**记忆熟悉度**(当前感知与该位置
+召回内容的 cosine,高值="这地方来过")并写进轨迹 note。写入是**显式调用方动作**——`reason()`
+保持只读、绝不改动地图,故 reasoner 不会静默拥有长期记忆状态。0 参数、不 import model.py、完全向后兼容。
 
 **因果激活转向 (causal_steering.py, STARS 启发)**: `CausalConsistencyChecker` 只*检测*
 LNN 隐态轨迹的突跳,`CausalActivationSteerer` 则*纠正*它 —— 当检测到断裂(一致性分数
@@ -165,9 +169,9 @@ on-landmark 召回近乎完美(cosine≈1.0),随查询噪声**优雅退化**(1.0
 `spatial_memory` 公开 API,确定性可复现,CPU 秒级,`--plot` 出抗噪曲线。由
 `tests/test_demo_spatial_memory.py` 12 项测试固定其行为契约。
 
-**Test coverage**: 372 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 379 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
-7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试、
+14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试、
 `test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试)。

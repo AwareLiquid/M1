@@ -27,6 +27,7 @@ warnings.filterwarnings("ignore", message=".*Tensor Cores.*", category=RuntimeWa
 from mt_lnn.config import MTLNNConfig
 from mt_lnn.model import MTLNNModel
 from mt_lnn.deliberation import Route, RouterThresholds
+from mt_lnn.spatial_memory import SpatialMemory
 from mt_lnn.spatial_reasoning import SpatialReasoner, SpatialThinkingResult
 
 D = 104
@@ -45,6 +46,17 @@ def _reasoner(low=3.0, high=5.0):
     torch.manual_seed(0)
     m = _model()
     return SpatialReasoner(m, coord_dim=2, thresholds=RouterThresholds(low=low, high=high))
+
+
+def _reasoner_with_memory(low=3.0, high=5.0, n_place=256, arena=2.2):
+    torch.manual_seed(0)
+    m = _model()
+    mem = SpatialMemory(d_model=D, n_place=n_place, arena=arena)
+    return SpatialReasoner(
+        m, coord_dim=2,
+        thresholds=RouterThresholds(low=low, high=high),
+        memory=mem,
+    )
 
 
 # --- construction ---------------------------------------------------------
@@ -131,6 +143,79 @@ def test_uncertain_positions_subset_of_indices():
     # consistency: uncertain == positions whose route != LOCAL
     expected = [s.index for s in res.trace.steps if s.route != Route.LOCAL.value]
     assert unc == expected
+
+
+# --- L2 memory side-channel -----------------------------------------------
+
+def test_memory_defaults_off_and_familiarity_is_none():
+    # No memory attached → backward-compatible: no familiarity reported.
+    r = _reasoner()
+    assert r.memory is None
+    res = r.reason(torch.rand(1, 5, 2))
+    assert res.memory_familiarity is None
+    # ... and the trace carries no familiarity note.
+    assert all("mem:familiarity" not in s.reason for s in res.trace.steps)
+
+
+def test_memory_adds_zero_parameters():
+    # SpatialMemory is zero-parameter; attaching it must not grow the reasoner.
+    r_plain = _reasoner()
+    r_mem = _reasoner_with_memory()
+    assert sum(p.numel() for p in r_mem.parameters()) == \
+        sum(p.numel() for p in r_plain.parameters())
+
+
+def test_remember_then_reason_reports_high_familiarity():
+    r = _reasoner_with_memory()
+    coords = torch.rand(1, 5, 2) * 2.0          # inside the arena
+    r.remember(coords)
+    res = r.reason(coords)
+    assert res.memory_familiarity is not None
+    assert len(res.memory_familiarity) == res.n_spatial
+    # Each remembered place reads back its own content strongly.
+    assert all(f > 0.8 for f in res.memory_familiarity)
+    # ... and the per-position trace note surfaces it.
+    assert all("mem:familiarity" in s.reason for s in res.trace.steps)
+
+
+def test_novel_locations_have_low_familiarity():
+    r = _reasoner_with_memory()
+    written = torch.rand(1, 5, 2) * 2.0
+    r.remember(written)
+    # Query places far from anything written → no content recalled → ~0 cosine.
+    novel = torch.full((1, 5, 2), -50.0)
+    res = r.reason(novel)
+    assert res.memory_familiarity is not None
+    assert all(abs(f) < 0.2 for f in res.memory_familiarity)
+
+
+def test_reason_is_read_only_occupancy_unchanged():
+    r = _reasoner_with_memory()
+    coords = torch.rand(1, 6, 2) * 2.0
+    r.remember(coords)
+    before = float(r.memory.occupancy.sum())
+    r.reason(coords)
+    r.reason(torch.rand(1, 6, 2) * 2.0)
+    after = float(r.memory.occupancy.sum())
+    assert after == pytest.approx(before)
+
+
+def test_remember_and_recall_require_memory():
+    r = _reasoner()                              # no memory attached
+    with pytest.raises(ValueError):
+        r.remember(torch.rand(1, 3, 2))
+    with pytest.raises(ValueError):
+        r.recall(torch.rand(1, 3, 2))
+
+
+def test_recall_matches_remembered_content():
+    r = _reasoner_with_memory()
+    coords = torch.rand(1, 4, 2) * 2.0
+    written = r.remember(coords)                 # returns perceived tokens
+    recalled = r.recall(coords)
+    assert recalled.shape == written.shape
+    cos = torch.nn.functional.cosine_similarity(recalled, written, dim=-1)
+    assert float(cos.mean()) > 0.9
 
 
 if __name__ == "__main__":

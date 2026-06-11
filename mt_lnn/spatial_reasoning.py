@@ -38,6 +38,7 @@ from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .spatial import SpatialCoordEncoder
 from .multimodal import fuse
@@ -45,6 +46,7 @@ from .deliberation import DeliberationRouter, Route, RouterThresholds
 from .thinking import StepTrace, ThinkingTrace, self_consistency_vote
 from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer
+from .spatial_memory import SpatialMemory
 
 __all__ = ["SpatialThinkingResult", "SpatialReasoner"]
 
@@ -63,11 +65,17 @@ class SpatialThinkingResult:
                     grounding (CLOUD) at that position.
     n_spatial     : number of spatial tokens scored (the first ``n_spatial``
                     positions of the sequence).
+    memory_familiarity : optional ``[float]`` of length ``n_spatial`` — per
+                    position, how much the currently perceived token matches what
+                    the (L2) :class:`SpatialMemory` recalls at that location
+                    (cosine in ``[-1, 1]``). ``None`` when no memory is attached.
+                    High values mark places the reasoner has "seen before".
     """
 
     logits: torch.Tensor
     trace: ThinkingTrace
     n_spatial: int
+    memory_familiarity: Optional[List[float]] = None
 
     def uncertain_positions(self) -> List[int]:
         """Indices of spatial tokens the router did **not** mark LOCAL.
@@ -103,6 +111,14 @@ class SpatialReasoner(nn.Module):
         diagnostic in the trace (see :meth:`reason`). ``None`` (default) is a
         no-op. Both are plain attributes (no params) — fully decoupled and
         backward-compatible.
+    memory : optional (L2) :class:`SpatialMemory`. When supplied, call
+        :meth:`remember` to write the perceived scene into the place-indexed
+        store, and :meth:`reason` additionally reports a per-position *memory
+        familiarity* (how well the current perception matches what was recalled
+        at that location) on the result. Writing is kept an explicit caller
+        action — ``reason`` stays read-only and never mutates the map — so the
+        reasoner does not silently own long-lived memory state. ``None`` (default)
+        is a no-op. Zero params, no model coupling.
     """
 
     def __init__(
@@ -116,6 +132,7 @@ class SpatialReasoner(nn.Module):
         thresholds: Optional[RouterThresholds] = None,
         checker: Optional[CausalConsistencyChecker] = None,
         steerer: Optional[CausalActivationSteerer] = None,
+        memory: Optional[SpatialMemory] = None,
     ):
         super().__init__()
         self.model = model
@@ -130,6 +147,10 @@ class SpatialReasoner(nn.Module):
             raise ValueError("steerer requires a checker (it reads the checker's subspace)")
         self.checker = checker
         self.steerer = steerer
+        # Optional L2 place-indexed memory (default off). Registered as a
+        # submodule when present so its buffers move with .to(); it carries zero
+        # trainable parameters. Assigning None is a no-op attribute.
+        self.memory = memory
 
     # ------------------------------------------------------------- perception
     def perceive(
@@ -139,6 +160,39 @@ class SpatialReasoner(nn.Module):
     ) -> torch.Tensor:
         """``(B, N, coord_dim) -> (B, N, d_model)`` spatial tokens."""
         return self.encoder(coords, feats)
+
+    # ------------------------------------------------------------- memory (L2)
+    @torch.no_grad()
+    def remember(
+        self,
+        coords: torch.Tensor,
+        feats: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Write the perceived scene into the attached :class:`SpatialMemory`.
+
+        Perceives ``coords`` (+ optional ``feats``) into ``(B, N, d_model)``
+        tokens and stores them keyed by location, so a later :meth:`reason` (or
+        :meth:`recall`) over nearby places completes back to this content. This
+        is an *explicit* caller action: it is the only path that mutates the map,
+        keeping :meth:`reason` read-only. Returns the perceived tokens written.
+
+        Raises if no ``memory`` was attached at construction.
+        """
+        if self.memory is None:
+            raise ValueError("remember() requires a SpatialMemory (pass memory=... to __init__)")
+        tokens = self.perceive(coords, feats)                  # (B, N, d)
+        self.memory.write(coords, tokens)
+        return tokens
+
+    @torch.no_grad()
+    def recall(self, coords: torch.Tensor) -> torch.Tensor:
+        """``(B, N, coord_dim) -> (B, N, d_model)`` content recalled at ``coords``.
+
+        Pattern-completion read of the attached memory. Raises if none attached.
+        """
+        if self.memory is None:
+            raise ValueError("recall() requires a SpatialMemory (pass memory=... to __init__)")
+        return self.memory.read(coords)
 
     # ------------------------------------------------------------- reasoning
     @torch.no_grad()
@@ -163,6 +217,16 @@ class SpatialReasoner(nn.Module):
         spatial_tokens = self.perceive(coords, feats)          # (B, N, d)
         n_spatial = spatial_tokens.shape[1]
 
+        # --- memory familiarity (optional, read-only) ---------------------
+        # How well the current perception matches what the place-indexed memory
+        # recalls at each location. This never writes the map (remember() does),
+        # so reason() stays side-effect free.
+        memory_familiarity: Optional[List[float]] = None
+        if self.memory is not None:
+            recalled = self.memory.read(coords)                # (B, N, d)
+            fam = F.cosine_similarity(spatial_tokens, recalled, dim=-1, eps=1e-8)
+            memory_familiarity = [float(fam[:, n].mean()) for n in range(n_spatial)]
+
         # Fuse spatial tokens ahead of any text tokens (multimodal contract).
         embeds = (fuse(spatial_tokens, text_embeds)
                   if text_embeds is not None else spatial_tokens)
@@ -184,6 +248,8 @@ class SpatialReasoner(nn.Module):
             # consistency score, which the router treats as a reason to think.
             consistency_signal: Optional[float] = None
             steer_note = ""
+            mem_note = (f" | mem:familiarity {memory_familiarity[n]:.2f}"
+                        if memory_familiarity is not None else "")
             if self.checker is not None:
                 consistency_signal = self.checker.update(pos_logits)
                 if self.steerer is not None:
@@ -221,10 +287,13 @@ class SpatialReasoner(nn.Module):
                 token_text="",
                 entropy=decision.entropy,
                 route=decision.route.value,
-                reason=decision.reason + steer_note,
+                reason=decision.reason + steer_note + mem_note,
                 n_resamples=n_resamples,
                 sem_entropy=sem_h,
                 revised=revised,
             ))
 
-        return SpatialThinkingResult(logits=logits, trace=trace, n_spatial=n_spatial)
+        return SpatialThinkingResult(
+            logits=logits, trace=trace, n_spatial=n_spatial,
+            memory_familiarity=memory_familiarity,
+        )
