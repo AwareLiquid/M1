@@ -158,11 +158,19 @@ CPU 可跑),**不 import model.py**;读出形状 `(B,N,d_model)` 可直接接 `m
 `tests/test_spatial_memory.py` 11 项测试固定其契约(0 参数、写后即读、空间局部性、无串扰、
 模式补全、遗忘、fuse 形状、SessionMemory 往返、共享 PlaceCellCode、确定性、reset)。
 
-**Test coverage**: 360 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**L2 空间序列记忆 demo 原型 (`examples/demo_spatial_memory.py`)**:把上述写/读放进一个
+端到端故事 —— 智能体沿椭圆路径在各地标处写入内容,事后用**带噪位置**(GPS 漂移)查询。结果:
+on-landmark 召回近乎完美(cosine≈1.0),随查询噪声**优雅退化**(1.0→0.99→0.74→0.47,而非
+崩溃),且**寻址果断**(正确内容比最像的错误内容高约 0.79 cosine,是检索而非模糊平均)。仅依赖
+`spatial_memory` 公开 API,确定性可复现,CPU 秒级,`--plot` 出抗噪曲线。由
+`tests/test_demo_spatial_memory.py` 12 项测试固定其行为契约。
+
+**Test coverage**: 372 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试、
 `test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试、
-`test_spatial_memory.py` 11 项 L2 空间序列记忆测试)。
+`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
+`test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试)。
 
 ---
 
@@ -498,6 +506,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ B+ | CausalActivationSteerer (STARS 启发, 子空间正交投影) | `causal_steering.py` + `spatial_reasoning.py` (可选接线) | 完成 |
 | ✅ L3 原型 | 因果空间转向 demo (递归回路: 检测断裂→正交投影回灌→轨迹恢复) | `examples/demo_causal_spatial_steering.py` + `test_demo_causal_spatial_steering.py` | 完成 (路演原型) |
 | ✅ L2 | 空间序列记忆 (位置索引联想记忆, Hebbian 写 / 模式补全读, 复用 PlaceCellCode, 0 参数) | `mt_lnn/spatial_memory.py` + `test_spatial_memory.py` | 完成 |
+| ✅ L2 原型 | 空间序列记忆 demo (写轨迹→带噪位置召回, 优雅模式补全) | `examples/demo_spatial_memory.py` + `test_demo_spatial_memory.py` | 完成 (路演原型) |
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |

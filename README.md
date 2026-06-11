@@ -311,6 +311,9 @@ demo_awareliquid_v2.py     v2 mode demo (CompetitiveGWTB + PredictiveState + Heb
 examples/demo_causal_spatial_steering.py  L3 causal spatial steering: a teleport
                            knocks the belief off its legal manifold; the steerer
                            detects the break and projects it back (before/after + --plot)
+examples/demo_spatial_memory.py  L2 spatial sequence memory: walk a path writing
+                           content at landmarks, then recall by a noisy place cue;
+                           graceful pattern completion under positional noise (--plot)
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
