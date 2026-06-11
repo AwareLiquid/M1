@@ -309,6 +309,10 @@ demo.py                    KV-cached autoregressive streaming generation
 demo_llama_mt_adapter.py   Streaming demo for adapter checkpoints
 demo_mvp_loop.py           AwareLiquid full multi-turn loop with cloud fallback
 demo_awareliquid_v2.py     v2 mode demo (CompetitiveGWTB + PredictiveState + Hebbian)
+examples/demo_causal_decoding.py  L3 steering INSIDE real decoding: inject a belief
+                           jump into the live recurrent cache during generate(); the
+                           CausalDecodeSteerer hook pulls the trajectory back toward
+                           baseline while leaving a healthy run untouched (--plot)
 examples/demo_causal_spatial_steering.py  L3 causal spatial steering: a teleport
                            knocks the belief off its legal manifold; the steerer
                            detects the break and projects it back (before/after + --plot)

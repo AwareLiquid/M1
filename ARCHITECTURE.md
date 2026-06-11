@@ -159,6 +159,17 @@ step)` 钩子(model.py 不 import 任何因果模块,保持解耦;钩子亦可�
 由 `tests/test_causal_decoding.py` 固定其契约(null 回调逐位一致、cache 突变流入下一步 logits、健康
 run 零纠正且不变、注入断裂触发并降漂移、exclude_last 决定纠正幅度、层选择/reset、0 参数)。
 
+**L3 解码闭环转向 demo (`examples/demo_causal_decoding.py`)**:这是 L3 的**生产路径验证** ——
+区别于下面那个在模型*外*跑合成 2D 轨迹的 demo,本 demo 在真实 `MTLNNModel.generate()` 里、对*在线
+循环态 cache* 动手。智能体解码时其"信念"就是 cache 跨 token 传递的 LNN 循环态;一次自信幻觉 = 该状态
+的突跳。在解码中途往 cache 注入一次 off-subspace 扰动模拟这一跳,对比三条 rollout:基线(不注入)/
+仅注入(突跳沿递归传播、belief 持续偏离基线)/ 注入+转向(`CausalDecodeSteerer` 作为 `step_callback`
+检测断裂并把状态投影回合法子空间)。实测跨 5 seed:转向把注入后的循环轨迹漂移**降约 11–14%**;
+且**安全性**——干净 run 永不触发、token 逐位不变。诚实边界:未训练模型 token 退化,故在*循环态轨迹*
+层面度量;token 级幻觉收益待训练好的 `serve.pt` 上用同一套指标度量(换 checkpoint 即可)。仅用公开
+API(`generate(step_callback=)`+`causal_decoding`),确定性、CPU 秒级、`--plot`。由
+`tests/test_demo_causal_decoding.py` 10 项测试固定其行为契约。
+
 **L3 因果空间转向 demo 原型 (`examples/demo_causal_spatial_steering.py`)**:把上述检测+
 转向放进一个**递归轨迹回路**里跑通端到端(检测器/执行器本身只*诊断*,真正的纠正回灌属于
 "拥有状态"的循环,故放在 demo 而非 `spatial_reasoning.py` 一次性路径里,保持零 model.py
@@ -187,10 +198,11 @@ on-landmark 召回近乎完美(cosine≈1.0),随查询噪声**优雅退化**(1.0
 `spatial_memory` 公开 API,确定性可复现,CPU 秒级,`--plot` 出抗噪曲线。由
 `tests/test_demo_spatial_memory.py` 12 项测试固定其行为契约。
 
-**Test coverage**: 391 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 401 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
-`test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_spatial_steering.py`
+`test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
+10 项 L3 解码闭环 demo 测试、`test_demo_causal_spatial_steering.py`
 10 项 L3 转向 demo 测试、`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试)。
 
