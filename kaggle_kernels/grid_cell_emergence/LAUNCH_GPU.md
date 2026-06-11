@@ -15,6 +15,15 @@ can launch in one command on a free/cheap GPU session.
 | `run_grid_cell.py` | The experiment (self-clones the repo for the MT-LNN core). |
 | `run_gpu.sh` | One-command launcher with emergence-tuned `GC_*` defaults. |
 | `requirements-gpu.txt` | Minimal deps: `torch`, `numpy`, `matplotlib`. |
+| `grid_cell_colab.ipynb` | One-click **web Colab** notebook (free T4, no CLI/WSL needed). |
+
+## Zero-setup option: web Colab (recommended on Windows)
+
+Open `grid_cell_colab.ipynb` in Colab (the badge at the top of the notebook, or
+`https://colab.research.google.com/github/everest-an/M1/blob/main/kaggle_kernels/grid_cell_emergence/grid_cell_colab.ipynb`),
+set `Runtime → Change runtime type → GPU (T4)`, then `Run all`. It clones, trains
+both models, scores grid emergence, and renders the figures inline. No terminal,
+no WSL — ideal if you are on Windows.
 
 Outputs land in `WORK_DIR` (default `artifacts/gridcell_gpu/`):
 `grid_cell_metrics.json`, `gridcells_{GRU,MTLNN}.png`,
