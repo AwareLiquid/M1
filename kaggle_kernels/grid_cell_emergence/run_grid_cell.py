@@ -72,10 +72,26 @@ print(f"[cfg] batch={BATCH}  steps={STEPS}  lr={LR}  wd={WD}  n_bins={N_BINS}")
 REPO = "https://github.com/everest-an/M1.git"
 DIR = os.path.join(WORK, "M1")
 HAVE_REPO = True
+# Local-run guard: if WORK already sits *inside* a checkout of this repo (e.g.
+# WORK_DIR=artifacts/gridcell_local during local smoke testing), cloning the
+# repo into ${WORK}/M1 would create a self-referential copy living under the
+# repo root -- and a hand-made symlink there (M1 -> repo root) makes os.walk /
+# pytest recurse forever. Detect that case and import the enclosing checkout
+# directly instead of self-cloning.
+_here = os.path.dirname(os.path.abspath(__file__))
+_repo_root = os.path.abspath(os.path.join(_here, "..", ".."))
+_work_abs = os.path.abspath(WORK)
+_inside_repo = _work_abs == _repo_root or _work_abs.startswith(_repo_root + os.sep)
 try:
-    if not os.path.exists(DIR):
-        subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)
-    sys.path.insert(0, DIR)
+    if _inside_repo and os.path.isdir(os.path.join(_repo_root, "mt_lnn")):
+        # Running from a live checkout: use it, don't clone into ourselves.
+        print(f"[env] WORK is inside the repo checkout at {_repo_root}; "
+              f"using it directly (no self-clone).")
+        sys.path.insert(0, _repo_root)
+    else:
+        if not os.path.exists(DIR):
+            subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)
+        sys.path.insert(0, DIR)
 except Exception as e:  # noqa: BLE001
     print(f"[env] repo clone failed ({e}); MT-LNN core (model B) will be skipped.")
     HAVE_REPO = False
