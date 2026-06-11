@@ -605,6 +605,48 @@ def test_effective_rank_diagnostic_tracks_complexity():
     assert c2.effective_rank > 2.0, f"diverse eff_rank too low: {c2.effective_rank:.2f}"
 
 
+def test_principal_subspace_exclude_last_isolates_the_break():
+    """exclude_last must drop the just-ingested suspect state from the basis.
+
+    The canonical ``update(h); steer(h)`` order appends ``h`` before the subspace
+    is built. If ``h`` is a break, *including* it lets its own direction become a
+    principal axis — its off-subspace residual collapses to ~0 and a corrective
+    projection removes nothing. Excluding it keeps the residual ≈ the full break
+    magnitude, which is what makes steering actually act. Pin that gap.
+    """
+    torch.manual_seed(0)
+    chk = CausalConsistencyChecker(window=8, method="subspace", energy_keep=0.9)
+    base = torch.randn(1, 13, 5, 8)
+    for _ in range(6):
+        chk.update(base + 0.02 * torch.randn(1, 13, 5, 8))   # smooth legal past
+    hbad = base + 4.0 * torch.randn(1, 13, 5, 8)             # an off-subspace jump
+    chk.update(hbad)                                          # appends the suspect
+
+    def off_residual(basis):
+        Vk, mean = basis
+        hf = hbad.reshape(-1).float() - mean
+        return float((hf - Vk.t() @ (Vk @ hf)).norm())
+
+    incl = chk.principal_subspace()                  # includes hbad (polluted)
+    excl = chk.principal_subspace(exclude_last=True)  # legal past only
+    assert incl is not None and excl is not None
+    r_incl, r_excl = off_residual(incl), off_residual(excl)
+    # Including the suspect all but erases its own residual; excluding keeps it.
+    assert r_incl < 1.0, f"included-self residual unexpectedly large: {r_incl:.3f}"
+    assert r_excl > 10.0 * max(r_incl, 1e-6), (
+        f"exclude_last failed to isolate the break: incl={r_incl:.4f} excl={r_excl:.4f}"
+    )
+
+
+def test_principal_subspace_exclude_last_needs_two_remaining():
+    """With only 2 states, excluding the last leaves 1 → no subspace (None)."""
+    chk = CausalConsistencyChecker(window=8, method="subspace")
+    chk.update(torch.randn(16))
+    chk.update(torch.randn(16))
+    assert chk.principal_subspace() is not None          # 2 states → ok
+    assert chk.principal_subspace(exclude_last=True) is None  # 1 left → None
+
+
 def test_invalid_method_raises():
     try:
         CausalConsistencyChecker(method="bogus")
@@ -700,6 +742,8 @@ if __name__ == "__main__":
         test_subspace_detects_break_cosine_blind,
         test_cosine_method_is_backward_compatible,
         test_effective_rank_diagnostic_tracks_complexity,
+        test_principal_subspace_exclude_last_isolates_the_break,
+        test_principal_subspace_exclude_last_needs_two_remaining,
         test_invalid_method_raises,
         test_from_config_builds_checker,
         test_subspace_break_triggers_self_critique,

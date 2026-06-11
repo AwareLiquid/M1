@@ -161,6 +161,8 @@ class CausalActivationSteerer:
         h: torch.Tensor,
         checker: CausalConsistencyChecker,
         score: Optional[float] = None,
+        *,
+        exclude_last: bool = False,
     ) -> SteerResult:
         """Steer ``h`` toward the legal causal subspace if a break is detected.
 
@@ -175,6 +177,11 @@ class CausalActivationSteerer:
         score : optional explicit consistency score to gate on. Defaults to the
             checker's current EMA score. Pass this if you read the score once
             and want the steerer to reuse the exact same value.
+        exclude_last : forwarded to :meth:`CausalConsistencyChecker.principal_subspace`.
+            Set True in the canonical ``update(h); steer(h)`` order so the legal
+            subspace is built from the trajectory *before* ``h`` — otherwise the
+            just-ingested suspect state pollutes its own reference subspace and
+            the off-subspace residual (hence the correction) collapses to ~0.
 
         Returns
         -------
@@ -191,7 +198,7 @@ class CausalActivationSteerer:
                 reason=f"consistent (score {score:.3f} >= floor {self.floor:.3f})",
             )
 
-        basis = checker.principal_subspace(self.energy_keep)
+        basis = checker.principal_subspace(self.energy_keep, exclude_last=exclude_last)
         if basis is None:
             return SteerResult(
                 steered=h, applied=False, score=score, gain=0.0,

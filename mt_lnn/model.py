@@ -10,7 +10,7 @@ of LayerCache, one per block. Pass `use_cache=True` to enable.
 """
 
 import math
-from typing import List, Optional, Tuple, Dict, Union
+from typing import Callable, List, Optional, Tuple, Dict, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -829,6 +829,7 @@ class MTLNNModel(nn.Module):
         pad_token_id: Optional[int] = None,
         cache: Optional["ModelCacheStruct"] = None,
         return_cache: bool = False,
+        step_callback: Optional[Callable[["ModelCacheStruct", int], None]] = None,
     ):
         """Batch autoregressive decoding with O(1)-per-step KV-cache reuse.
 
@@ -839,6 +840,18 @@ class MTLNNModel(nn.Module):
         Per-sequence EOS: once a row emits ``eos_token_id`` it is "finished" and
         all subsequent positions are filled with ``pad_token_id`` (defaults to
         ``eos_token_id``); decoding stops early once every row has finished.
+
+        ``step_callback`` is an optional, fully generic decode hook of the form
+        ``fn(cache, step) -> None`` invoked **after every forward** (``step=0``
+        after the prompt prefill, then ``1, 2, …`` after each incremental step).
+        It receives the just-updated :class:`ModelCacheStruct` and may **mutate it
+        in place** — e.g. correct a layer's recurrent state
+        ``cache.layers[i] = (kv, steered_h, gwtb_kv)`` so the edit conditions the
+        *next* token (this is how L3 causal activation steering is applied inside
+        real generation; see :class:`mt_lnn.causal_decoding.CausalDecodeSteerer`).
+        The hook is policy-free and imports nothing model-specific, so the model
+        stays decoupled from any particular monitor/actuator. ``None`` (default)
+        leaves decoding bit-for-bit unchanged.
         """
         was_training = self.training
         self.eval()
@@ -853,11 +866,14 @@ class MTLNNModel(nn.Module):
         # 1. Prefill the prompt (continuing from a prior cache if supplied).
         out = self.forward(input_ids, cache=cache, use_cache=True)
         cache = out["cache"]
+        if step_callback is not None:
+            step_callback(cache, 0)                            # may steer h_prev
         logits = out["logits"][:, -1, :]                      # (B, V)
         generated = input_ids
         unfinished = torch.ones(B, dtype=torch.bool, device=device)
 
         # 2. Incremental decode.
+        step_idx = 0
         for _ in range(max_new_tokens):
             if do_sample:
                 logits = logits / max(temperature, 1e-6)
@@ -882,6 +898,9 @@ class MTLNNModel(nn.Module):
 
             out = self.forward(next_tok, cache=cache, use_cache=True)
             cache = out["cache"]
+            step_idx += 1
+            if step_callback is not None:
+                step_callback(cache, step_idx)                # may steer h_prev
             logits = out["logits"][:, -1, :]
 
         if was_training:

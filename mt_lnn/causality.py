@@ -199,7 +199,7 @@ class CausalConsistencyChecker:
         return unit_cosine_similarity(h_flat, mean_ref)
 
     def principal_subspace(
-        self, energy_keep: Optional[float] = None
+        self, energy_keep: Optional[float] = None, *, exclude_last: bool = False
     ) -> Optional[tuple[torch.Tensor, torch.Tensor]]:
         """
         Expose the principal subspace of the recent trajectory window.
@@ -217,6 +217,16 @@ class CausalConsistencyChecker:
         energy_keep : optional override of the instance ``energy_keep`` — the
             fraction of window variance the returned basis must capture. Higher
             → larger (stricter) subspace.
+        exclude_last : when True, drop the **most recently** ingested state from
+            the window before computing the basis. This matters when the basis is
+            used to *correct* that very state: the canonical
+            ``update(h); steer(h)`` order has already appended ``h``, so including
+            it would let the suspect break-direction become part of its own
+            "legal" subspace (its off-subspace residual collapses toward zero and
+            steering removes almost nothing). Excluding it defines the legal
+            subspace as the directions the trajectory moved along *before* this
+            step — the geometrically correct reference for a corrective
+            projection. Needs ≥ 2 states remaining after the drop.
 
         Returns
         -------
@@ -232,10 +242,13 @@ class CausalConsistencyChecker:
         cancels the shared anisotropic direction that would otherwise dominate.
         """
         keep = self.energy_keep if energy_keep is None else float(energy_keep)
-        if len(self._history) < 2:
+        history = list(self._history)
+        if exclude_last:
+            history = history[:-1]
+        if len(history) < 2:
             return None
 
-        hist_stack = torch.stack(list(self._history), dim=0).float()   # (N, D)
+        hist_stack = torch.stack(history, dim=0).float()               # (N, D)
         mean = hist_stack.mean(dim=0)                                  # (D,)
         Mc = hist_stack - mean.unsqueeze(0)                            # (N, D)
 

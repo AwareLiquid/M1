@@ -42,6 +42,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── principal_subspace()  暴露合法因果子空间基 (供 steerer 复用, 不重复 SVD)
 ├── causal_steering.py      因果激活转向 (STARS)    ✅ 已实现      test_causal_steering.py
 │   └── CausalActivationSteerer  检测到断裂时把隐态正交投影回合法子空间 (0参数)
+├── causal_decoding.py      L3 转向接入真实解码     ✅ 已实现      test_causal_decoding.py
+│   └── CausalDecodeSteerer  generate() 的 step_callback: 在线纠正循环态 cache (0参数)
 ├── world_model.py         预测隐态头             ✅ Phase C     test_world_model.py
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
@@ -141,6 +143,22 @@ LNN 隐态轨迹的突跳,`CausalActivationSteerer` 则*纠正*它 —— 当检
 子空间,确保"检测器"与"执行器"对"何为一致"的定义永远一致。可选 `adaptive` 增益:断裂越深
 拉回越强。全程 opt-in,不接线则行为完全不变。
 
+**L3 闭环:转向真正接入解码 (causal_decoding.py)**: 上面的检测器/转向器此前只在
+`SpatialReasoner` 里做**只读诊断**、或在 demo 的独立回路里跑 —— 纠正后的状态从未回灌进*正在
+生成*的模型。`CausalDecodeSteerer` 闭合这一环:它是 `MTLNNModel.generate()` 的一个
+`step_callback`,每步读出各层循环态 cache `cache.layers[i][1]` `(B,P,S,D)`,喂给**逐层独立**的
+checker,检测到断裂就让 steerer 把它正交投影回合法子空间,并**写回 cache** —— 修正条件化*下一个*
+token。执行器终于作用在它所监控的模型上。为此给 `generate()` 加了一个**通用** `step_callback(cache,
+step)` 钩子(model.py 不 import 任何因果模块,保持解耦;钩子亦可用于日志/KV 驱逐等,非单用途死代码);
+转向逻辑全在 `causal_decoding.py`,只 import `causality`+`causal_steering`,**绝不碰 model.py、0 参数**。
+关键修复 `principal_subspace(exclude_last=True)`:`update(h)` 已把可疑状态 `h` 追加进历史,若构造合法
+子空间时不剔除它,断裂方向会成为它*自己*子空间的主轴 → off-subspace 残差塌成 ~0 → 转向几乎不纠正
+(实测 187× 差距,正是把皮毛变成真起作用的那一刀)。**安全性**:平滑(健康)轨迹永不触发门控,
+纠正为 no-op、输出逐位不变 —— 这是门控式纠正,只在检测到断裂时出手;注入一次 off-subspace 扰动后,
+转向把被污染的循环轨迹**实测拉回**基线(漂移下降)。token 级幻觉收益需在训练好的 `serve.pt` 上度量。
+由 `tests/test_causal_decoding.py` 固定其契约(null 回调逐位一致、cache 突变流入下一步 logits、健康
+run 零纠正且不变、注入断裂触发并降漂移、exclude_last 决定纠正幅度、层选择/reset、0 参数)。
+
 **L3 因果空间转向 demo 原型 (`examples/demo_causal_spatial_steering.py`)**:把上述检测+
 转向放进一个**递归轨迹回路**里跑通端到端(检测器/执行器本身只*诊断*,真正的纠正回灌属于
 "拥有状态"的循环,故放在 demo 而非 `spatial_reasoning.py` 一次性路径里,保持零 model.py
@@ -169,11 +187,11 @@ on-landmark 召回近乎完美(cosine≈1.0),随查询噪声**优雅退化**(1.0
 `spatial_memory` 公开 API,确定性可复现,CPU 秒级,`--plot` 出抗噪曲线。由
 `tests/test_demo_spatial_memory.py` 12 项测试固定其行为契约。
 
-**Test coverage**: 379 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 391 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
-`test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试、
-`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
+`test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_spatial_steering.py`
+10 项 L3 转向 demo 测试、`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试)。
 
 ---
@@ -508,6 +526,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ A | CompetitiveGWTBLayer | `gwtb.py` (扩展) | 完成 |
 | ✅ B | CausalConsistencyChecker (cosine + subspace) | `causality.py` + `deliberation.py` | 完成 (v2.1) |
 | ✅ B+ | CausalActivationSteerer (STARS 启发, 子空间正交投影) | `causal_steering.py` + `spatial_reasoning.py` (可选接线) | 完成 |
+| ✅ L3 | 转向接入真实解码 (generate step_callback 在线纠正 cache) | `causal_decoding.py` + `model.py` (通用钩子) | 完成 |
 | ✅ L3 原型 | 因果空间转向 demo (递归回路: 检测断裂→正交投影回灌→轨迹恢复) | `examples/demo_causal_spatial_steering.py` + `test_demo_causal_spatial_steering.py` | 完成 (路演原型) |
 | ✅ L2 | 空间序列记忆 (位置索引联想记忆, Hebbian 写 / 模式补全读, 复用 PlaceCellCode, 0 参数) | `mt_lnn/spatial_memory.py` + `test_spatial_memory.py` | 完成 |
 | ✅ L2 原型 | 空间序列记忆 demo (写轨迹→带噪位置召回, 优雅模式补全) | `examples/demo_spatial_memory.py` + `test_demo_spatial_memory.py` | 完成 (路演原型) |

@@ -271,6 +271,7 @@ mt_lnn/
   global_coherence.py    sparse top-k + Orch-OR collapse gate
   causality.py           CausalConsistencyChecker (Phase B; cosine + subspace methods; principal_subspace())
   causal_steering.py     CausalActivationSteerer (Phase B+; STARS-inspired subspace projection)
+  causal_decoding.py     CausalDecodeSteerer (L3; generate() step_callback that steers the live recurrent cache)
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
