@@ -1,0 +1,18 @@
+# Minimal dependencies for the grid-cell emergence GPU run
+# (kaggle_kernels/grid_cell_emergence/run_grid_cell.py).
+#
+# The MT-LNN recurrent core used by this experiment depends ONLY on torch +
+# numpy — the optional einops / pennylane / pyphi paths live in
+# quantum_coupling.py / phi_iit.py, which this experiment never touches
+# (build_mtlnn() sets use_world_model / use_competitive_gwtb / use_hebbian =
+# False). matplotlib is used to render the rate-map / autocorrelogram figures.
+#
+# On Lightning AI / SageMaker Studio Lab the base image already ships a CUDA
+# torch, so in practice you usually only need numpy + matplotlib. Pin torch only
+# if the base image lacks GPU support.
+#
+# Install:  pip install -r requirements-gpu.txt
+
+torch>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
