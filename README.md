@@ -291,6 +291,7 @@ mt_lnn/
   multimodal.py          Multi-modal token codebook hooks
   spatial.py             Spatial frontends: GridCellEncoding, PlaceCellCode (DoG target), PointCloud/Voxel
   spatial_reasoning.py   SpatialReasoner (perception + deliberation; optional causal checker/steerer)
+  spatial_memory.py      SpatialMemory (L2; place-indexed associative memory, Hebbian write / pattern-completion read, 0 params)
   memory.py              SessionMemory primitive
   meta_learning.py       Meta-learning helpers
   awareliquid_daemon.py  Long-running inference daemon

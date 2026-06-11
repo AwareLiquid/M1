@@ -75,6 +75,8 @@ mt_lnn/                                       STATUS        TEST FILE
 ├── spatial_reasoning.py   空间思考 (感知+审议)     ✅ 已实现      test_spatial_reasoning.py
 │   ├── SpatialReasoner     SpatialCoordEncoder + backbone + 路由
 │   └── SpatialThinkingResult  逐空间位置 ThinkingTrace + uncertain_positions()
+├── spatial_memory.py      L2 空间序列记忆 (0参数)  ✅ 已实现      test_spatial_memory.py
+│   └── SpatialMemory       位置索引联想记忆 (Hebbian 外积写 / 模式补全读, 复用 PlaceCellCode)
 └── quantum_coupling.py    量子耦合 (可选)        ✅ 已实现
 ```
 
@@ -145,10 +147,22 @@ LNN 隐态轨迹的突跳,`CausalActivationSteerer` 则*纠正*它 —— 当检
 ≈ 0.07–0.22 并保持**。仅依赖 `causality`+`causal_steering` 公开 API,确定性可复现,CPU 秒级,
 `--plot` 出对比图。由 `tests/test_demo_causal_spatial_steering.py` 10 项测试固定其行为契约。
 
-**Test coverage**: 349 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**L2 空间序列记忆 (`mt_lnn/spatial_memory.py`)**:Bicanski & Burgess (2021)
+"位置索引联想记忆"的计算核心 —— 智能体沿轨迹移动时把"此处所见"的内容 embedding 写进一块
+关联记忆,之后给一个(哪怕近似/带噪的)位置就能**模式补全**召回内容。`SpatialMemory` 复用 L1
+的 `PlaceCellCode` 把连续坐标转成软位置细胞 key:写入是 Hebbian 外积累加 `M += key⊗content`,
+读出是线性联想读 `key@M`(按 key 质量归一)即吸引子式补全。**0 可训练参数**(纯 buffer+张量代数,
+CPU 可跑),**不 import model.py**;读出形状 `(B,N,d_model)` 可直接接 `multimodal.fuse`,记忆变
+成多模态里的一路 token。`decay<1` 支持遗忘(近期偏置)。持久化委托给 `memory.SessionMemory`
+(本模块只 `state_blob`/`load_blob` 暴露 `[M, k_mass]`,不碰 SQLite,分类清晰)。由
+`tests/test_spatial_memory.py` 11 项测试固定其契约(0 参数、写后即读、空间局部性、无串扰、
+模式补全、遗忘、fuse 形状、SessionMemory 往返、共享 PlaceCellCode、确定性、reset)。
+
+**Test coverage**: 360 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 7 项空间思考测试、`test_causal_steering.py` 9 项因果转向测试、
-`test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试)。
+`test_demo_causal_spatial_steering.py` 10 项 L3 转向 demo 测试、
+`test_spatial_memory.py` 11 项 L2 空间序列记忆测试)。
 
 ---
 
@@ -483,6 +497,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ B | CausalConsistencyChecker (cosine + subspace) | `causality.py` + `deliberation.py` | 完成 (v2.1) |
 | ✅ B+ | CausalActivationSteerer (STARS 启发, 子空间正交投影) | `causal_steering.py` + `spatial_reasoning.py` (可选接线) | 完成 |
 | ✅ L3 原型 | 因果空间转向 demo (递归回路: 检测断裂→正交投影回灌→轨迹恢复) | `examples/demo_causal_spatial_steering.py` + `test_demo_causal_spatial_steering.py` | 完成 (路演原型) |
+| ✅ L2 | 空间序列记忆 (位置索引联想记忆, Hebbian 写 / 模式补全读, 复用 PlaceCellCode, 0 参数) | `mt_lnn/spatial_memory.py` + `test_spatial_memory.py` | 完成 |
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
