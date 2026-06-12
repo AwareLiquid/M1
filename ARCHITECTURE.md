@@ -53,6 +53,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── 辛积分/引力场/N体引力/碰撞冲量/盒壁反弹/守恒诊断/rollout  纯函数, 0参数, 复合即"脑内推演"
 ├── salience_events.py     全局工作空间点火事件    ✅ 已实现      test_salience_events.py
 │   └── SalienceEventDetector  自适应基线+z分数+迟滞+不应期, 只读观察者, 0参数, 双速引擎触发接口
+├── failsafe.py            断流盲推 + 输出断路器    ✅ 已实现      test_failsafe.py
+│   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -269,7 +271,26 @@ release 阈值结束点火态,去抖)、**不应期**(事件后短暂静默,防�
 缓慢漂移不触发、tick 41 的真正突变触发(z=27.2)、settle 后 quiesce 并重新武装,均确定性。
 `tests/test_demo_salience_events.py` 4 项测试固定其契约。
 
-**Test coverage**: 494 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**断流盲推 + 输出断路器 (`mt_lnn/failsafe.py`)**:快速液态核落地野外时会遇到训练目标从未见过的两类故障,
+这一层是对应的两个**零参数、不耦合 backbone、模型外**的安全反射。**`BlindRolloutGuard`(输入断流盲推)**:
+当输入流卡顿(丢帧/丢包/feed 断流),与其给核喂一个陈旧/零帧悄悄污染其循环态,不如**借世界模型自己的
+imagination 从最后一个好状态盲滚**——但只在 imagination 自身的**置信度**高于 floor 时续命,且盲推步数受预算
+(默认 = `LatentImagination.horizon`)上限约束;一旦梦不再可信就**转 DARK**("我看不见了",`latent=None`)
+而非永远幻觉下去。这是大脑在短暂遮挡期靠前向模型滑行、并知道何时放弃的字面对应。鸭子类型于
+`LatentImagination`,`no_grad`。**`CircuitBreaker`(模型外输出断路器)**:作为不可绕过的最后一公里保证,
+对每拍命令**无条件硬钳位**(NaN/Inf 洗刷 → 绝对边界 → 斜率限幅),并在原始命令**持续**越红线时带去抖地
+**trip 到 fallback**(默认 hold-last-safe,或调用方提供的 PID 之类回退),恢复后再以**无扰切换**(斜率限幅
+封住重连跳变)闭合——一个 Schmitt 式保护反射。这条安全保证无法活在学习图内部,必须是模型外的外挂闸。
+两者皆 `n_parameters == 0`,不 import `model.py`。`tests/test_failsafe.py` 29 项,对解析/确定性流 + 真实
+`LatentImagination`/`PredictiveStateHead` 桥接校验。
+
+**断流盲推/断路器 demo (`examples/demo_failsafe.py`)**:两幕。幕一输入断流——3 拍 live、一段长 dropout、
+再恢复:守卫先借真实世界模型 imagination 盲滚(置信度逐拍衰减),trust 跌破 floor / 超预算后转 DARK,feed 回来
+再次盲滚,ASCII 渲染 feed/served/conf 三行。幕二输出越线——干净斜坡、NaN、越界猛冲、斜率尖峰、恢复:断路器
+把每个发出值都钳进 [-1,1] 且有限,持续越线时 trip 到 setpoint 回退、恢复后无扰闭合,逐拍打印 raw/safe/trip/reason。
+均确定性、纯 ASCII。`tests/test_demo_failsafe.py` 8 项测试固定其契约。
+
+**Test coverage**: 531 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -279,7 +300,8 @@ release 阈值结束点火态,去抖)、**不应期**(事件后短暂静默,防�
 16 项 L4 潜空间想象 rollout 测试、`test_demo_imagination.py` 7 项 L4 想象 demo 测试、
 `test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试、
 `test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试、
-`test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试)。
+`test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
+`test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试)。
 
 ---
 
@@ -622,6 +644,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合几何算子 (距离/方向/包含/邻近图/连通分量/可达性, 纯函数 0参数, 复合即推理) | `spatial_ops.py` + `examples/demo_spatial_ops.py` + `test_spatial_ops.py` | 完成 |
 | ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
+| ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |

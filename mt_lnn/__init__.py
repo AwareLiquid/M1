@@ -107,6 +107,12 @@ from .salience_events import (
     SalienceEventDetector,
     world_model_surprise,
 )
+from .failsafe import (
+    GuardOutput,
+    BlindRolloutGuard,
+    BreakerResult,
+    CircuitBreaker,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -245,6 +251,11 @@ __all__ = [
     "StateChangeEvent",
     "SalienceEventDetector",
     "world_model_surprise",
+    # Input-dropout blind rollout + model-external output circuit breaker
+    "GuardOutput",
+    "BlindRolloutGuard",
+    "BreakerResult",
+    "CircuitBreaker",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

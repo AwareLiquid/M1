@@ -277,6 +277,7 @@ mt_lnn/
   spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
   physics_ops.py         Composable Newtonian dynamics operators (symplectic integration/gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
   salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
+  failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -341,6 +342,12 @@ examples/demo_salience_events.py  Global-workspace ignition: a surprise stream
                            adapts to the drift and ignites only on the real
                            change, then quiesces and re-arms (ASCII timeline) --
                            the dual-speed engine's wake-up tripwire
+examples/demo_failsafe.py  Two safety reflexes: (1) the input feed stutters and
+                           BlindRolloutGuard coasts on the world-model imagination,
+                           going dark once the dream is no longer trusted; (2) the
+                           output goes NaN / out-of-bounds / slews too fast and a
+                           model-external CircuitBreaker hard-clamps it into the
+                           physical red-lines and trips to a safe fallback (ASCII)
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
