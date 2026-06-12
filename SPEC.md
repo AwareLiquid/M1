@@ -60,7 +60,7 @@ LayerCache = Tuple[
 
 | Mode | `use_lnn_recurrence` | Semantics |
 |---|---|---|
-| Training / prefill (训练或预填充) | `False` | h_prev = 0 for every token; parallel; bit-exact with cached decode |
+| Training / prefill (训练或预填充) | `False` | h_prev = 0 for every token; parallel; cached decode matches within `1e-4` (FP reduction order) |
 | Inference (default) (流式推理) | `True` | h_prev threaded across decode steps; true RNN memory |
 
 ---

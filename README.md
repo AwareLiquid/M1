@@ -211,7 +211,7 @@ logits
 
 | Mode | LNN behavior | Use case |
 |---|---|---|
-| `use_lnn_recurrence=False` | `h_prev = 0` each step (parallel) | Bit-exact match with full forward; matches training-time semantics |
+| `use_lnn_recurrence=False` | `h_prev = 0` each step (parallel) | Cached decode matches full forward within `1e-4` (FP reduction order; `test_kv_cache_parity`); matches training-time semantics |
 | `use_lnn_recurrence=True` *(default at inference)* | `h_prev` threaded across steps | True RNN-style microtubule state accumulation |
 
 The `ModelCacheStruct` carries per-layer `(attention KV, LNN h_prev, per-block GWTB KV)`, plus top-level GWTB and coherence KV caches.
@@ -305,6 +305,7 @@ mt_lnn/
   salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
   failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling)
   acoustic_ops.py        Composable binaural-hearing operators (propagation delay / 1-over-r spreading / ITD / ILD / Doppler / phasor interference; localize_azimuth inverse readout + binaural_scene composition; 0-param analytic, no model.py coupling)
+  ingest_ops.py          Sensor-ingestion / stream-alignment operators: resample a jittered, timestamped sensor stream onto the core's fixed-dt grid (resample_uniform: linear exact-on-ramp / ZOH) + coverage_mask flags steps deep inside a dropout (hand off to BlindRolloutGuard to coast); align_stream flagship -> AlignedStream; closes the gap between the fixed-dt LTC discretization and a real, irregular sensor clock; 0-param analytic input-side front-end, no model.py coupling
   slow_layer.py          SlowThreatAssessor — the slow half of the dual-speed engine, woken ONLY on a salient ignition: a multi-step ballistic forecast (physics_ops.rollout + spatial_ops.in_ball) -> time-to-breach ETA + closest approach + CLEAR/WATCH/ENGAGE threat level; 0-param, no model.py coupling, paid for only when a real state change earns it
   pipeline.py            DualSpeedSentry — the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite + wake the slow layer (real multi-step threat assessment) on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
@@ -387,9 +388,11 @@ examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone ma
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
                            threat: ENGAGE / breach imminent), a 2-tick sensor dropout
-                           (coasted on the world model) and a zone breach; ASCII
-                           top-down map + per-tick log + verdict, every aim command
-                           bounded +/-90 deg and slew-limited <=20 deg/tick
+                           (the raw feed is first aligned to the fixed-dt grid by
+                           ingest_ops.align_stream, so the dropout emerges as a
+                           coverage gap and is coasted on the world model) and a zone
+                           breach; ASCII top-down map + per-tick log + verdict, every
+                           aim command bounded +/-90 deg and slew-limited <=20 deg/tick
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
@@ -399,7 +402,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (219 tests, all pass)
+tests/                     Full test suite (644 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -407,7 +410,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 219 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP). Highlights:
+Research-grade code. All 644 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4

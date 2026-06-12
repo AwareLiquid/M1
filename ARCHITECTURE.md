@@ -57,6 +57,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
 ├── acoustic_ops.py        可组合声学/双耳听觉算子  ✅ 已实现      test_acoustic_ops.py
 │   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
+├── ingest_ops.py          传感器摄入/流对齐算子    ✅ 已实现      test_ingest_ops.py
+│   └── 把抖动/带时间戳的非均匀采样重采样到固定dt栅格(线性/ZOH)+覆盖掩码标出长空洞→交盲推滑行, 纯函数 0参数, 输入侧前端
 ├── slow_layer.py          双速引擎的慢半边(点火时才唤醒) ✅ 已实现  test_slow_layer.py
 │   └── SlowThreatAssessor  多步弹道前瞻(rollout+in_ball)→突破ETA/最近接近/CLEAR-WATCH-ENGAGE威胁等级, 0参数, 仅点火时付费
 ├── pipeline.py            双速哨兵编排(把各层串成一个环) ✅ 已实现  test_pipeline.py
@@ -313,6 +315,20 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 方位箭头与音高升降。幕二两只相干扬声器+滑动麦克风:波前叠加产生交替的相长(响)/相消(静)干涉带。均确定性、
 纯 ASCII。`tests/test_demo_acoustic_ops.py` 7 项测试固定其契约。
 
+**传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
+衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
+不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
+一倍的样本被当成准时的积分进去)。`streaming.py` 解决的是另一个问题(单 token 步间 O(1) 携带递归状态),它**假设**
+调用方已按 `dt` 递交一帧;此前没有任何上游把**带时间戳**的不规则流转成那个均匀栅格。这一层正是那个缺失的前端:一组
+**可组合、0 参数、解析**算子,把带时间戳的流重采样到核所要的均匀 `dt` 栅格(`resample_uniform`,线性对线性信号
+**精确**/ZOH 采样保持),并——这是诚实的一半——用 `coverage_mask` 标出落在"长到无法插值"的丢帧空洞里的栅格步,
+让下游 `failsafe.BlindRolloutGuard` 去**滑行**那段黑暗中段,而不是在空洞上编造平滑插值。旗舰 `align_stream` 把
+重采样 + 覆盖判定复合成 `AlignedStream`(均匀值/其时刻/覆盖掩码/空洞步数),直接驱动固定 `dt` 核与其失效保护。
+诚实边界:这是确定性**算子**对齐(无 Kalman 状态、无学习插值);跨长空洞它不臆造高阶拟合——而是标出空洞、交给预测器。
+纯函数、**0 可训练参数**、不 import `model.py`。`tests/test_ingest_ops.py` 21 项对解析真值固定其契约(线性重采样
+对斜坡**精确**、原均匀时刻即恒等、ZOH 采样保持、越界不外推只钳端点、空洞中点被标记/良采样边缘被信任、均匀时钟抖动为零、
+端点处理、可微、确定性)。
+
 **双速引擎的慢半边 (`mt_lnn/slow_layer.py`)**:双速系统若慢层从不真正运行,就只搭了一半。热环每拍只做**一步**
 预测编码前推(便宜、常数时间、永远跑),这一步够**察觉**惊讶,但不够**推理**。这一层补上另一半:`SlowThreatAssessor`
 **仅在点火时被唤醒**,用可组合牛顿算子(`physics_ops.rollout`)把目标按当前速度多步外推整整一个 horizon,逐步问
@@ -342,10 +358,12 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐拍日志(方位/距离/多普勒/区域/瞄准/备注)+ 判决。
 输出:稳态接近 14 拍唤醒零次,机动时**恰好一次**显著点火(z≈106,在机动而非接近时)→ 唤醒慢层评估出
 **威胁 ENGAGE / 0 步突破 / 最近 0.9 m**(日志与摘要均显式打印),断流盲推 2 拍后恢复,5 拍在区域内,每条瞄准命令
-恒在 ±90° 内且每拍 ≤20°。均确定性、纯 ASCII(Windows/GBK 安全)。`tests/test_demo_pipeline.py` 8 项测试固定其
-行为契约(含慢层判决进入报告)。
+恒在 ±90° 内且每拍 ≤20°。**断流不再硬编码**:原始馈送先经 `ingest_ops.align_stream` 对齐到固定 `dt` 栅格,丢帧
+成为真实的**覆盖空洞**(19 个时间戳样本对齐到 21 步栅格、2 帧丢失→覆盖空洞→滑行),`sensor_ok` 由覆盖掩码**派生**
+而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
+`tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 613 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 644 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -358,8 +376,9 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
 `test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
+`test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_slow_layer.py` 12 项双速引擎慢层多步威胁评估测试、
-`test_pipeline.py` 19 项双速哨兵编排集成测试、`test_demo_pipeline.py` 8 项双速哨兵 demo 测试)。
+`test_pipeline.py` 19 项双速哨兵编排集成测试、`test_demo_pipeline.py` 11 项双速哨兵 demo 测试)。
 
 ---
 
@@ -703,6 +722,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
+| ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
 | ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火真唤醒慢层多步评估→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |

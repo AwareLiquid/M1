@@ -11,12 +11,13 @@ import os
 import sys
 
 import pytest
+import torch
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from examples.demo_pipeline import run, print_report, scenario  # noqa: E402
+from examples.demo_pipeline import run, print_report, scenario, align_feed  # noqa: E402
 
 
 def _args(radius=3.0, ignite_z=3.0):
@@ -74,6 +75,35 @@ def test_report_prints_map_log_and_verdict(capsys):
     assert "IGNITE" in out                               # the event reached the log
     assert "H" in out                                    # the sensor head on the map
     assert out.isascii()                                 # Windows/GBK console safe
+
+
+def test_ingest_front_end_detects_the_dropout_as_a_coverage_gap():
+    d = run(_args())
+    ing = d["ingest"]
+    # the lost frames are exactly the samples that never reached the dt grid
+    assert ing["n_lost"] == ing["n_grid"] - ing["n_samples"]
+    assert ing["n_lost"] >= 1
+    # and the coverage-derived dropout is what the sentry actually coasts
+    assert any(t.source == "imagined" for t in d["ticks"])
+
+
+def test_align_feed_resamples_covered_steps_to_the_true_trajectory():
+    # on a clean clock the front-end is identity at every covered step, so the
+    # live ticks see the original trajectory unchanged (the dropout aside).
+    steps = scenario()
+    frames, _ = align_feed(steps, dt=1.0, max_gap=0.9)
+    assert len(frames) == len(steps)
+    for (p_in, _, ok_in), (p_out, _, ok_cov) in zip(steps, frames):
+        if ok_in and ok_cov:
+            assert torch.allclose(p_in, p_out, atol=1e-6)
+
+
+def test_report_mentions_the_ingest_alignment(capsys):
+    print_report(run(_args()))
+    out = capsys.readouterr().out
+    assert "ingest:" in out
+    assert "coverage gap" in out
+    assert out.isascii()
 
 
 def test_report_surfaces_the_slow_layer_verdict(capsys):

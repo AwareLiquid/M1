@@ -46,6 +46,7 @@ from typing import List, Tuple
 import torch
 
 from mt_lnn.pipeline import DualSpeedSentry
+from mt_lnn.ingest_ops import align_stream
 
 
 def scenario() -> List[Tuple[torch.Tensor, torch.Tensor, bool]]:
@@ -70,6 +71,36 @@ def scenario() -> List[Tuple[torch.Tensor, torch.Tensor, bool]]:
     return steps
 
 
+def align_feed(steps: List[Tuple[torch.Tensor, torch.Tensor, bool]], *,
+               dt: float = 1.0, max_gap: float = 0.9):
+    """Front-end: align a *timestamped* raw sensor feed onto the model's dt grid.
+
+    The fixed-dt liquid core assumes one frame per ``dt``; a real sensor does not
+    oblige. We turn the per-tick scenario into a timestamped stream in which the
+    dropped frames are *genuinely missing samples* (no timestamp), then re-align
+    it with :func:`mt_lnn.ingest_ops.align_stream`. The dropout is therefore
+    *detected* as a coverage gap (a step too far from any real sample) rather than
+    hardcoded -- exactly the ingestion alignment the architecture audit asked for.
+
+    Returns ``(frames, summary)`` where ``frames`` is the per-grid-step
+    ``(pos, vel, sensor_ok)`` driving the sentry and ``sensor_ok`` is the coverage
+    flag. On this clean clock the resampling is identity at every covered step, so
+    the live ticks see exactly the original trajectory.
+    """
+    present = [(i + 1, p, v) for i, (p, v, ok) in enumerate(steps) if ok]
+    ts = torch.tensor([float(t) for (t, _, _) in present])
+    pos = torch.stack([p for (_, p, _) in present])           # (S, 2)
+    vel = torch.stack([v for (_, _, v) in present])           # (S, 2)
+    n_grid = len(steps)
+    pos_a = align_stream(pos, ts, dt=dt, max_gap=max_gap, t_start=1.0, n_steps=n_grid)
+    vel_a = align_stream(vel, ts, dt=dt, max_gap=max_gap, t_start=1.0, n_steps=n_grid)
+    frames = [(pos_a.values[k], vel_a.values[k], bool(pos_a.covered[k]))
+              for k in range(n_grid)]
+    summary = {"n_samples": len(present), "n_grid": n_grid,
+               "n_lost": pos_a.n_gap_steps}
+    return frames, summary
+
+
 def run(args) -> dict:
     sentry = DualSpeedSentry(
         left_ear=[-0.1, 0.0], right_ear=[0.1, 0.0],
@@ -78,10 +109,11 @@ def run(args) -> dict:
         max_slew=math.radians(20.0), max_blind_steps=4,
     )
     steps = scenario()
-    ticks = [sentry.step(p, v, sensor_ok=ok) for (p, v, ok) in steps]
+    frames, ingest = align_feed(steps, dt=1.0, max_gap=0.9)
+    ticks = [sentry.step(p, v, sensor_ok=ok) for (p, v, ok) in frames]
     positions = [p for (p, _, _) in steps]
     return {"ticks": ticks, "positions": positions, "radius": float(args.radius),
-            "zone": (0.0, 0.0)}
+            "zone": (0.0, 0.0), "ingest": ingest}
 
 
 def render_map(d: dict, *, w: int = 49, h: int = 17) -> str:
@@ -172,6 +204,10 @@ def print_report(d: dict) -> None:
                 else "no breach in horizon"
             print(f"           slow layer @tick {a.woken_tick}: threat {a.level} "
                   f"({eta}, closest {a.min_range:.1f} m) -> {a.recommendation};")
+    ing = d["ingest"]
+    print(f"           ingest: aligned {ing['n_samples']} timestamped sample(s) onto "
+          f"the {ing['n_grid']}-step dt grid; {ing['n_lost']} lost frame(s) -> "
+          f"coverage gap -> coast;")
     print(f"           coasted {coasts} tick(s) through the sensor dropout, "
           f"{breaches} tick(s) inside the zone;")
     print(f"           every aim command stayed within +/-90 deg and "

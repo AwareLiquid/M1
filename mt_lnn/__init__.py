@@ -125,6 +125,15 @@ from .acoustic_ops import (
     localize_azimuth,
     binaural_scene,
 )
+from .ingest_ops import (
+    AlignedStream,
+    resample_uniform,
+    nearest_sample_gap,
+    coverage_mask,
+    interval_jitter,
+    uniform_grid,
+    align_stream,
+)
 from .slow_layer import (
     ThreatAssessment,
     SlowThreatAssessor,
@@ -288,6 +297,14 @@ __all__ = [
     "superpose_arrivals",
     "localize_azimuth",
     "binaural_scene",
+    # Sensor ingestion: resample a jittered/timestamped stream onto the core's fixed dt
+    "AlignedStream",
+    "resample_uniform",
+    "nearest_sample_gap",
+    "coverage_mask",
+    "interval_jitter",
+    "uniform_grid",
+    "align_stream",
     # Slow half of the dual-speed engine: multi-step threat forecast, woken on ignition
     "ThreatAssessment",
     "SlowThreatAssessor",

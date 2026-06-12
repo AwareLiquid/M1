@@ -577,7 +577,10 @@ batch 1 × seq 128, `optimize_for_inference`, single desktop CPU:
 | Eager | 304.8 | 2.381 | 1.00× |
 | **TorchScript (optimized)** | **187.6** | **1.466** | **1.62×** |
 
-- **Numerical parity: bit-exact** (max\|traced − eager\| = 0.0).
+- **Numerical parity: within `atol=1e-3`** (the test contract in
+  `test_torchscript_export.py`). The FP32 max\|traced − eager\| measured ~0 on
+  this run, but `optimize_for_inference` fuses ops, so parity is *asserted* to
+  1e-3 — not guaranteed bit-identical.
 - **1.47 ms/token** is amortized full-sequence prefill (the parallel-forward
   path), comfortably under the **< 50 ms/token** on-device target.
 - The same trace at toy scale (0.3M params) runs **0.14 ms/token** at 1.5×
