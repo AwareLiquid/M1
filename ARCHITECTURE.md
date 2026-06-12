@@ -57,6 +57,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
 ├── acoustic_ops.py        可组合声学/双耳听觉算子  ✅ 已实现      test_acoustic_ops.py
 │   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
+├── pipeline.py            双速哨兵编排(把各层串成一个环) ✅ 已实现  test_pipeline.py
+│   └── DualSpeedSentry  感知(声学+空间)→预测(物理惊讶)→显著度唤醒慢层→盲推续命→断路器限幅, 编排器 0新参数, 零核耦合
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -309,7 +311,26 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 方位箭头与音高升降。幕二两只相干扬声器+滑动麦克风:波前叠加产生交替的相长(响)/相消(静)干涉带。均确定性、
 纯 ASCII。`tests/test_demo_acoustic_ops.py` 7 项测试固定其契约。
 
-**Test coverage**: 574 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**双速哨兵编排 (`mt_lnn/pipeline.py`)**:前面每一层都是一个能力,但能力堆在一起不是系统——**环**才是系统。
+这一层是产品本身:一个边缘周界哨兵,把所有层按各自**本职**串成一个闭环,只有这个环才让它们成为一个系统。
+逐拍 **感知**(`acoustic_ops` 从声音的 ITD 反演无人机方位、多普勒听它来去)→ **推理**(`spatial_ops.in_ball`
+每拍问"它进保护半径了吗")→ **预测**(`physics_ops` 一步弹道前推,与实测之差是训练无关的预测编码**惊讶**残差)
+→ **触发**(`salience_events` 仅当惊讶**点火**——无人机机动时——才唤醒慢/云层,绝不轮询热环)→ **续命**
+(`BlindRolloutGuard` 在传感器断流时靠世界模型想象**盲推**续命,信心或预算耗尽则转**暗**安全停)→ **安全执行**
+(`CircuitBreaker` 把转台瞄准命令钳在机械限位与转速率内,每拍无条件清 NaN/限幅/限速)。剧情:无人机直线接近
+(哨兵跟踪但不惊动慢层)→ 急转规避(点火一次→升级)→ 传感器抖动两拍(盲推续命)→ 突破保护区。编排器**零新增
+可训练参数**(`n_parameters==0`)、零 `model.py` 耦合;唯一带参的是 guard 盲推所依赖的可选世界模型 head,且只用
+其可用性/信任预算门控(几何信任衰减,独立于是否训练),不靠其预测精度。诚实边界:远场声学模型要求场景在头前方,
+近头方位饱和(钳位),执行器转速率限位正好挡住由此产生的尖峰。`tests/test_pipeline.py` 16 项固定层间组合契约
+(稳态静默/机动点火一次、断流盲推→恢复/长断流转暗、逐拍区域判定、命令恒在限位+限速内),确定性、0 参数。
+
+**双速哨兵 demo (`examples/demo_pipeline.py`)**:把整环跑成一个边缘周界哨兵故事——ASCII 俯视图(H 传感头、
+O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐拍日志(方位/距离/多普勒/区域/瞄准/备注)+ 判决。
+输出:稳态接近 14 拍唤醒零次,机动时**恰好一次**显著点火(z≈106,在机动而非接近时),断流盲推 2 拍后恢复,
+5 拍在区域内,每条瞄准命令恒在 ±90° 内且每拍 ≤20°。均确定性、纯 ASCII(Windows/GBK 安全)。
+`tests/test_demo_pipeline.py` 7 项测试固定其行为契约。
+
+**Test coverage**: 597 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -321,7 +342,8 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 `test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试、
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
 `test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
-`test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试)。
+`test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
+`test_pipeline.py` 16 项双速哨兵编排集成测试、`test_demo_pipeline.py` 7 项双速哨兵 demo 测试)。
 
 ---
 
@@ -666,6 +688,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
+| ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火唤醒慢层→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |

@@ -125,6 +125,11 @@ from .acoustic_ops import (
     localize_azimuth,
     binaural_scene,
 )
+from .pipeline import (
+    DualSpeedSentry,
+    SentryTick,
+    PerceptionEvent,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -279,6 +284,10 @@ __all__ = [
     "superpose_arrivals",
     "localize_azimuth",
     "binaural_scene",
+    # Dual-speed sentry: the loop wiring perception + prediction + salience + safety
+    "DualSpeedSentry",
+    "SentryTick",
+    "PerceptionEvent",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

@@ -279,6 +279,7 @@ mt_lnn/
   salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
   failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling)
   acoustic_ops.py        Composable binaural-hearing operators (propagation delay / 1-over-r spreading / ITD / ILD / Doppler / phasor interference; localize_azimuth inverse readout + binaural_scene composition; 0-param analytic, no model.py coupling)
+  pipeline.py            DualSpeedSentry — the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite slow layer on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -355,6 +356,12 @@ examples/demo_acoustic_ops.py  Binaural hearing from geometry: (1) a drone flies
                            ("where is it, coming or going?"); (2) two coherent
                            speakers + a sliding mic show constructive/destructive
                            wavefront interference (ASCII)
+examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
+                           steady approach (wakes nobody), a sharp evasive turn (one
+                           salient ignition wakes the slow layer), a 2-tick sensor
+                           dropout (coasted on the world model) and a zone breach;
+                           ASCII top-down map + per-tick log + verdict, every aim
+                           command bounded +/-90 deg and slew-limited <=20 deg/tick
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
