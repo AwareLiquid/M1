@@ -273,6 +273,7 @@ mt_lnn/
   causal_steering.py     CausalActivationSteerer (Phase B+; STARS-inspired subspace projection)
   causal_decoding.py     CausalDecodeSteerer (L3; generate() step_callback that steers the live recurrent cache)
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
+  imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -319,6 +320,10 @@ examples/demo_causal_spatial_steering.py  L3 causal spatial steering: a teleport
 examples/demo_spatial_memory.py  L2 spatial sequence memory: walk a path writing
                            content at landmarks, then recall by a noisy place cue;
                            graceful pattern completion under positional noise (--plot)
+examples/demo_imagination.py  L4 latent mental-simulation rollout: attach the
+                           imagination driver to a live model's hidden state, then
+                           show the composed multi-step rollout tracks the true
+                           future far better than a "nothing changes" baseline
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark

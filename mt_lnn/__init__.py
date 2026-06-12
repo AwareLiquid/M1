@@ -77,6 +77,7 @@ from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer, SteerResult
 from .world_model import PredictiveStateHead
+from .imagination import ImaginedTrajectory, LatentImagination
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -188,6 +189,8 @@ __all__ = [
     "CausalActivationSteerer",
     "SteerResult",
     "PredictiveStateHead",
+    "ImaginedTrajectory",
+    "LatentImagination",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

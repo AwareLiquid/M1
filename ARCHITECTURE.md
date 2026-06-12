@@ -45,6 +45,8 @@ mt_lnn/                                       STATUS        TEST FILE
 ├── causal_decoding.py      L3 转向接入真实解码     ✅ 已实现      test_causal_decoding.py
 │   └── CausalDecodeSteerer  generate() 的 step_callback: 在线纠正循环态 cache (0参数)
 ├── world_model.py         预测隐态头             ✅ Phase C     test_world_model.py
+├── imagination.py         L4 潜空间多步想象 rollout ✅ 已实现    test_imagination.py
+│   └── LatentImagination   把世界模型单步映射自回归滚 k 步成"想象轨迹" (0参数, 不耦合 backbone)
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -198,13 +200,30 @@ on-landmark 召回近乎完美(cosine≈1.0),随查询噪声**优雅退化**(1.0
 `spatial_memory` 公开 API,确定性可复现,CPU 秒级,`--plot` 出抗噪曲线。由
 `tests/test_demo_spatial_memory.py` 12 项测试固定其行为契约。
 
-**Test coverage**: 401 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**L4 潜空间多步想象 rollout (`mt_lnn/imagination.py`)**:世界模型 `PredictiveStateHead` 只学到
+**单步**潜态转移;`LatentImagination` 把这个**已训练**的单步映射在归一化潜空间里自回归向前滚
+`horizon` 步,得到一条"想象轨迹"——脑内"先在心里把场景推演几步再决策"的最小可信内核。每步附带
+**置信度**(从 head 当前的 `1-last_pred_error` 起,随 horizon 与想象新异度衰减)与**新异度**
+诊断,供调用方门控(如置信跌破阈值即放弃该计划)。**关键性质——复合**:在一个学过真实(旋转)动态
+的 head 上,多步想象对**真实 k 步未来**的追踪显著优于"假设什么都不变"的静态基线(demo:horizon 5
+时想象 cos≈0.80 vs 静态 -0.69),证明 rollout 是把学到的单步映射真正**复合**起来,而非包装。
+**零新增参数**(纯推理期执行器,`n_parameters==0`)、**不耦合 backbone**(仅 import torch,绝不
+import `model.py`,鸭子类型挂在 head 上),默认不实例化。`tests/test_imagination.py` 16 项测试固定
+其契约。
+
+**L4 想象 rollout demo (`examples/demo_imagination.py`)**:两段式——Part 1 把驱动挂到一个真实
+`MTLNNModel`(world model 开启)的 `final_norm` 隐态上,证明零参数、零耦合的真模型接入面与置信度
+衰减;Part 2 在旋转世界上训练 head,给出 `imagined_cos > static_cos` 的量化裁决。ASCII 输出、CPU
+秒级、`--seed` 确定性。`tests/test_demo_imagination.py` 7 项测试固定其行为契约。
+
+**Test coverage**: 424 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
 10 项 L3 解码闭环 demo 测试、`test_demo_causal_spatial_steering.py`
 10 项 L3 转向 demo 测试、`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
-`test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试)。
+`test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试、`test_imagination.py`
+16 项 L4 潜空间想象 rollout 测试、`test_demo_imagination.py` 7 项 L4 想象 demo 测试)。
 
 ---
 
@@ -543,6 +562,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L2 | 空间序列记忆 (位置索引联想记忆, Hebbian 写 / 模式补全读, 复用 PlaceCellCode, 0 参数) | `mt_lnn/spatial_memory.py` + `test_spatial_memory.py` | 完成 |
 | ✅ L2 原型 | 空间序列记忆 demo (写轨迹→带噪位置召回, 优雅模式补全) | `examples/demo_spatial_memory.py` + `test_demo_spatial_memory.py` | 完成 (路演原型) |
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
+| ✅ L4 | 潜空间多步想象 rollout (单步映射复合成"想象轨迹" + 置信衰减, 0参数, 不耦合 backbone) | `imagination.py` + `examples/demo_imagination.py` + `test_imagination.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |
