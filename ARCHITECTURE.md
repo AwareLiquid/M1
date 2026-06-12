@@ -49,6 +49,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── LatentImagination   把世界模型单步映射自回归滚 k 步成"想象轨迹" (0参数, 不耦合 backbone)
 ├── spatial_ops.py         可组合几何算子          ✅ 已实现      test_spatial_ops.py
 │   └── 距离/方向/包含/邻近图/连通分量/可达性  纯函数, 0参数, 对解析真值可单测, 不耦合 backbone
+├── physics_ops.py         可组合牛顿动力学算子    ✅ 已实现      test_physics_ops.py
+│   └── 辛积分/引力场/N体引力/碰撞冲量/盒壁反弹/守恒诊断/rollout  纯函数, 0参数, 复合即"脑内推演"
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -232,7 +234,24 @@ import `model.py`,鸭子类型挂在 head 上),默认不实例化。`tests/test_
 够大时对岸"解锁"。短步长(1.1)不可达、长步长(2.1)三跳到达、解锁阈值=2.0,均确定性。
 `tests/test_demo_spatial_ops.py` 3 项测试固定其契约。
 
-**Test coverage**: 446 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**可组合牛顿动力学算子 (`mt_lnn/physics_ops.py`)**:`spatial_ops.py` 让智能体**对几何计算**,但
+场景是会演化的——"在脑海中模拟事件进展"需要一层**对物理动态计算**的能力:在力与接触下把
+`(位置, 速度)` 状态向前推进。这一层补上:半隐式(辛)欧拉积分(能量稳定)、均匀引力场与软化 N 体引力
+(精确守恒动量)、球-球碰撞检测 + 冲量响应(带恢复系数,`e=1` 守恒动能、`e<1` 耗散)、轴对齐盒壁反弹、
+动能/动量守恒诊断,以及把它们复合成轨迹的 **rollout**(智能体内部的"接下来会怎样"推演)。要点同样是
+**复合**:旗舰查询"弹跳的球能否越过墙?"是把 `uniform_gravity → integrate → reflect_in_box(地面)`
+向前**滚**出来算的——抬高恢复系数,同一份代码报出不同结局(涌现、计算,而非查表)。诚实边界:这是
+**确定性物理算子层(引擎)**,不是学出来的动力学模型;一阶辛积分能量稳定但不精确,测试只对它真正守恒
+的解析不变量(恒定动量、恒加速下速度精确、弹性正碰速度互换、两体轨道半径近恒定)校验。纯函数、不是
+`nn.Module`、仅 import torch、绝不 import `model.py`,零 backbone 耦合。`tests/test_physics_ops.py`
+25 项,每个算子对解析真值单测。
+
+**可组合物理算子 demo (`examples/demo_physics_ops.py`)**:一个球被抛出,前方立着一道墙,中间是一块完全
+硬的地面——球会越过墙吗?用三个零参数算子复合滚出轨迹并渲染成 ASCII 侧视图;再扫地面恢复系数,看判决
+翻转:有损弹跳(低 `e`)削弱第二段弧而撞墙、弹性弹跳(高 `e`)保住高度而越过。弹性地面越过(过墙高 0.64)、
+恢复系数 0.4 撞墙(过墙高 0.00),均确定性。`tests/test_demo_physics_ops.py` 3 项测试固定其契约。
+
+**Test coverage**: 474 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -240,7 +259,8 @@ import `model.py`,鸭子类型挂在 head 上),默认不实例化。`tests/test_
 10 项 L3 转向 demo 测试、`test_spatial_memory.py` 11 项 L2 空间序列记忆测试、
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试、`test_imagination.py`
 16 项 L4 潜空间想象 rollout 测试、`test_demo_imagination.py` 7 项 L4 想象 demo 测试、
-`test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试)。
+`test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试、
+`test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试)。
 
 ---
 
@@ -581,6 +601,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ L4 | 潜空间多步想象 rollout (单步映射复合成"想象轨迹" + 置信衰减, 0参数, 不耦合 backbone) | `imagination.py` + `examples/demo_imagination.py` + `test_imagination.py` | 完成 |
 | ✅ L4 | 可组合几何算子 (距离/方向/包含/邻近图/连通分量/可达性, 纯函数 0参数, 复合即推理) | `spatial_ops.py` + `examples/demo_spatial_ops.py` + `test_spatial_ops.py` | 完成 |
+| ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |

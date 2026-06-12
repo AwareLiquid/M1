@@ -90,6 +90,18 @@ from .spatial_ops import (
     hop_distance,
     connected_components,
 )
+from .physics_ops import (
+    PhysicsRollout,
+    integrate,
+    uniform_gravity,
+    pairwise_gravity,
+    kinetic_energy,
+    momentum,
+    overlapping_pairs,
+    resolve_sphere_collisions,
+    reflect_in_box,
+    rollout,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -213,6 +225,17 @@ __all__ = [
     "reachable_from",
     "hop_distance",
     "connected_components",
+    # Composable Newtonian dynamics operators (compute physics, don't memorise)
+    "PhysicsRollout",
+    "integrate",
+    "uniform_gravity",
+    "pairwise_gravity",
+    "kinetic_energy",
+    "momentum",
+    "overlapping_pairs",
+    "resolve_sphere_collisions",
+    "reflect_in_box",
+    "rollout",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

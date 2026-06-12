@@ -275,6 +275,7 @@ mt_lnn/
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
   spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
+  physics_ops.py         Composable Newtonian dynamics operators (symplectic integration/gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -329,6 +330,11 @@ examples/demo_spatial_ops.py  Composable geometry: an agent on stepping-stones
                            split by a gap; compose distance -> radius_graph ->
                            reachable_from to compute (not memorise) whether the
                            goal is reachable for a given stride (ASCII map)
+examples/demo_physics_ops.py  Composable physics: a ball launched at a wall over
+                           a bouncy floor; compose gravity -> integrate ->
+                           reflect_in_box to compute (not memorise) whether it
+                           clears the wall; sweep restitution to flip the verdict
+                           (ASCII side-view)
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
