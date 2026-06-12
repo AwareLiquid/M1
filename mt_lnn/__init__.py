@@ -125,6 +125,10 @@ from .acoustic_ops import (
     localize_azimuth,
     binaural_scene,
 )
+from .slow_layer import (
+    ThreatAssessment,
+    SlowThreatAssessor,
+)
 from .pipeline import (
     DualSpeedSentry,
     SentryTick,
@@ -284,6 +288,9 @@ __all__ = [
     "superpose_arrivals",
     "localize_azimuth",
     "binaural_scene",
+    # Slow half of the dual-speed engine: multi-step threat forecast, woken on ignition
+    "ThreatAssessment",
+    "SlowThreatAssessor",
     # Dual-speed sentry: the loop wiring perception + prediction + salience + safety
     "DualSpeedSentry",
     "SentryTick",

@@ -20,6 +20,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from mt_lnn.pipeline import DualSpeedSentry, SentryTick, PerceptionEvent  # noqa: E402
+from mt_lnn.slow_layer import ThreatAssessment  # noqa: E402
 
 
 def _sentry(**kw):
@@ -76,6 +77,51 @@ def test_event_carries_perception_snapshot():
     ev = next(t.event for t in ticks if t.event is not None)
     assert ev.tick >= 14                                 # fires at the turn, not before
     assert math.isfinite(ev.azimuth) and math.isfinite(ev.distance)
+
+
+# --- slow layer: the ignition actually wakes a multi-step assessment -------
+
+
+def test_ignition_wakes_the_slow_layer_with_an_assessment():
+    s = _sentry()
+    ticks = _run(s, _steady_then_manoeuvre())
+    ev = next(t.event for t in ticks if t.event is not None)
+    assert isinstance(ev.assessment, ThreatAssessment)   # the slow layer actually ran
+    assert ev.assessment.woken_tick == ev.tick           # woken on the ignition tick
+    assert ev.assessment.level in ("CLEAR", "WATCH", "ENGAGE")
+    assert ev.assessment.horizon >= 1
+
+
+def test_custom_slow_layer_is_invoked_on_ignition():
+    calls = []
+
+    class _SpyLayer:
+        def assess(self, pos, vel, *, tick):
+            calls.append(tick)
+            return ThreatAssessment(
+                woken_tick=tick, horizon=1, breaches=True, eta_breach=0,
+                min_range=0.0, closest_offset=0, level="ENGAGE", recommendation="spy",
+            )
+
+    s = _sentry(slow_layer=_SpyLayer())
+    ticks = _run(s, _steady_then_manoeuvre())
+    ev = next(t.event for t in ticks if t.event is not None)
+    assert calls == [ev.tick]                            # called exactly once, on ignition
+    assert ev.assessment.recommendation == "spy"
+
+
+def test_slow_layer_silent_without_ignition():
+    # a single steady tick never ignites -> the slow layer is never woken.
+    calls = []
+
+    class _SpyLayer:
+        def assess(self, pos, vel, *, tick):
+            calls.append(tick)
+            return None
+
+    s = _sentry(slow_layer=_SpyLayer())
+    s.step([-10.0, 5.0], [1.0, 0.0])
+    assert calls == []                                   # hot loop never paid for the slow layer
 
 
 # --- dropout: coast then recover; long dropout goes dark -------------------

@@ -74,3 +74,12 @@ def test_report_prints_map_log_and_verdict(capsys):
     assert "IGNITE" in out                               # the event reached the log
     assert "H" in out                                    # the sensor head on the map
     assert out.isascii()                                 # Windows/GBK console safe
+
+
+def test_report_surfaces_the_slow_layer_verdict(capsys):
+    print_report(run(_args()))
+    out = capsys.readouterr().out
+    assert "SLOW[" in out                                # slow layer verdict in the log
+    assert "slow layer @tick" in out                     # and in the summary
+    # the ignition is at the breach, so the woken assessment escalates to ENGAGE
+    assert "threat ENGAGE" in out

@@ -72,6 +72,7 @@ from .salience_events import SalienceEventDetector
 from .failsafe import BlindRolloutGuard, CircuitBreaker
 from .imagination import LatentImagination
 from .world_model import PredictiveStateHead
+from .slow_layer import SlowThreatAssessor, ThreatAssessment
 
 __all__ = ["PerceptionEvent", "SentryTick", "DualSpeedSentry"]
 
@@ -83,7 +84,8 @@ class PerceptionEvent:
     Emitted only when the predictive-coding surprise ignites the detector -- i.e.
     the target did something the steady-state model did not expect. Carries the
     perception snapshot as the broadcast payload (the slow layer never had to poll
-    the hot loop to get it).
+    the hot loop to get it), plus the slow layer's :class:`ThreatAssessment` --
+    the deliberate multi-step forecast the ignition actually paid for.
     """
 
     tick: int
@@ -92,6 +94,7 @@ class PerceptionEvent:
     inside_zone: bool       # was the target inside the protected radius?
     doppler: float          # observed frequency (Hz); > rest = approaching
     salience: float         # the z-score that ignited it (surprise in sigma)
+    assessment: Optional["ThreatAssessment"] = None  # slow-layer verdict on wake
 
 
 @dataclass(frozen=True)
@@ -179,6 +182,15 @@ class DualSpeedSentry:
         Guard trust floor below which it goes dark mid-coast.
     feature_dim : int
         Width of the perceptual feature vector fed to the world-model head.
+    slow_layer : object, optional
+        The slow half of the dual-speed engine, woken only on a salient ignition.
+        Any object exposing ``assess(pos, vel, *, tick) -> ThreatAssessment``
+        (duck-typed). If ``None``, a default :class:`SlowThreatAssessor` is built
+        over the same zone geometry.
+    slow_horizon : int
+        Forecast horizon (steps) for the default slow-layer threat assessment.
+    engage_eta : int
+        Forecast ETA (steps) at/below which the slow layer escalates to ENGAGE.
     """
 
     def __init__(
@@ -201,6 +213,9 @@ class DualSpeedSentry:
         max_blind_steps: int = 4,
         confidence_floor: float = 0.3,
         feature_dim: int = 6,
+        slow_layer=None,
+        slow_horizon: int = 12,
+        engage_eta: int = 3,
     ) -> None:
         if danger_radius <= 0.0:
             raise ValueError(f"danger_radius must be > 0, got {danger_radius}")
@@ -239,6 +254,14 @@ class DualSpeedSentry:
         self.guard = BlindRolloutGuard(
             imagination, confidence_floor=confidence_floor, max_blind_steps=max_blind_steps
         )
+
+        # -- the slow half of the dual-speed engine (woken only on ignition) ---
+        if slow_layer is None:
+            slow_layer = SlowThreatAssessor(
+                zone_center=self.zone_center, danger_radius=self.danger_radius,
+                dt=self.dt, horizon=int(slow_horizon), engage_eta=int(engage_eta),
+            )
+        self.slow_layer = slow_layer
 
         self.reset()
 
@@ -343,12 +366,16 @@ class DualSpeedSentry:
         self._last_inside = inside
 
         # -- TRIGGER: wake the slow layer only on a salient surprise -----------
+        # Ignition can only fire on a live tick (``surprise`` is computed solely
+        # from a real observation), so ``pos``/``vel`` below are genuine.
         event: Optional[PerceptionEvent] = None
         if surprise is not None:
             ev = self.detector.update(surprise)
             if ev is not None and ev.kind == "ignition":
+                assessment = self.slow_layer.assess(pos, vel, tick=self._tick)
                 event = PerceptionEvent(tick=self._tick, azimuth=az, distance=dist,
-                                        inside_zone=inside, doppler=dop, salience=ev.z)
+                                        inside_zone=inside, doppler=dop, salience=ev.z,
+                                        assessment=assessment)
 
         # -- ACT SAFELY: aim command through the output circuit breaker --------
         raw_cmd = az if source != "dark" else self.breaker.last_safe

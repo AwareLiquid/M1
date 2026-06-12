@@ -11,8 +11,11 @@ every layer in its intended role -- and only this loop makes them a system:
                        and hear it approach / recede (Doppler).
     spatial_ops     -- ask, every tick, "is it inside the protected radius?"
     physics_ops     -- one-step ballistic forecast -> a predictive-coding surprise.
-    salience_events -- wake the slow / cloud layer ONLY when that surprise ignites
+    salience_events -- wake the slow layer ONLY when that surprise ignites
                        (the drone manoeuvres) -- never poll the hot loop.
+    slow_layer      -- once woken, a SlowThreatAssessor rolls the target forward
+                       over a horizon (the deliberation the hot loop can't afford
+                       every tick) -> time-to-breach + a CLEAR/WATCH/ENGAGE verdict.
     failsafe        -- BlindRolloutGuard coasts on the world model through a sensor
                        dropout (and would go dark if blind too long); CircuitBreaker
                        keeps the turret aim within its mechanical limit and slew-rate.
@@ -127,7 +130,12 @@ def render_log(d: dict) -> str:
     for t in d["ticks"]:
         note = ""
         if t.event is not None:
-            note = f"IGNITE z={t.event.salience:.1f} -> wake slow layer"
+            a = t.event.assessment
+            verdict = ""
+            if a is not None:
+                eta = f"eta {a.eta_breach}" if a.eta_breach is not None else "no breach"
+                verdict = f" -> SLOW[{a.level} {eta}]"
+            note = f"IGNITE z={t.event.salience:.1f} -> wake slow layer{verdict}"
         elif t.source == "imagined":
             note = "coasting on world model (sensor dropout)"
         elif t.source == "dark":
@@ -157,6 +165,13 @@ def print_report(d: dict) -> None:
     cmds = [t.command for t in d["ticks"]]
     print(f"\n  summary: {len(igs)} salient ignition(s) (slow layer woken on the "
           f"manoeuvre, NOT the steady approach),")
+    for t in igs:
+        a = t.event.assessment
+        if a is not None:
+            eta = f"breach in {a.eta_breach} step(s)" if a.eta_breach is not None \
+                else "no breach in horizon"
+            print(f"           slow layer @tick {a.woken_tick}: threat {a.level} "
+                  f"({eta}, closest {a.min_range:.1f} m) -> {a.recommendation};")
     print(f"           coasted {coasts} tick(s) through the sensor dropout, "
           f"{breaches} tick(s) inside the zone;")
     print(f"           every aim command stayed within +/-90 deg and "
