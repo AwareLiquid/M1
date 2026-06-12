@@ -613,3 +613,44 @@ sm_60 / torch-2.10-cu128 kernel mismatch and a 16 GB-GPU OOM (batch 8 → 4 at
 seq 512). **125M training/PPL + v2 module-health metrics (competition entropy,
 world-model prediction error, surprise, Hebbian/EMA dynamics) are pending this
 run and will be filled in here once validation passes.**
+
+---
+
+## State-only streaming: O(1) working memory (validated)
+
+The headline claim — recurrent state-only decode holds a **constant** cache
+footprint while a KV cache grows **O(T)** — is now pinned at a stream length
+that far exceeds the model's finite RoPE/mask window (`T >> max_seq_len`), the
+regime that actually stresses the claim.
+
+### Measurement (CPU, tiny config: window=16, d=64, 2 layers)
+
+| Path | T = 16 (1 window) | T = 128 (8 wraps) | T = 320 (20 wraps) | Growth |
+|---|---|---|---|---|
+| KV cache (`tensor_bytes`) | 12,328 B | 76,840 B | — (capped use) | **+576 B / token, O(T)** |
+| State-only (`h_prev` only) | 2,600 B | 2,600 B | 2,600 B | **flat, O(1)** |
+| KV / state ratio | 4.7× | **29.6×** | grows without bound | widens with T |
+
+The KV cache adds a constant **+576 bytes per token** (the per-position k/v across
+layers) — a clean linear O(T) signature — while the state-only cache is identical
+to the byte at step 1 no matter how deep the stream runs (320 steps = 20 RoPE
+wraps tested).
+
+### Reproduce
+
+```bash
+# Regression test (4 cases, asserts flat-vs-linear contrast past 20 wraps):
+python -m pytest tests/test_long_context_memory.py -v
+
+# Benchmark in the true O(1) regime (window pinned, T >> window):
+python benchmarks/state_only_streaming.py --steps 512 --max_seq_len 64 --fixed_window
+#   -> kv_cache_stream  cache=330,792 B   (O(T))
+#      state_only_stream cache=  2,600 B   (O(1))  -> 127x smaller at 8 wraps
+```
+
+**Honesty note:** state-only decode trades exactness for the bounded footprint —
+because it drops KV history and wraps position offsets, its logits diverge from a
+full-causal forward (the benchmark reports `div.max ~ 0.34` at 8 wraps). The O(1)
+result is a *memory* guarantee, not a claim of bit-identical long-context logits.
+The `--fixed_window` flag was added precisely so the benchmark can run this
+regime; by default it grows the window to fit the stream (avoiding any wrap).

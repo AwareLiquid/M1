@@ -45,7 +45,15 @@ def _elapsed(device: str, fn):
 
 
 def build_config(args, max_steps: int) -> MTLNNConfig:
-    max_seq_len = max(args.max_seq_len, max_steps + 1)
+    # By default the RoPE/mask window is grown to fit the whole stream so every
+    # path stays inside its tables. With --fixed_window the window is pinned at
+    # --max_seq_len instead, so state-only streaming runs in the *real* O(1)
+    # regime (T >> window, wrapping the RoPE table) -- the regime that actually
+    # exercises the constant-memory claim.
+    if args.fixed_window:
+        max_seq_len = args.max_seq_len
+    else:
+        max_seq_len = max(args.max_seq_len, max_steps + 1)
     return MTLNNConfig(
         vocab_size=args.vocab_size,
         max_seq_len=max_seq_len,
@@ -272,6 +280,10 @@ def parse_args():
 
     parser.add_argument("--vocab_size", type=int, default=128)
     parser.add_argument("--max_seq_len", type=int, default=128)
+    parser.add_argument("--fixed_window", action="store_true",
+                        help="Pin the RoPE/mask window at --max_seq_len instead of "
+                             "growing it to fit the stream; lets state-only streaming "
+                             "run the true O(1) regime at T >> window.")
     parser.add_argument("--d_model", type=int, default=104)
     parser.add_argument("--n_layers", type=int, default=2)
     parser.add_argument("--n_heads", type=int, default=4)

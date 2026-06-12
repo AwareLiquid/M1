@@ -254,6 +254,7 @@ Drop historical KV tensors during decode and keep only the recurrent `h_prev`:
 
 - 1000 tokens, traditional KV stream: ~1020 KB → MT-LNN state-only: **4.1 KB**.
 - Aimed at edge / always-on inference where context length is bounded by the recurrent state, not by KV memory.
+- The $O(1)$ vs $O(T)$ contrast is pinned as a regression in [`tests/test_long_context_memory.py`](tests/test_long_context_memory.py): state-only cache bytes stay flat for **T = 20× the RoPE window** (320 steps over a 16-token window, i.e. 20 wraps) while the KV cache grows a constant +bytes/token. Reproduce the sweep with `python benchmarks/state_only_streaming.py --steps 512 --max_seq_len 64 --fixed_window` (8 wraps: KV 330 KB vs state-only 2.6 KB, a 127× gap).
 
 ### Sparse Resonance (top-$k$ scale routing)
 
@@ -402,7 +403,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (644 tests, all pass)
+tests/                     Full test suite (648 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -410,10 +411,11 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 644 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Highlights:
+Research-grade code. All 648 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
+[ok] test_state_only_memory_is_flat...    O(1) cache flat at T=20x window (vs KV O(T))
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ

@@ -363,7 +363,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 644 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 648 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -378,7 +378,9 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_slow_layer.py` 12 项双速引擎慢层多步威胁评估测试、
-`test_pipeline.py` 19 项双速哨兵编排集成测试、`test_demo_pipeline.py` 11 项双速哨兵 demo 测试)。
+`test_pipeline.py` 19 项双速哨兵编排集成测试、`test_demo_pipeline.py` 11 项双速哨兵 demo 测试、
+`test_long_context_memory.py` 4 项 O(1) 流式内存回归测试[在 T = 20× RoPE 窗口处钉死
+state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])。
 
 ---
 
