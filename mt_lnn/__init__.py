@@ -78,6 +78,18 @@ from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer, SteerResult
 from .world_model import PredictiveStateHead
 from .imagination import ImaginedTrajectory, LatentImagination
+from .spatial_ops import (
+    pairwise_distance,
+    relative_direction,
+    bearing,
+    in_bounding_box,
+    in_ball,
+    radius_graph,
+    knn_graph,
+    reachable_from,
+    hop_distance,
+    connected_components,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -191,6 +203,16 @@ __all__ = [
     "PredictiveStateHead",
     "ImaginedTrajectory",
     "LatentImagination",
+    "pairwise_distance",
+    "relative_direction",
+    "bearing",
+    "in_bounding_box",
+    "in_ball",
+    "radius_graph",
+    "knn_graph",
+    "reachable_from",
+    "hop_distance",
+    "connected_components",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

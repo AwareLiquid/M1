@@ -274,6 +274,7 @@ mt_lnn/
   causal_decoding.py     CausalDecodeSteerer (L3; generate() step_callback that steers the live recurrent cache)
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
+  spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -324,6 +325,10 @@ examples/demo_imagination.py  L4 latent mental-simulation rollout: attach the
                            imagination driver to a live model's hidden state, then
                            show the composed multi-step rollout tracks the true
                            future far better than a "nothing changes" baseline
+examples/demo_spatial_ops.py  Composable geometry: an agent on stepping-stones
+                           split by a gap; compose distance -> radius_graph ->
+                           reachable_from to compute (not memorise) whether the
+                           goal is reachable for a given stride (ASCII map)
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
