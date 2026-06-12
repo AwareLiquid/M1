@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AwareLiquid</title>
+<meta name="description" content="AwareLiquid — a liquid time-constant (MT-LNN) language model demo.">
+<style>
+  :root{
+    --bg:#ffffff;
+    --fg:#0d0d0d;
+    --muted:#8e8ea0;
+    --line:#ececf1;
+    --user-bubble:#f4f4f5;
+    --accent:#0d0d0d;
+    --shadow:0 2px 18px rgba(0,0,0,.06);
+    --radius:24px;
+    --col:768px;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;font-size:16px;line-height:1.65;
+  }
+
+  /* Top bar — minimal, centered brand */
+  header{
+    height:60px;display:flex;align-items:center;justify-content:center;position:relative;
+    border-bottom:1px solid var(--line);flex:none;
+  }
+  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:.2px}
+  header .brand .dot{width:9px;height:9px;border-radius:50%;background:#0d0d0d}
+  header .status{position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  header .status .live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
+  header .status .live.ok{background:#10a37f}
+  header .status .live.err{background:#ef4444}
+
+  /* Scroll area */
+  .scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+  .scroll::-webkit-scrollbar{width:8px}
+  .scroll::-webkit-scrollbar-thumb{background:#e3e3e8;border-radius:4px}
+
+  /* Empty / welcome state */
+  .welcome{
+    min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px 24px;text-align:center;
+  }
+  .welcome h2{font-size:28px;font-weight:600;margin:0 0 10px;letter-spacing:-.3px}
+  .welcome p{color:var(--muted);font-size:15px;max-width:460px;margin:0 0 34px;line-height:1.7}
+  .examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:560px}
+  .example{
+    border:1px solid var(--line);border-radius:16px;padding:16px 18px;text-align:left;cursor:pointer;
+    background:#fff;transition:background .15s,border-color .15s,transform .08s;
+  }
+  .example:hover{background:#fafafa;border-color:#dcdce3}
+  .example:active{transform:scale(.985)}
+  .example .t{font-size:14px;font-weight:550}
+  .example .s{font-size:12px;color:var(--muted);margin-top:3px}
+
+  /* Conversation column */
+  .thread{max-width:var(--col);margin:0 auto;padding:28px 24px 40px;display:flex;flex-direction:column;gap:26px}
+  .turn{display:flex;flex-direction:column;gap:6px}
+  .turn.user{align-items:flex-end}
+  .turn.assistant{align-items:flex-start}
+  .bubble{
+    max-width:90%;border-radius:var(--radius);font-size:16px;line-height:1.7;
+    white-space:pre-wrap;word-wrap:break-word;
+  }
+  .turn.user .bubble{background:var(--user-bubble);padding:12px 18px;border-bottom-right-radius:8px}
+  .turn.assistant .bubble{padding:2px 0;max-width:100%}
+  .turn.assistant .who{font-size:13px;font-weight:600;color:#0d0d0d;display:flex;align-items:center;gap:7px;margin-bottom:2px}
+  .turn.assistant .who .av{width:20px;height:20px;border-radius:50%;background:#0d0d0d;display:inline-flex;align-items:center;justify-content:center}
+  .turn.assistant .who .av i{width:7px;height:7px;border-radius:50%;background:#fff;display:block}
+  .bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
+  @keyframes blink{50%{opacity:0}}
+  .meta{font-size:11.5px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+  /* Composer */
+  .composer-wrap{flex:none;padding:0 24px 22px;background:linear-gradient(to top,var(--bg) 70%,transparent)}
+  .composer{
+    max-width:var(--col);margin:0 auto;border:1px solid var(--line);border-radius:28px;
+    box-shadow:var(--shadow);background:#fff;padding:8px 8px 8px 20px;display:flex;align-items:flex-end;gap:8px;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .composer:focus-within{border-color:#d0d0d8;box-shadow:0 4px 26px rgba(0,0,0,.09)}
+  textarea{
+    flex:1;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:16px;
+    line-height:1.5;padding:11px 0;max-height:180px;color:var(--fg);
+  }
+  textarea::placeholder{color:#b4b4c0}
+  .send{
+    width:38px;height:38px;border:none;border-radius:50%;background:#0d0d0d;color:#fff;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex:none;transition:opacity .15s,background .15s;
+  }
+  .send:disabled{background:#e3e3e8;color:#fff;cursor:not-allowed}
+  .send svg{width:18px;height:18px;display:block}
+  .send.stop{background:#0d0d0d}
+  .send.stop .sq{width:11px;height:11px;background:#fff;border-radius:3px}
+  .disclaimer{max-width:var(--col);margin:10px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
+  .disclaimer a{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot"></span> AwareLiquid</div>
+  <div class="status"><span class="live" id="live"></span><span id="statusText">连接中…</span></div>
+</header>
+
+<div class="scroll" id="scroll">
+  <div class="welcome" id="welcome">
+    <h2>有什么想聊的？</h2>
+    <p>AwareLiquid 由 MT-LNN 液态时序网络驱动，支持中英文及多语言对话。</p>
+    <div class="examples">
+      <div class="example" data-p="帮我用简单的语言解释一下什么是神经网络。"><div class="t">解释一个概念</div><div class="s">帮我解释神经网络…</div></div>
+      <div class="example" data-p="写一首关于深海的短诗。"><div class="t">创作一首诗</div><div class="s">写一首关于深海的诗…</div></div>
+      <div class="example" data-p="Once upon a time, in a quiet little town,"><div class="t">Write a story</div><div class="s">Once upon a time…</div></div>
+      <div class="example" data-p="What are the most interesting unsolved problems in mathematics?"><div class="t">Ask anything</div><div class="s">Unsolved math problems…</div></div>
+    </div>
+  </div>
+  <div class="thread" id="thread" style="display:none"></div>
+</div>
+
+<div class="composer-wrap">
+  <div class="composer">
+    <textarea id="input" rows="1" placeholder="用中文或英文提问 / Ask in any language…"></textarea>
+    <button class="send" id="send" disabled aria-label="发送">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="disclaimer">AwareLiquid · MT-LNN demo — <a href="/v1/model" target="_blank">model</a> · <a href="/health" target="_blank">health</a></div>
+</div>
+
+<script>
+const scroll=document.getElementById('scroll'),thread=document.getElementById('thread'),
+      welcome=document.getElementById('welcome'),input=document.getElementById('input'),
+      sendBtn=document.getElementById('send'),live=document.getElementById('live'),
+      statusText=document.getElementById('statusText');
+
+const TEMP=0.8, MAXTOK=128, TOPP=0.9;
+let generating=false, abortCtl=null;
+
+// textarea autosize + enable send
+function refresh(){ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,180)+'px';
+  sendBtn.disabled = generating ? false : input.value.trim()==='';
+}
+input.addEventListener('input',refresh);
+
+// model info
+fetch('/v1/model').then(r=>r.json()).then(m=>{
+  live.className='live ok';
+  const name = (m.base_model||'').split('/').pop() || '';
+  const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
+  statusText.textContent=`${name} · ${size} · ${m.device}`;
+}).catch(()=>{live.className='live err';statusText.textContent='离线';});
+
+// example chips
+document.querySelectorAll('.example').forEach(el=>{
+  el.onclick=()=>{ input.value=el.dataset.p; refresh(); input.focus(); send(); };
+});
+
+function startThread(){ if(welcome.style.display!=='none'){welcome.style.display='none';thread.style.display='flex';} }
+
+function addUser(text){
+  startThread();
+  const t=document.createElement('div'); t.className='turn user';
+  const b=document.createElement('div'); b.className='bubble'; b.textContent=text;
+  t.appendChild(b); thread.appendChild(t); scroll.scrollTop=scroll.scrollHeight;
+}
+function addAssistant(){
+  const t=document.createElement('div'); t.className='turn assistant';
+  const who=document.createElement('div'); who.className='who';
+  who.innerHTML='<span class="av"><i></i></span> AwareLiquid';
+  const b=document.createElement('div'); b.className='bubble empty';
+  t.appendChild(who); t.appendChild(b); thread.appendChild(t);
+  scroll.scrollTop=scroll.scrollHeight; return b;
+}
+function setSendIcon(stop){
+  if(stop){ sendBtn.classList.add('stop'); sendBtn.innerHTML='<span class="sq"></span>'; }
+  else{ sendBtn.classList.remove('stop'); sendBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+}
+
+async function send(){
+  if(generating){ if(abortCtl) abortCtl.abort(); return; }
+  const prompt=input.value.trim(); if(!prompt) return;
+  addUser(prompt);
+  input.value=''; refresh();
+  const bot=addAssistant();
+  generating=true; setSendIcon(true); sendBtn.disabled=false;
+  abortCtl=new AbortController();
+  const t0=performance.now(); let ntok=0, acc='';
+  try{
+    const res=await fetch('/v1/completions/stream',{
+      method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
+      body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
+    });
+    if(!res.ok){ bot.classList.remove('empty'); bot.textContent='[error '+res.status+'] '+await res.text(); return; }
+    const reader=res.body.getReader(), dec=new TextDecoder(); let buf='';
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true}); let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){
+        const line=buf.slice(0,idx).trim(); buf=buf.slice(idx+2);
+        if(!line.startsWith('data:')) continue;
+        const payload=line.slice(5).trim();
+        if(payload==='[DONE]') continue;
+        try{ const ev=JSON.parse(payload); if(ev.text!=null){acc+=ev.text;ntok++;bot.classList.remove('empty');bot.textContent=acc;
+          if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<120) scroll.scrollTop=scroll.scrollHeight;} }catch(e){}
+      }
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){ bot.classList.remove('empty'); bot.textContent=acc+' [连接中断]'; }
+  }finally{
+    bot.classList.remove('empty'); if(!acc) bot.textContent='[无输出]';
+    const dt=(performance.now()-t0)/1000;
+    const meta=document.createElement('div'); meta.className='meta';
+    meta.textContent=`${ntok} tokens · ${dt.toFixed(1)}s · ${(ntok/dt||0).toFixed(1)} tok/s`;
+    bot.parentElement.appendChild(meta);
+    generating=false; setSendIcon(false); refresh(); abortCtl=null;
+    scroll.scrollTop=scroll.scrollHeight;
+  }
+}
+
+sendBtn.onclick=send;
+input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
+refresh();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Minimal runtime deps for the native MT-LNN inference server (serve/server.py).
+# Install torch separately for your platform (CPU wheel shown in the Dockerfile).
+torch>=2.0.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+transformers>=4.40.0   # tokenizer only (omit if running SMALL=1 byte mode)
+tokenizers>=0.15.0
