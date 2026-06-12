@@ -133,7 +133,33 @@ python train.py --d_model 128 --n_layers 2 --n_heads 4 --n_kv_heads 2 \
 python benchmarks/compare_baselines.py    # Selective Copy head-to-head
 python benchmarks/long_context.py         # T=37 / 101 / 229 sweep
 python benchmarks/run_benchmark.py        # full benchmark suite
+python benchmarks/run_all.py              # consolidated report -> benchmarks/report.md
 ```
+
+### Serve / deploy
+
+Two REST servers expose the same API (the frontend at `serve/static/index.html`
+works against either):
+
+```bash
+# Native MT-LNN decoder (no HF download; SMALL=1 builds a tiny byte model)
+SMALL=1 uvicorn serve.server:app --host 0.0.0.0 --port 8000
+
+# HF base model + MT-LNN residual adapters (default Qwen2.5-0.5B-Instruct, chat mode)
+uvicorn serve.server_hf:app --host 0.0.0.0 --port 8000
+```
+
+Container packaging is provided for the native server:
+
+```bash
+docker build -t mtlnn .                                  # CPU image
+docker run --rm -p 8000:8000 -e SMALL=1 mtlnn            # smoke (no checkpoint)
+docker compose -f docker-compose.demo.yml up -d          # persistent demo on :8088
+```
+
+`scripts/docker_autoverify.sh` builds + boots + verifies the image; the HTTP
+contract for both servers is pinned by `tests/test_server.py` /
+`tests/test_server_hf.py` (offline).
 
 ---
 
