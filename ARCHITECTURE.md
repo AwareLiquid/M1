@@ -55,6 +55,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── SalienceEventDetector  自适应基线+z分数+迟滞+不应期, 只读观察者, 0参数, 双速引擎触发接口
 ├── failsafe.py            断流盲推 + 输出断路器    ✅ 已实现      test_failsafe.py
 │   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
+├── acoustic_ops.py        可组合声学/双耳听觉算子  ✅ 已实现      test_acoustic_ops.py
+│   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -290,7 +292,24 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 把每个发出值都钳进 [-1,1] 且有限,持续越线时 trip 到 setpoint 回退、恢复后无扰闭合,逐拍打印 raw/safe/trip/reason。
 均确定性、纯 ASCII。`tests/test_demo_failsafe.py` 8 项测试固定其契约。
 
-**Test coverage**: 531 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**可组合声学/双耳听觉算子 (`mt_lnn/acoustic_ops.py`)**:`spatial_ops` 算几何、`physics_ops` 推动力学,
+听觉是 embodied agent 给空间定位的第三条路——大脑不存"声音在我左边",它从两耳收到信号的物理差异里**算**出
+方向。这一层补上这个缺口:一组**可组合、零参数、解析**的算子,把声场几何变成大脑的听觉空间线索,并(旗舰)
+把线索**反演**回朝向。脑机制是字面的:**飞行时间**(`distance/c`,一切的基底)、**球面扩散**(点源声压
+按 `1/r` 衰减)、**ITD 双耳时间差**(低频主定位线索,medial superior olive 的 Jeffress 符合检测读出)、
+**ILD 双耳声级差**(高频线索, dB)、**多普勒**(径向相对运动压缩/拉伸波前——"来还是去")、**波前叠加**(多
+相干源以相量求和,路径差产生相长/相消干涉)、**定位反演**(`localize_azimuth` 把 ITD 反解成方位,即"算而非
+记"那一步)。ITD→方位用远场平面波模型 `ITD=(head_width/c)sinθ`(远场精确、近头近似,逐函数标注)。纯函数、
+0参数、不 import `model.py`;`(...,D)` 广播,整条源轨迹 `(T,D)` 一次流过。旗舰 `binaural_scene` 把各算子
+在一条轨迹上复合,逐拍给出"它在哪(方位)+ 来还是去(多普勒)"。`tests/test_acoustic_ops.py` 36 项,对
+闭式距离/相量/远场 ITD↔方位往返解析校验。
+
+**声学算子 demo (`examples/demo_acoustic_ops.py`)**:两幕。幕一无人机掠过双耳头(左→右):仅凭 ITD 定位的
+方位从左扫到右、过最近点时穿过正前方,多普勒音高在最近点穿过静止频率("它在哪+来还是去"),ASCII 渲染
+方位箭头与音高升降。幕二两只相干扬声器+滑动麦克风:波前叠加产生交替的相长(响)/相消(静)干涉带。均确定性、
+纯 ASCII。`tests/test_demo_acoustic_ops.py` 7 项测试固定其契约。
+
+**Test coverage**: 574 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -301,7 +320,8 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 `test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试、
 `test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试、
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
-`test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试)。
+`test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
+`test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试)。
 
 ---
 
@@ -644,6 +664,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合几何算子 (距离/方向/包含/邻近图/连通分量/可达性, 纯函数 0参数, 复合即推理) | `spatial_ops.py` + `examples/demo_spatial_ops.py` + `test_spatial_ops.py` | 完成 |
 | ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
+| ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |

@@ -113,6 +113,18 @@ from .failsafe import (
     BreakerResult,
     CircuitBreaker,
 )
+from .acoustic_ops import (
+    SPEED_OF_SOUND,
+    BinauralScene,
+    propagation_delay,
+    spherical_spreading_gain,
+    interaural_time_difference,
+    interaural_level_difference,
+    doppler_shift,
+    superpose_arrivals,
+    localize_azimuth,
+    binaural_scene,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -256,6 +268,17 @@ __all__ = [
     "BlindRolloutGuard",
     "BreakerResult",
     "CircuitBreaker",
+    # Composable acoustic / binaural-hearing operators (ITD/ILD/Doppler/localize)
+    "SPEED_OF_SOUND",
+    "BinauralScene",
+    "propagation_delay",
+    "spherical_spreading_gain",
+    "interaural_time_difference",
+    "interaural_level_difference",
+    "doppler_shift",
+    "superpose_arrivals",
+    "localize_azimuth",
+    "binaural_scene",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",
