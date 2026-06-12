@@ -51,6 +51,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── 距离/方向/包含/邻近图/连通分量/可达性  纯函数, 0参数, 对解析真值可单测, 不耦合 backbone
 ├── physics_ops.py         可组合牛顿动力学算子    ✅ 已实现      test_physics_ops.py
 │   └── 辛积分/引力场/N体引力/碰撞冲量/盒壁反弹/守恒诊断/rollout  纯函数, 0参数, 复合即"脑内推演"
+├── salience_events.py     全局工作空间点火事件    ✅ 已实现      test_salience_events.py
+│   └── SalienceEventDetector  自适应基线+z分数+迟滞+不应期, 只读观察者, 0参数, 双速引擎触发接口
 ├── plasticity.py          Hebbian 正则           ✅ Phase D     test_plasticity.py
 ├── deliberation.py        熵三级路由 + causal hook ✅ 已实现    test_deliberation.py
 ├── thinking.py            自我思考 serve 路径     ✅ 已实现      test_thinking.py
@@ -251,7 +253,23 @@ import `model.py`,鸭子类型挂在 head 上),默认不实例化。`tests/test_
 翻转:有损弹跳(低 `e`)削弱第二段弧而撞墙、弹性弹跳(高 `e`)保住高度而越过。弹性地面越过(过墙高 0.64)、
 恢复系数 0.4 撞墙(过墙高 0.00),均确定性。`tests/test_demo_physics_ops.py` 3 项测试固定其契约。
 
-**Test coverage**: 474 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**全局工作空间点火事件 (`mt_lnn/salience_events.py`)**:快速液态核每拍都在跑,慢速/符号/云层不应该
+轮询这个热环——它该只在**显著状态变更**时被唤醒。这一层就是那根触发线:一个零参数、不耦合 backbone
+的**只读观察者**,把逐拍的显著度信号(最自然的是世界模型的预测误差 `last_pred_error`,即"惊讶")变成
+离散的状态变更事件。脑机制是字面的,不是装饰:**预测编码**(以惊讶为显著度)、**适应/稳态**(EMA 基线只在
+平静期更新,显著度按 z 分数相对"近期常态"度量——已适应的缓慢漂移不触发、突变触发)、**全局工作空间点火**
+(z 越过 ignition 阈值才"赢得工作空间"发事件,事件携带显著度快照作广播载荷)、**Schmitt 迟滞**(较低的
+release 阈值结束点火态,去抖)、**不应期**(事件后短暂静默,防事件风暴)。持续性 regime change 会被缓慢
+重新基线化,使探测器 quiesce 并**重新武装**去捕捉下一次变化,而非永久 latch。是双速引擎现在缺的触发接口:
+慢速层/云 LLM 据此订阅,而不污染 µs 级快环。`world_model_surprise(head)` 鸭子类型读 `last_pred_error`,
+不 import `model.py`。`tests/test_salience_events.py` 16 项,对确定性合成流 + 真实预测头解析校验。
+
+**点火事件 demo (`examples/demo_salience_events.py`)**:一条惊讶度流——长段平静、一段被适应的缓慢漂移、
+然后一次 regime change 跳变、再 settle 到新常态。探测器渲染成 ASCII 时间线,标出点火(^)与 quiesce(v):
+缓慢漂移不触发、tick 41 的真正突变触发(z=27.2)、settle 后 quiesce 并重新武装,均确定性。
+`tests/test_demo_salience_events.py` 4 项测试固定其契约。
+
+**Test coverage**: 494 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -260,7 +278,8 @@ import `model.py`,鸭子类型挂在 head 上),默认不实例化。`tests/test_
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试、`test_imagination.py`
 16 项 L4 潜空间想象 rollout 测试、`test_demo_imagination.py` 7 项 L4 想象 demo 测试、
 `test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试、
-`test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试)。
+`test_physics_ops.py` 25 项可组合牛顿动力学算子测试、`test_demo_physics_ops.py` 3 项物理算子 demo 测试、
+`test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试)。
 
 ---
 
@@ -602,6 +621,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 潜空间多步想象 rollout (单步映射复合成"想象轨迹" + 置信衰减, 0参数, 不耦合 backbone) | `imagination.py` + `examples/demo_imagination.py` + `test_imagination.py` | 完成 |
 | ✅ L4 | 可组合几何算子 (距离/方向/包含/邻近图/连通分量/可达性, 纯函数 0参数, 复合即推理) | `spatial_ops.py` + `examples/demo_spatial_ops.py` + `test_spatial_ops.py` | 完成 |
 | ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
+| ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |

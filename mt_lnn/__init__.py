@@ -102,6 +102,11 @@ from .physics_ops import (
     reflect_in_box,
     rollout,
 )
+from .salience_events import (
+    StateChangeEvent,
+    SalienceEventDetector,
+    world_model_surprise,
+)
 from .plasticity import HebbianRegularizer
 from .cloud_client import (
     OracleClient,
@@ -236,6 +241,10 @@ __all__ = [
     "resolve_sphere_collisions",
     "reflect_in_box",
     "rollout",
+    # Global-workspace ignition / state-change events (dual-speed engine trigger)
+    "StateChangeEvent",
+    "SalienceEventDetector",
+    "world_model_surprise",
     "HebbianRegularizer",
     "OracleClient",
     "OracleResult",

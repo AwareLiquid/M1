@@ -276,6 +276,7 @@ mt_lnn/
   imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
   spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
   physics_ops.py         Composable Newtonian dynamics operators (symplectic integration/gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
+  salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -335,6 +336,11 @@ examples/demo_physics_ops.py  Composable physics: a ball launched at a wall over
                            reflect_in_box to compute (not memorise) whether it
                            clears the wall; sweep restitution to flip the verdict
                            (ASCII side-view)
+examples/demo_salience_events.py  Global-workspace ignition: a surprise stream
+                           with a slow drift then a regime change; the detector
+                           adapts to the drift and ignites only on the real
+                           change, then quiesces and re-arms (ASCII timeline) --
+                           the dual-speed engine's wake-up tripwire
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
