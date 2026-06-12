@@ -254,6 +254,55 @@ def test_full_model_long_run_diagnostics_bounded_and_no_collapse():
 # Run all
 # ---------------------------------------------------------------------------
 
+# ===========================================================================
+# E. Decoding past max_seq_len (RoPE / attn-bias / GWTB causal tables must
+#    extend on demand instead of silently truncating the position window).
+# ===========================================================================
+
+def test_incremental_decode_past_max_seq_len_stays_finite():
+    """KV-cache decoding beyond the configured max_seq_len must keep producing
+    finite logits. Regression: RoPE sin/cos, the attention _delta/_causal
+    buffers, and the GWTB causal mask were all capped at max_seq_len and
+    silently returned short slices → shape mismatch / wrong masking."""
+    torch.manual_seed(0)
+    max_len = 16
+    cfg = MTLNNConfig(
+        vocab_size=64, d_model=104, n_layers=2, n_heads=13, n_kv_heads=1,
+        d_head=8, max_seq_len=max_len, gwtb_n_heads=1, dropout=0.0,
+        attention_dropout=0.0,
+    )
+    model = MTLNNModel(cfg).eval()
+    ids = torch.randint(0, 64, (1, 4))
+    with torch.no_grad():
+        out = model(ids, use_cache=True)
+        cache, off = out["cache"], 4
+        cur = out["logits"][:, -1:].argmax(-1)
+        # Decode well past max_seq_len (to ~4x the window).
+        for _ in range(max_len * 4):
+            o = model(cur, cache=cache, use_cache=True, position_offset=off)
+            assert torch.isfinite(o["logits"]).all()
+            cache, off = o["cache"], off + 1
+            cur = o["logits"][:, -1:].argmax(-1)
+    assert off > max_len, "test did not actually exceed max_seq_len"
+
+
+def test_single_forward_longer_than_max_seq_len():
+    """A one-shot forward on a sequence longer than max_seq_len must also work
+    (full-attention path, no cache)."""
+    torch.manual_seed(1)
+    cfg = MTLNNConfig(
+        vocab_size=64, d_model=104, n_layers=2, n_heads=13, n_kv_heads=1,
+        d_head=8, max_seq_len=16, gwtb_n_heads=1, dropout=0.0,
+        attention_dropout=0.0,
+    )
+    model = MTLNNModel(cfg).eval()
+    ids = torch.randint(0, 64, (1, 40))   # 40 > 16
+    with torch.no_grad():
+        out = model(ids, labels=ids)
+    assert torch.isfinite(out["logits"]).all()
+    assert torch.isfinite(out["loss"])
+
+
 if __name__ == "__main__":
     tests = [
         test_sustained_switches_fire_and_recover_subspace,
@@ -263,6 +312,8 @@ if __name__ == "__main__":
         test_world_model_long_run_surprise_bounded_no_collapse,
         test_world_model_constant_input_no_nan,
         test_full_model_long_run_diagnostics_bounded_and_no_collapse,
+        test_incremental_decode_past_max_seq_len_stays_finite,
+        test_single_forward_longer_than_max_seq_len,
     ]
     for fn in tests:
         try:

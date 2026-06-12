@@ -168,6 +168,52 @@ def test_competed_output_is_finite_with_extreme_external_bid():
 
 
 # ---------------------------------------------------------------------------
+# Hard-winner inference path with external bids (regression: one_hot width bug)
+# ---------------------------------------------------------------------------
+
+def test_hard_winner_with_external_bid_no_shape_error():
+    """Regression: in eval+hard_winner mode the one-hot must span K+n_external,
+    not just K. A winning external bid (winner_idx == K) previously raised
+    'index >= num_classes' / a (B,T,K) vs (B,T,K+ext) broadcast mismatch."""
+    torch.manual_seed(6)
+    cfg = _cfg(K=3)
+    cfg.competitive_hard_winner = True
+    layer = CompetitiveGWTBLayer(cfg).eval()
+    # Give the (shared) score head real weights so bid magnitude affects the
+    # score — otherwise zero-init scores make argmax always pick index 0 and the
+    # external (winner_idx == K) branch is never exercised.
+    with torch.no_grad():
+        layer.score_head[0].weight.fill_(0.01)
+        layer.score_head[-1].weight.fill_(0.1)
+    x = torch.randn(2, 5, 64)
+    ext = torch.abs(torch.randn(2, 5, 64)) * 1e3 + 1e3   # huge → external wins
+    combined = layer._compete(x, external_bids=[ext])
+    assert combined.shape == x.shape
+    assert torch.isfinite(combined).all()
+    out, _ = layer(x, external_bids=[ext])
+    assert out.shape == x.shape and torch.isfinite(out).all()
+
+
+def test_hard_winner_can_select_external_bid():
+    """When the external bid dominates the score at every position, the hard
+    winner is the external competitor (winner_idx == K) and the combined view
+    equals that bid — directly validating the widened one-hot."""
+    torch.manual_seed(7)
+    cfg = _cfg(K=2)
+    cfg.competitive_hard_winner = True
+    layer = CompetitiveGWTBLayer(cfg).eval()
+    with torch.no_grad():
+        layer.score_head[0].weight.fill_(0.01)   # positive → larger inputs score higher
+        layer.score_head[-1].weight.fill_(0.1)
+    x = torch.randn(1, 4, 64)
+    ext = torch.abs(torch.randn(1, 4, 64)) * 1e3 + 1e3   # huge, positive everywhere
+    combined = layer._compete(x, external_bids=[ext])
+    assert torch.allclose(combined, ext, atol=1e-3), \
+        "hard winner did not route to the dominant external bid"
+    assert abs(layer.last_external_weight.item() - 1.0) < 1e-4
+
+
+# ---------------------------------------------------------------------------
 # Model-level integration: world model bids into the workspace
 # ---------------------------------------------------------------------------
 
