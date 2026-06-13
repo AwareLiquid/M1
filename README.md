@@ -403,7 +403,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (700 tests, all pass)
+tests/                     Full test suite (711 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -411,7 +411,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 700 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Highlights:
+Research-grade code. All 711 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -420,6 +420,7 @@ Research-grade code. All 700 tests pass (model · rhythm · causality · world-m
 [ok] test_physics_ops_properties          Hypothesis: momentum/energy conservation laws hold
 [ok] test_spatial_ops_properties          Hypothesis: metric/rigid-motion/reachability invariants hold
 [ok] test_acoustic_ops_properties         Hypothesis: ITD/ILD/Doppler/superposition laws hold
+[ok] test_salience_events_properties      Hypothesis: ignition hysteresis/refractory/DC-invariance hold
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ

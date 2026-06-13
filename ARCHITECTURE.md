@@ -363,7 +363,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 700 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 711 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -380,6 +380,10 @@ kNN 图对称且度数≥k、可达性含种子且与跳距一致且对跳预算
 N 体引力守恒动量(牛顿第三定律)+平移不变、碰撞恒守动量、弹性恒守能量、非弹性不增能、墙反射保速]、
 `test_demo_physics_ops.py` 3 项物理算子 demo 测试、
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
+`test_salience_events_properties.py` 11 项基于 Hypothesis 的点火检测器不变量测试[确定性且 update 与 observe 一致、
+warmup 窗口内不触发、点火/沉寂严格交替且首个必为点火(Schmitt 滞回)、相邻事件间隔≥refractory+1、
+点火 z≥ignite_z 且沉寂 z≤release_z 且字段自洽、常量流永不触发、平稳基线上单脉冲恰触发一次点火、
+z 分数(及整条事件流)在信号加性 DC 偏移下精确不变、reset 清空全部状态、world_model_surprise 鸭子类型桥接]、
 `test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
 `test_acoustic_ops_properties.py` 15 项基于 Hypothesis 的声学不变量测试[传播延迟非负/对称/还原距离/与声速成反比、
