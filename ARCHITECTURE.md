@@ -63,6 +63,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── 状态/编码点云的最小生成树/H0 持续同调(条形码=排序后的 MST 边权, 精确)/Betti-0 + Betti-0 曲线(复用 spatial_ops 并查集连通分量)/总持续度/SRTD 对称相对拓扑散度(0参数拓扑漂移触发器), 纯函数 0参数, 不耦合 backbone; 数清吸引子/簇结构并捕捉拓扑突变(P0#2)
 ├── stdp_ops.py            可组合脉冲时序依赖可塑性(STDP)算子 ✅ 已实现  test_stdp_ops.py
 │   └── 非对称指数 STDP 窗(stdp_kernel/window_integral)+全对全成对求和(pairwise_stdp, 定义式)+O(T) 在线资格迹更新(stdp_trace_update, 硬件实跑方式), 两者可证相等; 纯函数 0参数, 不耦合 backbone; 仅凭脉冲时序的局部、无反向传播学习, 与 plasticity.py 并行——损失级 Hebbian 管平滑连续时间 LTC 核, 事件驱动 STDP 管离散的 salience 点火/L2 place-code 事件流(plasticity.py 明言 STDP 不适用于连续核)(P0 学习)
+├── attractor_ops.py       可组合吸引子/自稳定算子  ✅ 已实现       test_attractor_ops.py
+│   └── 线性映射的不动点/谱半径/渐近收敛率/是否压缩(闭式)+任意步进映射的 relax 滚动+从观测轨迹读出沉降时间/经验收敛率/Lyapunov 能量下降+basin_radius(二分探针测吸引域半宽); analyze_linear_attractor 复合并交叉验证经验值==解析值; 纯函数 0参数, 不耦合 backbone; 量化沉降核收敛到何处、多快、吸引域能吸收多大扰动(P0 学习)
 ├── ingest_ops.py          传感器摄入/流对齐算子    ✅ 已实现      test_ingest_ops.py
 │   └── 把抖动/带时间戳的非均匀采样重采样到固定dt栅格(线性/ZOH)+覆盖掩码标出长空洞→交盲推滑行, 纯函数 0参数, 输入侧前端
 ├── slow_layer.py          双速引擎的慢半边(点火时才唤醒) ✅ 已实现  test_slow_layer.py
@@ -392,6 +394,33 @@ Hypothesis 的可塑性律(窗符号因果且被幅度界住、每叶内单调�
 亚秒、纯 ASCII(含 W(dt) 窗的 ASCII 侧影)。`tests/test_demo_stdp_ops.py` 5 项测试固定其契约(因果增强零压抑、反因果
 压抑零增强且符号严格翻转、同时性零变化、迹==成对、报告打印 OK)。
 
+**可组合吸引子/自稳定算子 (`mt_lnn/attractor_ops.py`)**:本架构的定义性对象是一个**连续时间**递归核——`ProtofilamentLTC`
+以 `h_t = e^{-dt/tau} h_{t-1} + ...` 向状态依赖的平衡点压缩。整套"沉降到稳定表征"的叙事(记忆回放弛豫到存储模式、
+想象 rollout 滑行到不动点、place code 锁定一个 basin)本质都是关于**吸引子**的论断:沉降到哪、多快、能吸收多大扰动
+才不掉进另一个 basin——而既有各层都没有真正**度量**它。本模块补上这层缺失的动力系统仪表,两套互相交叉验证的视角:
+**解析视角**(已知线性映射 `x→Ax+b`,全闭式精确)给不动点 `x*=(I-A)⁻¹b`、谱半径 `ρ(A)`、渐近收敛率 `-log ρ`
+(压缩 ⟺ `ρ<1`);**经验视角**(任意观测沉降轨迹, 含非线性 LTC)直接从状态序列估计:`relax` 滚动任意步进映射、
+`settling_time` 入容差带的首步、`convergence_rate` 对数距离斜率(线性映射下恰等于 `-log ρ`)、`lyapunov_descent`
+逐步能量比 `V_{t+1}/V_t`(`V=‖x-x*‖²`,全 `<1` 即单调能量下降的离散 Lyapunov 稳定性证书)。如实声明:Lyapunov 用
+**欧氏**能量,全 `<1` 是充分而非必要——**非正规**压缩(`ρ<1` 但 `AᵀA≠AAᵀ`)可短暂增长后再衰减,渐近保证仍是 `ρ`;
+正规/对称映射下每步比被 `ρ²` 界住、单调下降。**鲁棒性**:`basin_radius` 沿某方向二分探测,找出仍能回到吸引子的最大
+推动量(吸引域半宽);全局压缩下无界(返回探针上限),近处有不稳定边界时则还原之(如 `ẋ=-x+x³` 中 `0` 的吸引域为
+`(-1,1)`,探针返回 `1`)。纯函数 + 冻结 `AttractorReport`,**0 可训练参数**,仅 import torch/dataclasses/math/typing,
+**从不 import model.py**;交给 `relax`/`basin_radius` 的步进映射是任意 `x→x` 可调用对象(一个向量场),故本层保持
+模型无关、日后可包住真核而不依赖之。`tests/test_attractor_ops.py` 17 项对解析真值固定契约(不动点求解+单位特征值拒绝、
+谱半径=最慢模/旋转-缩放块、率=-log ρ、压缩阈值、relax 复现几何轨迹、经验率==解析率、沉降时间匹配几何估计、Lyapunov
+认证单调沉降且发散映射能量每步增长、basin 还原非线性边界/全局压缩封顶/中心非吸引子归零/零方向拒绝、flagship 复合一致),
+`tests/test_attractor_ops_properties.py` 8 项基于 Hypothesis 的动力系统律(不动点确为不动、谱半径=最大特征值模、
+率=-log ρ 且压缩标志一致、任意起点压缩收敛到 x*、对称压缩 Lyapunov 能量不增、经验率==渐近率、全局压缩 basin 封顶、
+谱在坐标置换相似下不变)。
+
+**吸引子自稳定 demo (`examples/demo_attractor_ops.py`)**:在两个手算系统上给沉降装仪表——(1)稳定线性映射(`ρ<1`):
+有不动点/谱半径/解析收敛率/沉降时间, 且从弛豫轨迹**测出**的率与闭式 `-log ρ` 吻合(log 尺度 ASCII 衰减阶梯);
+(2)发散线性映射(`ρ>1`):无稳定吸引子, 率为负, Lyapunov 能量每步增长——诊断把它**标红**。再上一个非线性系统
+`ẋ=-x+x³`(`0` 稳定、`±1` 不稳定):basin 探针从 `0` 向外推, 还原吸引域半宽=`1`(稳定性边缘)。均确定性、CPU、亚秒、
+纯 ASCII。`tests/test_demo_attractor_ops.py` 6 项测试固定其契约(稳定映射率匹配闭式且能量下降、线性 basin 封顶、发散映射
+被标红、非线性 basin 还原边界、报告打印 OK、ρ 越小沉降越快)。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -440,7 +469,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 811 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 842 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -482,6 +511,12 @@ SRTD 对称/非负/自零/双侧置换不变且等基数三角不等式]、
 `test_demo_stdp_ops.py` 5 项 STDP 算子 demo 测试、`test_stdp_ops_properties.py` 8 项基于 Hypothesis 的可塑性律测试
 [窗符号因果且被幅度界住、每叶内单调衰减、平衡反对称、任意多神经元迹==成对、delta_w 双叶非负、纯因果 train 只增强、
 对幅度线性、全局时移不变]、
+`test_attractor_ops.py` 17 项可组合吸引子/自稳定算子测试[不动点求解+单位特征值拒绝、谱半径=最慢模/旋转-缩放块、
+率=-log ρ、压缩阈值、relax 复现几何轨迹、经验率==解析率、沉降时间匹配几何估计、Lyapunov 单调沉降+发散映射能量每步增长、
+basin 还原非线性边界/全局压缩封顶/中心非吸引子归零/零方向拒绝、flagship 复合一致]、`test_demo_attractor_ops.py` 6 项
+吸引子自稳定 demo 测试、`test_attractor_ops_properties.py` 8 项基于 Hypothesis 的动力系统律测试[不动点确为不动、
+谱半径=最大特征值模、率=-log ρ 且压缩标志一致、任意起点压缩收敛到 x*、对称压缩 Lyapunov 能量不增、经验率==渐近率、
+全局压缩 basin 封顶、谱在坐标置换相似下不变]、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_ingest_ops_properties.py` 10 项基于 Hypothesis 的算子不变量测试[线性重采样在
 **任意**仿射信号上精确、ZOH 只输出真实样本值、覆盖掩码对 max_gap 单调、抖动在均匀时钟上为零等]、
@@ -494,7 +529,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 804 项 ≈ 86s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 835 项 ≈ 89s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -841,6 +876,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合 Fisher-Rao 信息几何算子 (单纯形上 Bhattacharyya/距离/测地线/exp-log/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, place codes 的正确弯曲流形度量, P0#1) | `geometry_ops.py` + `examples/demo_geometry_ops.py` + `test_geometry_ops.py` | 完成 |
 | ✅ L4 | 可组合拓扑数据分析(TDA)算子 (MST/H0 持续同调条形码/Betti-0+曲线/总持续度/SRTD 拓扑漂移触发器, 复用并查集, 纯函数 0参数, 数清吸引子簇结构+拓扑失效保护信号, P0#2) | `topology_ops.py` + `examples/demo_topology_ops.py` + `test_topology_ops.py` | 完成 |
 | ✅ L4 | 可组合 STDP 可塑性算子 (非对称指数 STDP 窗 + 全对全成对求和 + O(T) 在线资格迹更新[可证相等], 纯函数 0参数, 局部无反向传播的脉冲时序学习, 与 plasticity.py 并行——损失级 Hebbian 管连续 LTC 核, 事件驱动 STDP 管离散 salience 点火/L2 写入事件流, P0 学习) | `stdp_ops.py` + `examples/demo_stdp_ops.py` + `test_stdp_ops.py` | 完成 |
+| ✅ L4 | 可组合吸引子/自稳定算子 (线性映射不动点/谱半径/渐近率/压缩判定[闭式] + relax 滚动 + 经验沉降时间/收敛率/Lyapunov 能量下降 + basin_radius 吸引域半宽二分探针, 纯函数 0参数, 量化沉降核收敛到何处/多快/能吸收多大扰动, P0 学习) | `attractor_ops.py` + `examples/demo_attractor_ops.py` + `test_attractor_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |

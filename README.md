@@ -309,6 +309,7 @@ mt_lnn/
   geometry_ops.py        Composable Fisher-Rao information-geometry operators on the probability simplex (the space PlaceCellCode's softmax actually emits): Bhattacharyya overlap / Fisher-Rao distance / geodesic interpolation / exp-log maps / parallel transport / Fisher metric / Karcher barycenter; pure functions, 0 params, no model.py coupling. The correct curved-manifold ruler for L2 place codes that spatial_memory currently reads with the wrong (Euclidean) metric (P0#1)
   topology_ops.py        Composable TDA operators for a state/code point cloud: minimum spanning tree / exact H0 persistent homology (the barcode = sorted MST edge weights) / Betti-0 + Betti-0 curve (reusing spatial_ops' union-find connected components) / total persistence / SRTD (Symmetric Relative-Topology Divergence, a zero-param topology-drift tripwire); pure functions, 0 params, no model.py coupling. Counts attractor/cluster structure and flags topology change (P0#2)
   stdp_ops.py            Composable spike-timing-dependent-plasticity operators: the asymmetric exponential STDP window (stdp_kernel / window_integral) + the all-to-all pairwise sum (pairwise_stdp, the definition) + the O(T) online eligibility-trace update (stdp_trace_update, how it runs on hardware) — provably equal; pure functions, 0 params, no model.py coupling. Local, BACKPROP-FREE learning from spike timing alone, PARALLEL to plasticity.py: the loss-level Hebbian governs the smooth continuous-time LTC core, event-driven STDP governs the discrete salience-ignition / L2 place-code event streams that plasticity.py explicitly says STDP does NOT fit at the core (P0 learning)
+  attractor_ops.py       Composable attractor / self-stabilization operators: fixed point / spectral radius / asymptotic rate / is_contraction for a linear map (closed form) + relax rollout of any step map + empirical settling_time / convergence_rate / lyapunov_descent from an observed trajectory + basin_radius (bisection probe for the basin half-width); analyze_linear_attractor composes them and cross-checks empirical==analytic; pure functions, 0 params, no model.py coupling. Measures where the settling core converges, how fast, and how large a shock its basin absorbs (P0 learning)
   ingest_ops.py          Sensor-ingestion / stream-alignment operators: resample a jittered, timestamped sensor stream onto the core's fixed-dt grid (resample_uniform: linear exact-on-ramp / ZOH) + coverage_mask flags steps deep inside a dropout (hand off to BlindRolloutGuard to coast); align_stream flagship -> AlignedStream; closes the gap between the fixed-dt LTC discretization and a real, irregular sensor clock; 0-param analytic input-side front-end, no model.py coupling
   slow_layer.py          SlowThreatAssessor — the slow half of the dual-speed engine, woken ONLY on a salient ignition: a multi-step ballistic forecast (physics_ops.rollout + spatial_ops.in_ball) -> time-to-breach ETA + closest approach + CLEAR/WATCH/ENGAGE threat level; 0-param, no model.py coupling, paid for only when a real state change earns it
   pipeline.py            DualSpeedSentry — the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite + wake the slow layer (real multi-step threat assessment) on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
@@ -408,6 +409,13 @@ examples/demo_stdp_ops.py  Backprop-free STDP on discrete event streams: drive a
                            depresses with zero potentiation, a coincident pair (dt=0)
                            does nothing, and the O(T) eligibility-trace update equals
                            the all-to-all pairwise window sum to machine precision
+examples/demo_attractor_ops.py  Self-stabilization diagnostics: a stable linear map's
+                           measured convergence rate matches the closed-form -log(rho)
+                           and its Lyapunov energy descends every step; a divergent
+                           map (rho>1) is flagged with a negative rate and growing
+                           energy; and on the nonlinear xdot=-x+x^3 the basin probe
+                           recovers the stability edge at 1.0 -- where it settles, how
+                           fast, and how big a shock the basin absorbs
 examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
@@ -426,7 +434,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (811 tests, all pass)
+tests/                     Full test suite (842 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -434,7 +442,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 811 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (804 tests in ~86s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 842 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (835 tests in ~89s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -447,6 +455,7 @@ Research-grade code. All 811 tests pass (model · rhythm · causality · world-m
 [ok] test_geometry_ops_properties         Hypothesis: Fisher-Rao metric/geodesic/exp-log/transport laws hold
 [ok] test_topology_ops_properties         Hypothesis: MST/Betti-0/persistence/SRTD topology laws hold
 [ok] test_stdp_ops / _properties          STDP window + trace==pairwise equivalence + causal-only-potentiates laws
+[ok] test_attractor_ops / _properties     fixed point/spectral radius/rate/settling/Lyapunov + basin-probe stability laws
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ
