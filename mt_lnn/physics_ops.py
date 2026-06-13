@@ -311,16 +311,25 @@ class PhysicsRollout:
     dt: float
 
     @property
+    def _t_axis(self) -> int:
+        # time axis is 0 for an unbatched (T+1, N, D) rollout and 1 for a
+        # batched (B, T+1, N, D) one -- index it relative to the trailing
+        # (N, D) so these accessors are correct for BOTH layouts.
+        return self.positions.dim() - 3
+
+    @property
     def steps(self) -> int:
-        return self.positions.shape[1] - 1
+        return int(self.positions.shape[self._t_axis] - 1)
 
     @property
     def final_positions(self) -> torch.Tensor:
-        return self.positions[:, -1]
+        ax = self._t_axis
+        return self.positions.select(ax, self.positions.shape[ax] - 1)
 
     @property
     def final_velocities(self) -> torch.Tensor:
-        return self.velocities[:, -1]
+        ax = self.velocities.dim() - 3
+        return self.velocities.select(ax, self.velocities.shape[ax] - 1)
 
 
 def rollout(positions: torch.Tensor, velocities: torch.Tensor, *,

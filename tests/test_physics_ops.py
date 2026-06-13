@@ -289,6 +289,33 @@ def test_composition_restitution_decides_whether_ball_clears_wall():
     assert _ball_clears_wall(restitution=0.4, wall_x=4.2, wall_h=0.45) is False
 
 
+def test_rollout_summary_accessors_are_correct_unbatched_and_batched():
+    """``steps`` / ``final_positions`` / ``final_velocities`` must index the time
+    axis correctly for BOTH the unbatched (T+1, N, D) and batched
+    (B, T+1, N, D) layouts -- a regression guard for the accessors that
+    previously assumed a batch dim and silently returned garbage when the
+    rollout was called (as every caller does) without one."""
+    pos = torch.tensor([[0.0, 0.0], [1.0, 0.0]])           # (N=2, D=2)
+    vel = torch.tensor([[2.0, 0.0], [0.0, 0.0]])
+    k = 5
+
+    # unbatched: positions (T+1, N, D)
+    s = rollout(pos, vel, steps=k, dt=0.1)
+    assert s.positions.shape == (k + 1, 2, 2)
+    assert s.steps == k
+    assert s.final_positions.shape == (2, 2)
+    assert torch.equal(s.final_positions, s.positions[-1])
+    assert torch.equal(s.final_velocities, s.velocities[-1])
+
+    # batched: positions (B, T+1, N, D)
+    sb = rollout(pos.unsqueeze(0), vel.unsqueeze(0), steps=k, dt=0.1)
+    assert sb.positions.shape == (1, k + 1, 2, 2)
+    assert sb.steps == k
+    assert sb.final_positions.shape == (1, 2, 2)
+    assert torch.equal(sb.final_positions, sb.positions[:, -1])
+    assert torch.equal(sb.final_velocities, sb.velocities[:, -1])
+
+
 def test_physics_ops_module_does_not_import_model():
     import mt_lnn.physics_ops as po
     src = open(po.__file__, encoding="utf-8").read()
