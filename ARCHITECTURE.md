@@ -57,6 +57,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
 ├── acoustic_ops.py        可组合声学/双耳听觉算子  ✅ 已实现      test_acoustic_ops.py
 │   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
+├── geometry_ops.py        可组合 Fisher-Rao 信息几何算子 ✅ 已实现  test_geometry_ops.py
+│   └── 概率单纯形(PlaceCellCode 的 softmax 真正所在空间)上的 Bhattacharyya/Fisher-Rao 距离/测地线插值/exp-log 映射/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, 不耦合 backbone; L2 当前用错误的欧氏度量读取 place codes, 这里给出正确的弯曲流形标尺(P0#1)
 ├── ingest_ops.py          传感器摄入/流对齐算子    ✅ 已实现      test_ingest_ops.py
 │   └── 把抖动/带时间戳的非均匀采样重采样到固定dt栅格(线性/ZOH)+覆盖掩码标出长空洞→交盲推滑行, 纯函数 0参数, 输入侧前端
 ├── slow_layer.py          双速引擎的慢半边(点火时才唤醒) ✅ 已实现  test_slow_layer.py
@@ -315,6 +317,29 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 方位箭头与音高升降。幕二两只相干扬声器+滑动麦克风:波前叠加产生交替的相长(响)/相消(静)干涉带。均确定性、
 纯 ASCII。`tests/test_demo_acoustic_ops.py` 7 项测试固定其契约。
 
+**可组合 Fisher-Rao 信息几何算子 (`mt_lnn/geometry_ops.py`)**:这一层修的是一个**真实存在**的度量不一致(P0#1)。
+`PlaceCellCode.forward` 末尾是 `torch.softmax(...)`——每个 place code 都是一个**概率分布**,是单纯形 Δ^{n-1} 上的点,
+而不是 Rⁿ 里的自由向量。可 L2 空间记忆 (`spatial_memory.py`) 却用纯欧氏代数 (`key @ M`) 读写这些 code:欧氏直线
+**穿过**单纯形内部、用错误的标尺量距离。坐标无关的正确标尺是 **Fisher 信息度量**,在它之下单纯形是一块弯曲流形——
+等距于半径 2 的球面正卦限(`φ(p)=√p` 把 Fisher 度量拉回 4 倍的圆度量)。于是一切都成了球面上的初等几何:
+**Bhattacharyya 重叠** `BC(p,q)=Σ√(pᵢqᵢ)=⟨√p,√q⟩`、**Fisher-Rao 距离** `d=2·arccos(BC)∈[0,π]`、**测地线**=
+对 √p、√q 做 slerp 再平方、**exp/log 映射**经球面切空间互逆、**平行移动**=大圆旋转(保 Fisher 范数与切性的等距)、
+**Karcher/Fréchet 重心**经 log/exp 迭代。因 √p≥0 夹角落在 [0,π/2],距离落在 [0,π],仅在 p==q 处退化。纯函数、
+**0 可训练参数**、只 import torch/dataclasses/math、不 import `model.py`;`(...,n)` 广播。旗舰 `fisher_rao_geodesic`
+把子算子复合成 `Geodesic`(采样点/弧长/中点)。`tests/test_geometry_ops.py` 21 项对解析真值固定契约(顶点距离=π、
+两点闭式、exp/log 互逆、平行移动等距、重心=中点、测地线≠欧氏弦),`tests/test_geometry_ops_properties.py` 14 项
+用 Hypothesis 在整个单纯形上锁定几何**定律本身**(距离对称/零对角/非负/有界 π/三角不等式/共置换不变;BC∈[0,1];
+测地线在单纯形上/命中端点/匀速/可逆/置换等变;exp-log 互逆且 log 为零和切向量;平行移动等距;重心置换等变)。
+诚实边界:本层是**算子**,尚未改写 `spatial_memory.py` 的读出度量——它把度量不一致**量化、坐实**,让那次改写
+有据可依而非皮毛。
+
+**Fisher-Rao 几何 demo (`examples/demo_geometry_ops.py`)**:取两个真实形状的 place code(对不同 logits 取 softmax,
+正是 `PlaceCellCode` 吐出的单纯形点),用两种方式从一个走到另一个——L2 当前假定的**欧氏弦** `(1-t)p+tq` vs 它本该用的
+**Fisher-Rao 测地线**。demo 坐实两者**不一致**:欧氏中点不是几何"中点"(用正确标尺量它读数更长),而测地线是
+**匀速**的、其中点恰是 **Karcher 重心**;ASCII 条形图并排画出两个分布,匀速律表逐 t 验证 `d(p,γ(t))=t·d(p,q)`。
+均确定性、CPU、亚秒、纯 ASCII。`tests/test_demo_geometry_ops.py` 5 项测试固定其契约(测地线匀速且中点=半距、
+欧氏弦确实偏离、Karcher 重心=测地线中点、报告打印 OK、steps 参数控制表长)。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -363,7 +388,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 711 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 751 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -390,6 +415,11 @@ z 分数(及整条事件流)在信号加性 DC 偏移下精确不变、reset 清
 球面扩散增益正且还原 ref_dist 且随距离单调下降、ITD 交换双耳反号且受 head_width 界约束且在垂直平分面上为零、
 ILD 交换双耳反号且与 ITD 同号、Doppler 静止场恒等且接近升频远离降频、波前叠加对幅度线性且两同相重合源幅度翻倍且模满足三角不等式、
 定位精确反演远场平面波模型且单调且在极点饱和、binaural_scene 逐场与各 cue 算子一致]、
+`test_geometry_ops.py` 21 项可组合 Fisher-Rao 信息几何算子测试[顶点距离=π/两点闭式/exp-log 互逆/平行移动等距/
+重心=测地线中点/测地线≠欧氏弦]、`test_demo_geometry_ops.py` 5 项 Fisher-Rao 几何 demo 测试、
+`test_geometry_ops_properties.py` 14 项基于 Hypothesis 的信息几何不变量测试[距离对称/零对角/非负/有界 π/
+三角不等式/共置换不变、BC∈[0,1]、测地线在单纯形上且命中端点且匀速且可逆且置换等变、exp-log 互逆且 log 为零和切向量、
+平行移动保 Fisher 范数与切性(等距)、Karcher 重心=测地线中点且置换等变]、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_ingest_ops_properties.py` 10 项基于 Hypothesis 的算子不变量测试[线性重采样在
 **任意**仿射信号上精确、ZOH 只输出真实样本值、覆盖掩码对 max_gap 单调、抖动在均匀时钟上为零等]、
@@ -402,7 +432,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 704 项 ≈ 70s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 744 项 ≈ 75s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -746,6 +776,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
+| ✅ L4 | 可组合 Fisher-Rao 信息几何算子 (单纯形上 Bhattacharyya/距离/测地线/exp-log/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, place codes 的正确弯曲流形度量, P0#1) | `geometry_ops.py` + `examples/demo_geometry_ops.py` + `test_geometry_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
