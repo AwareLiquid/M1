@@ -363,7 +363,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 671 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 685 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -372,6 +372,9 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 `test_demo_spatial_memory.py` 12 项 L2 记忆 demo 测试、`test_imagination.py`
 16 项 L4 潜空间想象 rollout 测试、`test_demo_imagination.py` 7 项 L4 想象 demo 测试、
 `test_spatial_ops.py` 19 项可组合几何算子测试、`test_demo_spatial_ops.py` 3 项几何算子 demo 测试、
+`test_spatial_ops_properties.py` 14 项基于 Hypothesis 的几何不变量测试[距离对称/零对角/非负/三角不等式/
+刚体运动(平移+旋转)不变、相对方向单位且反对称、bearing 与方向一致、半径图对称且按距离阈值且对半径单调、
+kNN 图对称且度数≥k、可达性含种子且与跳距一致且对跳预算单调、完全图全可达、连通分量沿边恒定且匹配可达集]、
 `test_physics_ops.py` 26 项可组合牛顿动力学算子测试[含 PhysicsRollout 无批次/批次摘要访问器回归]、
 `test_physics_ops_properties.py` 12 项基于 Hypothesis 的物理不变量测试[symplectic Euler 精确闭式、
 N 体引力守恒动量(牛顿第三定律)+平移不变、碰撞恒守动量、弹性恒守能量、非弹性不增能、墙反射保速]、
