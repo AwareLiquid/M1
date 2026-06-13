@@ -307,6 +307,7 @@ mt_lnn/
   failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling)
   acoustic_ops.py        Composable binaural-hearing operators (propagation delay / 1-over-r spreading / ITD / ILD / Doppler / phasor interference; localize_azimuth inverse readout + binaural_scene composition; 0-param analytic, no model.py coupling)
   geometry_ops.py        Composable Fisher-Rao information-geometry operators on the probability simplex (the space PlaceCellCode's softmax actually emits): Bhattacharyya overlap / Fisher-Rao distance / geodesic interpolation / exp-log maps / parallel transport / Fisher metric / Karcher barycenter; pure functions, 0 params, no model.py coupling. The correct curved-manifold ruler for L2 place codes that spatial_memory currently reads with the wrong (Euclidean) metric (P0#1)
+  topology_ops.py        Composable TDA operators for a state/code point cloud: minimum spanning tree / exact H0 persistent homology (the barcode = sorted MST edge weights) / Betti-0 + Betti-0 curve (reusing spatial_ops' union-find connected components) / total persistence / SRTD (Symmetric Relative-Topology Divergence, a zero-param topology-drift tripwire); pure functions, 0 params, no model.py coupling. Counts attractor/cluster structure and flags topology change (P0#2)
   ingest_ops.py          Sensor-ingestion / stream-alignment operators: resample a jittered, timestamped sensor stream onto the core's fixed-dt grid (resample_uniform: linear exact-on-ramp / ZOH) + coverage_mask flags steps deep inside a dropout (hand off to BlindRolloutGuard to coast); align_stream flagship -> AlignedStream; closes the gap between the fixed-dt LTC discretization and a real, irregular sensor clock; 0-param analytic input-side front-end, no model.py coupling
   slow_layer.py          SlowThreatAssessor — the slow half of the dual-speed engine, woken ONLY on a salient ignition: a multi-step ballistic forecast (physics_ops.rollout + spatial_ops.in_ball) -> time-to-breach ETA + closest approach + CLEAR/WATCH/ENGAGE threat level; 0-param, no model.py coupling, paid for only when a real state change earns it
   pipeline.py            DualSpeedSentry — the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite + wake the slow layer (real multi-step threat assessment) on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
@@ -393,6 +394,12 @@ examples/demo_geometry_ops.py  Fisher-Rao geometry on the simplex: take two real
                            (the chord midpoint is the wrong "halfway"), the geodesic
                            is constant-speed and its midpoint is the Karcher
                            barycenter -- making the metric inconsistency concrete
+examples/demo_topology_ops.py  TDA on a state population: build 3 clean clusters,
+                           show Betti-0 COMPUTES the cluster count (3) and its
+                           barcode measures the inter-cluster gaps; then stress it
+                           -- a benign jitter leaves the topology intact (SRTD~0)
+                           while a cluster collapse drops Betti-0 and spikes SRTD
+                           (a zero-param topological health-check / failsafe signal)
 examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
@@ -411,7 +418,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (751 tests, all pass)
+tests/                     Full test suite (783 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -419,7 +426,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 751 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (744 tests in ~75s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 783 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (776 tests in ~75s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -430,6 +437,7 @@ Research-grade code. All 751 tests pass (model · rhythm · causality · world-m
 [ok] test_acoustic_ops_properties         Hypothesis: ITD/ILD/Doppler/superposition laws hold
 [ok] test_salience_events_properties      Hypothesis: ignition hysteresis/refractory/DC-invariance hold
 [ok] test_geometry_ops_properties         Hypothesis: Fisher-Rao metric/geodesic/exp-log/transport laws hold
+[ok] test_topology_ops_properties         Hypothesis: MST/Betti-0/persistence/SRTD topology laws hold
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ

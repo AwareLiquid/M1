@@ -59,6 +59,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
 ├── geometry_ops.py        可组合 Fisher-Rao 信息几何算子 ✅ 已实现  test_geometry_ops.py
 │   └── 概率单纯形(PlaceCellCode 的 softmax 真正所在空间)上的 Bhattacharyya/Fisher-Rao 距离/测地线插值/exp-log 映射/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, 不耦合 backbone; L2 当前用错误的欧氏度量读取 place codes, 这里给出正确的弯曲流形标尺(P0#1)
+├── topology_ops.py        可组合拓扑数据分析(TDA)算子 ✅ 已实现   test_topology_ops.py
+│   └── 状态/编码点云的最小生成树/H0 持续同调(条形码=排序后的 MST 边权, 精确)/Betti-0 + Betti-0 曲线(复用 spatial_ops 并查集连通分量)/总持续度/SRTD 对称相对拓扑散度(0参数拓扑漂移触发器), 纯函数 0参数, 不耦合 backbone; 数清吸引子/簇结构并捕捉拓扑突变(P0#2)
 ├── ingest_ops.py          传感器摄入/流对齐算子    ✅ 已实现      test_ingest_ops.py
 │   └── 把抖动/带时间戳的非均匀采样重采样到固定dt栅格(线性/ZOH)+覆盖掩码标出长空洞→交盲推滑行, 纯函数 0参数, 输入侧前端
 ├── slow_layer.py          双速引擎的慢半边(点火时才唤醒) ✅ 已实现  test_slow_layer.py
@@ -340,6 +342,32 @@ imagination 从最后一个好状态盲滚**——但只在 imagination 自身�
 均确定性、CPU、亚秒、纯 ASCII。`tests/test_demo_geometry_ops.py` 5 项测试固定其契约(测地线匀速且中点=半距、
 欧氏弦确实偏离、Karcher 重心=测地线中点、报告打印 OK、steps 参数控制表长)。
 
+**可组合拓扑数据分析算子 (`mt_lnn/topology_ops.py`)**:`geometry_ops` 量**距离与曲率**,这一层量**形状**——
+一整群状态的连通不变量(P0#2)。一组 place code / L2 记忆键 / 隐藏态就是一个点云,"它有几个互相分离的簇(读作:
+吸引子盆地 / 不同的位置野),它们分得有多开?"是个**拓扑**问题,答案是它的 **0 维持续同调**(随尺度生长的 Betti-0):
+连通分量数随合并半径的变化曲线,以及每个分量并入他者之前的**持续度**(寿命)。本层精确且廉价地算出这一切,所依赖的
+唯一事实是**单连接=最小生成树**:两个分量恰在尺度达到桥接它们的最短边时合并,而这些桥接边在整条 filtration 上正是
+MST——故 H0 死亡尺度的多重集**就等于** MST 边权多重集,Betti-0(ε)=`N − #{MST 边权 ≤ ε}`(精确, 非近似)。算子:
+`minimum_spanning_tree`(Prim 单连接骨架)、`persistent_homology_h0`(H0 条形码:全在 0 出生、死亡尺度=排序 MST 边权、
+恰一个分量永生即无穷条)、`betti0`/`betti0_curve`(**复用** `spatial_ops` 的并查集式 `connected_components` 数半径图的
+分量,且与 MST 视角在测试里交叉校验)、`total_persistence`(有限条寿命之和,一个可微的"聚簇程度"标量)、`srtd`(对称
+相对拓扑散度:两点云 H0 条形码排序后逐项比较的 1-Wasserstein,对称、非负、仅在条形码重合时为零——拓扑突变触发器信号)。
+纯函数、**0 可训练参数**、只 import torch/dataclasses/math + 兄弟算子 `spatial_ops`、不 import `model.py`。度量量(MST 边权、
+总持续度、SRTD)对点位置可微;整数 Betti 数阈值化、分段常值(真·离散拓扑),逐项标注。诚实边界:仅 H0(连通分量)——
+持续同调里廉价精确的那部分;高维同调(环 H1、空腔 H2)与完整多维 Representation-Topology-Divergence 故意不做,`srtd`
+即 H0 排序条形码代理,如实声明。`tests/test_topology_ops.py` 16 项对解析真值固定契约(线段 MST、簇计数、条形码=排序
+MST 边权、betti0_at 与并查集 Betti-0 一致、SRTD 闭式值/对称/差拓扑变大),`tests/test_topology_ops_properties.py`
+11 项用 Hypothesis 在整个点云空间锁定拓扑**定律本身**(MST 恰 N-1 边且总权=总持续度;Betti-0 从 N 降到 1 且对尺度单调
+非增、置换不变;条形码 N 条、有限死亡排序非负、betti0_at 匹配并查集;总持续度置换/平移不变且随云线性缩放;SRTD 对称/
+非负/自零/双侧置换不变且等基数三角不等式)。
+
+**TDA 算子 demo (`examples/demo_topology_ops.py`)**:一群隐藏态点云的拓扑健康检查。先建三个干净的簇(5 点 ×3),
+展示 Betti-0 **算出**簇数=3、其条形码量出簇间间隙、总持续度量分离强度;再两面施压:(1)小抖动——拓扑不变, Betti-0 仍 3、
+SRTD≈0;(2)簇坍缩——拓扑被破坏, Betti-0 跌、SRTD 飙升。SRTD 正是**拓扑失效保护**该盯的那种 0 参数触发器:活点云与
+健康参照之间的大 SRTD 意味着"表征刚刚改变了形状"——模式坍缩 / 转向编辑失手 / 突发 regime 变化。均确定性、CPU、亚秒、
+纯 ASCII。`tests/test_demo_topology_ops.py` 5 项测试固定其契约(Betti-0 读出 3 簇且坍缩破坏之、SRTD 把抖动与坍缩拉开
+≥5×、Betti-0 曲线 15→1 且单调、报告打印 OK、间距越大总持续度越大)。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -388,7 +416,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 751 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 783 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -420,6 +448,11 @@ ILD 交换双耳反号且与 ITD 同号、Doppler 静止场恒等且接近升频
 `test_geometry_ops_properties.py` 14 项基于 Hypothesis 的信息几何不变量测试[距离对称/零对角/非负/有界 π/
 三角不等式/共置换不变、BC∈[0,1]、测地线在单纯形上且命中端点且匀速且可逆且置换等变、exp-log 互逆且 log 为零和切向量、
 平行移动保 Fisher 范数与切性(等距)、Karcher 重心=测地线中点且置换等变]、
+`test_topology_ops.py` 16 项可组合 TDA 算子测试[线段 MST=最近邻链、簇计数、条形码=排序 MST 边权、betti0_at 与并查集
+Betti-0 一致、总持续度可微、SRTD 闭式值/对称/差拓扑变大/可微]、`test_demo_topology_ops.py` 5 项 TDA 算子 demo 测试、
+`test_topology_ops_properties.py` 11 项基于 Hypothesis 的拓扑不变量测试[MST 恰 N-1 边且总权=总持续度、Betti-0 从 N 降到 1
+且对尺度单调非增且置换不变、条形码 N 条且有限死亡排序非负、betti0_at 匹配并查集、总持续度置换/平移不变且随云线性缩放、
+SRTD 对称/非负/自零/双侧置换不变且等基数三角不等式]、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_ingest_ops_properties.py` 10 项基于 Hypothesis 的算子不变量测试[线性重采样在
 **任意**仿射信号上精确、ZOH 只输出真实样本值、覆盖掩码对 max_gap 单调、抖动在均匀时钟上为零等]、
@@ -432,7 +465,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 744 项 ≈ 75s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 776 项 ≈ 75s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -777,6 +810,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
 | ✅ L4 | 可组合 Fisher-Rao 信息几何算子 (单纯形上 Bhattacharyya/距离/测地线/exp-log/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, place codes 的正确弯曲流形度量, P0#1) | `geometry_ops.py` + `examples/demo_geometry_ops.py` + `test_geometry_ops.py` | 完成 |
+| ✅ L4 | 可组合拓扑数据分析(TDA)算子 (MST/H0 持续同调条形码/Betti-0+曲线/总持续度/SRTD 拓扑漂移触发器, 复用并查集, 纯函数 0参数, 数清吸引子簇结构+拓扑失效保护信号, P0#2) | `topology_ops.py` + `examples/demo_topology_ops.py` + `test_topology_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
