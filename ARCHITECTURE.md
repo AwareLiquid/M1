@@ -61,6 +61,8 @@ mt_lnn/                                       STATUS        TEST FILE
 │   └── 概率单纯形(PlaceCellCode 的 softmax 真正所在空间)上的 Bhattacharyya/Fisher-Rao 距离/测地线插值/exp-log 映射/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, 不耦合 backbone; L2 当前用错误的欧氏度量读取 place codes, 这里给出正确的弯曲流形标尺(P0#1)
 ├── topology_ops.py        可组合拓扑数据分析(TDA)算子 ✅ 已实现   test_topology_ops.py
 │   └── 状态/编码点云的最小生成树/H0 持续同调(条形码=排序后的 MST 边权, 精确)/Betti-0 + Betti-0 曲线(复用 spatial_ops 并查集连通分量)/总持续度/SRTD 对称相对拓扑散度(0参数拓扑漂移触发器), 纯函数 0参数, 不耦合 backbone; 数清吸引子/簇结构并捕捉拓扑突变(P0#2)
+├── stdp_ops.py            可组合脉冲时序依赖可塑性(STDP)算子 ✅ 已实现  test_stdp_ops.py
+│   └── 非对称指数 STDP 窗(stdp_kernel/window_integral)+全对全成对求和(pairwise_stdp, 定义式)+O(T) 在线资格迹更新(stdp_trace_update, 硬件实跑方式), 两者可证相等; 纯函数 0参数, 不耦合 backbone; 仅凭脉冲时序的局部、无反向传播学习, 与 plasticity.py 并行——损失级 Hebbian 管平滑连续时间 LTC 核, 事件驱动 STDP 管离散的 salience 点火/L2 place-code 事件流(plasticity.py 明言 STDP 不适用于连续核)(P0 学习)
 ├── ingest_ops.py          传感器摄入/流对齐算子    ✅ 已实现      test_ingest_ops.py
 │   └── 把抖动/带时间戳的非均匀采样重采样到固定dt栅格(线性/ZOH)+覆盖掩码标出长空洞→交盲推滑行, 纯函数 0参数, 输入侧前端
 ├── slow_layer.py          双速引擎的慢半边(点火时才唤醒) ✅ 已实现  test_slow_layer.py
@@ -368,6 +370,28 @@ SRTD≈0;(2)簇坍缩——拓扑被破坏, Betti-0 跌、SRTD 飙升。SRTD 正
 纯 ASCII。`tests/test_demo_topology_ops.py` 5 项测试固定其契约(Betti-0 读出 3 簇且坍缩破坏之、SRTD 把抖动与坍缩拉开
 ≥5×、Betti-0 曲线 15→1 且单调、报告打印 OK、间距越大总持续度越大)。
 
+**可组合 STDP 可塑性算子 (`mt_lnn/stdp_ops.py`)**:这一层补的是一种**局部、无反向传播**的学习规则(P0 学习)。
+`plasticity.py` 在损失级跑 Hebbian 巩固平滑连续时间 LTC 核,并**明确说明为何 STDP 不适用于核**:连续时间核
+(`h_t = e^{-dt/tau} h_{t-1} + ...`)里没有离散的 pre/post 脉冲事件可计时,硬塞 STDP 等于人为离散化 LTC、毁掉它
+的定义性质。但架构不止连续核:salience 层(`salience_events.py`)发出**真正离散、带时间戳的点火事件**,L2 place-code
+写入也是事件式联想更新——那正是脉冲**时序**有定义、STDP 这把**局部无梯度**工具该上场的地方。故本模块作为**与
+`plasticity.py` 并行**(而非替代)的算子提供该规则:损失级 Hebbian 管平滑核,事件驱动 STDP 管离散事件流。规则是
+经典非对称指数窗 `W(dt)`:`dt>0`(pre 先于 post, 因果)**增强**, `dt<0`(反因果)**压抑**, `dt=0` 恰为 0(同时无因果序)。
+提供并交叉验证两套等价计算:`pairwise_stdp` 是全对全成对 `W(t_post-t_pre)` 求和(定义式),`stdp_trace_update` 是
+标准在线**资格迹**形式(衰减 pre/post 迹;post 脉冲读 pre 迹做 LTP, pre 脉冲读 post 迹做 LTD),`O(T)`、即 STDP 在
+硬件上的实跑方式,可证恰等于全对全求和。纯函数 + 冻结 `STDPParams`,**0 可训练参数**,仅 import torch/dataclasses/math,
+**从不 import model.py**;窗值对时序可微、迹更新对(实值)脉冲幅度可微,脉冲计数离散这点如实声明、不藏。
+`tests/test_stdp_ops.py` 15 项对解析窗固定契约(taus 处窗值=A·e⁻¹、同时性=0、因果符号、平衡时反对称、窗积分=A·tau、
+单对=窗值、迹==成对、delta_w=增强−压抑且双叶非负、纯因果只增强),`tests/test_stdp_ops_properties.py` 8 项基于
+Hypothesis 的可塑性律(窗符号因果且被幅度界住、每叶内单调衰减、平衡反对称、任意多神经元迹==成对、纯因果train只增强、
+对幅度线性、全局时移不变)。
+
+**STDP 算子 demo (`examples/demo_stdp_ops.py`)**:用两条脉冲流驱动一个突触,展示权重**仅凭时序**移动——无损失、无梯度。
+(1)因果流(pre 先于 post)**增强**且压抑叶恰为零;(2)角色互换流(post 先)**压抑**且增强叶恰为零;(3)单个同时脉冲对
+(dt=0)毫无变化。并交叉验证两套计算:在线资格迹更新与全对全成对窗求和到机器精度一致(|gap|~1e-15)。均确定性、CPU、
+亚秒、纯 ASCII(含 W(dt) 窗的 ASCII 侧影)。`tests/test_demo_stdp_ops.py` 5 项测试固定其契约(因果增强零压抑、反因果
+压抑零增强且符号严格翻转、同时性零变化、迹==成对、报告打印 OK)。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -416,7 +440,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 783 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 811 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -453,6 +477,11 @@ Betti-0 一致、总持续度可微、SRTD 闭式值/对称/差拓扑变大/可�
 `test_topology_ops_properties.py` 11 项基于 Hypothesis 的拓扑不变量测试[MST 恰 N-1 边且总权=总持续度、Betti-0 从 N 降到 1
 且对尺度单调非增且置换不变、条形码 N 条且有限死亡排序非负、betti0_at 匹配并查集、总持续度置换/平移不变且随云线性缩放、
 SRTD 对称/非负/自零/双侧置换不变且等基数三角不等式]、
+`test_stdp_ops.py` 15 项可组合 STDP 算子测试[taus 处窗值=A·e⁻¹、同时性=0、因果符号、平衡反对称、窗积分=A·tau、
+单对=窗值、迹==成对(单/多神经元)、delta_w=增强−压抑且双叶非负、纯因果只增强反之只压抑、单同时脉冲零变化、参数校验]、
+`test_demo_stdp_ops.py` 5 项 STDP 算子 demo 测试、`test_stdp_ops_properties.py` 8 项基于 Hypothesis 的可塑性律测试
+[窗符号因果且被幅度界住、每叶内单调衰减、平衡反对称、任意多神经元迹==成对、delta_w 双叶非负、纯因果 train 只增强、
+对幅度线性、全局时移不变]、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_ingest_ops_properties.py` 10 项基于 Hypothesis 的算子不变量测试[线性重采样在
 **任意**仿射信号上精确、ZOH 只输出真实样本值、覆盖掩码对 max_gap 单调、抖动在均匀时钟上为零等]、
@@ -465,7 +494,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 776 项 ≈ 75s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 804 项 ≈ 86s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -811,6 +840,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
 | ✅ L4 | 可组合 Fisher-Rao 信息几何算子 (单纯形上 Bhattacharyya/距离/测地线/exp-log/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, place codes 的正确弯曲流形度量, P0#1) | `geometry_ops.py` + `examples/demo_geometry_ops.py` + `test_geometry_ops.py` | 完成 |
 | ✅ L4 | 可组合拓扑数据分析(TDA)算子 (MST/H0 持续同调条形码/Betti-0+曲线/总持续度/SRTD 拓扑漂移触发器, 复用并查集, 纯函数 0参数, 数清吸引子簇结构+拓扑失效保护信号, P0#2) | `topology_ops.py` + `examples/demo_topology_ops.py` + `test_topology_ops.py` | 完成 |
+| ✅ L4 | 可组合 STDP 可塑性算子 (非对称指数 STDP 窗 + 全对全成对求和 + O(T) 在线资格迹更新[可证相等], 纯函数 0参数, 局部无反向传播的脉冲时序学习, 与 plasticity.py 并行——损失级 Hebbian 管连续 LTC 核, 事件驱动 STDP 管离散 salience 点火/L2 写入事件流, P0 学习) | `stdp_ops.py` + `examples/demo_stdp_ops.py` + `test_stdp_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
