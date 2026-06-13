@@ -27,6 +27,8 @@ from mt_lnn.failsafe import (  # noqa: E402
     GuardOutput,
     CircuitBreaker,
     BreakerResult,
+    TopologyBreaker,
+    TopologyResult,
 )
 from mt_lnn.imagination import LatentImagination, ImaginedTrajectory  # noqa: E402
 from mt_lnn.world_model import PredictiveStateHead  # noqa: E402
@@ -340,5 +342,108 @@ def test_breaker_is_deterministic():
     def run():
         b = CircuitBreaker(lo=-5, hi=5, max_rate=2.0, trip_after=2, reset_after=2)
         return [b.step(x).value for x in stream]
+
+    assert run() == run()
+
+
+# --------------------------------------------------------------------------- #
+# TopologyBreaker -- representation-shape tripwire                            #
+# --------------------------------------------------------------------------- #
+
+_f64 = torch.float64
+
+
+def _clusters(spread, jitter, seed):
+    """Three blobs of 5 points; ``spread`` apart, ``jitter`` radius."""
+    g = torch.Generator().manual_seed(seed)
+    centres = torch.tensor([[0.0, 0.0], [spread, 0.0], [spread / 2, spread]], dtype=_f64)
+    return torch.cat([c + jitter * torch.randn(5, 2, generator=g, dtype=_f64)
+                      for c in centres])
+
+
+def test_topology_breaker_passes_benign_jitter():
+    ref = _clusters(5.0, 0.15, 0)
+    jit = _clusters(5.0, 0.15, 1)
+    br = TopologyBreaker(srtd_threshold=0.3, reference=ref)
+    for _ in range(5):
+        r = br.step(jit)
+        assert isinstance(r, TopologyResult)
+        assert r.reason == ""                    # same topology
+        assert not r.tripped
+        assert r.srtd < 0.3
+
+
+def test_topology_breaker_trips_on_collapse_after_debounce():
+    ref = _clusters(5.0, 0.15, 0)
+    collapsed = _clusters(0.4, 0.15, 0)          # clusters fused
+    br = TopologyBreaker(srtd_threshold=0.3, trip_after=2, reference=ref)
+    r1 = br.step(collapsed)
+    assert r1.reason == "srtd" and not r1.tripped  # 1 bad tick: not yet
+    r2 = br.step(collapsed)
+    assert r2.tripped                              # 2nd consecutive bad -> trip
+    assert r2.srtd > 0.3
+
+
+def test_topology_breaker_closes_after_clean_run():
+    ref = _clusters(5.0, 0.15, 0)
+    jit = _clusters(5.0, 0.15, 1)
+    collapsed = _clusters(0.4, 0.15, 0)
+    br = TopologyBreaker(srtd_threshold=0.3, trip_after=2, reset_after=3, reference=ref)
+    br.step(collapsed); br.step(collapsed)
+    assert br.tripped
+    states = [br.step(jit).tripped for _ in range(3)]
+    assert states == [True, True, False]           # closes on the 3rd clean tick
+
+
+def test_topology_breaker_betti_check_flags_component_count_change():
+    ref = _clusters(5.0, 0.15, 0)
+    collapsed = _clusters(0.4, 0.15, 0)
+    # SRTD threshold loose enough to NOT fire; the Betti-0 change (3 -> 1) catches it
+    br = TopologyBreaker(srtd_threshold=10.0, eps=2.5, trip_after=1, reference=ref)
+    clean = br.step(ref)
+    assert clean.reason == "" and clean.betti0 == 3
+    bad = br.step(collapsed)
+    assert bad.reason == "betti" and bad.betti0 == 1 and bad.tripped
+
+
+def test_topology_breaker_auto_latches_first_cloud():
+    ref = _clusters(5.0, 0.15, 0)
+    br = TopologyBreaker(srtd_threshold=0.3)
+    assert not br.has_reference
+    first = br.step(ref)
+    assert first.reason == "noref" and not first.tripped
+    assert br.has_reference
+    assert not br.step(_clusters(5.0, 0.15, 1)).tripped   # benign jitter is clean
+
+
+def test_topology_breaker_zero_parameters_and_reset():
+    ref = _clusters(5.0, 0.15, 0)
+    br = TopologyBreaker(srtd_threshold=0.3, reference=ref)
+    assert br.n_parameters == 0
+    br.step(_clusters(0.4, 0.15, 0)); br.step(_clusters(0.4, 0.15, 0))
+    br.reset()
+    assert not br.tripped and not br.has_reference
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"srtd_threshold": 0.0},
+    {"srtd_threshold": -1.0},
+    {"srtd_threshold": 1.0, "eps": 0.0},
+    {"srtd_threshold": 1.0, "trip_after": 0},
+    {"srtd_threshold": 1.0, "reset_after": 0},
+])
+def test_topology_breaker_validates_config(kwargs):
+    with pytest.raises(ValueError):
+        TopologyBreaker(**kwargs)
+
+
+def test_topology_breaker_is_deterministic():
+    ref = _clusters(5.0, 0.15, 0)
+    seq = [_clusters(5.0, 0.15, 1), _clusters(0.4, 0.15, 0),
+           _clusters(0.4, 0.15, 0), _clusters(5.0, 0.15, 2)]
+
+    def run():
+        br = TopologyBreaker(srtd_threshold=0.3, eps=2.5, trip_after=2, reference=ref)
+        return [(round(br.step(c).srtd, 6), br.step(c).tripped) for c in seq]
 
     assert run() == run()

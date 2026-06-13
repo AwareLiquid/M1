@@ -302,9 +302,9 @@ mt_lnn/
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
   spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
-  physics_ops.py         Composable Newtonian dynamics operators (symplectic integration/gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
+  physics_ops.py         Composable Newtonian dynamics operators (symplectic integration — semi-implicit Euler AND 2nd-order time-reversible velocity Verlet (integrate_verlet, selectable via rollout(integrator="verlet") for O(dt^2)-bounded energy on long imagination rollouts) / gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
   salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
-  failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling)
+  failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling) + TopologyBreaker (a zero-param tripwire on the SHAPE of the live representation: latch a healthy reference cloud, then per-tick watch SRTD H0-barcode drift + optional Betti-0 component count, trip/close through the same debounced FSM as CircuitBreaker; composes topology_ops, no model.py coupling)
   acoustic_ops.py        Composable binaural-hearing operators (propagation delay / 1-over-r spreading / ITD / ILD / Doppler / phasor interference; localize_azimuth inverse readout + binaural_scene composition; 0-param analytic, no model.py coupling)
   geometry_ops.py        Composable Fisher-Rao information-geometry operators on the probability simplex (the space PlaceCellCode's softmax actually emits): Bhattacharyya overlap / Fisher-Rao distance / geodesic interpolation / exp-log maps / parallel transport / Fisher metric / Karcher barycenter; pure functions, 0 params, no model.py coupling. The correct curved-manifold ruler for L2 place codes that spatial_memory currently reads with the wrong (Euclidean) metric (P0#1)
   topology_ops.py        Composable TDA operators for a state/code point cloud: minimum spanning tree / exact H0 persistent homology (the barcode = sorted MST edge weights) / Betti-0 + Betti-0 curve (reusing spatial_ops' union-find connected components) / total persistence / SRTD (Symmetric Relative-Topology Divergence, a zero-param topology-drift tripwire); pure functions, 0 params, no model.py coupling. Counts attractor/cluster structure and flags topology change (P0#2)
@@ -416,6 +416,20 @@ examples/demo_attractor_ops.py  Self-stabilization diagnostics: a stable linear 
                            energy; and on the nonlinear xdot=-x+x^3 the basin probe
                            recovers the stability edge at 1.0 -- where it settles, how
                            fast, and how big a shock the basin absorbs
+examples/demo_symplectic_integrator.py  Why a long imagination rollout should
+                           integrate with velocity Verlet, not Euler: fly a circular
+                           Kepler orbit for ~32 orbits and compare -- semi-implicit
+                           Euler leaks energy and spirals outward (radius drift ~2.6e-2)
+                           while 2nd-order Verlet holds the orbit (~1.3e-3, ~1600x less
+                           energy drift); a fixed-time dt-halving shows Euler's position
+                           error dropping ~2x (1st order) vs Verlet's ~4x (2nd order)
+examples/demo_topology_failsafe.py  TopologyBreaker as a tripwire on the SHAPE of the
+                           representation: stream clouds of 3 clusters through it --
+                           benign jitter keeps SRTD~0 (never trips), a mode collapse
+                           fuses them (Betti-0 3->1, SRTD spikes) and trips the
+                           debounced FSM on the 2nd bad tick, then recovery closes it
+                           on the 3rd clean tick -- a zero-param health signal, not a
+                           representation edit
 examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
@@ -434,7 +448,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (842 tests, all pass)
+tests/                     Full test suite (871 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -442,7 +456,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 842 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (835 tests in ~89s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 871 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (864 tests in ~91s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -456,6 +470,8 @@ Research-grade code. All 842 tests pass (model · rhythm · causality · world-m
 [ok] test_topology_ops_properties         Hypothesis: MST/Betti-0/persistence/SRTD topology laws hold
 [ok] test_stdp_ops / _properties          STDP window + trace==pairwise equivalence + causal-only-potentiates laws
 [ok] test_attractor_ops / _properties     fixed point/spectral radius/rate/settling/Lyapunov + basin-probe stability laws
+[ok] test_physics_ops (Verlet block)      velocity Verlet kick-drift-kick + 2nd-order energy/reversibility vs Euler
+[ok] test_failsafe (TopologyBreaker)      SRTD/Betti tripwire ignores jitter, debounced trip on collapse + close on recovery
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ

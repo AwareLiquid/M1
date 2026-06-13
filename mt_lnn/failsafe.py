@@ -34,13 +34,27 @@ This module is those two safety actuators, mirroring real biology:
   repeatedly violates the red-lines -- a Schmitt-style protective reflex with
   bumpless transfer back to the model when it recovers.
 
+* **TopologyBreaker** -- a model-*external* *representation*-health tripwire. The
+  two guards above watch a scalar output and a single latent; this one watches
+  the *shape* of the whole live state population. It latches a healthy reference
+  point cloud, then each tick measures the Symmetric Relative-Topology Divergence
+  (:func:`mt_lnn.topology_ops.srtd`) of the live cloud's H0 barcode from that
+  reference (and, optionally, a change in the connected-component count
+  :func:`mt_lnn.topology_ops.betti0`). Benign jitter leaves the topology intact
+  (SRTD ~ 0); a mode collapse / regime change / steering edit gone wrong fuses or
+  splits clusters and spikes SRTD -- and after a debounce the breaker trips. This
+  is the zero-parameter topological failsafe that ``demo_topology_ops`` anticipated.
+
 Design / coupling
 -----------------
-* Both are small **stateful actuators** with **zero trainable parameters**; not
-  ``nn.Module``. They import only the standard library + ``torch`` and NEVER
-  import ``model.py``. ``BlindRolloutGuard`` is duck-typed on a
-  ``LatentImagination``-like object (anything exposing ``imagine`` / ``horizon``
-  / ``head``); ``CircuitBreaker`` is pure scalar/tensor arithmetic.
+* All three are small **stateful actuators** with **zero trainable parameters**;
+  none is an ``nn.Module`` and none imports ``model.py``. ``BlindRolloutGuard`` /
+  ``CircuitBreaker`` import only the standard library + ``torch``;
+  ``TopologyBreaker`` additionally composes the sibling *operator* module
+  :mod:`mt_lnn.topology_ops` (itself pure, model-free) -- composition of
+  zero-param primitives, not backbone coupling. ``BlindRolloutGuard`` is
+  duck-typed on a ``LatentImagination``-like object; ``CircuitBreaker`` is pure
+  scalar/tensor arithmetic; ``TopologyBreaker`` is pure point-cloud topology.
 * Online: one ``step`` call per tick, deterministic, fully resettable.
 
 Pinned against deterministic / analytic streams and a real ``LatentImagination``
@@ -55,11 +69,15 @@ from typing import Callable, Optional
 import torch
 import torch.nn.functional as F
 
+from .topology_ops import betti0, srtd
+
 __all__ = [
     "GuardOutput",
     "BlindRolloutGuard",
     "BreakerResult",
     "CircuitBreaker",
+    "TopologyResult",
+    "TopologyBreaker",
 ]
 
 
@@ -447,3 +465,174 @@ class CircuitBreaker:
             elif delta < -self.max_rate:
                 c = prev - self.max_rate
         return c
+
+
+# --------------------------------------------------------------------------- #
+# 3. model-external topological (representation-shape) tripwire               #
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class TopologyResult:
+    """One tick of :class:`TopologyBreaker`.
+
+    Attributes
+    ----------
+    srtd : float
+        Symmetric Relative-Topology Divergence of the live cloud's H0 barcode
+        from the healthy reference this tick. ``0.0`` for a topologically
+        identical cloud; grows as clusters fuse / split. ``inf`` is never
+        produced -- it is a bounded, sorted-barcode distance.
+    betti0 : int or None
+        Connected-component count of the live cloud at the probe scale ``eps``
+        (``None`` when ``eps`` was not configured, i.e. the Betti check is off).
+    tripped : bool
+        Whether the breaker is in its protective state this tick (the live
+        representation has drifted in shape and stayed drifted past the debounce).
+    reason : str
+        Why the live cloud was judged unhealthy this tick: "" (clean), "noref"
+        (no reference latched yet), "srtd" (divergence over threshold), or
+        "betti" (component count changed from the reference). Reflects the raw
+        per-tick judgement even before/after a trip, for logging.
+    """
+
+    srtd: float
+    betti0: Optional[int]
+    tripped: bool
+    reason: str
+
+
+class TopologyBreaker:
+    """Model-external tripwire on the *shape* of the live state population.
+
+    Latch a healthy reference point cloud (at construction, via
+    :meth:`set_reference`, or by auto-latching the first clean tick), then on
+    every tick judge the live cloud:
+
+    1. **SRTD drift.** ``srtd(reference, live)`` (the sorted-barcode H0 distance)
+       must stay ``<= srtd_threshold``. Benign jitter keeps it ~ 0; a mode
+       collapse / regime change spikes it.
+    2. **Betti-0 change (optional).** If a probe scale ``eps`` is given, the
+       connected-component count ``betti0(live, eps)`` must equal the reference's
+       count; a changed cluster count is also a fault.
+
+    A **debounced FSM** (mirroring :class:`CircuitBreaker`): after ``trip_after``
+    consecutive unhealthy ticks the breaker *trips*; after ``reset_after``
+    consecutive clean ticks it *closes* again. The breaker does not modify the
+    representation -- it is a health *signal* (``tripped`` / ``reason``) a caller
+    acts on (freeze, roll back a steering edit, fall back to a safe policy).
+
+    Parameters
+    ----------
+    srtd_threshold : float
+        Maximum tolerated topology divergence from the reference (> 0).
+    eps : float, optional
+        Probe scale for the optional Betti-0 component-count check. ``None``
+        disables it (SRTD-only).
+    trip_after : int
+        Consecutive unhealthy ticks before tripping (>= 1). Default 2.
+    reset_after : int
+        Consecutive clean ticks before closing again (>= 1). Default 3.
+    reference : torch.Tensor, optional
+        A healthy reference cloud ``(N, D)`` to latch immediately. If ``None`` the
+        first :meth:`step` latches its cloud as the reference (always clean).
+
+    Notes
+    -----
+    Zero trainable parameters (``n_parameters == 0``). Stateful and resettable.
+    Composes :func:`mt_lnn.topology_ops.srtd` / :func:`~mt_lnn.topology_ops.betti0`;
+    no backbone coupling.
+    """
+
+    def __init__(
+        self,
+        *,
+        srtd_threshold: float,
+        eps: Optional[float] = None,
+        trip_after: int = 2,
+        reset_after: int = 3,
+        reference: Optional[torch.Tensor] = None,
+    ) -> None:
+        if not (srtd_threshold > 0.0):
+            raise ValueError(f"srtd_threshold must be > 0, got {srtd_threshold}")
+        if eps is not None and not (eps > 0.0):
+            raise ValueError(f"eps must be > 0 or None, got {eps}")
+        if trip_after < 1:
+            raise ValueError(f"trip_after must be >= 1, got {trip_after}")
+        if reset_after < 1:
+            raise ValueError(f"reset_after must be >= 1, got {reset_after}")
+        self.srtd_threshold = float(srtd_threshold)
+        self.eps = None if eps is None else float(eps)
+        self.trip_after = int(trip_after)
+        self.reset_after = int(reset_after)
+        self.reset()
+        if reference is not None:
+            self.set_reference(reference)
+
+    @property
+    def n_parameters(self) -> int:
+        """Zero trainable parameters -- a pure external health actuator."""
+        return 0
+
+    @property
+    def tripped(self) -> bool:
+        return self._tripped
+
+    @property
+    def has_reference(self) -> bool:
+        return self._reference is not None
+
+    def reset(self) -> None:
+        """Clear the reference, the FSM and the debounce counters."""
+        self._reference: Optional[torch.Tensor] = None
+        self._ref_betti: Optional[int] = None
+        self._tripped = False
+        self._bad_run = 0
+        self._good_run = 0
+
+    def set_reference(self, cloud: torch.Tensor) -> None:
+        """Latch ``cloud`` (``(N, D)``) as the healthy topological reference."""
+        ref = torch.as_tensor(cloud)
+        self._reference = ref
+        self._ref_betti = None if self.eps is None else betti0(ref, self.eps)
+
+    @torch.no_grad()
+    def step(self, cloud: torch.Tensor) -> TopologyResult:
+        """Judge one live state population ``cloud`` -- ``(N, D)``.
+
+        The first call with no latched reference adopts ``cloud`` as the reference
+        (clean by definition). Subsequent calls measure drift from it.
+        """
+        live = torch.as_tensor(cloud)
+
+        if self._reference is None:
+            # auto-latch the first cloud as the healthy reference.
+            self.set_reference(live)
+            return TopologyResult(srtd=0.0, betti0=self._ref_betti, tripped=False,
+                                  reason="noref")
+
+        div = float(srtd(self._reference, live))
+        b0 = None if self.eps is None else betti0(live, self.eps)
+
+        reason = ""
+        if div > self.srtd_threshold:
+            reason = "srtd"
+        elif self._ref_betti is not None and b0 != self._ref_betti:
+            reason = "betti"
+        unhealthy = reason != ""
+
+        # -- debounce FSM (mirrors CircuitBreaker) -----------------------------
+        if unhealthy:
+            self._bad_run += 1
+            self._good_run = 0
+        else:
+            self._good_run += 1
+            self._bad_run = 0
+        if not self._tripped and self._bad_run >= self.trip_after:
+            self._tripped = True
+        elif self._tripped and self._good_run >= self.reset_after:
+            self._tripped = False
+
+        return TopologyResult(srtd=div, betti0=b0, tripped=self._tripped, reason=reason)
+
+    __call__ = step

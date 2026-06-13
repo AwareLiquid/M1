@@ -22,6 +22,7 @@ if _REPO_ROOT not in sys.path:
 from mt_lnn.physics_ops import (  # noqa: E402
     PhysicsRollout,
     integrate,
+    integrate_verlet,
     uniform_gravity,
     pairwise_gravity,
     kinetic_energy,
@@ -71,6 +72,95 @@ def test_integrate_2d_input_squeezes_batch_via_rollout():
                 steps=3, dt=0.1)
     assert s.positions.dim() == 3                          # (T+1, N, D), batch squeezed
     assert s.positions.shape == (4, 2, 2)
+
+
+# --- velocity Verlet (2nd-order symplectic) -------------------------------
+
+_f64 = torch.float64
+
+
+def test_integrate_verlet_is_kick_drift_kick():
+    pos = torch.tensor([[0.0, 0.0]], dtype=_f64)
+    vel = torch.tensor([[1.0, 0.0]], dtype=_f64)
+
+    def accel(x):
+        return torch.tensor([[0.0, -2.0]], dtype=_f64).expand_as(x)
+
+    x1, v1, a1 = integrate_verlet(pos, vel, accel, dt=0.5)
+    # v_half = v + 0.5 a dt = (1, -0.5); x' = x + v_half dt = (0.5, -0.25)
+    # v'     = v_half + 0.5 a dt = (1, -1)
+    assert torch.allclose(x1, torch.tensor([[0.5, -0.25]], dtype=_f64), atol=1e-12)
+    assert torch.allclose(v1, torch.tensor([[1.0, -1.0]], dtype=_f64), atol=1e-12)
+    assert torch.allclose(a1, torch.tensor([[0.0, -2.0]], dtype=_f64), atol=1e-12)
+
+
+def test_verlet_is_exact_under_constant_acceleration():
+    # velocity Verlet integrates a constant-acceleration (projectile) path EXACTLY
+    g = torch.tensor([[0.0, -9.81]], dtype=_f64)
+
+    def accel(x):
+        return g.expand_as(x)
+
+    x = torch.tensor([[0.0, 0.0]], dtype=_f64)
+    v = torch.tensor([[2.0, 5.0]], dtype=_f64)
+    x0, v0 = x.clone(), v.clone()
+    dt, n = 0.01, 200
+    a = None
+    for _ in range(n):
+        x, v, a = integrate_verlet(x, v, accel, dt, accel=a)
+    t = n * dt
+    expect_x = x0 + v0 * t + 0.5 * g * t * t
+    expect_v = v0 + g * t
+    assert torch.allclose(x, expect_x, atol=1e-10)
+    assert torch.allclose(v, expect_v, atol=1e-10)
+
+
+def _sho_energy_drift(integrator: str, dt: float, steps: int) -> float:
+    # harmonic oscillator a = -x; total energy 0.5(x^2 + v^2) is conserved exactly
+    def spring(pos, vel):
+        return -pos
+
+    x0 = torch.tensor([[1.0, 0.0]], dtype=_f64)
+    v0 = torch.zeros(1, 2, dtype=_f64)
+    r = rollout(x0, v0, steps=steps, dt=dt, accel_fn=spring, integrator=integrator)
+    pe = 0.5 * (r.positions ** 2).sum(-1).reshape(r.kinetic_energy.shape)
+    E = r.kinetic_energy + pe
+    return float(E.max() - E.min())
+
+
+def test_verlet_energy_drift_is_second_order():
+    # Euler drift ~ O(dt) (halving dt -> ~2x less); Verlet ~ O(dt^2) (-> ~4x less)
+    e1 = _sho_energy_drift("symplectic_euler", 0.1, 2000)
+    e2 = _sho_energy_drift("symplectic_euler", 0.05, 4000)
+    v1 = _sho_energy_drift("verlet", 0.1, 2000)
+    v2 = _sho_energy_drift("verlet", 0.05, 4000)
+    assert abs(e1 / e2 - 2.0) < 0.2          # first order
+    assert abs(v1 / v2 - 4.0) < 0.3          # second order
+
+
+def test_verlet_conserves_energy_far_better_than_euler():
+    euler = _sho_energy_drift("symplectic_euler", 0.1, 2000)
+    verlet = _sho_energy_drift("verlet", 0.1, 2000)
+    assert verlet < euler / 10.0             # ~40x in practice
+
+
+def test_verlet_rollout_is_time_reversible():
+    def spring(pos, vel):
+        return -pos
+
+    x0 = torch.tensor([[1.0, 0.0]], dtype=_f64)
+    v0 = torch.tensor([[0.0, 0.3]], dtype=_f64)
+    fwd = rollout(x0, v0, steps=300, dt=0.1, accel_fn=spring, integrator="verlet")
+    back = rollout(fwd.final_positions, -fwd.final_velocities, steps=300, dt=0.1,
+                   accel_fn=spring, integrator="verlet")
+    assert torch.allclose(back.final_positions, x0, atol=1e-9)
+    assert torch.allclose(back.final_velocities, -v0, atol=1e-9)
+
+
+def test_rollout_rejects_unknown_integrator():
+    with pytest.raises(ValueError):
+        rollout(torch.zeros(1, 2), torch.zeros(1, 2), steps=2, dt=0.1,
+                integrator="midpoint")
 
 
 # --- forces ---------------------------------------------------------------

@@ -64,6 +64,7 @@ import torch
 __all__ = [
     "PhysicsRollout",
     "integrate",
+    "integrate_verlet",
     "uniform_gravity",
     "pairwise_gravity",
     "kinetic_energy",
@@ -115,6 +116,44 @@ def integrate(positions: torch.Tensor, velocities: torch.Tensor,
     v_next = velocities + acceleration * float(dt)
     x_next = positions + v_next * float(dt)
     return x_next, v_next
+
+
+def integrate_verlet(positions: torch.Tensor, velocities: torch.Tensor,
+                     accel_fn: Callable[[torch.Tensor], torch.Tensor], dt: float,
+                     *, accel: Optional[torch.Tensor] = None
+                     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """One velocity-Verlet step -- a 2nd-order, time-reversible symplectic integrator.
+
+    The kick-drift-kick form::
+
+        v_half = v + 0.5 a(x)  dt
+        x'     = x + v_half    dt
+        v'     = v_half + 0.5 a(x') dt
+
+    Unlike semi-implicit Euler (:func:`integrate`, 1st order), velocity Verlet is
+    *second* order and *time-reversible*: its energy error is O(dt^2) and stays
+    bounded over arbitrarily long runs (no secular drift), and integrating
+    forward then negating the velocity retraces the path exactly. These are the
+    properties a long imagination rollout / orbit needs, and they are pinned
+    against the analytic harmonic oscillator in the tests (energy drift scales as
+    dt^2 vs dt for Euler; reversal error ~ machine epsilon).
+
+    ``accel_fn`` maps *positions -> acceleration* (a conservative, velocity-
+    independent force field, e.g. :func:`uniform_gravity` / :func:`pairwise_gravity`
+    wrapped in a closure). Pass ``accel`` to reuse an already-computed ``a(x)``
+    (the previous step's ``a(x')``) and save one force evaluation. Returns
+    ``(positions_next, velocities_next, accel_at_x_next)`` -- the third value is
+    ``a(x')``, ready to feed back as ``accel`` next step. Differentiable.
+
+    Note: Verlet assumes the force depends on position only; for a velocity-
+    dependent ``accel_fn`` it degrades to an approximation (documented, not hidden).
+    """
+    a = accel_fn(positions) if accel is None else accel
+    v_half = velocities + 0.5 * a * float(dt)
+    x_next = positions + v_half * float(dt)
+    a_next = accel_fn(x_next)
+    v_next = v_half + 0.5 * a_next * float(dt)
+    return x_next, v_next, a_next
 
 
 # ---------------------------------------------------------------------------
@@ -337,14 +376,25 @@ def rollout(positions: torch.Tensor, velocities: torch.Tensor, *,
             gravity=None,
             accel_fn: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
             mass=None, radius=None, restitution: float = 1.0,
-            bounds: Optional[Tuple] = None) -> PhysicsRollout:
+            bounds: Optional[Tuple] = None,
+            integrator: str = "symplectic_euler") -> PhysicsRollout:
     """Compose the operators forward in time: the agent's "what happens next".
 
     Each step: (1) acceleration = uniform ``gravity`` (if given) + ``accel_fn``
-    (if given, e.g. :func:`pairwise_gravity` via a closure); (2) symplectic
-    :func:`integrate`; (3) if ``radius`` is set, resolve sphere collisions; (4)
-    if ``bounds`` is set, reflect off the box walls. Snapshots (including the
-    initial state) are stacked into a :class:`PhysicsRollout`.
+    (if given, e.g. :func:`pairwise_gravity` via a closure); (2) integrate with
+    the chosen ``integrator``; (3) if ``radius`` is set, resolve sphere
+    collisions; (4) if ``bounds`` is set, reflect off the box walls. Snapshots
+    (including the initial state) are stacked into a :class:`PhysicsRollout`.
+
+    ``integrator`` selects the time-stepper:
+      * ``"symplectic_euler"`` (default) -- 1st-order semi-implicit Euler
+        (:func:`integrate`); the established behaviour, unchanged.
+      * ``"verlet"`` -- 2nd-order, time-reversible velocity Verlet
+        (:func:`integrate_verlet`); far smaller energy drift over long
+        horizons (O(dt^2) vs O(dt)), the better choice for long orbits /
+        imagination rollouts. Verlet treats the force as position-only, so it
+        is exact for ``gravity`` / ``accel_fn(pos)`` and an approximation if
+        ``accel_fn`` actually depends on velocity (documented).
 
     Parameters
     ----------
@@ -363,20 +413,33 @@ def rollout(positions: torch.Tensor, velocities: torch.Tensor, *,
     """
     if int(steps) < 1:
         raise ValueError(f"steps must be >= 1, got {steps}")
+    if integrator not in ("symplectic_euler", "verlet"):
+        raise ValueError(
+            f"integrator must be 'symplectic_euler' or 'verlet', got {integrator!r}"
+        )
     p, had_batch = _batched(positions)
     v, _ = _batched(velocities)
     B, N, D = p.shape
     m = _as_per_body(1.0 if mass is None else mass, N, p.dtype, p.device)
 
+    def _accel(pos: torch.Tensor, vel: torch.Tensor) -> torch.Tensor:
+        a = torch.zeros_like(pos)
+        if gravity is not None:
+            a = a + uniform_gravity(pos, gravity)
+        if accel_fn is not None:
+            a = a + accel_fn(pos, vel)
+        return a
+
     pos_hist: List[torch.Tensor] = [p]
     vel_hist: List[torch.Tensor] = [v]
     for _ in range(int(steps)):
-        a = torch.zeros_like(p)
-        if gravity is not None:
-            a = a + uniform_gravity(p, gravity)
-        if accel_fn is not None:
-            a = a + accel_fn(p, v)
-        p, v = integrate(p, v, a, dt)
+        if integrator == "verlet":
+            # position-only force closure (freeze v across the sub-step); recomputed
+            # each step so contacts/walls that change v between steps stay correct
+            v_frozen = v
+            p, v, _ = integrate_verlet(p, v, lambda x: _accel(x, v_frozen), dt)
+        else:
+            p, v = integrate(p, v, _accel(p, v), dt)
         if radius is not None:
             v = resolve_sphere_collisions(p, v, radius=radius, mass=m,
                                           restitution=restitution)

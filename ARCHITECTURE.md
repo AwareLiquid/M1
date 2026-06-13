@@ -50,11 +50,11 @@ mt_lnn/                                       STATUS        TEST FILE
 ├── spatial_ops.py         可组合几何算子          ✅ 已实现      test_spatial_ops.py
 │   └── 距离/方向/包含/邻近图/连通分量/可达性  纯函数, 0参数, 对解析真值可单测, 不耦合 backbone
 ├── physics_ops.py         可组合牛顿动力学算子    ✅ 已实现      test_physics_ops.py
-│   └── 辛积分/引力场/N体引力/碰撞冲量/盒壁反弹/守恒诊断/rollout  纯函数, 0参数, 复合即"脑内推演"
+│   └── 辛积分(半隐式 Euler + 2阶时间可逆速度 Verlet[integrate_verlet, 经 rollout(integrator="verlet") 选用, 长程 imagination rollout 能量漂移 O(dt²) 有界])/引力场/N体引力/碰撞冲量/盒壁反弹/守恒诊断/rollout  纯函数, 0参数, 复合即"脑内推演"
 ├── salience_events.py     全局工作空间点火事件    ✅ 已实现      test_salience_events.py
 │   └── SalienceEventDetector  自适应基线+z分数+迟滞+不应期, 只读观察者, 0参数, 双速引擎触发接口
 ├── failsafe.py            断流盲推 + 输出断路器    ✅ 已实现      test_failsafe.py
-│   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器, 0参数
+│   └── BlindRolloutGuard 置信度门控盲推(借世界模型imagination盲滚) + CircuitBreaker 模型外硬断路器 + TopologyBreaker 表示"形状"触发器(锁定健康参考点云, 每拍测 SRTD H0条形码漂移+可选 Betti-0 分量数, 经与 CircuitBreaker 同款去抖 FSM 跳闸/复位; 复合 topology_ops, 0参数, 不耦合 model.py)
 ├── acoustic_ops.py        可组合声学/双耳听觉算子  ✅ 已实现      test_acoustic_ops.py
 │   └── 传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位+双耳场景, 纯函数 0参数, 复合即听觉空间推理
 ├── geometry_ops.py        可组合 Fisher-Rao 信息几何算子 ✅ 已实现  test_geometry_ops.py
@@ -421,6 +421,38 @@ Hypothesis 的可塑性律(窗符号因果且被幅度界住、每叶内单调�
 纯 ASCII。`tests/test_demo_attractor_ops.py` 6 项测试固定其契约(稳定映射率匹配闭式且能量下降、线性 basin 封顶、发散映射
 被标红、非线性 basin 还原边界、报告打印 OK、ρ 越小沉降越快)。
 
+**P1 工程优化①——高阶辛积分器 (`mt_lnn/physics_ops.py` 的 `integrate_verlet` + `rollout(integrator=…)`)**:
+imagination/世界模型 rollout 要把状态在力下向前滑很多步。若积分器**漏能量**,长程 rollout 会慢慢
+**凭空造出**它本没有的能量(行星螺旋飞出、单摆越摆越高),"接下来会怎样"的预测就偏离物理。修法不是
+缩小步长(贵),而是换一个**辛**积分器,让能量误差对所有时间**有界**。这里在既有半隐式 Euler(1阶,
+能量误差 `O(dt)` 且**累积**)之外,新增 2阶、时间可逆的**速度 Verlet**(kick-drift-kick;能量误差 `O(dt²)`
+且**有界**, 无长期漂移),经 `rollout(integrator="verlet")` 一行切换。诚实边界:Verlet 把力当作**仅依赖位置**,
+对 `gravity`/`accel_fn(pos)` 精确, 若力实际依赖速度则为近似(已注明);它假定力是位置函数(每子步冻结 `v`,
+碰撞/壁反弹仍逐步重算以保正确)。`tests/test_physics_ops.py` 新增 7 项(kick-drift-kick 形式、恒加速下精确、
+能量漂移随 `dt` 减半 Euler≈2× 而 Verlet≈4×[即 1阶 vs 2阶]、Verlet 能量守恒优于 Euler 10×、Verlet rollout 时间可逆、
+拒绝未知 integrator)。
+
+**P1 工程优化①demo (`examples/demo_symplectic_integrator.py`)**:让一颗星沿圆形开普勒轨道(`GM=1`,`r0=1`)飞约
+32 圈, 对比两种积分器——半隐式 Euler 漏能量、轨道半径向外漂(半径漂移 ≈2.6e-2), 而速度 Verlet 稳稳守住轨道
+(≈1.3e-3, 能量漂移小 ≈1600×);再固定时长、`dt` 减半, 用**对解析圆轨道的位置误差**给出无歧义的精度阶——Euler
+误差降 ≈2×(1阶 `O(dt)`)、Verlet 降 ≈4×(2阶 `O(dt²)`)。两幅 ASCII 半径阶梯图直观对照"螺旋外飞"vs"稳定"。均
+确定性、CPU、亚秒、纯 ASCII。`tests/test_demo_symplectic_integrator.py` 5 项测试固定其契约。
+
+**P1 工程优化②——拓扑失效保护 (`mt_lnn/failsafe.py` 的 `TopologyBreaker`)**:健康的潜在状态群有**结构**——
+彼此分离的若干模式/簇(比如 3 个概念)。两种失效会抹掉它:**模式坍缩**(所有状态融成一团, 模型不再区分事物)
+与**机制突变**(簇数跳变)。损失曲线和激活范数此时可能看着正常, 变的是状态点云的**拓扑**。`TopologyBreaker`
+正盯着它:锁定一个健康参考点云后, 每拍测活点云相对参考的 H0 条形码散度(SRTD), 并可选测其连通分量数
+(Betti-0);经一台去抖有限状态机(与经典 `CircuitBreaker` 同款)在连续几拍坏后**跳闸**、在结构恢复后**复位**,
+单个噪声拍绝不翻转它。诚实边界:它是纯**外部健康信号**, 0 可训练参数, **绝不**改写表示——跳闸后由调用方
+决定怎么办(冻结、回滚一次 steering 编辑、退回安全策略);它复合 `topology_ops.srtd`/`betti0`, 零核耦合。
+`tests/test_failsafe.py` 新增 8 项(良性抖动不跳闸、坍缩去抖后跳闸、清净跑后复位、Betti 检测分量数变化、首云
+自锁参考、0 参数与可复位、配置校验[参数化]、确定性)。
+
+**P1 工程优化②demo (`examples/demo_topology_failsafe.py`)**:给断路器喂一串点云——良性抖动(同结构、新噪声)
+让 SRTD≈0、永不跳闸;模式坍缩(簇融向一团)使 Betti-0 由 3→1、SRTD 飙升, 在**第 2 个坏拍**(trip_after=2)经去抖
+跳闸;随后恢复(结构归来)在**第 3 个清净拍**(reset_after=3)复位。逐拍日志列出 SRTD/Betti-0/是否跳闸/原因。
+均确定性、CPU、亚秒、纯 ASCII。`tests/test_demo_topology_failsafe.py` 6 项测试固定其契约。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -469,7 +501,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 842 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 871 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -481,16 +513,21 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 `test_spatial_ops_properties.py` 14 项基于 Hypothesis 的几何不变量测试[距离对称/零对角/非负/三角不等式/
 刚体运动(平移+旋转)不变、相对方向单位且反对称、bearing 与方向一致、半径图对称且按距离阈值且对半径单调、
 kNN 图对称且度数≥k、可达性含种子且与跳距一致且对跳预算单调、完全图全可达、连通分量沿边恒定且匹配可达集]、
-`test_physics_ops.py` 26 项可组合牛顿动力学算子测试[含 PhysicsRollout 无批次/批次摘要访问器回归]、
+`test_physics_ops.py` 32 项可组合牛顿动力学算子测试[含 PhysicsRollout 无批次/批次摘要访问器回归 +
+速度 Verlet 7 项: kick-drift-kick 形式/恒加速精确/能量漂移随 dt 减半 Euler≈2×而 Verlet≈4×/Verlet 能量守恒优于 Euler 10×/
+Verlet rollout 时间可逆/拒绝未知 integrator]、
 `test_physics_ops_properties.py` 12 项基于 Hypothesis 的物理不变量测试[symplectic Euler 精确闭式、
 N 体引力守恒动量(牛顿第三定律)+平移不变、碰撞恒守动量、弹性恒守能量、非弹性不增能、墙反射保速]、
 `test_demo_physics_ops.py` 3 项物理算子 demo 测试、
+`test_demo_symplectic_integrator.py` 5 项辛积分器(Verlet vs Euler)demo 测试、
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
 `test_salience_events_properties.py` 11 项基于 Hypothesis 的点火检测器不变量测试[确定性且 update 与 observe 一致、
 warmup 窗口内不触发、点火/沉寂严格交替且首个必为点火(Schmitt 滞回)、相邻事件间隔≥refractory+1、
 点火 z≥ignite_z 且沉寂 z≤release_z 且字段自洽、常量流永不触发、平稳基线上单脉冲恰触发一次点火、
 z 分数(及整条事件流)在信号加性 DC 偏移下精确不变、reset 清空全部状态、world_model_surprise 鸭子类型桥接]、
-`test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
+`test_failsafe.py` 41 项断流盲推 + 输出断路器测试[含 TopologyBreaker 8 项: 良性抖动不跳闸/坍缩去抖后跳闸/清净跑后复位/
+Betti 检测分量数变化/首云自锁参考/0 参数与可复位/配置校验/确定性]、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
+`test_demo_topology_failsafe.py` 6 项拓扑失效保护 demo 测试、
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
 `test_acoustic_ops_properties.py` 15 项基于 Hypothesis 的声学不变量测试[传播延迟非负/对称/还原距离/与声速成反比、
 球面扩散增益正且还原 ref_dist 且随距离单调下降、ITD 交换双耳反号且受 head_width 界约束且在垂直平分面上为零、
@@ -529,7 +566,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 835 项 ≈ 89s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 864 项 ≈ 91s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -870,7 +907,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ C | PredictiveStateHead (BYOL/V-JEPA EMA) | `world_model.py` + `model.py` | 完成 (v2.1) |
 | ✅ L4 | 潜空间多步想象 rollout (单步映射复合成"想象轨迹" + 置信衰减, 0参数, 不耦合 backbone) | `imagination.py` + `examples/demo_imagination.py` + `test_imagination.py` | 完成 |
 | ✅ L4 | 可组合几何算子 (距离/方向/包含/邻近图/连通分量/可达性, 纯函数 0参数, 复合即推理) | `spatial_ops.py` + `examples/demo_spatial_ops.py` + `test_spatial_ops.py` | 完成 |
-| ✅ L4 | 可组合牛顿动力学算子 (辛积分/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `test_physics_ops.py` | 完成 |
+| ✅ L4 | 可组合牛顿动力学算子 (辛积分[半隐式 Euler + 2阶时间可逆速度 Verlet, rollout 可选, 长程能量漂移 O(dt²) 有界]/引力/碰撞冲量/盒壁反弹/守恒诊断/rollout, 纯函数 0参数, 复合即脑内物理推演) | `physics_ops.py` + `examples/demo_physics_ops.py` + `examples/demo_symplectic_integrator.py` + `test_physics_ops.py` | 完成 |
 | ✅ L4 | 全局工作空间点火事件 (自适应基线+z分数+迟滞+不应期, 只读观察者 0参数, 双速引擎触发接口) | `salience_events.py` + `examples/demo_salience_events.py` + `test_salience_events.py` | 完成 |
 | ✅ L4 | 可组合声学/双耳听觉算子 (传播延迟/球面扩散/ITD/ILD/多普勒/相位叠加干涉/方位反演定位, 纯函数 0参数, 复合即听觉空间推理) | `acoustic_ops.py` + `examples/demo_acoustic_ops.py` + `test_acoustic_ops.py` | 完成 |
 | ✅ L4 | 可组合 Fisher-Rao 信息几何算子 (单纯形上 Bhattacharyya/距离/测地线/exp-log/平行移动/Fisher 度量/Karcher 重心, 纯函数 0参数, place codes 的正确弯曲流形度量, P0#1) | `geometry_ops.py` + `examples/demo_geometry_ops.py` + `test_geometry_ops.py` | 完成 |
@@ -878,7 +915,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合 STDP 可塑性算子 (非对称指数 STDP 窗 + 全对全成对求和 + O(T) 在线资格迹更新[可证相等], 纯函数 0参数, 局部无反向传播的脉冲时序学习, 与 plasticity.py 并行——损失级 Hebbian 管连续 LTC 核, 事件驱动 STDP 管离散 salience 点火/L2 写入事件流, P0 学习) | `stdp_ops.py` + `examples/demo_stdp_ops.py` + `test_stdp_ops.py` | 完成 |
 | ✅ L4 | 可组合吸引子/自稳定算子 (线性映射不动点/谱半径/渐近率/压缩判定[闭式] + relax 滚动 + 经验沉降时间/收敛率/Lyapunov 能量下降 + basin_radius 吸引域半宽二分探针, 纯函数 0参数, 量化沉降核收敛到何处/多快/能吸收多大扰动, P0 学习) | `attractor_ops.py` + `examples/demo_attractor_ops.py` + `test_attractor_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
-| ✅ 落地 | 断流盲推 + 输出断路器 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换, 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `test_failsafe.py` | 完成 |
+| ✅ 落地 | 断流盲推 + 输出断路器 + 拓扑失效保护 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换 + TopologyBreaker[盯表示形状: SRTD H0 漂移+可选 Betti-0, 同款去抖 FSM 跳闸/复位, 复合 topology_ops], 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `examples/demo_topology_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
 | ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火真唤醒慢层多步评估→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
