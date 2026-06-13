@@ -10,6 +10,10 @@ wandb>=0.16.0
 gradio>=4.0.0
 huggingface_hub>=0.22.0
 
+# --- Test / dev only (not needed to run or train the model) ---
+pytest>=7.0.0
+hypothesis>=6.0.0          # property-based operator tests (tests/test_*_properties.py)
+
 # For reproducible smoke tests and benchmark reruns, prefer requirements.lock.
 
 # --- Optional: scientific-rigour modules ---
