@@ -22,6 +22,7 @@ All run on tiny dims / modest step counts to stay fast under pytest.
 
 import warnings
 
+import pytest
 import torch
 import torch.optim as optim
 
@@ -145,6 +146,7 @@ def _ar1_batch(B=8, T=12, D=24, rho=0.9):
     return torch.stack(xs, dim=1)
 
 
+@pytest.mark.slow
 def test_world_model_long_run_surprise_bounded_no_collapse():
     """
     Train the predictive head for a long run on structured data and assert:

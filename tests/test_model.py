@@ -7,6 +7,7 @@ Run:  python -m pytest tests/   -or-   python tests/test_model.py
 import math
 import sys
 import warnings
+import pytest
 import torch
 import torch.nn.functional as F
 
@@ -553,6 +554,7 @@ def test_protofilament_scaling():
     print("[ok] test_protofilament_scaling")
 
 
+@pytest.mark.slow
 def test_overfit_single_batch():
     """Loss should drop ≥10× within 200 steps on a fixed batch."""
     torch.manual_seed(0)

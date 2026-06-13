@@ -398,6 +398,12 @@ ILD 交换双耳反号且与 ITD 同号、Doppler 静止场恒等且接近升频
 `test_long_context_memory.py` 4 项 O(1) 流式内存回归测试[在 T = 20× RoPE 窗口处钉死
 state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])。
 
+其中 7 项「真训练循环 / 下载 CLIP 权重」的重量级测试打了 `@pytest.mark.slow` 标记
+(`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
+`test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
+全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
+`python -m pytest tests/ -m "not slow"` 跑 704 项 ≈ 70s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+
 ---
 
 ## 3. 层级架构 (five-layer view)

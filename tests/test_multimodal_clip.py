@@ -167,6 +167,7 @@ def test_multimodal_endpoint_requires_an_image(monkeypatch):
 
 # --- genuine CLIP path (skips offline / without transformers) -------------
 
+@pytest.mark.slow
 def test_real_clip_vision_tower_smoke():
     pytest.importorskip("transformers")
     pytest.importorskip("PIL")

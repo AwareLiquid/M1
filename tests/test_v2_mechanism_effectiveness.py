@@ -19,6 +19,7 @@ Mechanism-effectiveness tests:
 """
 
 import math
+import pytest
 import torch
 import torch.optim as optim
 
@@ -78,6 +79,7 @@ def cfg_hebbian(use_hebb=True):
 # Phase A mechanism effectiveness
 # ===========================================================================
 
+@pytest.mark.slow
 def test_phase_a_bids_diverge_from_uniform_after_training():
     """
     EMPIRICAL: with noise injection + ortho penalty, the K bid weights should
@@ -137,6 +139,7 @@ def test_phase_a_orthogonality_penalty_none_at_eval():
     assert "ortho_penalty" not in out
 
 
+@pytest.mark.slow
 def test_phase_a_bid_projectors_specialise_over_training():
     """
     EMPIRICAL: bid projector output matrices should become MORE DIFFERENT
@@ -181,6 +184,7 @@ def test_phase_a_bid_projectors_specialise_over_training():
     )
 
 
+@pytest.mark.slow
 def test_phase_a_no_noise_no_ortho_baseline_stays_uniform():
     """
     NEGATIVE control: with BOTH noise=0 AND ortho=0 (the original broken impl),
@@ -288,6 +292,7 @@ def test_phase_d_hebbian_gradient_contribution_nonzero():
 # Smoke test: P0 fixes don't break end-to-end training
 # ===========================================================================
 
+@pytest.mark.slow
 def test_p0_fixes_dont_break_training_loop():
     """100-step training loop with all P0 mechanisms enabled — should converge."""
     cfg = MTLNNConfig(
