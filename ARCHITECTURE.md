@@ -363,7 +363,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 685 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 700 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -382,6 +382,10 @@ N 体引力守恒动量(牛顿第三定律)+平移不变、碰撞恒守动量、
 `test_salience_events.py` 16 项全局工作空间点火事件测试、`test_demo_salience_events.py` 4 项点火事件 demo 测试、
 `test_failsafe.py` 29 项断流盲推 + 输出断路器测试、`test_demo_failsafe.py` 8 项断流盲推/断路器 demo 测试、
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
+`test_acoustic_ops_properties.py` 15 项基于 Hypothesis 的声学不变量测试[传播延迟非负/对称/还原距离/与声速成反比、
+球面扩散增益正且还原 ref_dist 且随距离单调下降、ITD 交换双耳反号且受 head_width 界约束且在垂直平分面上为零、
+ILD 交换双耳反号且与 ITD 同号、Doppler 静止场恒等且接近升频远离降频、波前叠加对幅度线性且两同相重合源幅度翻倍且模满足三角不等式、
+定位精确反演远场平面波模型且单调且在极点饱和、binaural_scene 逐场与各 cue 算子一致]、
 `test_ingest_ops.py` 21 项传感器摄入/流对齐算子测试、
 `test_ingest_ops_properties.py` 10 项基于 Hypothesis 的算子不变量测试[线性重采样在
 **任意**仿射信号上精确、ZOH 只输出真实样本值、覆盖掩码对 max_gap 单调、抖动在均匀时钟上为零等]、
