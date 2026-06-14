@@ -574,7 +574,18 @@ LaTeX 技术论文(standard `article` + `amsmath/amsthm`,因本机无 LaTeX 编�
 STDP/黎曼算子按设计**未**接入训练目标。并据实纠正代码 prose 的过度主张(`continual_eval` 的 "FM≥0" 被其自身测试证伪——
 正向回迁下 FM 可为负)。
 
-**Test coverage**: 945 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**类脑 Phase-1 三件套行为测试(补齐覆盖空洞)**:路线图 `BRAIN_INSPIRED_ROADMAP.md` 第一阶段三机制——多尺度**预测编码 loss**、
+**O(1) 工作记忆衰减**、内源性**动态 κ 通道门控**——均**默认开启**(`use_predictive_coding=True` / `use_decay_wm=True` /
+`dynamic_scale_gates=True`)却长期**无行为测试**(此前测试只把它们设 `False` 以静默)。现补三份测试钉住其真实契约:
+`tests/test_predictive_coding_loss.py` 9 项[`W_pred` 形状(P,S-1,D,D)仅在启用且 S>1 时存在、训练态 `last_pred_error>0` 而 eval 态恒 0、
+模型 `pred_loss` = 各块之和、**梯度抵达 `W_pred`(证明 loss 真接入)**、`predictive_loss_weight` 线性缩放贡献];
+`tests/test_decay_working_memory.py` 6 项[`update_gate`/`decay_rate` 旗标接线、**层级与模型级 coherence cache 在单 token 流式下恒为
+O(1)** 而 legacy 路径 O(T) 线性增长(招牌"无限轮长对话"首次被真测)、零输入下工作记忆几何遗忘、非零输入触发写入];
+`tests/test_dynamic_scale_gating.py` 7 项[`kappa_gate` 按旗标存废、门控**真随输入变化**而静态路径恒为全 1、**梯度抵达 `kappa_gate`**、
+稀疏核恰选出 top-k 个尺度且比率正确、稀疏前向相对稠密改变输出]。诚实说明:此前文档"tests for everything"对这三项**不成立**,
+此补丁堵上空洞;并据实纠正——动态 κ 默认仅**重加权**不省 FLOPs(真正跳算需 `sparse_resonance_kernel=True`,默认关)。
+
+**Test coverage**: 967 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -655,7 +666,7 @@ FM 用历史最好非刚学、forward transfer 高于基线、一次性汇总 bu
 `test_overfit_single_batch`、`test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试,以及
 `test_demo_streaming_continual.py` 中 5 项真训练持续学习测试)。
 全套 `python -m pytest tests/` ≈ 8 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 933 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 955 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 

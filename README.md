@@ -484,7 +484,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (945 tests, all pass)
+tests/                     Full test suite (967 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -492,7 +492,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 945 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent + streaming continual learning). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (933 tests in ~99s, deselecting the 12 `slow` tests that train a model or download CLIP weights — the full run is ~8 min). Highlights:
+Research-grade code. All 967 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent + streaming continual learning + the three default-on Phase-1 brain mechanisms: predictive-coding loss, O(1) decay working memory, dynamic-kappa scale gating). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (955 tests in ~99s, deselecting the 12 `slow` tests that train a model or download CLIP weights — the full run is ~8 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
