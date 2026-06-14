@@ -160,10 +160,23 @@ def test_empirical_rate_matches_asymptotic_rate(data):
     if float(d.abs().max()) < 0.2:
         return
     xstar = fixed_point(A, b)
-    x0 = xstar + 1.0                      # uniform offset excites the slow mode
+    # Excite the DOMINANT (slowest) eigenmode, not a uniform offset. The
+    # asymptotic rate is by definition the decay of the slowest mode -- a uniform
+    # offset also excites faster modes whose transient biases the finite-window
+    # slope steeper, and for a small dominant rho the trajectory underflows to eps
+    # before that transient clears, so the bias is never washed out. Starting on
+    # the dominant eigenvector makes the error a PURE geometric ||e_t|| = c*rho^t
+    # (the regime convergence_rate documents), so the empirical slope recovers
+    # -log rho to floating precision. (A is real-diagonalisable here, so its
+    # spectrum is real and the dominant eigenvector is real.)
+    evals, evecs = torch.linalg.eig(A)
+    v = evecs[:, int(evals.abs().argmax())].real
+    if float(v.norm()) < 1e-8:           # defensive: no real dominant direction
+        return
+    x0 = xstar + v / v.norm()
     traj = relax(linear_step(A, b), x0, 400)
     emp = convergence_rate(traj, target=xstar)
-    assert torch.isclose(emp, asymptotic_rate(A), atol=5e-2)
+    assert torch.isclose(emp, asymptotic_rate(A), atol=1e-3)
 
 
 # --------------------------------------------------------------------------- #
