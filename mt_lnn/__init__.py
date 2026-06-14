@@ -152,6 +152,7 @@ from .pipeline import (
     PerceptionEvent,
 )
 from .plasticity import HebbianRegularizer
+from .astrocyte import AstrocyteGate, AstrocyteState
 from .neuromodulation import NeuromodulationController, NeuromodulatorState
 from .sleep_consolidation import (
     SleepWakeConsolidator,
@@ -336,6 +337,9 @@ __all__ = [
     "SentryTick",
     "PerceptionEvent",
     "HebbianRegularizer",
+    # Slow astrocytic (glial) calcium gate over Hebbian consolidation strength
+    "AstrocyteGate",
+    "AstrocyteState",
     # Multi-neuromodulator global regulator (DA/ACh/5HT/NE orchestration hub)
     "NeuromodulationController",
     "NeuromodulatorState",

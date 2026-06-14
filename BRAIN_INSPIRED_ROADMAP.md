@@ -136,11 +136,15 @@
 * **论文支撑**：Yu & Dayan (2005) ACh/NE 双不确定性；Aston-Jones & Cohen (2005) NE 增益/网络重置；Schultz et al. (1997) DA 奖励预测误差；Cools et al. 5-HT 行为抑制/耐心。
 * **类脑契合**：把"四种弥散性调质广播全局慢标量、按需重调整个皮层"这一机制落到 MT-LNN —— 现有模块从此被一个生物级调质总线统一编排。
 
-### 5.2 TODO — 星形胶质细胞门控的可塑性（P2）
-* **现状核对**：`plasticity.py` 的 Hebbian 可塑性是逐步即时的；缺**胶质细胞慢时间尺度门控**（数十秒级三方突触调节）。
-* **目标**：在 `HebbianRegularizer` 外挂一个 `AstrocyteGate`（独立模块），以更慢的钙波时间尺度调制巩固强度，并与 `spatial_memory` 的离线巩固联动。
-* **论文支撑**：三方突触（Araque et al. 1999）、星形胶质钙信号门控可塑性（De Pittà et al. 2016）。
-* **暂不落地原因**：需与可塑性+空间记忆双向联调，属壁垒加深、非路演必需，先入路线图。
+### 5.2 星形胶质细胞门控的可塑性（DONE，2026-06-15）
+* **现状核对**：`plasticity.py` 的 Hebbian 可塑性是**逐步即时**的（α 受 LAVI 门 + 调质中枢多巴胺通道快调）；缺**胶质细胞慢时间尺度门控**（数十秒级三方突触调节）这一慢伙伴。
+* **已落地**：新增**零耦合**慢积分器 `mt_lnn/astrocyte.py` 的 `AstrocyteGate`，外挂在 `HebbianRegularizer` 之外，以慢钙波时间尺度调制巩固强度：
+  * **慢钙积分**：`ca <- (1-dt/τ)·ca + (dt/τ)·activity`，时间常数 `τ >> 1` 步——单个高活动步几乎不动门，只有**持续活动**才把钙推过工作带（快 Hebbian 步 vs 慢胶质门的尺度分离，正是三方突触的关键性质）。
+  * **倒 U 形带门**：`gate(ca) = gate_min + (gate_max-gate_min)·exp(-(ca-ca_peak)²/2width²)`——静默与过驱动（饱和）两端都回落到 `gate_min`（少/抑制巩固），中段生产性活动给 `gate_max`（加深巩固），即 De Pittà 的稳态双向门控。
+  * **duck-typed 执行器**：`modulate(reg)` 把 `HebbianRegularizer.base_lr` 乘以当前门（与调质中枢同一 `base_lr` 契约）；首调捕获原始 α，**重复调用不复利**。`consolidation_scale()` 同名暴露给 `SleepWakeConsolidator`——同一条胶质带也能门控离线 NREM 巩固，与空间/睡眠记忆联动。
+  * 零耦合 / 默认中性 / 零回归：纯 python（只 import `math`，热路径无 `torch`），**非 `nn.Module`**（全局 init pass 永不触及），不 import `model.py`/`plasticity.py`；MT-LNN 任何地方都不构造它——不建即可塑性无变化。
+* **论文支撑**：三方突触（Araque et al. 1999）；星形胶质钙信号门控可塑性（De Pittà et al. 2016）。
+* **测试**：`tests/test_astrocyte.py`（14 项，含钙积分慢/单步几乎不动、持续活动跨带、瞬时 vs 持续门差异、倒 U 有界、饱和与静默同样回落到底、`modulate` 按门缩放且不复利、无 `base_lr` 安全 no-op、显式 base 覆盖、`activity_of` 均绝值代理、reset/校验/非 nn.Module）。
 
 ### 5.3 多尺度网格细胞模块（DONE，2026-06-15）
 * **现状核对**：`spatial.py` 的 `GridCellEncoding` 把所有尺度**压平成一张图**（共享朝向、零相位）；生物内嗅皮层是 4–5 个比例约 1.4 递增的**离散网格模块**（Stensola 2012），各有独立尺度/朝向/相位，再配头方向细胞与边界细胞。
