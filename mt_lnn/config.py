@@ -89,6 +89,30 @@ class MTLNNConfig:
     gwtb_external_bids: bool = False
     gwtb_external_bid_gate_init: float = 0.0  # residual gate init for external bids
 
+    # Top-down modulation (P1 closed-loop ②, 2026-06-14): a high-level goal /
+    # context vector biases EVERY block's representation (cortical top-down
+    # feedback). Each block gets a zero-init-gated residual adapter:
+    #     x = x + tanh(gate) · proj(LayerNorm(top_down))
+    # use_top_down=False (default) → no params built, no behaviour change → all
+    # existing checkpoints/tests bit-identical. Even when True, gate init 0 →
+    # tanh(0)=0 → bit-exact at init, but the gate keeps a live gradient (proj is
+    # small-but-nonzero) so the model can LEARN to open it. The LayerNorm is the
+    # init/runtime "insurance": it bounds an arbitrary-scale goal vector so the
+    # residual can't destabilise training once the gate opens.
+    use_top_down: bool = False
+    top_down_gate_init: float = 0.0           # per-block residual gate init (0 → identity)
+    # GWT docking entry: additionally offer the top-down goal as an external bid
+    # in the top-level global-workspace competition (reuses the world-model bid
+    # pathway; needs a CompetitiveGWTBLayer, i.e. gwtb_external_bids=True). The bid
+    # is zero-gated, so at init it equals x and competes as one of K+1 equal
+    # competitors -- identity-at-init to within the same O(1e-4) softmax-normalisation
+    # artifact as the world-model bid (NOT strictly bit-exact, because the model's
+    # global init_weights pass perturbs the internal bid projectors off exact
+    # identity; see tests/test_multisource_gwt.py). Default OFF, so the default
+    # model is entirely unaffected; the per-block path above IS bit-exact at init.
+    top_down_to_gwtb: bool = False
+    top_down_gwtb_gate_init: float = 0.0      # GWT-bid gate init (0 → ~identity)
+
     # P3.2 graceful degradation (2026-06-07): wrap the AUXILIARY v2 module
     # contributions (world-model loss, GWTB orthogonality penalty, Hebbian loss,
     # the world-model workspace bid, and the LAVI surprise signal) in finiteness

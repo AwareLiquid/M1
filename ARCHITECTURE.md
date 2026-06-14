@@ -474,6 +474,24 @@ imagination/世界模型 rollout 要把状态在力下向前滑很多步。若�
 `BlindRolloutGuard` 要滑行的);(3) 投出的 `(B, M, d_model=104)` token 经 `inputs_embeds` 驱动 backbone 出有限
 logits——回路闭合,零 `model.py` 耦合。确定性、CPU、亚秒、纯 ASCII。`tests/test_demo_sensory_frontend.py` 6 项测试固定其契约。
 
+**P1 闭环② —— 自顶向下调制 (`mt_lnn/model.py` 的 `top_down` 通路)**:大脑高层不只接收自下而上的感觉,还发出
+**自顶向下反馈**,用当前目标/上下文**偏置**低层处理。这是本次唯一**经授权触碰 `model.py`** 的改动,边界刻意收窄到
+**4 处、约 +20 行**:`MTLNNModel.forward` 新增 `top_down` 形参 → 透传给每个 `MTLNNBlock` → 在**注意力之后、液态核
+之前**以一道**零初始化门控残差**折入:`x = x + tanh(gate)·proj(LayerNorm(top_down))`。整条特性由 `config.use_top_down`
+门控且**默认 OFF**——默认模型不建任何参数、字节级不变(对所有既有 checkpoint/测试零回归)。两条诚实性质:**(1) 闭门即
+严格恒等**——`gate` init 0 → `tanh(0)=0` → 残差恰为零 → 喂任何目标与不喂**逐位等价**(预训练权重在门学会打开前毫发无
+伤);**(2) 开门即转向**——门一旦打开,两个不同目标会把**同一输入**推向可测不同的下一 token 分布。`proj` 取 small-but-
+nonzero(std 0.02)使**门**在 init 处仍有活梯度(模型可学会开门);`LayerNorm` 是那道**初始值保险**——把任意量级的目标
+向量界住,门打开后残差不会冲垮训练。可选 `config.top_down_to_gwtb` 还把目标作为一路**外部投标**接入顶层全局工作空间竞争
+(复用世界模型 bid 通路;**预留的 GWT 对接入口**)——该路因模型全局 init 把竞争内部 bid 推离严格恒等,init 仅在与世界
+模型 bid **同量级的 O(1e-4) softmax 归一化伪差**内恒等(非逐位,默认 OFF,诚实标注)。`tests/test_top_down_modulation.py`
+11 项固定其契约(默认零参数、闭门逐位恒等、开门转向、门有活梯度、形状广播、KV-cache 一致、GWT 对接)。
+
+**P1 闭环②demo (`examples/demo_top_down_modulation.py`)**:用一个固定 token 序列驱动开启 `use_top_down` 的小模型,
+展示:**[1]** 闭门时 `max|logits(目标) − logits(无目标)| = 0`(严格 no-op,逐位等价);**[2]** 把每个 block 的门打开后,
+两个不同目标使下一 token 分布发散(KL > 0、argmax 改变)——通路确实活、默认关、零回归。确定性、CPU、亚秒、纯 ASCII。
+`tests/test_demo_top_down_modulation.py` 5 项测试固定其契约。
+
 **传感器摄入/流对齐算子 (`mt_lnn/ingest_ops.py`)**:液态核以**固定步长**离散其连续动力学——`ProtofilamentLTC`
 衰减为 `exp(-dt/tau)`,`dt = config.dt` 是编译期常数。这只在输入**真的**按均匀 `dt` 栅格到达时才成立;真实传感器
 不会照办:到达间隔抖动、偶发丢帧、时钟漂移。把这种非均匀采样直接喂进固定 `dt` 递归会**悄悄**违反离散化(一个迟到
@@ -522,7 +540,7 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 889 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**Test coverage**: 905 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -552,6 +570,9 @@ Betti 检测分量数变化/首云自锁参考/0 参数与可复位/配置校验
 `test_sensory_frontend.py` 12 项原始流式传感器前端测试[对齐前向 shape+pad_mask 别名/均匀态势跳过对齐全覆盖/
 无批维输入压缩批维/线性重采样对仿射信号精确/宽丢帧被覆盖掩码标记/共享时钟覆盖跨批一致/embeds 经 inputs_embeds 驱动
 backbone 出有限 logits/梯度只达投影器/配置校验/坏 rank 拒绝]、`test_demo_sensory_frontend.py` 6 项感官前端 demo 测试、
+`test_top_down_modulation.py` 11 项自顶向下调制测试[默认关零参数且忽略 top_down/启用建每块适配器/闭门逐位恒等/开门改输出/
+门有活梯度/开门后 proj+目标得梯度/形状广播与逐步皆可/KV-cache 与全前向一致/GWT 对接需竞争式 GWTB/对接 init 在 softmax
+伪差内恒等/对接开门改变竞争]、`test_demo_top_down_modulation.py` 5 项自顶向下调制 demo 测试、
 `test_acoustic_ops.py` 36 项可组合声学/双耳听觉算子测试、`test_demo_acoustic_ops.py` 7 项声学算子 demo 测试、
 `test_acoustic_ops_properties.py` 15 项基于 Hypothesis 的声学不变量测试[传播延迟非负/对称/还原距离/与声速成反比、
 球面扩散增益正且还原 ref_dist 且随距离单调下降、ITD 交换双耳反号且受 head_width 界约束且在垂直平分面上为零、
@@ -590,7 +611,7 @@ state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])�
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 882 项 ≈ 97s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 898 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -940,6 +961,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ L4 | 可组合吸引子/自稳定算子 (线性映射不动点/谱半径/渐近率/压缩判定[闭式] + relax 滚动 + 经验沉降时间/收敛率/Lyapunov 能量下降 + basin_radius 吸引域半宽二分探针, 纯函数 0参数, 量化沉降核收敛到何处/多快/能吸收多大扰动, P0 学习) | `attractor_ops.py` + `examples/demo_attractor_ops.py` + `test_attractor_ops.py` | 完成 |
 | ✅ 落地 | 传感器摄入/流对齐算子 (把抖动/带时间戳的非均匀采样重采样到固定dt栅格[线性/ZOH]+覆盖掩码标长空洞→交盲推滑行, 纯算子 0参数, 输入侧前端, 闭合固定dt离散化与真实传感时钟的缝) | `ingest_ops.py` + `test_ingest_ops.py` (+`demo_pipeline` 摄入前端) | 完成 |
 | ✅ 闭环 | 原始流式传感器前端 (P1 闭环①: 把抖动/丢帧的原始流变成 backbone-ready token——复合 ingest_ops.align_stream[对齐固定dt栅格+标丢帧步] 与可训练 ModalityProjector[投 d_model], 产 SensoryEncoding[inputs_embeds + 覆盖/pad 掩码, 即 BlindRolloutGuard 滑行的信任信号]; 可训练 nn.Module 但从不 import model.py, 经 inputs_embeds 注入) | `sensory_frontend.py` + `examples/demo_sensory_frontend.py` + `test_sensory_frontend.py` | 完成 |
+| ✅ 闭环 | 自顶向下调制 (P1 闭环②, 唯一经授权动 model.py: forward 新增 top_down 形参→透传每个 block→注意力后/液态核前折入零初始化门控残差 x+=tanh(gate)·proj(LayerNorm(td)); config.use_top_down 门控默认 OFF→默认模型字节级不变; 闭门严格恒等[gate=0→逐位等价], 开门转向[不同目标推同一输入到不同下一token分布], 门有活梯度可学开门, LayerNorm 为初始值保险; 可选 top_down_to_gwtb 把目标作外部bid接入全局工作空间竞争[预留GWT对接入口, init 在 O(1e-4) softmax 伪差内恒等]) | `mt_lnn/model.py`(top_down 通路) + `mt_lnn/config.py` + `examples/demo_top_down_modulation.py` + `test_top_down_modulation.py` | 完成 |
 | ✅ 落地 | 断流盲推 + 输出断路器 + 拓扑失效保护 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换 + TopologyBreaker[盯表示形状: SRTD H0 漂移+可选 Betti-0, 同款去抖 FSM 跳闸/复位, 复合 topology_ops], 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `examples/demo_topology_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
 | ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火真唤醒慢层多步评估→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |

@@ -102,6 +102,28 @@ class MTLNNBlock(nn.Module):
             self.gwtb_norm = None
             self.gwtb = None
 
+        # Top-down modulation (P1 closed-loop ②): a high-level goal/context vector
+        # biases this block via a ZERO-INIT-GATED residual adapter, injected after
+        # attention and before the LNN sub-layer. Built only when use_top_down is
+        # set, so the default model has byte-identical params (zero regression).
+        #     x = x + tanh(gate) · proj(LayerNorm(top_down))
+        # * top_down_norm  -- the init/runtime insurance: bounds an arbitrary-scale
+        #   goal so the residual can't blow up once the gate learns to open.
+        # * top_down_proj  -- small-but-nonzero std (0.02) so the gate has a live
+        #   gradient at init (a zero-init proj would freeze the gate forever).
+        # * top_down_gate  -- init 0 → tanh(0)=0 → identity at init (bit-exact).
+        self.has_top_down = getattr(config, "use_top_down", False)
+        if self.has_top_down:
+            self.top_down_norm = nn.LayerNorm(config.d_model)
+            self.top_down_proj = nn.Linear(config.d_model, config.d_model, bias=False)
+            nn.init.normal_(self.top_down_proj.weight, std=0.02)
+            self.top_down_gate = nn.Parameter(
+                torch.tensor(float(getattr(config, "top_down_gate_init", 0.0)))
+            )
+        else:
+            self.top_down_norm = None
+            self.top_down_proj = None
+
     def forward(
         self,
         x: torch.Tensor,                                  # (B, T_new, d_model)
@@ -110,6 +132,7 @@ class MTLNNBlock(nn.Module):
         position_offset: int = 0,
         use_cache: bool = False,
         use_lnn_recurrence: bool = True,
+        top_down: Optional[torch.Tensor] = None,    # (B, d_model) or (B, T, d_model)
     ) -> Tuple[torch.Tensor, Optional[LayerCache]]:
 
         past_kv      = layer_cache[0] if layer_cache is not None else None
@@ -128,6 +151,17 @@ class MTLNNBlock(nn.Module):
             h_prev=h_prev,  # Pass h_prev for position-free timing signal
         )
         x = x + attn_out
+
+        # Top-down modulation (P1 closed-loop ②): inject the goal/context bias
+        # AFTER attention, BEFORE the LNN sub-layer, so it colours the liquid
+        # core's temporal integration this step. Zero-gated at init (tanh(0)=0),
+        # so this is a strict no-op until the gate learns to open. top_down may be
+        # (B, d_model) -- broadcast over time -- or a per-step (B, T, d_model).
+        if self.has_top_down and top_down is not None:
+            td = top_down.unsqueeze(1) if top_down.dim() == 2 else top_down
+            x = x + torch.tanh(self.top_down_gate) * self.top_down_proj(
+                self.top_down_norm(td)
+            )
 
         # LNN sub-layer (pre-norm).
         # use_lnn_recurrence drives BOTH (a) whether to pull h_prev from the
@@ -240,6 +274,30 @@ class MTLNNModel(nn.Module):
                 torch.tensor(float(getattr(config, "gwtb_external_bid_gate_init", 0.0)))
             )
 
+        # Top-down -> GWT docking entry (P1 closed-loop ②): additionally offer the
+        # top-down goal as an external bid in the top-level global-workspace
+        # competition, reusing the same zero-gated residual-bid machinery as the
+        # world model. Active only when use_top_down AND top_down_to_gwtb are set
+        # AND the top-level GWTB is competitive (accepts external bids). At init
+        # gate=0 → bid == x → it competes as an equal competitor, identity-at-init
+        # to within the same O(1e-4) softmax artifact as the world-model bid (the
+        # competition's internal bids are not exact-identity after the global init
+        # pass, so this is NOT strictly bit-exact — see test_multisource_gwt). This
+        # path is default-OFF; the per-block top-down residual IS bit-exact.
+        self._top_down_gwtb_bid = (
+            getattr(config, "use_top_down", False)
+            and getattr(config, "top_down_to_gwtb", False)
+            and self.gwtb is not None
+            and getattr(self.gwtb, "accept_external_bids", False)
+        )
+        if self._top_down_gwtb_bid:
+            self.top_down_gwtb_norm = nn.LayerNorm(config.d_model)
+            self.top_down_gwtb_proj = nn.Linear(config.d_model, config.d_model, bias=False)
+            nn.init.normal_(self.top_down_gwtb_proj.weight, std=0.02)
+            self.top_down_gwtb_gate = nn.Parameter(
+                torch.tensor(float(getattr(config, "top_down_gwtb_gate_init", 0.0)))
+            )
+
         # P3.2 graceful degradation: finiteness guards on auxiliary v2 module
         # contributions. _degradation_counts tracks how often each module was
         # skipped over the whole run (a monitoring "eye"); it is process state,
@@ -324,6 +382,7 @@ class MTLNNModel(nn.Module):
         position_offset: Optional[int] = None,
         use_lnn_recurrence: bool = True,
         inputs_embeds: Optional[torch.Tensor] = None,         # (B, T_new, d_model)
+        top_down: Optional[torch.Tensor] = None,              # (B, d_model) or (B, T_new, d_model)
     ) -> Dict[str, torch.Tensor]:
         """
         Args:
@@ -338,6 +397,11 @@ class MTLNNModel(nn.Module):
             training-time parallel mode (h_prev=0 each step) — this is what makes
             cached vs full-forward outputs bit-exact equal.
           position_offset: if None, infer from cache (length of cached K) or 0.
+          top_down: optional high-level goal/context (B, d_model) broadcast over
+            time, or per-step (B, T_new, d_model). Requires config.use_top_down;
+            each block applies a zero-init-gated residual bias (bit-exact at init).
+            If config.top_down_to_gwtb is also set, the goal is additionally
+            offered as an external bid in the top-level workspace competition.
 
         Returns dict with keys:
           - logits:   (B, T_new, vocab_size)
@@ -400,6 +464,7 @@ class MTLNNModel(nn.Module):
                 position_offset=position_offset,
                 use_cache=use_cache,
                 use_lnn_recurrence=use_lnn_recurrence,
+                top_down=top_down,
             )
             if use_cache:
                 new_cache.layers.append(new_layer_cache)
@@ -418,6 +483,7 @@ class MTLNNModel(nn.Module):
             # P3.1: build the world model's expectation bid (residual, zero-gated
             # at init → no effect until the gate learns to open).
             external_bids = None
+            _bids: list = []
             if getattr(self, "_world_gwtb_bid", False):
                 z_pred = self.world_model_head.predictor(
                     self.world_model_head.online_proj(x)
@@ -430,7 +496,22 @@ class MTLNNModel(nn.Module):
                         self._degradation_counts.get("world_bid", 0) + 1
                     )
                     world_bid = x
-                external_bids = [world_bid]
+                _bids.append(world_bid)
+            # Top-down -> GWT docking entry: offer the goal as a workspace bid,
+            # zero-gated at init (bid == x → competition unchanged → bit-exact).
+            if getattr(self, "_top_down_gwtb_bid", False) and top_down is not None:
+                td = top_down.unsqueeze(1) if top_down.dim() == 2 else top_down
+                td_bid = x + torch.tanh(self.top_down_gwtb_gate) * self.top_down_gwtb_proj(
+                    self.top_down_gwtb_norm(td)
+                )
+                if self.use_graceful_degradation and not torch.isfinite(td_bid).all():
+                    self._degradation_counts["top_down_bid"] = (
+                        self._degradation_counts.get("top_down_bid", 0) + 1
+                    )
+                    td_bid = x
+                _bids.append(td_bid)
+            if _bids:
+                external_bids = _bids
             if external_bids is not None:
                 # Only the CompetitiveGWTBLayer accepts external bids; the base
                 # GWTBLayer keeps its original signature (zero regression).

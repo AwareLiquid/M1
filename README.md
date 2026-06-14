@@ -331,6 +331,7 @@ mt_lnn/
   quantum_coupling.py    QuantumLateralCoupling (PennyLane); optional
   multimodal.py          Multi-modal token codebook hooks
   sensory_frontend.py    SensoryFrontend (P1 closed-loop): the temporal front that turns a raw, jittered, dropout-prone sensor stream into backbone-ready tokens -- composes ingest_ops.align_stream (resample onto the core's fixed-dt grid + flag dropout steps) with a trainable multimodal.ModalityProjector (project to d_model); emits a SensoryEncoding (inputs_embeds + coverage/pad mask, the trust signal a BlindRolloutGuard coasts on); trainable nn.Module, but never imports model.py (feeds the backbone via inputs_embeds)
+  model.py top_down      Top-down modulation (P1 closed-loop ②): MTLNNModel.forward(top_down=...) threads a high-level goal/context vector to every block, folded in as a zero-init-gated residual (x = x + tanh(gate)*proj(LayerNorm(top_down))) after attention, before the liquid core -- cortical top-down feedback. Gated by config.use_top_down (default OFF -> no new params, bit-identical). At init gate=0 -> strict no-op (bit-exact); the gate keeps a live gradient so the model LEARNS to open and aim it. Optional config.top_down_to_gwtb additionally offers the goal as an external bid in the global-workspace competition (reuses the world-model bid pathway)
   spatial.py             Spatial frontends: GridCellEncoding, PlaceCellCode (DoG target), PointCloud/Voxel
   spatial_reasoning.py   SpatialReasoner (perception + deliberation; optional causal checker/steerer)
   spatial_memory.py      SpatialMemory (L2; place-indexed associative memory, Hebbian write / pattern-completion read, 0 params)
@@ -438,6 +439,13 @@ examples/demo_sensory_frontend.py  Close the perception loop: drive SensoryFront
                            dropout steps (what a BlindRolloutGuard coasts on), and the
                            projected (B, M, d_model) tokens feed MTLNNModel via
                            inputs_embeds to finite logits -- zero model.py coupling
+examples/demo_top_down_modulation.py  Top-down feedback, closed until opened: a
+                           high-level goal vector biases every block. With the
+                           gate closed (init) the goal is a STRICT no-op
+                           (bit-identical to no goal -> a trained checkpoint is
+                           untouched); open the gate and two distinct goals steer
+                           the same input to different next-token distributions --
+                           the pathway is live, default-off, zero regression
 examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
@@ -456,7 +464,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (889 tests, all pass)
+tests/                     Full test suite (905 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -464,7 +472,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 889 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (882 tests in ~97s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 905 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (898 tests in ~99s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -481,6 +489,7 @@ Research-grade code. All 889 tests pass (model · rhythm · causality · world-m
 [ok] test_physics_ops (Verlet block)      velocity Verlet kick-drift-kick + 2nd-order energy/reversibility vs Euler
 [ok] test_failsafe (TopologyBreaker)      SRTD/Betti tripwire ignores jitter, debounced trip on collapse + close on recovery
 [ok] test_sensory_frontend               raw jittered stream -> fixed-dt grid + dropout coverage mask -> d_model tokens feed the backbone, grads only to projector
+[ok] test_top_down_modulation            goal biases every block: closed gate == strict no-op (bit-exact), open gate steers logits, gate has live gradient, cache parity holds
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ
