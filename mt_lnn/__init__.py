@@ -86,6 +86,7 @@ from .predictive_coding import (
     PredictiveCodingResult,
 )
 from .imagination import ImaginedTrajectory, LatentImagination
+from .active_inference import EFEPlan, ActiveInferencePlanner
 from .spatial_ops import (
     pairwise_distance,
     relative_direction,
@@ -280,6 +281,9 @@ __all__ = [
     "PredictiveCodingResult",
     "ImaginedTrajectory",
     "LatentImagination",
+    # Active inference: Expected-Free-Energy autonomous goal selection over imagination
+    "EFEPlan",
+    "ActiveInferencePlanner",
     "pairwise_distance",
     "relative_direction",
     "bearing",

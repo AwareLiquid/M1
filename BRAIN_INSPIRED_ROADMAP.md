@@ -178,8 +178,14 @@
 * **测试**：`tests/test_sleep_consolidation.py`（14 项，含巩固计数+可召回、显著性优先巩固、空缓冲 no-op、下调缩范数且保方向、factor=1 no-op、protect 跳过命名参数、REM 在线段上+确定性、完整 cycle 选择性执行各阶段、零耦合断言）。
 * **记忆分层闭环**：工作记忆(`SessionMemory`) + 程序性(权重) + 陈述性(`PersistentKnowledgeMemory`) 三层，现由睡眠巩固把回放经验从快层沉淀到慢层，形成"觉醒采集→睡眠巩固"闭环。
 
-### 5.6 TODO — 主动推理的自主目标（P2）
-* **现状核对**：`imagination.py` 的 `LatentImagination` 已能潜空间想象 rollout；缺**期望自由能(EFE)打分**驱动的自主目标选择。
-* **目标**：在 `imagination.py` 上加期望自由能评分（实用价值 + 信息增益），让模型在想象中按 EFE 选择自主目标/动作。
+### 5.6 主动推理的自主目标（DONE，2026-06-15）
+* **现状核对**：`imagination.py` 的 `LatentImagination` 已能在潜空间想象 rollout（带逐步 confidence/novelty）；但只"预测"不"选择"——缺**期望自由能(EFE)打分**驱动的自主目标选择。
+* **已落地**：新增**零耦合**纯推理打分器 `mt_lnn/active_inference.py` 的 `ActiveInferencePlanner`，在想象出的未来上对一组候选目标潜变量按 EFE 选择，闭合"预测→想象→**抉择**"：
+  * **EFE 分解**：`G(goal) = -(w_p·pragmatic + w_e·epistemic)`，选 `argmin G`。
+  * **实用价值(pragmatic / 利用)**：想象轨迹与目标的 **confidence 加权对齐** ∈[0,1]——世界模型预期能抵达的目标得分高（目标趋向项）。
+  * **认知价值(epistemic / 探索)**：目标相对当前潜变量的**新颖度** ∈[0,1]——离"现在"越远的目标承诺越多信息增益（好奇心项）。
+  * **探索/利用旋钮**：抬高 `info_gain_weight` 让模型从"近处可达目标"翻转到"新颖远目标"，给出原则化的探索-利用权衡，让模型能**自主选目标**而非只反应。
+  * 零耦合 / 零参数 / 默认关闭：`n_parameters==0`、`no_grad`，duck-typed 在 `LatentImagination`（仅需 `imagine` + `head.online_proj`），**不 import `model.py`/主干**；MT-LNN 任何地方都不构造它。
 * **论文支撑**：Friston et al. (2015, 2017) 主动推理与期望自由能；Da Costa et al. (2020) 离散主动推理。
-* **暂不落地原因**：属自主性顶层能力，依赖的 5.4 预测编码闭环已就位（2026-06-15），可作为下一步最后落地项。
+* **测试**：`tests/test_active_inference.py`（10 项，含形状/`argmin` 选择、纯实用值在**移动**轨迹上选趋向目标而非当前、纯认知值选最新颖目标、`info_gain_weight` 翻转利用→探索、EFE=负加权和、零参数/非 nn.Module、确定性、`select_goal` 一致、构造+输入校验）。
+* **第 5 阶段收尾**：5.1–5.6 全部落地（5.1 调质中枢、5.2 星形胶质门控、5.3 网格细胞模块、5.4 分层预测编码、5.5 睡眠巩固、5.6 主动推理）；全部零耦合、默认关闭、零回归、可回滚。
