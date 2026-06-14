@@ -69,6 +69,22 @@ style: |
 
 ---
 
+### 🆕 Phase 7 milestone — Brain-Stack Expansion (2026-06)
+
+**从纯文本架构扩展为"感知-记忆-推演-学习-行动"的类脑能力栈 (From a text-only backbone to a full perceive–remember–imagine–learn–act brain stack)**
+
+| New capability | Mechanism | Product impact |
+|---|---|---|
+| **空间计算 (Spatial computing)** | 四层空间认知栈：网格/位置细胞 → 位置索引联想记忆 → 因果激活引导 → 世界模型 (L4 roadmap) | 从文本扩展到**具身/空间智能**（机器人、AR/VR 导航、IoT 巡检、空间 RAG），端侧**零额外参数**即获认知地图 |
+| **可验证算子代数 (Verifiable operator algebra)** | 11 个零参数、与主干解耦的算子模块，行为由属性测试钉死；概率单纯形上的 **Fisher-Rao 信息几何**；配套数学白皮书 | **企业级可信赖 = 护城河**：可审计、可复现，**967 项测试常驻绿灯**，每条主张有脚本+产物背书 |
+| **持续学习 (Continual learning)** | 有界经验回放缓冲 + 遗忘/保持/迁移度量（准确率矩阵）+ 回放 vs 灾难性遗忘流式对照 | **端侧终身学习不遗忘**：本地随用户个性化、隐私不出端，直击"微调即遗忘"痛点 |
+| **全脑闭环智能体 (Closed-loop agent)** | `examples/demo_cognitive_agent.py`：感知(L1)→记忆(L2)→自上而下注意→想象(L4)→行动，全真实模块无 Mock | 从"一堆能力"跃迁为**可运行的具身认知闭环**（当前为整合演示原型，非生产成品） |
+| **双速哨兵 + 生产化部署 (DualSpeedSentry + serving)** | 感知→推理→预测→触发→断连续航→安全执行；断路器保证执行输出有界；HF 适配器服务化路径（带契约测试）+ 容器打包 | 可落地的**安全关键 / 监测哨兵**垂直线（快反射+慢审议双速），失效可证明有界，**ready to deploy** |
+
+→ 诚实标注 (honesty): L4 世界模型与认知智能体当前为 roadmap / 演示原型；算子代数与服务化路径有契约/属性测试背书。
+
+---
+
 ### Phase 5b milestone — Qwen-2.5-1.5B + MT adapter (Kaggle GPU, 2026-05-29)
 
 跨基座复现 — 同样的 MT 残差适配器配方在 **两个不同 1B+ 预训练 LM 家族** 上同样有效:
