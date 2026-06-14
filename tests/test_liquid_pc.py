@@ -71,6 +71,49 @@ def test_decay_is_multi_timescale_and_bounded():
     assert decay[-1] > decay[0]                          # top level genuinely slower
 
 
+def test_precision_is_positive_and_per_level():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3)
+    prec = m._precision()
+    assert prec.shape == (3,)
+    assert (prec > 0.0).all()
+    # default init: softplus(log_precision) == 1.0 -> precision-free at start, so
+    # a freshly built precision core is identical to the original (clean ablation).
+    assert torch.allclose(prec, torch.ones(3), atol=1e-5)
+
+
+def test_zero_precision_freezes_state():
+    # Precision gates how strongly errors drive the state. Drive precision to ~0
+    # (very negative log-precision) and every error is down-weighted to nothing,
+    # so the liquid state cannot move from its zero init -> readout constant.
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2).eval()
+    with torch.no_grad():
+        m.log_precision.fill_(-30.0)                     # softplus(-30) ~ 0
+        for rec in m.recognize:                          # null bias so drive->tanh(0)
+            rec.bias.zero_()
+    x = torch.randn(1, 6, 1)
+    y = m(x)
+    assert torch.allclose(y[:, 0], y[:, -1], atol=1e-6)
+
+
+def test_precision_is_trainable_and_changes_dynamics():
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3)
+    assert m.log_precision.requires_grad
+    x = torch.randn(1, 10, 1)
+    y0 = m(x)
+    with torch.no_grad():
+        m.log_precision.add_(torch.randn(3))             # perturb precisions
+    y1 = m(x)
+    assert not torch.allclose(y0, y1, atol=1e-6)
+
+
+def test_precision_can_be_fixed():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2, learn_precision=False)
+    assert not isinstance(m.log_precision, nn.Parameter)
+    names = {n for n, _ in m.named_parameters()}
+    assert "log_precision" not in names                  # a buffer, not trained
+
+
 def test_zero_prediction_error_freezes_state():
     # Predictive-coding tenet: the state is driven by errors. If we null the
     # recognition + generative pathways so every error maps to zero drive, the

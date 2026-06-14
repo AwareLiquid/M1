@@ -81,6 +81,8 @@ class PCLiquidCore(nn.Module):
         tau_min: float = 1.0,
         tau_max: float = 40.0,
         free_energy_weight: float = 0.0,
+        learn_precision: bool = True,
+        precision_init: float | None = None,
     ):
         super().__init__()
         if n_levels < 1:
@@ -117,12 +119,32 @@ class PCLiquidCore(nn.Module):
         self.tau_min = float(tau_min)
         self.tau_max = float(tau_max)
 
+        # Per-level error PRECISION (inverse-variance), softplus-parameterised.
+        # The predictive-coding tenet (Friston free-energy): reliable, high-
+        # precision errors drive the state more, noisy low-precision ones less.
+        # Here it weights the error in the DRIVE itself (not just an aux loss),
+        # so the core can LEARN to damp unreliable errors during self-fed rollout
+        # — an architectural fix for rollout instability rather than a training
+        # trick. Default init makes softplus(log_precision)==1.0 so a freshly
+        # built model is bit-for-bit identical to the precision-free core (clean
+        # ablation); training is then free to move precisions away from 1.
+        if precision_init is None:
+            precision_init = math.log(math.expm1(1.0))       # softplus(.) == 1.0
+        logp = torch.full((self.n_levels,), float(precision_init))
+        if learn_precision:
+            self.log_precision = nn.Parameter(logp)
+        else:
+            self.register_buffer("log_precision", logp, persistent=True)
+
         # Read next-step prediction from the full multi-timescale state.
         self.readout = nn.Linear(self.n_levels * d, d_in)
 
     def _decay(self) -> torch.Tensor:
         tau = (F.softplus(self.log_tau) + self.tau_min).clamp(self.tau_min, self.tau_max)
         return torch.exp(-self.dt / tau)                     # (L,)
+
+    def _precision(self) -> torch.Tensor:
+        return F.softplus(self.log_precision)                # (L,), > 0
 
     def forward(
         self, x: torch.Tensor, return_aux: bool = False
@@ -134,6 +156,7 @@ class PCLiquidCore(nn.Module):
         """
         B, T, _ = x.shape
         decay = self._decay()                                # (L,)
+        prec = self._precision()                             # (L,) error precisions
         # Initialise level states to zero.
         r = [x.new_zeros(B, self.d) for _ in range(self.n_levels)]
 
@@ -149,17 +172,22 @@ class PCLiquidCore(nn.Module):
                 phat = self.generate[l](r[l])                # predict level l-1 from r_l
                 eps.append(below[l] - phat)                  # error at level l-1
 
-            # 3) liquid update: error from below drives, own top-down error pulls.
+            # 3) liquid update: PRECISION-weighted error from below drives, own
+            #    precision-weighted top-down error pulls. Weighting the error
+            #    residual (not the synaptic map) keeps it a true inverse-variance
+            #    term: prec[l] scales error eps[l] everywhere it appears.
             new_r: List[torch.Tensor] = []
             for l in range(self.n_levels):
-                bu = self.recognize[l](eps[l])               # bottom-up error drive
-                td = eps[l + 1] if l + 1 < self.n_levels else 0.0   # error with level above
+                bu = self.recognize[l](prec[l] * eps[l])     # bottom-up error drive
+                td = prec[l + 1] * eps[l + 1] if l + 1 < self.n_levels else 0.0
                 drive = torch.tanh(bu - td)
                 new_r.append(decay[l] * r[l] + (1.0 - decay[l]) * drive)
             r = new_r
 
             if self.free_energy_weight > 0.0:
-                fe_total = fe_total + sum((e.pow(2).mean() for e in eps))
+                fe_total = fe_total + sum(
+                    (prec[i] * e.pow(2).mean() for i, e in enumerate(eps))
+                )
 
             outs.append(self.readout(torch.cat(r, dim=-1)))  # predict next input
 
