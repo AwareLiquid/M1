@@ -1,6 +1,7 @@
 from .config import MTLNNConfig
 from .model import MTLNNModel, MTLNNBlock, ModelCacheStruct
 from .memory import SessionMemory
+from .knowledge_memory import PersistentKnowledgeMemory
 from .anesthesia import AnesthesiaController, anesthetize
 from .phi_hat import (
     compute_phi_hat,
@@ -174,6 +175,7 @@ __all__ = [
     "MTLNNBlock",
     "ModelCacheStruct",
     "SessionMemory",
+    "PersistentKnowledgeMemory",
     "AnesthesiaController",
     "anesthetize",
     "compute_phi_hat",
