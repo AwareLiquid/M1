@@ -47,20 +47,42 @@ from experiments.liquid_pc.model import build_models, count_params
 # training / evaluation helpers                                               #
 # --------------------------------------------------------------------------- #
 def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
-          lr: float, seed: int = 0) -> None:
-    """Train a next-step predictor with MSE on (x[:, :-1] -> x[:, 1:])."""
+          lr: float, seed: int = 0, ss_max: float = 0.0) -> None:
+    """Train a next-step predictor with MSE on (x[:, :-1] -> x[:, 1:]).
+
+    ``ss_max`` enables *scheduled sampling* (Bengio et al. 2015): with a
+    probability that ramps linearly from 0 to ``ss_max`` over training, each
+    input position is replaced by the model's OWN (teacher-forced, detached)
+    prediction of that position rather than the ground-truth value. This injects
+    the model's errors into its inputs during training so it learns to recover
+    from them — directly targeting autoregressive *rollout* compounding error.
+    The cheap 2-pass approximation is used (one teacher-forced pass to source the
+    predictions, one mixed-input pass for the gradient), applied IDENTICALLY to
+    every model so the comparison stays fair.
+    """
     g = torch.Generator().manual_seed(seed)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     n = x.shape[0]
     model.train()
-    for _ in range(epochs):
+    for ep in range(epochs):
+        p = ss_max * (ep / max(1, epochs - 1)) if ss_max > 0.0 else 0.0
         perm = torch.randperm(n, generator=g)
         for i in range(0, n, batch):
             idx = perm[i:i + batch]
             xb = x[idx]
+            inp, tgt = xb[:, :-1], xb[:, 1:]
             opt.zero_grad()
-            pred = model(xb[:, :-1])
-            loss = nn.functional.mse_loss(pred, xb[:, 1:])
+            if p > 0.0:
+                # pass 1: teacher-forced predictions to mix in (no grad).
+                with torch.no_grad():
+                    yhat = model(inp)                    # (B, L, d): yhat[:,t]=pred x[t+1]
+                B, L, d = inp.shape
+                mask = (torch.rand(B, L - 1, 1, generator=g) < p)
+                repl = yhat[:, :-1]                       # predicts inp positions 1..L-1
+                inp = inp.clone()
+                inp[:, 1:] = torch.where(mask, repl, inp[:, 1:])
+            pred = model(inp)
+            loss = nn.functional.mse_loss(pred, tgt)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
@@ -112,6 +134,8 @@ def main(
     lr: float = 3e-3,
     prime: int = 48,
     seed: int = 0,
+    ss_max: float = 0.0,
+    tag: str = "",
 ) -> Dict:
     torch.manual_seed(seed)
     t0 = time.time()
@@ -127,7 +151,7 @@ def main(
         # rebuild so every model starts from the same seed state
         model = build_models(d_in)[name]
         n_params = count_params(model)
-        train(model, x_tr, epochs=epochs, batch=batch, lr=lr, seed=seed)
+        train(model, x_tr, epochs=epochs, batch=batch, lr=lr, seed=seed, ss_max=ss_max)
         rows[name] = {
             "params": n_params,
             "one_step_mse": one_step_mse(model, x_te),
@@ -145,9 +169,9 @@ def main(
     for name in build_models(d_in):
         torch.manual_seed(seed)
         model = build_models(d_in)[name]
-        train(model, a_tr, epochs=epochs, batch=batch, lr=lr, seed=seed)
+        train(model, a_tr, epochs=epochs, batch=batch, lr=lr, seed=seed, ss_max=ss_max)
         a_err_before = one_step_mse(model, a_te)
-        train(model, b_tr, epochs=epochs, batch=batch, lr=lr, seed=seed + 1)
+        train(model, b_tr, epochs=epochs, batch=batch, lr=lr, seed=seed + 1, ss_max=ss_max)
         a_err_after = one_step_mse(model, a_te)
         forget[name] = {
             "A_before": a_err_before,
@@ -160,20 +184,20 @@ def main(
 
     report = {
         "config": dict(n_seq=n_seq, seq_len=seq_len, d_in=d_in, epochs=epochs,
-                       batch=batch, lr=lr, prime=prime, seed=seed),
+                       batch=batch, lr=lr, prime=prime, seed=seed, ss_max=ss_max),
         "persistence_mse": persist,
         "main": rows,
         "forgetting": forget,
         "seconds": round(time.time() - t0, 1),
     }
-    _save(report)
+    _save(report, tag=tag)
     _print_summary(report)
     return report
 
 
-def _save(report: Dict) -> None:
+def _save(report: Dict, *, tag: str = "") -> None:
     here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, "report.json"), "w") as f:
+    with open(os.path.join(here, f"report{tag}.json"), "w") as f:
         json.dump(report, f, indent=2)
     lines = ["# PC-Liquid-Core validation report", ""]
     lines.append(f"Config: `{report['config']}`  |  runtime {report['seconds']}s")
@@ -197,7 +221,7 @@ def _save(report: Dict) -> None:
         lines.append(f"| {k} | {v['A_before']:.5f} | {v['A_after_B']:.5f} | "
                      f"{v['forgetting']:+.5f} |")
     lines.append("")
-    with open(os.path.join(here, "report.md"), "w") as f:
+    with open(os.path.join(here, f"report{tag}.md"), "w") as f:
         f.write("\n".join(lines))
 
 
