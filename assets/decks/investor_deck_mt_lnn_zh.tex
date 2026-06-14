@@ -185,99 +185,103 @@
 \end{columns}
 \end{frame}
 
-\begin{frame}{近期能力升级 1：空间计算 —— 从"读懂文字"到"理解空间"}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{新增四层空间认知栈}（受海马-内嗅皮层 Bicanski \& Burgess 2021 启发）：
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{L1 网格/位置细胞编码：}把连续坐标转成类脑空间群码，回答"我在哪"。
-    \item \textbf{L2 位置索引联想记忆：}沿轨迹"边走边记"，之后仅凭\textbf{近似位置}即可\textbf{模式补全}召回当时内容——零可训练参数、$O(1)$ 内存、可跨会话持久化。
-    \item \textbf{L3 因果激活引导：}把空间信念稳定在认知流形上，抗长程漂移。
-    \item \textbf{L4 世界模型推演（路线图）：}将空间动力学向前滚动，做"想象/预演"。
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{产品价值：}
-\begin{itemize}\itemsep=0.25em
-    \item 从纯文本扩展到\textbf{具身/空间智能}：机器人巡航、AR/VR 导航、IoT 空间巡检、"空间 RAG"。
-    \item 端侧\textbf{零额外参数}即获一张类脑\textbf{认知地图}，与 $O(1)$ 主干同源——不增显存、不增成本。
-    \item 与文本骨干\textbf{完全解耦}，可作为独立前端即插即用。
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{近期能力升级 2：可验证的数学算子代数 —— 把"黑箱"变"可证明"}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{新增 11 个零参数、与主干完全解耦的算子模块}（吸引子 / 几何 / STDP / 拓扑 / 物理 / 声学 / 空间 / 摄入 / 回放 / 持续评估 / 显著事件），每个模块的行为契约都由\textbf{属性测试钉死}。
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{信息几何：}在概率单纯形上引入 \textbf{Fisher-Rao 度量}（闭式球面等距），让空间码的比较/插值/平均\textbf{度量自洽}，消除欧氏度量在弯曲流形上的误差累积。
-    \item \textbf{配套数学白皮书：}分三档\textbf{诚实标注}"已证明"的含义——闭式恒等式 / 属性测试钉定 / 统计场景，不夸大。
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{产品价值：}
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{企业级可信赖 = 护城河。}不是调参玄学，而是可审计、可复现的算子代数。
-    \item \textbf{967 项测试常驻绿灯}、CPU 两分钟内全过，每条能力主张都有脚本与产物背书。
-    \item 金融/法律/政企等高合规场景的\textbf{硬通货}：行为可被第三方逐条验证。
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{近期能力升级 3：持续学习 —— 端侧"越用越聪明"且不遗忘}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{新增抗灾难性遗忘的持续学习栈}（受海马回放 Rolnick 2019 启发）：
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{有界经验回放：}固定内存、对数据流均匀采样的复习缓冲区——无需知道流长度，把过去样本与实时流交织，喂回模型对抗遗忘。
-    \item \textbf{持续学习度量：}从一张准确率矩阵算出\textbf{遗忘 / 保持 / 迁移}三项指标，让"学了新的会不会忘旧的"\textbf{可量化}。
-    \item \textbf{流式演示：}同一数据流下\textbf{回放 vs 灾难性遗忘}的对照实验，行为由测试钉死。
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{产品价值：}
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{端侧终身学习}：设备本地随用户持续个性化，且不遗忘已掌握的能力——隐私不出端、模型越用越贴合。
-    \item 直击大模型"微调即灾难性遗忘"的行业痛点，是边缘个性化的\textbf{差异化壁垒}。
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{近期能力升级 4：全脑闭环 —— 可运行的自主认知智能体}
-\small
-\textbf{新增端到端整合演示}（\texttt{examples/demo\_cognitive\_agent.py}）：把类脑各层串成\textbf{一个闭环}求解 2D 导航任务，每一环都是\textbf{真实模块、无任何 Mock}：
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{感知}（L1 网格细胞）$\rightarrow$ \textbf{记忆}（L2 空间认知地图，模糊线索模式补全召回）$\rightarrow$ \textbf{注意}（自上而下目标调制：门关=严格空操作，门开=引导主干）$\rightarrow$ \textbf{想象}（L4 潜在推演，零参数、置信度随步衰减）$\rightarrow$ \textbf{行动}。
-    \item \textbf{产品价值：}从"一堆能力"跃迁为\textbf{具身智能体的认知闭环}——把"感知-记忆-推演-决策"的愿景变成\textbf{可运行}的代码。（当前为整合演示原型，非生产成品。）
-\end{itemize}
-\end{frame}
-
-\begin{frame}{近期能力升级 5：从能力到产品 —— 双速哨兵 + 生产化部署}
+\begin{frame}{近期能力升级 1：空间计算 —— 让 AI 在"脑海"里预演世界}
 \small
 \begin{columns}
 \begin{column}{0.56\textwidth}
-\textbf{双速哨兵 (DualSpeedSentry) 商业闭环}——把算子层、世界模型、失效保护、显著事件触发器串成一条产品级回路：
-\begin{itemize}\itemsep=0.2em
-    \item \textbf{感知}（双耳声学定位 ITD/多普勒/测距）$\rightarrow$\textbf{推理}（目标是否在保护区内，每拍重算不存储）$\rightarrow$\textbf{预测}（一步弹道预报产生"惊讶度"）$\rightarrow$\textbf{触发}（仅在真正状态变化时\textbf{唤醒}慢/符号/云层，绝不轮询热循环）$\rightarrow$\textbf{断连续航}（信号中断时按信任预算决定续推或安全停机）$\rightarrow$\textbf{安全执行}（断路器保证执行输出\textbf{恒为有限、在机械限幅内}）。
+\textbf{不止"读懂文字"，更能在脑海里建立一张场景地图，像人一样"先想后做"：}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{模拟事物发展：}把当前局面在脑海里向前推演几步——"接下来会怎样"。
+    \item \textbf{判断事件合理性：}识别"这事儿对不对劲"，不合常理的走向被自动标红，从源头压制\textbf{幻觉}。
+    \item \textbf{物理直觉推演：}"推一下杯子会倒""球会落到哪"——具备朴素的物理与空间常识。
+    \item \textbf{走过即记得：}边走边记，之后凭一个\textbf{大概的位置}就能回忆起当时的情景。
 \end{itemize}
 \end{column}
 \begin{column}{0.44\textwidth}
-\textbf{生产化部署：}
-\begin{itemize}\itemsep=0.2em
-    \item HF 适配器\textbf{服务化路径}（带契约测试）+ 容器打包与运维工具——\textbf{可直接部署}。
+\textbf{对客户的价值：}
+\begin{itemize}\itemsep=0.3em
+    \item 让 AI 从"会说话"升级为"\textbf{会预演、会规划}"——这是自主智能体和机器人的前提。
+    \item 先在脑海里排除不合理方案，\textbf{少胡说、少误操作}，决策更可靠。
+    \item 端侧\textbf{零额外成本}即获这张"认知地图"，可即插即用。
+\end{itemize}
+\end{column}
+\end{columns}
+\vspace{0.3em}
+{\footnotesize\itshape 技术底座：受大脑海马-内嗅皮层启发的空间认知栈（定位 $\rightarrow$ 空间记忆 $\rightarrow$ 世界模型预演），零额外参数、$O(1)$ 内存。世界模型预演当前为演示阶段。}
+\end{frame}
+
+\begin{frame}{近期能力升级 2：可验证的推理内核 —— 每一步都"有据可查、不会偷偷跑偏"}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{什么叫"验证"？}普通大模型是个黑箱——你只能"信它"。我们把推理拆成一块块独立的\textbf{积木}，每块积木该有什么行为，都用数学规则\textbf{写死成自检}，每次构建自动跑一遍：
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{算得对不对，机器自己查。}比如"能量不会凭空多出来""方向算法在弯曲空间里不跑偏""逻辑前后一致"——相当于给 AI 配了一道\textbf{出厂质检关}。
+    \item \textbf{不是"相信我"，而是"你自己跑一遍就知道"}：任何人都能用同一套脚本，逐条复现我们宣称的每一项行为。
+    \item \textbf{有多确定就说多确定：}配套白皮书把结论分三档诚实标注（已严格证明 / 自动测试钉死 / 实验观察），绝不夸大。
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{对客户的价值：}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{可信 = 护城河。}金融、法律、医疗、政企最怕"说不清为什么"——我们的每一步都能被第三方逐条核对。
+    \item 相比黑箱大模型，我们能给出\textbf{行为保证}，而不是"大概率没问题"。
+    \item \textbf{967 项自动测试常驻绿灯}、CPU 两分钟全过，每条能力主张都有脚本和产物背书。
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{近期能力升级 3：持续学习 —— "越用越懂你"，且不会学了新的忘了旧的}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{大模型有个老毛病：}给它学点新东西，往往就把以前会的忘了（业内叫"灾难性遗忘"）。我们让模型像人一样\textbf{温故而知新}：
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{边学新边复习旧。}模型自己保留一小本"错题/要点本"（固定大小、不吃内存），新知识和旧知识穿插着喂，学新不忘旧。
+    \item \textbf{学得好不好，能打分。}用三个直白指标量化——忘了多少、记住多少、能不能举一反三，效果一目了然，不靠感觉。
+    \item \textbf{有现成演示：}同一份数据流下，"会复习"和"不会复习"两种做法的效果对照，结果由自动测试钉死。
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{对客户的价值：}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{端侧终身个性化：}设备本地随用户越用越贴合，\textbf{数据不出端}、隐私不上云。
+    \item 直击"一微调就把本事忘光"的行业痛点，是边缘个性化的\textbf{差异化壁垒}。
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{近期能力升级 4：自主智能体 —— 已经能自己"看→记→想→定→做"跑通全程}
+\small
+\textbf{我们把前面这些能力串成了一个会自己干活的智能体}，让它独立完成一个找路任务。整条链路每一环都是\textbf{真实模块、没有一处造假演示}：
+\begin{itemize}\itemsep=0.4em
+    \item \textbf{看}（感知环境在哪）$\rightarrow$ \textbf{记}（记住到过的地方，凭模糊印象也能想起来）$\rightarrow$ \textbf{想}（在脑海里预演几步"这么走行不行"）$\rightarrow$ \textbf{定}（自上而下盯住目标，分心的念头被关掉）$\rightarrow$ \textbf{做}（输出动作）——闭环自己转起来。
+    \item \textbf{对客户的价值：}这正是\textbf{机器人 / Agent / 数字员工}的核心范式——把"感知-记忆-推演-决策"从 PPT 愿景变成\textbf{能跑的代码}。（当前为打通全流程的整合演示原型，尚非生产成品——我们诚实标注。）
+\end{itemize}
+\end{frame}
+
+\begin{frame}{近期能力升级 5：从能力到产品 —— "快反应 + 慢思考"哨兵，且可直接部署}
+\small
+\begin{columns}
+\begin{column}{0.56\textwidth}
+\textbf{我们做了一个能落地的"哨兵"产品（DualSpeedSentry），工作方式很像人：}
+\begin{itemize}\itemsep=0.35em
+    \item \textbf{平时省电、关键时刻才动脑。}日常用便宜的"条件反射"盯着，只有真出现异常苗头时才\textbf{唤醒"深度思考"}——\textbf{大幅省算力}，不像传统系统一直空转。
+    \item \textbf{掉线也不失控。}信号中断时，它会凭惯性"续推一会儿"或干脆\textbf{安全停机}，绝不乱动。
+    \item \textbf{输出永远在安全范围内。}动作幅度被\textbf{数学上限死}，保证不会输出超出机械极限的危险指令。
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\textbf{可直接部署：}
+\begin{itemize}\itemsep=0.3em
+    \item 配套服务化接口（带验收测试）+ 容器打包与运维工具，\textbf{开箱即可上线}。
 \end{itemize}
 \vspace{0.4em}
-\textbf{产品价值：}
-\begin{itemize}\itemsep=0.2em
-    \item 一条可落地的\textbf{安全关键 / 监测哨兵}垂直产品线（快反射 + 慢审议双速）。
-    \item 失效保护可证明有界，契合\textbf{工业 / 安防 / 国防}的可靠性硬门槛。
+\textbf{对客户的价值：}
+\begin{itemize}\itemsep=0.3em
+    \item 一条可落地的\textbf{安防 / 工业监测 / 国防}垂直产品线：又省算力、又安全、又能马上部署。
 \end{itemize}
 \end{column}
 \end{columns}

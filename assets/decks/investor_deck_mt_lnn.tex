@@ -169,99 +169,103 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{Recent Upgrade 1: Spatial Computing --- From Reading Text to Understanding Space}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{A new four-layer spatial-cognition stack} (inspired by the hippocampal-entorhinal model of Bicanski \& Burgess 2021):
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{L1 Grid/Place-cell encoding:} turns continuous coordinates into a brain-like spatial population code --- answering ``where am I''.
-    \item \textbf{L2 Place-indexed associative memory:} write what you perceive along a trajectory, then recall it later from an \textbf{approximate position} via \textbf{pattern completion} --- \textbf{zero trainable parameters}, $O(1)$ memory, persists across sessions.
-    \item \textbf{L3 Causal activation steering:} keeps the spatial belief on its cognitive manifold, resisting long-range drift.
-    \item \textbf{L4 World-model simulation (roadmap):} roll the spatial dynamics forward to ``imagine / pre-plan''.
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{Product value:}
-\begin{itemize}\itemsep=0.25em
-    \item Extends from text-only to \textbf{embodied / spatial intelligence}: robot navigation, AR/VR wayfinding, IoT spatial inspection, ``spatial RAG''.
-    \item An on-device, brain-like \textbf{cognitive map} at \textbf{zero extra parameters} --- same $O(1)$ DNA as the backbone: no added VRAM, no added cost.
-    \item \textbf{Fully decoupled} from the text backbone --- drops in as a standalone front-end.
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Recent Upgrade 2: A Verifiable Operator Algebra --- Turning the Black Box into Provable Math}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{11 new zero-parameter, fully backbone-decoupled operator modules} (attractor / geometry / STDP / topology / physics / acoustics / spatial / ingest / replay / continual-eval / salience), each with a behavioural contract \textbf{pinned by property tests}.
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{Information geometry:} a \textbf{Fisher-Rao metric} on the probability simplex (closed-form sphere isometry) makes comparing / interpolating / averaging spatial codes \textbf{metric-consistent}, killing the error accumulation a Euclidean metric incurs on a curved manifold.
-    \item \textbf{A companion math white paper} that \textbf{honestly grades} what ``proven'' means --- closed-form identity / property-test-pinned / statistical scenario --- with no over-claiming.
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{Product value:}
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{Enterprise-grade trust = the moat.} Not hyperparameter alchemy, but an auditable, reproducible operator algebra.
-    \item \textbf{967 tests permanently green}, all passing on CPU in under 2 minutes --- every capability claim is backed by a script and an artefact.
-    \item A hard currency for \textbf{high-compliance} finance / legal / public-sector deployments: behaviour verifiable line-by-line by a third party.
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Recent Upgrade 3: Continual Learning --- Gets Smarter On-Device Without Forgetting}
-\small
-\begin{columns}
-\begin{column}{0.58\textwidth}
-\textbf{A new continual-learning stack that fights catastrophic forgetting} (inspired by hippocampal replay, Rolnick 2019):
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{Bounded experience replay:} a fixed-memory rehearsal buffer that samples uniformly over an unbounded stream --- interleaves past examples with the live stream so the model does not wipe out what it already learned.
-    \item \textbf{Continual-learning metrics:} \textbf{forgetting / retention / transfer} computed from one accuracy matrix --- ``does learning the new erase the old'' becomes \textbf{measurable}.
-    \item \textbf{Streaming demo:} a head-to-head \textbf{replay vs catastrophic forgetting} run on the same stream, behaviour pinned by tests.
-\end{itemize}
-\end{column}
-\begin{column}{0.42\textwidth}
-\textbf{Product value:}
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{On-device lifelong learning}: personalizes to each user locally and never forgets prior skills --- privacy stays on the edge, the model fits better the more it is used.
-    \item Directly attacks the industry pain of ``fine-tuning = catastrophic forgetting'' --- a \textbf{differentiated moat} for edge personalization.
-\end{itemize}
-\end{column}
-\end{columns}
-\end{frame}
-
-\begin{frame}{Recent Upgrade 4: Whole-Brain Closed Loop --- A Runnable Autonomous Cognitive Agent}
-\small
-\textbf{A new end-to-end integration demo} (\texttt{examples/demo\_cognitive\_agent.py}) chains the brain-inspired layers into \textbf{one closed loop} solving a 2-D navigation task --- every stage is a \textbf{real module, no mocks}:
-\begin{itemize}\itemsep=0.25em
-    \item \textbf{Perceive} (L1 grid cells) $\rightarrow$ \textbf{Remember} (L2 spatial cognitive map; fuzzy-cue recall = pattern completion) $\rightarrow$ \textbf{Attend} (top-down goal modulation: gate CLOSED = strict no-op, OPEN = steers the backbone) $\rightarrow$ \textbf{Imagine} (L4 latent rollout, zero params, confidence decays) $\rightarrow$ \textbf{Act}.
-    \item \textbf{Product value:} the leap from ``a pile of capabilities'' to an \textbf{embodied agent's cognitive loop} --- the perceive--remember--imagine--decide vision turned into \textbf{runnable} code. (Currently an integration-demo prototype, not a shipped product.)
-\end{itemize}
-\end{frame}
-
-\begin{frame}{Recent Upgrade 5: From Capability to Product --- DualSpeedSentry + Production Serving}
+\begin{frame}{Recent Upgrade 1: Spatial Computing --- Letting the AI ``Rehearse the World'' in Its Mind}
 \small
 \begin{columns}
 \begin{column}{0.56\textwidth}
-\textbf{The DualSpeedSentry commercial loop} wires the operator layers, world model, failsafes and salience trigger into one product-grade pipeline:
-\begin{itemize}\itemsep=0.2em
-    \item \textbf{Perceive} (binaural acoustics: ITD/Doppler/range) $\rightarrow$ \textbf{Reason} (is the target inside the protected zone, recomputed each tick, not stored) $\rightarrow$ \textbf{Predict} (one-step ballistic forecast yields a ``surprise'') $\rightarrow$ \textbf{Trigger} (the slow/symbolic/cloud layer is \textbf{woken} only on a genuine state change, never polled on the hot loop) $\rightarrow$ \textbf{Coast} (on sensor dropout, a trust budget decides dead-reckon vs safe-stop) $\rightarrow$ \textbf{Act safely} (a circuit breaker keeps the actuator output \textbf{always finite, within mechanical limits}).
+\textbf{Beyond just ``reading text'': it builds a mental map of the scene and, like a person, ``thinks before it acts'':}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{Simulates how things unfold:} rolls the current situation forward a few steps in its mind --- ``what happens next''.
+    \item \textbf{Judges plausibility:} spots when ``something feels off''; implausible outcomes get flagged, suppressing \textbf{hallucination} at the source.
+    \item \textbf{Physical intuition:} ``nudge the cup and it tips'', ``where will the ball land'' --- basic physical \& spatial common sense.
+    \item \textbf{Remembers where it has been:} records as it goes, then recalls the scene later from just an \textbf{approximate location}.
 \end{itemize}
 \end{column}
 \begin{column}{0.44\textwidth}
-\textbf{Production serving:}
-\begin{itemize}\itemsep=0.2em
-    \item HF-adapter \textbf{serving path} (with contract tests) + container packaging \& ops tooling --- \textbf{ready to deploy}.
+\textbf{Value to customers:}
+\begin{itemize}\itemsep=0.3em
+    \item Upgrades the AI from ``can talk'' to ``\textbf{can rehearse \& can plan}'' --- the prerequisite for autonomous agents and robots.
+    \item Rules out bad options in its head first: \textbf{less nonsense, fewer wrong actions}, more reliable decisions.
+    \item Gets this ``cognitive map'' at \textbf{zero extra cost} on-device --- plug-and-play.
+\end{itemize}
+\end{column}
+\end{columns}
+\vspace{0.3em}
+{\footnotesize\itshape Technical basis: a hippocampal-entorhinal-inspired spatial-cognition stack (localize $\rightarrow$ spatial memory $\rightarrow$ world-model rollout), zero extra parameters, $O(1)$ memory. World-model rollout is currently at the demo stage.}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 2: A Verifiable Reasoning Core --- Every Step Is ``On the Record, Never Quietly Drifting''}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{What does ``verify'' mean?} A normal LLM is a black box --- you can only ``trust it''. We break the reasoning into independent \textbf{building blocks}, write each block's required behaviour as a \textbf{math rule with a self-check}, and run them automatically on every build:
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{The machine checks its own work.} E.g. ``energy can't appear from nowhere'', ``the direction math doesn't drift on curved spaces'', ``logic stays self-consistent'' --- like a \textbf{factory QA gate} for the AI.
+    \item \textbf{Not ``trust me'' but ``run it yourself''}: anyone can reproduce every claimed behaviour, line by line, with the same scripts.
+    \item \textbf{We state exactly how sure we are:} the companion white paper honestly grades each claim into three tiers (rigorously proven / pinned by automated tests / empirically observed) --- no over-claiming.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{Value to customers:}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{Trust = the moat.} Finance, legal, medical and government fear ``can't explain why'' most --- every step here can be checked by a third party.
+    \item Versus black-box LLMs, we give \textbf{behaviour guarantees}, not ``probably fine''.
+    \item \textbf{967 automated tests permanently green}, all passing on CPU in under 2 min --- every claim backed by a script and an artefact.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 3: Continual Learning --- ``Understands You More Over Time'', Without Forgetting the Old}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{LLMs have an old flaw:} teach them something new and they often forget what they knew (the industry calls it ``catastrophic forgetting''). We make the model \textbf{review the old while learning the new}, like a person:
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{Learns new, reviews old.} The model keeps a small ``key-points notebook'' (fixed size, no memory bloat) and interleaves old knowledge with new, so it learns without forgetting.
+    \item \textbf{You can score how well it learns.} Three plain metrics quantify it --- how much it forgot, how much it kept, whether it can generalize --- no guessing.
+    \item \textbf{There's a ready demo:} on the same data stream, ``with review'' vs ``without review'', side by side, with results pinned by automated tests.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{Value to customers:}
+\begin{itemize}\itemsep=0.3em
+    \item \textbf{On-device lifelong personalization:} fits each user better the more it is used, with \textbf{data staying on the device} --- no cloud.
+    \item Directly attacks the pain of ``fine-tune once and forget everything'' --- a \textbf{differentiated moat} for edge personalization.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 4: Autonomous Agent --- It Already Runs the Full ``See $\rightarrow$ Remember $\rightarrow$ Think $\rightarrow$ Decide $\rightarrow$ Act'' Loop}
+\small
+\textbf{We wired these capabilities into an agent that does the work itself}, letting it solve a wayfinding task on its own. Every stage of the chain is a \textbf{real module --- not a single faked step}:
+\begin{itemize}\itemsep=0.4em
+    \item \textbf{See} (perceive where things are) $\rightarrow$ \textbf{Remember} (recall places it has been, even from a fuzzy impression) $\rightarrow$ \textbf{Think} (rehearse a few steps in its mind: ``does this route work'') $\rightarrow$ \textbf{Decide} (lock onto the goal top-down; distractions are gated off) $\rightarrow$ \textbf{Act} (output a move) --- the loop runs itself.
+    \item \textbf{Value to customers:} this is exactly the core paradigm for \textbf{robots / agents / digital workers} --- turning ``perceive-remember-reason-decide'' from a slide-deck vision into \textbf{code that runs}. (Currently an end-to-end integration-demo prototype, not yet a shipped product --- we label it honestly.)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 5: From Capability to Product --- A ``Fast-Reflex + Slow-Thinking'' Sentry, Ready to Deploy}
+\small
+\begin{columns}
+\begin{column}{0.56\textwidth}
+\textbf{We built a deployable ``sentry'' product (DualSpeedSentry) that works much like a person:}
+\begin{itemize}\itemsep=0.35em
+    \item \textbf{Saves power normally, thinks hard only when it matters.} It watches with a cheap ``reflex'' day to day, and only \textbf{wakes the ``deep thinking''} when a real anomaly appears --- \textbf{big compute savings}, no idle spinning like legacy systems.
+    \item \textbf{Doesn't lose control when offline.} If the signal drops, it ``coasts'' on inertia for a bit or \textbf{stops safely} --- never flails.
+    \item \textbf{Output always stays within safe bounds.} The action magnitude is \textbf{capped by math}, guaranteeing no command beyond mechanical limits.
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\textbf{Ready to deploy:}
+\begin{itemize}\itemsep=0.3em
+    \item A serving interface (with acceptance tests) + container packaging \& ops tooling --- \textbf{live out of the box}.
 \end{itemize}
 \vspace{0.4em}
-\textbf{Product value:}
-\begin{itemize}\itemsep=0.2em
-    \item A deployable \textbf{safety-critical / monitoring-sentry} vertical (fast reflex + slow deliberation, dual-speed).
-    \item Provably bounded failsafes --- meeting the reliability bar of \textbf{industrial / security / defense}.
+\textbf{Value to customers:}
+\begin{itemize}\itemsep=0.3em
+    \item A deployable \textbf{security / industrial-monitoring / defense} vertical: saves compute, stays safe, and ships immediately.
 \end{itemize}
 \end{column}
 \end{columns}
