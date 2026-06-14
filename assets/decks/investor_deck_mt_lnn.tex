@@ -213,6 +213,60 @@
 \end{columns}
 \end{frame}
 
+\begin{frame}{Recent Upgrade 3: Continual Learning --- Gets Smarter On-Device Without Forgetting}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{A new continual-learning stack that fights catastrophic forgetting} (inspired by hippocampal replay, Rolnick 2019):
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{Bounded experience replay:} a fixed-memory rehearsal buffer that samples uniformly over an unbounded stream --- interleaves past examples with the live stream so the model does not wipe out what it already learned.
+    \item \textbf{Continual-learning metrics:} \textbf{forgetting / retention / transfer} computed from one accuracy matrix --- ``does learning the new erase the old'' becomes \textbf{measurable}.
+    \item \textbf{Streaming demo:} a head-to-head \textbf{replay vs catastrophic forgetting} run on the same stream, behaviour pinned by tests.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{Product value:}
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{On-device lifelong learning}: personalizes to each user locally and never forgets prior skills --- privacy stays on the edge, the model fits better the more it is used.
+    \item Directly attacks the industry pain of ``fine-tuning = catastrophic forgetting'' --- a \textbf{differentiated moat} for edge personalization.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 4: Whole-Brain Closed Loop --- A Runnable Autonomous Cognitive Agent}
+\small
+\textbf{A new end-to-end integration demo} (\texttt{examples/demo\_cognitive\_agent.py}) chains the brain-inspired layers into \textbf{one closed loop} solving a 2-D navigation task --- every stage is a \textbf{real module, no mocks}:
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{Perceive} (L1 grid cells) $\rightarrow$ \textbf{Remember} (L2 spatial cognitive map; fuzzy-cue recall = pattern completion) $\rightarrow$ \textbf{Attend} (top-down goal modulation: gate CLOSED = strict no-op, OPEN = steers the backbone) $\rightarrow$ \textbf{Imagine} (L4 latent rollout, zero params, confidence decays) $\rightarrow$ \textbf{Act}.
+    \item \textbf{Product value:} the leap from ``a pile of capabilities'' to an \textbf{embodied agent's cognitive loop} --- the perceive--remember--imagine--decide vision turned into \textbf{runnable} code. (Currently an integration-demo prototype, not a shipped product.)
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Recent Upgrade 5: From Capability to Product --- DualSpeedSentry + Production Serving}
+\small
+\begin{columns}
+\begin{column}{0.56\textwidth}
+\textbf{The DualSpeedSentry commercial loop} wires the operator layers, world model, failsafes and salience trigger into one product-grade pipeline:
+\begin{itemize}\itemsep=0.2em
+    \item \textbf{Perceive} (binaural acoustics: ITD/Doppler/range) $\rightarrow$ \textbf{Reason} (is the target inside the protected zone, recomputed each tick, not stored) $\rightarrow$ \textbf{Predict} (one-step ballistic forecast yields a ``surprise'') $\rightarrow$ \textbf{Trigger} (the slow/symbolic/cloud layer is \textbf{woken} only on a genuine state change, never polled on the hot loop) $\rightarrow$ \textbf{Coast} (on sensor dropout, a trust budget decides dead-reckon vs safe-stop) $\rightarrow$ \textbf{Act safely} (a circuit breaker keeps the actuator output \textbf{always finite, within mechanical limits}).
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\textbf{Production serving:}
+\begin{itemize}\itemsep=0.2em
+    \item HF-adapter \textbf{serving path} (with contract tests) + container packaging \& ops tooling --- \textbf{ready to deploy}.
+\end{itemize}
+\vspace{0.4em}
+\textbf{Product value:}
+\begin{itemize}\itemsep=0.2em
+    \item A deployable \textbf{safety-critical / monitoring-sentry} vertical (fast reflex + slow deliberation, dual-speed).
+    \item Provably bounded failsafes --- meeting the reliability bar of \textbf{industrial / security / defense}.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
 \begin{frame}{Strategic Focus: Reasoning Over Broad Trivia}
 \begin{itemize}
     \item \textbf{Hyper-Specialization:} We dedicate architecture to complex reasoning rather than storing vast arrays of encyclopedia trivia.

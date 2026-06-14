@@ -229,6 +229,60 @@
 \end{columns}
 \end{frame}
 
+\begin{frame}{近期能力升级 3：持续学习 —— 端侧"越用越聪明"且不遗忘}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{新增抗灾难性遗忘的持续学习栈}（受海马回放 Rolnick 2019 启发）：
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{有界经验回放：}固定内存、对数据流均匀采样的复习缓冲区——无需知道流长度，把过去样本与实时流交织，喂回模型对抗遗忘。
+    \item \textbf{持续学习度量：}从一张准确率矩阵算出\textbf{遗忘 / 保持 / 迁移}三项指标，让"学了新的会不会忘旧的"\textbf{可量化}。
+    \item \textbf{流式演示：}同一数据流下\textbf{回放 vs 灾难性遗忘}的对照实验，行为由测试钉死。
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{产品价值：}
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{端侧终身学习}：设备本地随用户持续个性化，且不遗忘已掌握的能力——隐私不出端、模型越用越贴合。
+    \item 直击大模型"微调即灾难性遗忘"的行业痛点，是边缘个性化的\textbf{差异化壁垒}。
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{近期能力升级 4：全脑闭环 —— 可运行的自主认知智能体}
+\small
+\textbf{新增端到端整合演示}（\texttt{examples/demo\_cognitive\_agent.py}）：把类脑各层串成\textbf{一个闭环}求解 2D 导航任务，每一环都是\textbf{真实模块、无任何 Mock}：
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{感知}（L1 网格细胞）$\rightarrow$ \textbf{记忆}（L2 空间认知地图，模糊线索模式补全召回）$\rightarrow$ \textbf{注意}（自上而下目标调制：门关=严格空操作，门开=引导主干）$\rightarrow$ \textbf{想象}（L4 潜在推演，零参数、置信度随步衰减）$\rightarrow$ \textbf{行动}。
+    \item \textbf{产品价值：}从"一堆能力"跃迁为\textbf{具身智能体的认知闭环}——把"感知-记忆-推演-决策"的愿景变成\textbf{可运行}的代码。（当前为整合演示原型，非生产成品。）
+\end{itemize}
+\end{frame}
+
+\begin{frame}{近期能力升级 5：从能力到产品 —— 双速哨兵 + 生产化部署}
+\small
+\begin{columns}
+\begin{column}{0.56\textwidth}
+\textbf{双速哨兵 (DualSpeedSentry) 商业闭环}——把算子层、世界模型、失效保护、显著事件触发器串成一条产品级回路：
+\begin{itemize}\itemsep=0.2em
+    \item \textbf{感知}（双耳声学定位 ITD/多普勒/测距）$\rightarrow$\textbf{推理}（目标是否在保护区内，每拍重算不存储）$\rightarrow$\textbf{预测}（一步弹道预报产生"惊讶度"）$\rightarrow$\textbf{触发}（仅在真正状态变化时\textbf{唤醒}慢/符号/云层，绝不轮询热循环）$\rightarrow$\textbf{断连续航}（信号中断时按信任预算决定续推或安全停机）$\rightarrow$\textbf{安全执行}（断路器保证执行输出\textbf{恒为有限、在机械限幅内}）。
+\end{itemize}
+\end{column}
+\begin{column}{0.44\textwidth}
+\textbf{生产化部署：}
+\begin{itemize}\itemsep=0.2em
+    \item HF 适配器\textbf{服务化路径}（带契约测试）+ 容器打包与运维工具——\textbf{可直接部署}。
+\end{itemize}
+\vspace{0.4em}
+\textbf{产品价值：}
+\begin{itemize}\itemsep=0.2em
+    \item 一条可落地的\textbf{安全关键 / 监测哨兵}垂直产品线（快反射 + 慢审议双速）。
+    \item 失效保护可证明有界，契合\textbf{工业 / 安防 / 国防}的可靠性硬门槛。
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
 \begin{frame}{战略权衡：深度推理优于广度记忆}
 \begin{itemize}
     \item \textbf{聚焦核心推理场景：} 盲目堆叠参数以存储海量“百科常识”对模型运行效率拖累极大。MT-LNN 选择走垂直且高度理性的路线。
