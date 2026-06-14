@@ -330,6 +330,7 @@ mt_lnn/
   phi_spectral.py        Spectral Φ approximation
   quantum_coupling.py    QuantumLateralCoupling (PennyLane); optional
   multimodal.py          Multi-modal token codebook hooks
+  sensory_frontend.py    SensoryFrontend (P1 closed-loop): the temporal front that turns a raw, jittered, dropout-prone sensor stream into backbone-ready tokens -- composes ingest_ops.align_stream (resample onto the core's fixed-dt grid + flag dropout steps) with a trainable multimodal.ModalityProjector (project to d_model); emits a SensoryEncoding (inputs_embeds + coverage/pad mask, the trust signal a BlindRolloutGuard coasts on); trainable nn.Module, but never imports model.py (feeds the backbone via inputs_embeds)
   spatial.py             Spatial frontends: GridCellEncoding, PlaceCellCode (DoG target), PointCloud/Voxel
   spatial_reasoning.py   SpatialReasoner (perception + deliberation; optional causal checker/steerer)
   spatial_memory.py      SpatialMemory (L2; place-indexed associative memory, Hebbian write / pattern-completion read, 0 params)
@@ -430,6 +431,13 @@ examples/demo_topology_failsafe.py  TopologyBreaker as a tripwire on the SHAPE o
                            debounced FSM on the 2nd bad tick, then recovery closes it
                            on the 3rd clean tick -- a zero-param health signal, not a
                            representation edit
+examples/demo_sensory_frontend.py  Close the perception loop: drive SensoryFrontend
+                           with a raw 12-channel stream whose clock jitters and that
+                           drops a burst of frames mid-way -- the stream lands on the
+                           core's fixed-dt grid, the coverage mask flags exactly the
+                           dropout steps (what a BlindRolloutGuard coasts on), and the
+                           projected (B, M, d_model) tokens feed MTLNNModel via
+                           inputs_embeds to finite logits -- zero model.py coupling
 examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone makes a
                            steady approach (wakes nobody), a sharp evasive turn (one
                            salient ignition wakes the slow layer, which forecasts the
@@ -448,7 +456,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (871 tests, all pass)
+tests/                     Full test suite (889 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -456,7 +464,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 871 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (864 tests in ~91s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 889 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (882 tests in ~97s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -472,6 +480,7 @@ Research-grade code. All 871 tests pass (model · rhythm · causality · world-m
 [ok] test_attractor_ops / _properties     fixed point/spectral radius/rate/settling/Lyapunov + basin-probe stability laws
 [ok] test_physics_ops (Verlet block)      velocity Verlet kick-drift-kick + 2nd-order energy/reversibility vs Euler
 [ok] test_failsafe (TopologyBreaker)      SRTD/Betti tripwire ignores jitter, debounced trip on collapse + close on recovery
+[ok] test_sensory_frontend               raw jittered stream -> fixed-dt grid + dropout coverage mask -> d_model tokens feed the backbone, grads only to projector
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
 [ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ
