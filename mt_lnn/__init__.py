@@ -81,6 +81,10 @@ from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer, SteerResult
 from .world_model import PredictiveStateHead
+from .predictive_coding import (
+    HierarchicalPredictiveCoder,
+    PredictiveCodingResult,
+)
 from .imagination import ImaginedTrajectory, LatentImagination
 from .spatial_ops import (
     pairwise_distance,
@@ -270,6 +274,9 @@ __all__ = [
     "CausalActivationSteerer",
     "SteerResult",
     "PredictiveStateHead",
+    # Hierarchical predictive coding: top-down prediction + per-layer error spectrum
+    "HierarchicalPredictiveCoder",
+    "PredictiveCodingResult",
     "ImaginedTrajectory",
     "LatentImagination",
     "pairwise_distance",

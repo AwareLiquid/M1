@@ -153,11 +153,15 @@
 * **测试**：`tests/test_entorhinal_cells.py`（15 项，含尺度等比递增、逐模块周期性、细模块振荡更快、朝向抖动、确定性、HD 峰值/旋转/角度输入、边界墙判别、输入校验）。
 * **后续**：把这套更丰富的码并入 `SpatialCoordEncoder`（L1 输入栈）是下一步联调项。
 
-### 5.4 TODO — 分层预测编码的双向回路（P1）
-* **现状核对**：`world_model.py` 的 `PredictiveStateHead` 已产出 `last_pred_error`（已被 `salience_events.py` 与新调质中枢消费）；但缺**逐层自上而下预测 + 预测误差上行**的完整双向回路。
-* **目标**：扩展自上而下通路 + 逐层预测误差分支，误差直接喂给神经调质中枢（ACh/NE），形成"预测—误差—调质—重调"闭环。
+### 5.4 分层预测编码的双向回路（DONE，2026-06-15）
+* **现状核对**：`world_model.py` 的 `PredictiveStateHead` 已产出 `last_pred_error`（已被 `salience_events.py` 与调质中枢消费），但只是**单头、最后一层**的下一状态预测；缺**逐层自上而下预测 + 预测误差上行**的完整跨深度双向回路。
+* **已落地**：新增**零耦合**观测器 `mt_lnn/predictive_coding.py` 的 `HierarchicalPredictiveCoder`，对一摞逐层激活（低→高）做双向预测编码：
+  * **自上而下预测**：第 `l+1` 层经可训练线性投影预测第 `l` 层（`predictors[l]`，小初始化 std=0.02），残差即**逐层预测误差**上行。
+  * **精度加权编码损失**：每层误差按**可学习精度**（log-precision softplus 参数化，逆方差）加权求和 → 自由能代理项 `coding_loss`，trainer 直接加到 LM loss 即可训练自上而下通路（默认 `detach_target` 停梯度于被预测层，是标准 predictive-coding 选择）。
+  * **逐层 surprise 谱 + 聚合 surprise**：每层 `(1-cos)/2 ∈ [0,1]`，聚合均值写入 `last_pred_error` 缓冲——与 `PredictiveStateHead` **同名同义**，直接 duck-type 进 `salience_events.world_model_surprise` 与 `NeuromodulationController.update(surprise=...)`，形成"预测—误差—调质—重调"闭环（ACh/NE）。
+  * 零耦合 / 默认关闭 / 零回归：只 import `torch`，**不 import `model.py`**，激活由调用方（如 `MTLNNBlock` 前向钩子）传入；**活在 `MTLNNModel` 之外**，模型全局 init pass 不会清零它自带的自上而下预测器；MT-LNN 任何地方都不构造它——不建即无变化，不动 `forward`/`train.py` 热路径。
 * **论文支撑**：Rao & Ballard (1999) 预测编码；Friston (2010) 自由能原理；Bastos et al. (2012) 皮层微回路的预测编码实现。
-* **暂不落地原因**：触及 `forward` 抛出逐层 loss 与 `train.py` 改动，需在调质中枢稳固后逐步合并。
+* **测试**：`tests/test_predictive_coding.py`（15 项，含形状/非均匀宽度、编码损失可训练且梯度达自上而下预测器、`detach_target` 停梯度、surprise∈[0,1] 且训练后收敛趋零、`last_pred_error` 镜像 surprise、`world_model_surprise` 桥接、输入校验、以及 surprise 尖峰经调质中枢抬升 ACh 的联调测试）。
 
 ### 5.5 睡眠-觉醒记忆巩固（DONE，2026-06-15）
 * **现状核对**：已有 `replay.py` 的 `ReservoirBuffer`（水库采样经验回放）与 `PersistentKnowledgeMemory`（陈述性知识库），但缺把二者编排起来的**离线巩固循环**。
@@ -174,4 +178,4 @@
 * **现状核对**：`imagination.py` 的 `LatentImagination` 已能潜空间想象 rollout；缺**期望自由能(EFE)打分**驱动的自主目标选择。
 * **目标**：在 `imagination.py` 上加期望自由能评分（实用价值 + 信息增益），让模型在想象中按 EFE 选择自主目标/动作。
 * **论文支撑**：Friston et al. (2015, 2017) 主动推理与期望自由能；Da Costa et al. (2020) 离散主动推理。
-* **暂不落地原因**：属自主性顶层能力，依赖 5.4 预测编码闭环先就位，最后做。
+* **暂不落地原因**：属自主性顶层能力，依赖的 5.4 预测编码闭环已就位（2026-06-15），可作为下一步最后落地项。
