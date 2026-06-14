@@ -1,0 +1,219 @@
+"""
+experiments/liquid_pc/run.py — end-to-end validation of the integrated
+predictive-coding liquid core vs parameter-matched baselines.
+
+This is the SECOND axis (effectiveness validation), the one the roadmap legend
+says is empty. It is deliberately small, seeded and CPU-runnable so anyone can
+reproduce the numbers. It answers one honest question:
+
+    At a matched parameter budget and the IDENTICAL next-step-MSE objective, does
+    embedding predictive coding into the liquid core's continuous-time dynamics
+    predict a multi-timescale signal better than a GRU / LSTM / Transformer?
+
+It reports:
+  * #params per model (transparency on the "matched budget" claim);
+  * 1-step test MSE;
+  * H-step autoregressive rollout MSE (the harder, longer-horizon test);
+  * a persistence reference (predict x_{t+1}=x_t) for interpretable scale;
+  * a continual-learning probe: train on regime A, then on regime B, and measure
+    how much the A-error degrades (less degradation = less forgetting).
+
+Whatever the result — advantage, parity, or no advantage — it is printed and
+saved verbatim. Validation means finding out, not confirming.
+
+Run:  python -m experiments.liquid_pc.run
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+import time
+from typing import Dict
+
+import torch
+import torch.nn as nn
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from experiments.liquid_pc.data import make_signal, train_test_split, two_regimes
+from experiments.liquid_pc.model import build_models, count_params
+
+
+# --------------------------------------------------------------------------- #
+# training / evaluation helpers                                               #
+# --------------------------------------------------------------------------- #
+def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
+          lr: float, seed: int = 0) -> None:
+    """Train a next-step predictor with MSE on (x[:, :-1] -> x[:, 1:])."""
+    g = torch.Generator().manual_seed(seed)
+    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    n = x.shape[0]
+    model.train()
+    for _ in range(epochs):
+        perm = torch.randperm(n, generator=g)
+        for i in range(0, n, batch):
+            idx = perm[i:i + batch]
+            xb = x[idx]
+            opt.zero_grad()
+            pred = model(xb[:, :-1])
+            loss = nn.functional.mse_loss(pred, xb[:, 1:])
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+    model.eval()
+
+
+@torch.no_grad()
+def one_step_mse(model: nn.Module, x: torch.Tensor) -> float:
+    model.eval()
+    pred = model(x[:, :-1])
+    return nn.functional.mse_loss(pred, x[:, 1:]).item()
+
+
+@torch.no_grad()
+def rollout_mse(model: nn.Module, x: torch.Tensor, *, prime: int) -> float:
+    """H-step autoregressive rollout error, batched across the whole test set.
+
+    Feed the first ``prime`` real steps, then for the remaining horizon feed the
+    model's OWN predictions back in and score against ground truth. Same generic
+    procedure for every model, so the comparison is fair.
+    """
+    model.eval()
+    B, T, d = x.shape
+    seq = x[:, :prime, :].clone()                        # primed context
+    preds = []
+    for t in range(prime, T):
+        nxt = model(seq)[:, -1:, :]                      # predict next from history
+        preds.append(nxt)
+        seq = torch.cat([seq, nxt], dim=1)               # feed prediction back
+    roll = torch.cat(preds, dim=1)                       # (B, T-prime, d)
+    return nn.functional.mse_loss(roll, x[:, prime:, :]).item()
+
+
+def persistence_mse(x: torch.Tensor) -> float:
+    """Naive reference: predict x_{t+1} = x_t."""
+    return nn.functional.mse_loss(x[:, :-1], x[:, 1:]).item()
+
+
+# --------------------------------------------------------------------------- #
+# experiments                                                                 #
+# --------------------------------------------------------------------------- #
+def main(
+    *,
+    n_seq: int = 320,
+    seq_len: int = 96,
+    d_in: int = 1,
+    epochs: int = 40,
+    batch: int = 64,
+    lr: float = 3e-3,
+    prime: int = 48,
+    seed: int = 0,
+) -> Dict:
+    torch.manual_seed(seed)
+    t0 = time.time()
+
+    # ---- main task: one multi-timescale regime --------------------------- #
+    x = make_signal(n_seq, seq_len, d_in, seed=seed)
+    x_tr, x_te = train_test_split(x, 0.8)
+    persist = persistence_mse(x_te)
+
+    rows = {}
+    for name, model in build_models(d_in).items():
+        torch.manual_seed(seed)                          # same init RNG draw order
+        # rebuild so every model starts from the same seed state
+        model = build_models(d_in)[name]
+        n_params = count_params(model)
+        train(model, x_tr, epochs=epochs, batch=batch, lr=lr, seed=seed)
+        rows[name] = {
+            "params": n_params,
+            "one_step_mse": one_step_mse(model, x_te),
+            "rollout_mse": rollout_mse(model, x_te, prime=prime),
+        }
+        print(f"[main] {name:14s} params={n_params:6d} "
+              f"1step={rows[name]['one_step_mse']:.5f} "
+              f"rollout={rows[name]['rollout_mse']:.5f}")
+
+    # ---- continual-learning probe: train A, then B, re-measure A --------- #
+    a, b = two_regimes(n_seq, seq_len, d_in, seed=seed)
+    a_tr, a_te = train_test_split(a, 0.8)
+    b_tr, _ = train_test_split(b, 0.8)
+    forget = {}
+    for name in build_models(d_in):
+        torch.manual_seed(seed)
+        model = build_models(d_in)[name]
+        train(model, a_tr, epochs=epochs, batch=batch, lr=lr, seed=seed)
+        a_err_before = one_step_mse(model, a_te)
+        train(model, b_tr, epochs=epochs, batch=batch, lr=lr, seed=seed + 1)
+        a_err_after = one_step_mse(model, a_te)
+        forget[name] = {
+            "A_before": a_err_before,
+            "A_after_B": a_err_after,
+            "forgetting": a_err_after - a_err_before,
+        }
+        print(f"[forget] {name:14s} A_before={a_err_before:.5f} "
+              f"A_after_B={a_err_after:.5f} "
+              f"forgetting={forget[name]['forgetting']:+.5f}")
+
+    report = {
+        "config": dict(n_seq=n_seq, seq_len=seq_len, d_in=d_in, epochs=epochs,
+                       batch=batch, lr=lr, prime=prime, seed=seed),
+        "persistence_mse": persist,
+        "main": rows,
+        "forgetting": forget,
+        "seconds": round(time.time() - t0, 1),
+    }
+    _save(report)
+    _print_summary(report)
+    return report
+
+
+def _save(report: Dict) -> None:
+    here = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(here, "report.json"), "w") as f:
+        json.dump(report, f, indent=2)
+    lines = ["# PC-Liquid-Core validation report", ""]
+    lines.append(f"Config: `{report['config']}`  |  runtime {report['seconds']}s")
+    lines.append("")
+    lines.append(f"Persistence reference (predict x_t+1=x_t) 1-step MSE: "
+                 f"**{report['persistence_mse']:.5f}**")
+    lines.append("")
+    lines.append("## Main task (multi-timescale signal)")
+    lines.append("")
+    lines.append("| model | #params | 1-step MSE | rollout MSE |")
+    lines.append("|---|---:|---:|---:|")
+    for k, v in report["main"].items():
+        lines.append(f"| {k} | {v['params']} | {v['one_step_mse']:.5f} | "
+                     f"{v['rollout_mse']:.5f} |")
+    lines.append("")
+    lines.append("## Continual-learning probe (train A -> train B, re-measure A)")
+    lines.append("")
+    lines.append("| model | A before | A after B | forgetting (lower=better) |")
+    lines.append("|---|---:|---:|---:|")
+    for k, v in report["forgetting"].items():
+        lines.append(f"| {k} | {v['A_before']:.5f} | {v['A_after_B']:.5f} | "
+                     f"{v['forgetting']:+.5f} |")
+    lines.append("")
+    with open(os.path.join(here, "report.md"), "w") as f:
+        f.write("\n".join(lines))
+
+
+def _print_summary(report: Dict) -> None:
+    main = report["main"]
+    best_1 = min(main, key=lambda k: main[k]["one_step_mse"])
+    best_r = min(main, key=lambda k: main[k]["rollout_mse"])
+    print("\n=== SUMMARY ===")
+    print(f"best 1-step:  {best_1}  ({main[best_1]['one_step_mse']:.5f})")
+    print(f"best rollout: {best_r}  ({main[best_r]['rollout_mse']:.5f})")
+    pc = main.get("PCLiquidCore", {})
+    if pc:
+        print(f"PCLiquidCore: 1-step={pc['one_step_mse']:.5f} "
+              f"rollout={pc['rollout_mse']:.5f}  (wins 1-step: {best_1=='PCLiquidCore'}, "
+              f"wins rollout: {best_r=='PCLiquidCore'})")
+
+
+if __name__ == "__main__":
+    main()
