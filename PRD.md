@@ -76,9 +76,9 @@ KV-cache scales O(N²) with context. Brute-force long-context inference burns A1
 ### Track B — AwareLiquid (P0, headline product)
 
 - **B1** — Ship MT residual adapter that runs on top of any open-weight 1B+ LM, ≤0.2% trainable params, ≥25% PPL improvement, demonstrated on ≥2 base families (Llama + Qwen). **STATUS: ✅ done (Phase 5 + 5b)**
-- **B2** — Per-token reasoning trace: JSONL schema + clickable HTML viewer + quantitative audit (`bench_trace_audit.py`). **STATUS: ✅ scaffolding done, ⏳ real-inference wiring pending (Track 1B below)**
+- **B2** — Per-token reasoning trace: JSONL schema + clickable HTML viewer + quantitative audit (`bench_trace_audit.py`). **STATUS: ✅ done — scaffolding *and* real-inference wiring shipped (`scripts/awareliquid_real_trace_v3.py` hooks `ReasoningTrace` into a real Qwen KV-cache generate loop; artefacts `real_trace_demo.jsonl` / `real_trace_v3_test.jsonl`). Remaining: the *canonical adapter-on Kaggle* trace (Track 1B).**
 - **B3** — Cloud-inject pathway with measurable accuracy uplift on a real LM. **STATUS: ✅ +13.3% on 30-question harness (Qwen-1.5B)**
-- **B4** — End-to-end demo: a user query that triggers local generation, an entropy-spike-triggered cloud inject, a fact absorption, and a full trace artifact for that session. **STATUS: ⏳ pending (Track 1B + 2 below)**
+- **B4** — End-to-end demo: a user query that triggers local generation, an entropy-spike-triggered cloud inject, a fact absorption, and a full trace artifact for that session. **STATUS: ✅ shipped on Qwen-0.5B/CPU smoke (`awareliquid_real_trace_v3.py` emits real per-token entropies, entropy-gated injects, and a session trace; audit `artifacts/real_trace_demo_audit.json`). ⏳ remaining: re-run as the canonical adapter-on session (Track 1B).**
 - **B5** — Public reproducibility: every claim has a script in `scripts/`, a notebook in `kaggle/`, and JSON artefacts in `benchmarks/`. **STATUS: ✅ ongoing**
 
 ### Track A — Research artefact (P1, preserved from v1.1)
@@ -133,8 +133,8 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 | Inject template | `[Absorbed fact] {fact}\nContinuing: Question: {q}\nAnswer:` | ✅ |
 | Real-model accuracy uplift | ≥ +10% on 30-question harness, real HF backend | ✅ +13.3% on Qwen-1.5B |
 | Adapter does not break in-context learning | Same uplift with/without MT adapter loaded | ✅ |
-| Entropy-triggered routing | Local generation routes to cloud inject only when token entropy > threshold | 🔲 wiring pending (B4) |
-| Per-session self-sufficiency metric | `1 - cloud_tokens/total_tokens`, reported per trace | ✅ on synthetic; ⏳ on real inference |
+| Entropy-triggered routing | Local generation routes to cloud inject only when token entropy > threshold | ✅ wired in `awareliquid_real_trace_v3.py` (LOCAL/CLOUD entropy thresholds gate real injects) |
+| Per-session self-sufficiency metric | `1 - cloud_tokens/total_tokens`, reported per trace | ✅ on synthetic **and** on real inference (`artifacts/real_trace_demo_audit.json`) |
 
 ### F3 — Reasoning Trace (Track B, P0)
 
@@ -143,8 +143,8 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 | JSONL schema | One row per token: `(step, token_id, entropy, route, phi)` + separate `route` and `cloud_inject` events | ✅ |
 | `trace_timeline.html` viewer | Single-file HTML; one colored bar per token; click for raw event | ✅ |
 | `bench_trace_audit.py` | Reports route breakdown, self-sufficiency, entropy stats, Φ̂ stats, cost vs full-cloud | ✅ |
-| Real inference emits trace | Hook `ReasoningTrace` into Qwen generate loop, not just synthetic demo | 🔲 pending (Track 1B below) |
-| Demo session bundle | One canonical user-query trace shipped in repo; reproducible from scripts | 🔲 pending (B4) |
+| Real inference emits trace | Hook `ReasoningTrace` into Qwen generate loop, not just synthetic demo | ✅ done (`scripts/awareliquid_real_trace_v3.py`: manual KV-cache token loop emits real per-token entropy/route/inject events) |
+| Demo session bundle | One canonical user-query trace shipped in repo; reproducible from scripts | ✅ Qwen-0.5B/CPU smoke shipped (`real_trace_demo.jsonl`); ⏳ canonical adapter-on rerun pending (Track 1B) |
 
 ### F4 — Public Reproducibility (Track B, P0)
 
@@ -154,7 +154,7 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 | Artefact JSONs | All headline tables back-by-JSON in `benchmarks/` | ✅ |
 | Pinned torch | Kaggle notebooks pin `torch==2.4.1+cu121` to survive P100/T4 random assignment | ✅ |
 | Pitch deck | `assets/decks/Pitch_Deck_MT_LNN.md` reflects current headline numbers | ✅ |
-| Test suite green | All tests pass on CPU in < 2 min | 🔲 verify after Track 1B wiring |
+| Test suite green | All tests pass on CPU in < 2 min | ✅ 967 tests green on CPU (Track 1B wiring landed) |
 
 ### F5 — MT-LNN core architecture (Track A, P1, from v1.1)
 
@@ -279,15 +279,15 @@ Three tracks, sequenced:
 Re-run Phase 5b recipe on **Qwen-3B or Phi-3-mini-3.8B**. Goal: produce non-zero base needle scores so the MT adapter delta becomes measurable. Closes acceptance row "≥3B base needle non-zero." Wall: ~5h Kaggle.
 
 ### Track 1B — Wire ReasoningTrace into real Qwen inference
-Currently traces are synthetic (`scripts/demo_trace_synth.py`). Hook `ReasoningTrace` into the Qwen + adapter generate loop, emit real per-token entropies, route decisions, optional cloud injects. Ship one canonical demo session. Closes B4 + F3 last row. Wall: ~1-2 days code.
+**DONE.** The wiring shipped: `scripts/awareliquid_real_trace_v3.py` hooks `ReasoningTrace` into a real Qwen generate loop (manual KV-cache token loop, real per-token entropies, entropy-gated route/cloud-inject decisions); a synthetic generator (`scripts/demo_trace_synth.py`) is retained only for the UI demo. Artefacts: `real_trace_demo.jsonl` + `real_trace_demo_audit.json`. **Remaining:** re-run as the *canonical adapter-on Kaggle* session (cosmetic — the path itself is proven on the Qwen-0.5B/CPU smoke).
 
 ### Track 2 — Brain-inspired Phase 1 (from `BRAIN_INSPIRED_ROADMAP.md`)
-Currently deferred items that are "首选 / 高优" per roadmap:
-- Dynamic channel gating (κ-based compute skipping)
-- Working memory decay (GWTB upgrade)
-- Predictive coding loss
+**DONE (correcting the earlier "deferred" framing).** All three are wired and **ON by default** in `MTLNNConfig`, and each now has a behavioural-contract test (added 2026-06):
+- Dynamic channel gating (`dynamic_scale_gates=True`) — `tests/test_dynamic_scale_gating.py`. NB: by default the κ-gate only *reweights* scales; real κ-based compute skipping needs `sparse_resonance_kernel=True` (top-k scale selection), also pinned.
+- Working memory decay / GWTB upgrade (`use_decay_wm=True`) — `tests/test_decay_working_memory.py` (the O(1)-vs-O(T) streaming-cache contract).
+- Predictive coding loss (`use_predictive_coding=True`) — `tests/test_predictive_coding_loss.py`.
 
-These are independent of Track B headline metrics but feed the research narrative. Sequence after 1A/1B.
+These feed the research narrative and are independent of Track B headline metrics.
 
 ### Track 3 — arXiv tech report (Track C)
 2-3 page short paper bundling Phase 5 + 5b + cloud-inject + trace audit + (if done) Track 1A 3B-scale results. Wall: ~1 week.
