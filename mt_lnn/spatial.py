@@ -62,6 +62,9 @@ import torch.nn as nn
 
 __all__ = [
     "GridCellEncoding",
+    "MultiScaleGridCellModules",
+    "HeadDirectionCells",
+    "BoundaryDistanceCells",
     "PlaceCellCode",
     "SpatialCoordEncoder",
     "PointCloudEncoder",
@@ -157,6 +160,256 @@ class GridCellEncoding(nn.Module):
         # phase[b,n,j] = <coords[b,n,:], wave_vectors[j,:]>  → (B, N, n_waves)
         phase = torch.matmul(coords, self.wave_vectors.t())
         return torch.cat([torch.cos(phase), torch.sin(phase)], dim=-1)
+
+
+# ---------------------------------------------------------------------------
+# Multi-module entorhinal code: grid modules + head-direction + boundary cells
+# ---------------------------------------------------------------------------
+#
+# Why a *new* class alongside GridCellEncoding (not an edit of it)
+# ---------------------------------------------------------------
+# GridCellEncoding is a single fixed feature map that *flattens* all scales into
+# one vector with a shared lattice orientation and zero phase offset. Real
+# entorhinal cortex is organised into 4-5 discrete **grid modules** (Stensola et
+# al. 2012): each module is an independent population with (a) its own spatial
+# scale in a geometric ~1.4 progression, (b) its own lattice *orientation*, and
+# (c) its own spatial *phase*. Position is read out from the *joint* state of all
+# modules — a combinatorial code far richer than one flattened map. Two
+# companion cell types complete the metric: **head-direction cells** (heading)
+# and **boundary cells** (egocentric distance to walls). These three together
+# are the cortical substrate for vector navigation (Banino et al. 2018).
+#
+# Keeping GridCellEncoding untouched preserves the existing, tested SpatialCoord/
+# PointCloud encoders bit-for-bit (zero regression); the richer code is strictly
+# additive and opt-in.
+
+
+class MultiScaleGridCellModules(nn.Module):
+    """A bank of independent hexagonal **grid modules** (Stensola et al. 2012).
+
+    Maps ``(B, N, 2) -> (B, N, n_modules*6)``. Each module is a faithful
+    three-cosine grid cell at its own scale, with an independent lattice
+    *orientation* and *phase* offset, mirroring how adjacent entorhinal modules
+    are rotated and shifted relative to one another. The per-module channels are
+    laid out contiguously as ``[cos d0, cos d1, cos d2, sin d0, sin d1, sin d2]``
+    so a single module's 6-d code is sliceable (see :meth:`module_code`).
+
+    This is a *deterministic, non-trainable* feature map — orientations, phases
+    and wave vectors are registered buffers seeded reproducibly, so the module
+    adds **zero learnable parameters** and is reproducible across runs/devices.
+    (2-D only: hexagonal grid cells are an intrinsically planar phenomenon. For
+    1-D/3-D coordinates use :class:`GridCellEncoding`'s Fourier-feature path.)
+
+    Parameters
+    ----------
+    n_modules : number of grid modules (4-5 in rodent entorhinal cortex).
+    base_wavelength : largest module's grid spacing, in normalised coord units.
+    scale_ratio : geometric ratio between adjacent module scales (~1.4 measured;
+        Stensola et al. report a mean ratio close to 1.42).
+    orientation_jitter : if True (default) each module gets its own lattice
+        orientation drawn in ``[0, 60°)`` (the hexagon's symmetry period); if
+        False all modules share orientation 0 (useful for clean tests).
+    phase_jitter : if True (default) each module/direction gets its own phase
+        offset in ``[0, 2π)``; if False all phases are 0.
+    seed : RNG seed for the orientation/phase layout (independent of global RNG).
+    """
+
+    def __init__(
+        self,
+        n_modules: int = 4,
+        base_wavelength: float = 1.0,
+        scale_ratio: float = 1.4,
+        orientation_jitter: bool = True,
+        phase_jitter: bool = True,
+        seed: int = 0,
+    ):
+        super().__init__()
+        if n_modules < 1:
+            raise ValueError(f"n_modules must be >= 1, got {n_modules}")
+        if base_wavelength <= 0:
+            raise ValueError(f"base_wavelength must be > 0, got {base_wavelength}")
+        if scale_ratio <= 1.0:
+            raise ValueError(f"scale_ratio must be > 1, got {scale_ratio}")
+        self.n_modules = n_modules
+        self.coord_dim = 2
+        self.cells_per_module = 6                       # 3 directions × {cos, sin}
+        self.out_dim = n_modules * self.cells_per_module
+
+        # Geometric scale progression → per-module angular frequency ω = 2π/λ.
+        idx = torch.arange(n_modules).float()
+        wavelengths = base_wavelength / (scale_ratio ** idx)        # (M,)
+        omegas = (2.0 * math.pi) / wavelengths                      # (M,)
+
+        g = torch.Generator().manual_seed(int(seed))
+        # Per-module lattice orientation in [0, 60°): the hexagon is 60°-periodic.
+        if orientation_jitter:
+            theta0 = torch.rand(n_modules, generator=g) * (math.pi / 3.0)
+        else:
+            theta0 = torch.zeros(n_modules)
+        # Three lattice directions 60° apart, rotated by the module orientation.
+        base_angles = torch.tensor([0.0, math.pi / 3.0, 2.0 * math.pi / 3.0])
+        angles = theta0[:, None] + base_angles[None, :]            # (M, 3)
+        dirs = torch.stack([torch.cos(angles), torch.sin(angles)], dim=-1)  # (M,3,2)
+        wave_vectors = omegas[:, None, None] * dirs                # (M, 3, 2)
+
+        # Per (module, direction) spatial phase offset.
+        if phase_jitter:
+            phase_offsets = torch.rand(n_modules, 3, generator=g) * (2.0 * math.pi)
+        else:
+            phase_offsets = torch.zeros(n_modules, 3)
+
+        self.register_buffer("wave_vectors", wave_vectors, persistent=True)
+        self.register_buffer("phase_offsets", phase_offsets, persistent=True)
+        self.register_buffer("module_wavelengths", wavelengths, persistent=True)
+
+    def forward(self, coords: torch.Tensor) -> torch.Tensor:
+        if coords.dim() != 3 or coords.shape[-1] != 2:
+            raise ValueError(
+                f"expected (B, N, 2), got shape {tuple(coords.shape)}"
+            )
+        # phase[b,n,m,d] = <coords[b,n,:], wave_vectors[m,d,:]> + phase_offsets[m,d]
+        phase = torch.einsum("bnc,mdc->bnmd", coords, self.wave_vectors)
+        phase = phase + self.phase_offsets                          # (B,N,M,3)
+        block = torch.cat([torch.cos(phase), torch.sin(phase)], dim=-1)  # (B,N,M,6)
+        return block.reshape(coords.shape[0], coords.shape[1], self.out_dim)
+
+    def module_code(self, coords: torch.Tensor, m: int) -> torch.Tensor:
+        """Slice out a single module's 6-d code: ``(B, N, 6)``."""
+        if not 0 <= m < self.n_modules:
+            raise IndexError(f"module index {m} outside [0, {self.n_modules})")
+        full = self.forward(coords)
+        s = m * self.cells_per_module
+        return full[..., s : s + self.cells_per_module]
+
+
+class HeadDirectionCells(nn.Module):
+    """Head-direction population code (Taube et al. 1990).
+
+    Maps a heading to a ring of cosine-tuned cells. Accepts either a 2-D heading
+    **vector** ``(B, N, 2)`` (e.g. a velocity direction; magnitude ignored) or a
+    scalar **angle** ``(B, N, 1)`` in radians, and returns ``(B, N, n_cells)``
+    von Mises tuning responses in ``(0, 1]`` that peak when the heading matches a
+    cell's preferred direction. Deterministic, **zero learnable parameters**.
+
+    Parameters
+    ----------
+    n_cells : number of preferred directions, spaced evenly on the circle.
+    concentration : von Mises ``κ`` — tuning sharpness (higher = narrower bump).
+    """
+
+    def __init__(self, n_cells: int = 12, concentration: float = 4.0):
+        super().__init__()
+        if n_cells < 1:
+            raise ValueError(f"n_cells must be >= 1, got {n_cells}")
+        if concentration <= 0:
+            raise ValueError(f"concentration must be > 0, got {concentration}")
+        self.n_cells = n_cells
+        self.out_dim = n_cells
+        self.kappa = float(concentration)
+        preferred = 2.0 * math.pi * torch.arange(n_cells).float() / n_cells
+        self.register_buffer("preferred_dirs", preferred, persistent=True)  # (n_cells,)
+
+    def forward(self, heading: torch.Tensor) -> torch.Tensor:
+        if heading.dim() != 3:
+            raise ValueError(
+                f"expected (B, N, 2) vector or (B, N, 1) angle, "
+                f"got shape {tuple(heading.shape)}"
+            )
+        last = heading.shape[-1]
+        if last == 2:
+            theta = torch.atan2(heading[..., 1], heading[..., 0])     # (B, N)
+        elif last == 1:
+            theta = heading[..., 0]                                   # (B, N)
+        else:
+            raise ValueError(
+                f"last dim must be 2 (vector) or 1 (angle), got {last}"
+            )
+        diff = theta[..., None] - self.preferred_dirs                 # (B, N, n_cells)
+        # von Mises, normalised so the peak (diff=0) is exactly 1.
+        return torch.exp(self.kappa * (torch.cos(diff) - 1.0))
+
+
+class BoundaryDistanceCells(nn.Module):
+    """Boundary / border-cell code: distance-tuned responses to arena walls.
+
+    Maps a position ``(B, …, coord_dim) -> (B, …, n_walls*n_dist)``. Border cells
+    (Solstad et al. 2008; Lever et al. 2009) fire when the animal is at a
+    characteristic distance from an environmental boundary. For a rectangular
+    arena of given extent there are ``2*coord_dim`` walls (a low and a high wall
+    per axis); each wall carries ``n_dist`` cells tuned to preferred distances
+    via a Gaussian, so a cell is most active when its wall is exactly its
+    preferred distance away. Deterministic, **zero learnable parameters**.
+
+    This is the rectangular-arena, axis-aligned simplification of full boundary-
+    *vector* cells (which are additionally tuned to allocentric direction); it
+    captures the defining border-cell property — firing locked to proximity to a
+    specific boundary — without assuming arbitrary arena geometry.
+
+    Parameters
+    ----------
+    arena : arena extent. A float (square/cube ``[0, arena]^coord_dim``) or a
+        per-axis sequence of length ``coord_dim``. Positions are assumed to lie
+        in ``[0, extent]`` per axis.
+    coord_dim : spatial dimensionality (2 for the planar grid-cell case).
+    n_dist : number of distance-tuned cells per wall.
+    sigma : Gaussian tuning width (in arena units).
+    max_dist : largest preferred distance (default: half the smallest extent, so
+        the farthest cell peaks at arena centre). Preferred distances are spaced
+        evenly in ``[0, max_dist]``.
+    """
+
+    def __init__(
+        self,
+        arena: float = 1.0,
+        coord_dim: int = 2,
+        n_dist: int = 4,
+        sigma: float = 0.1,
+        max_dist: Optional[float] = None,
+    ):
+        super().__init__()
+        if coord_dim < 1:
+            raise ValueError(f"coord_dim must be >= 1, got {coord_dim}")
+        if n_dist < 1:
+            raise ValueError(f"n_dist must be >= 1, got {n_dist}")
+        if sigma <= 0:
+            raise ValueError(f"sigma must be > 0, got {sigma}")
+        self.coord_dim = coord_dim
+        self.n_dist = n_dist
+        self.n_walls = 2 * coord_dim
+        self.out_dim = self.n_walls * n_dist
+        self.sigma = float(sigma)
+
+        if isinstance(arena, (int, float)):
+            extent = torch.full((coord_dim,), float(arena))
+        else:
+            extent = torch.as_tensor(arena, dtype=torch.float32)
+            if extent.shape != (coord_dim,):
+                raise ValueError(
+                    f"arena sequence must have length coord_dim={coord_dim}, "
+                    f"got shape {tuple(extent.shape)}"
+                )
+        self.register_buffer("extent", extent, persistent=True)
+
+        if max_dist is None:
+            max_dist = float(extent.min()) / 2.0
+        pref = torch.linspace(0.0, float(max_dist), n_dist)         # (n_dist,)
+        self.register_buffer("pref_dist", pref, persistent=True)
+
+    def forward(self, pos: torch.Tensor) -> torch.Tensor:
+        if pos.shape[-1] != self.coord_dim:
+            raise ValueError(
+                f"expected positions (…, coord_dim={self.coord_dim}), "
+                f"got shape {tuple(pos.shape)}"
+            )
+        extent = self.extent.to(pos.dtype)
+        # Signed distance to the low wall (= coordinate) and high wall per axis.
+        low = pos                                                   # (…, coord_dim)
+        high = extent - pos                                         # (…, coord_dim)
+        dists = torch.cat([low, high], dim=-1)                      # (…, n_walls)
+        # Gaussian tuning of each wall-distance to each preferred distance.
+        d = dists[..., None] - self.pref_dist.to(pos.dtype)         # (…, n_walls, n_dist)
+        r = torch.exp(-(d * d) / (2.0 * self.sigma * self.sigma))
+        return r.reshape(*pos.shape[:-1], self.out_dim)
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,9 @@ from .multimodal import (
 )
 from .spatial import (
     GridCellEncoding,
+    MultiScaleGridCellModules,
+    HeadDirectionCells,
+    BoundaryDistanceCells,
     PlaceCellCode,
     SpatialCoordEncoder,
     PointCloudEncoder,
@@ -212,6 +215,10 @@ __all__ = [
     "build_modality_pad_mask",
     # Spatial computation frontends (grid-cell code, point clouds, voxels)
     "GridCellEncoding",
+    # Multi-module entorhinal code: grid modules + head-direction + boundary cells
+    "MultiScaleGridCellModules",
+    "HeadDirectionCells",
+    "BoundaryDistanceCells",
     "PlaceCellCode",
     "SpatialCoordEncoder",
     "PointCloudEncoder",
