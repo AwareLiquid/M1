@@ -146,8 +146,37 @@ class GWTBLayer(nn.Module):
             self.register_buffer(
                 "last_active_bandwidth", torch.ones(()), persistent=False
             )
+            # Neuromodulatory hook (acetylcholine → workspace bandwidth). An
+            # external NeuromodulationController may push a scalar offset onto the
+            # gate bias to *widen* (positive) or *narrow* (negative) how many
+            # bottleneck channels ignite, mirroring how ACh tracks expected
+            # uncertainty and broadens cortical sampling under volatile input.
+            # Non-persistent, zero at init → the default path is bit-identical to
+            # the un-modulated gate (zero regression). Never trained; set only via
+            # set_bandwidth_bias_offset(), so it survives the global init pass.
+            self.register_buffer(
+                "_bandwidth_bias_offset", torch.zeros(()), persistent=False
+            )
 
         self._build_causal(config.max_seq_len)
+
+    def set_bandwidth_bias_offset(self, offset: float) -> None:
+        """Push a neuromodulatory offset onto the dynamic-bandwidth gate bias.
+
+        Called by an external controller (e.g. the acetylcholine gate of
+        :class:`mt_lnn.neuromodulation.NeuromodulationController`). Positive
+        offset widens the ignition bandwidth (more channels fire), negative
+        narrows it. No-op unless dynamic bandwidth is enabled. Resetting to 0.0
+        restores the exact un-modulated behaviour, keeping the feature rollback-
+        able and zero-regression.
+        """
+        if not self.dynamic_bandwidth:
+            return
+        self._bandwidth_bias_offset = torch.as_tensor(
+            float(offset),
+            dtype=self.bandwidth_gate_bias.dtype,
+            device=self.bandwidth_gate_bias.device,
+        )
 
     # ------------------------------------------------------------------
     # Dynamic workspace bandwidth gate
@@ -166,7 +195,10 @@ class GWTBLayer(nn.Module):
 
         # g ∈ (0,1)^d_gw — how strongly each bottleneck channel ignites for this
         # token. Input-dependent once W_g has learned (zero at init → constant).
-        g = torch.sigmoid(F.linear(z, self.bandwidth_gate_weight, self.bandwidth_gate_bias))
+        # The acetylcholine offset (0.0 unless an external controller set it)
+        # shifts every channel's bias up/down together: high ACh → wider workspace.
+        bias = self.bandwidth_gate_bias + self._bandwidth_bias_offset
+        g = torch.sigmoid(F.linear(z, self.bandwidth_gate_weight, bias))
 
         if (not self.training) and self.bandwidth_hard_mask:
             # Inference compute-saving: channels below threshold are treated as

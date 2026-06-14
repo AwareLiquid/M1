@@ -145,6 +145,7 @@ from .pipeline import (
     PerceptionEvent,
 )
 from .plasticity import HebbianRegularizer
+from .neuromodulation import NeuromodulationController, NeuromodulatorState
 from .cloud_client import (
     OracleClient,
     OracleResult,
@@ -315,6 +316,9 @@ __all__ = [
     "SentryTick",
     "PerceptionEvent",
     "HebbianRegularizer",
+    # Multi-neuromodulator global regulator (DA/ACh/5HT/NE orchestration hub)
+    "NeuromodulationController",
+    "NeuromodulatorState",
     "OracleClient",
     "OracleResult",
     "MockOracleClient",

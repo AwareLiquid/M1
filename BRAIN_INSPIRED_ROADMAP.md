@@ -114,3 +114,54 @@
 ### 4.5 落地战略（NOW，叙事项）：主攻连续时间流，避开 LLM 红海
 * 类脑原生优势在**连续、实时、低功耗、高可靠的流式场景**，而非离散文本批处理。已有布局（双速引擎 `pipeline.py`、failsafe 安全体系 `failsafe.py`、空间认知+物理推演）天然服务于机器人/工业控制等物理世界场景。
 * **对外材料一律不提 MMLU/GLUE 等传统 LLM 榜单**，主动把战场划到连续流 / 端侧 / 高可靠这些 Transformer 进不来的领域（已贯彻到投资人 deck 的"近期能力升级"与战略页）。
+
+---
+
+## 第五阶段：深度类脑模拟的四层进阶（2026-06-15 评审，前沿论文支撑）
+
+> 同一底线：可选开关、默认关闭、零回归、可回滚；零 `model.py` 耦合；不把连续时间动力学改成离散步进、不把液态核改成注意力为主。能立即做且零回归的先落地（带注释+测试），其余诚实写入 TODO，不过度宣称"已实现"。
+
+### 5.1 多神经调质全局调节器（DONE，2026-06-15）—— "联调中枢"
+* **现状核对**：四个调节"靶点"在代码里**已各自存在**，但缺一个统一的慢速调质总线把它们编排起来：
+  * 多巴胺(DA) 靶点 → `plasticity.py` 的 `HebbianRegularizer.base_lr`（可塑性学习率）；
+  * 乙酰胆碱(ACh) 靶点 → `gwtb.py` 刚建的动态带宽门（工作空间点火带宽）；
+  * 血清素(5-HT) 靶点 → `mt_lnn_layer.py` 的液态时间常数 τ（积分耐心）；
+  * 去甲肾上腺素(NE) 靶点 → 响应增益（标量乘子）。
+* **已落地**：新增**零耦合**模块 `mt_lnn/neuromodulation.py` 的 `NeuromodulationController`：
+  * 纯 Python + 标准库 `math`，**非 `nn.Module`、零可训练参数**（一条慢速调质总线，不是被学习的层）；**不 import** `model.py`/`gwtb.py`/`plasticity.py`。
+  * 输入四路可观测信号（reward/surprise/risk/arousal），各自用 EMA 基线做 z-score（响应**变化**而非绝对值，对应相位性 DA/NE 编码预测误差），输出四路调质标量 ∈[0,1]，0.5 为中性基线。
+  * **真正的联调**：`modulate_gwtb(layer)` 通过 duck-typing 把 ACh 推到 GWT 动态带宽门 —— 新增 `GWTBLayer.set_bandwidth_bias_offset()` 钩子，把 ACh 偏置叠加到门控 bias（高 ACh→工作空间变宽、更多通道点火，对应 Yu & Dayan 2005 的"预期不确定性→拓宽皮层采样"）。`modulate_hebbian(reg)` 把 DA 缩放到 Hebbian 学习率。
+  * 零回归契约：从不被模型自动构造；中性状态(0.5) 下所有读出为恒等（×1.0 / +0.0），ACh 偏置缺省 0.0 → GWT 路径逐位一致；不调用即与原模型完全相同，复位即回滚。
+  * 测试：`tests/test_neuromodulation.py`（15 项，含中性恒等、相位响应、通道独立、读出值域/方向、ACh→GWT 真实改变输出、缺钩子安全 no-op、DA→Hebbian 缩放、零耦合断言）。
+* **论文支撑**：Yu & Dayan (2005) ACh/NE 双不确定性；Aston-Jones & Cohen (2005) NE 增益/网络重置；Schultz et al. (1997) DA 奖励预测误差；Cools et al. 5-HT 行为抑制/耐心。
+* **类脑契合**：把"四种弥散性调质广播全局慢标量、按需重调整个皮层"这一机制落到 MT-LNN —— 现有模块从此被一个生物级调质总线统一编排。
+
+### 5.2 TODO — 星形胶质细胞门控的可塑性（P2）
+* **现状核对**：`plasticity.py` 的 Hebbian 可塑性是逐步即时的；缺**胶质细胞慢时间尺度门控**（数十秒级三方突触调节）。
+* **目标**：在 `HebbianRegularizer` 外挂一个 `AstrocyteGate`（独立模块），以更慢的钙波时间尺度调制巩固强度，并与 `spatial_memory` 的离线巩固联动。
+* **论文支撑**：三方突触（Araque et al. 1999）、星形胶质钙信号门控可塑性（De Pittà et al. 2016）。
+* **暂不落地原因**：需与可塑性+空间记忆双向联调，属壁垒加深、非路演必需，先入路线图。
+
+### 5.3 TODO — 多尺度网格细胞模块（P1，空间栈纵深）
+* **现状核对**：`spatial.py` 已有 `GridCellEncoding` / `PlaceCellCode`，但是**单一尺度**；生物内嗅皮层是 4–5 个比例约 1.4 递增的**网格模块** + 头方向细胞 + 边界细胞协同。
+* **目标**：把 L1 升级为多尺度网格模块组（ratio≈1.4）+ 头方向细胞 + 边界细胞，提供可组合、抗混叠的度量空间码。
+* **论文支撑**：Hafting et al. (2005) 网格细胞；Stensola et al. (2012) 网格模块离散化；Banino et al. (2018, DeepMind) 网格码涌现支撑向量导航。
+* **暂不落地原因**：改动可控但需与空间推理/物理算子回归联调，排在调质中枢之后。
+
+### 5.4 TODO — 分层预测编码的双向回路（P1）
+* **现状核对**：`world_model.py` 的 `PredictiveStateHead` 已产出 `last_pred_error`（已被 `salience_events.py` 与新调质中枢消费）；但缺**逐层自上而下预测 + 预测误差上行**的完整双向回路。
+* **目标**：扩展自上而下通路 + 逐层预测误差分支，误差直接喂给神经调质中枢（ACh/NE），形成"预测—误差—调质—重调"闭环。
+* **论文支撑**：Rao & Ballard (1999) 预测编码；Friston (2010) 自由能原理；Bastos et al. (2012) 皮层微回路的预测编码实现。
+* **暂不落地原因**：触及 `forward` 抛出逐层 loss 与 `train.py` 改动，需在调质中枢稳固后逐步合并。
+
+### 5.5 TODO — 睡眠-觉醒记忆巩固（P1）
+* **现状核对**：已有 `replay.py` 雏形与 `PersistentKnowledgeMemory`；缺**离线巩固循环**（NREM 回放 + 突触缩放 + REM 生成式重组）。
+* **目标**：新增 `mt_lnn/sleep_consolidation.py`，离线把工作记忆/经验回放进陈述性知识库，做突触稳态下调（synaptic downscaling），REM 阶段生成式增广。
+* **论文支撑**：Tononi & Cirelli (2014) 突触稳态假说(SHY)；Wilson & McNaughton (1994) 海马回放；Diekelmann & Born (2010) 睡眠的记忆巩固。
+* **暂不落地原因**：需与三层记忆 + 回放联调，属长期能力，先入路线图。
+
+### 5.6 TODO — 主动推理的自主目标（P2）
+* **现状核对**：`imagination.py` 的 `LatentImagination` 已能潜空间想象 rollout；缺**期望自由能(EFE)打分**驱动的自主目标选择。
+* **目标**：在 `imagination.py` 上加期望自由能评分（实用价值 + 信息增益），让模型在想象中按 EFE 选择自主目标/动作。
+* **论文支撑**：Friston et al. (2015, 2017) 主动推理与期望自由能；Da Costa et al. (2020) 离散主动推理。
+* **暂不落地原因**：属自主性顶层能力，依赖 5.4 预测编码闭环先就位，最后做。
