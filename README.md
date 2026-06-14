@@ -467,6 +467,14 @@ examples/demo_cognitive_agent.py  The whole brain as one loop: an agent in a 2-D
                            on the world model then going DARK ("lost perception, stop"),
                            and CLAMPS its steering command to a safe envelope; ASCII map
                            + per-stage report + verdict
+examples/demo_streaming_continual.py  Streaming continual learning on the real
+                           MTLNNModel: the SAME task sequence trained twice -- naive
+                           sequential training catastrophically forgets (final accuracy
+                           collapses to ~1/n_tasks, forgetting measure ~1.0), while
+                           interleaving a bounded reservoir-replay buffer (replay.py)
+                           preserves every old task (forgetting ~0, accuracy ~1.0) and
+                           adds ZERO model params; scored with the catastrophic-forgetting
+                           metrics (continual_eval.py); ASCII accuracy matrices + verdict
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
@@ -476,7 +484,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (915 tests, all pass)
+tests/                     Full test suite (945 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -484,7 +492,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 915 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (908 tests in ~99s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 945 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent + streaming continual learning). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (933 tests in ~99s, deselecting the 12 `slow` tests that train a model or download CLIP weights — the full run is ~8 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4

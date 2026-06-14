@@ -53,6 +53,7 @@ def result():
 
 # --- the headline: forgetting is real, replay cures it ---------------------
 
+@pytest.mark.slow
 def test_naive_training_catastrophically_forgets(result):
     naive = result["naive"]
     # final accuracy collapses toward "only the last task" = 1/n_tasks
@@ -61,6 +62,7 @@ def test_naive_training_catastrophically_forgets(result):
     assert naive.backward_transfer < -0.5  # earlier tasks wiped
 
 
+@pytest.mark.slow
 def test_replay_retains_while_still_learning(result):
     naive, replay = result["naive"], result["replay"]
     assert replay.learning_accuracy >= naive.learning_accuracy - 0.15  # learns it
@@ -69,12 +71,14 @@ def test_replay_retains_while_still_learning(result):
     assert replay.average_accuracy > 0.75                              # actually good
 
 
+@pytest.mark.slow
 def test_replay_adds_zero_parameters(result):
     # replay is data rehearsal: the verdict's own checks must all be satisfied
     assert all(result["checks"].values())
     assert result["ok"]
 
 
+@pytest.mark.slow
 def test_accuracy_matrices_are_square(result):
     n = result["args"].n_tasks
     for key in ("naive_R", "replay_R"):
@@ -111,6 +115,7 @@ def test_build_tasks_have_distinct_nonzero_shifts():
 
 # --- report ----------------------------------------------------------------
 
+@pytest.mark.slow
 def test_report_prints_ascii_ok_verdict(result, capsys):
     print_report(result)
     out = capsys.readouterr().out

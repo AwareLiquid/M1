@@ -553,7 +553,17 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 真生效)。唯一动 model.py 的是 top_down,其余层全部 0 参数、零 model.py 耦合;均确定性、纯 ASCII、秒级。
 `tests/test_demo_cognitive_agent.py` 10 项测试固定其端到端契约(六阶段逐项 + 整环判决 + 报告)。
 
-**Test coverage**: 915 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**流式持续学习 demo (`examples/demo_streaming_continual.py`)**:把 P2 的"流式训练 + 回放 + 持续学习评测"落成一个可跑文件,
+在**真实 MTLNNModel** 上证明回放对抗灾难性遗忘。同一任务序列(每个任务由前缀任务 token 标识、规则为该任务特定的循环移位
+`x_{k+1}=(x_k+shift_t) mod V`——前缀使各任务**联合可学**,但顺序训练会遗忘)训练两遍:**朴素**顺序训练完美学会每个任务
+(learning accuracy≈1.0)却**彻底遗忘**(最终准确率塌到≈1/任务数、forgetting measure≈1.0、BWT≈-1.0);interleave 一个有界
+`mt_lnn.replay.ReservoirBuffer`(Vitter 蓄水池采样,O(C) 内存保持对全流的**均匀**样本)做排练后**几乎不遗忘**
+(forgetting≈0、最终准确率≈1.0),且学新任务一样好、**新增 0 个模型参数**(回放是数据排练而非扩容)。两条 T×T 准确率矩阵
+经 `mt_lnn.continual_eval` 的标准指标(平均/学习准确率、BWT、forgetting measure、forward transfer)打分。回放缓冲与评测均为
+**0 参数、零 model.py 耦合**的纯算子;ASCII 准确率矩阵 + 判决。`tests/test_demo_streaming_continual.py` 7 项测试固定其契约
+(朴素确遗忘 / 回放保留且仍在学 / 0 参数 / 矩阵方阵 / 生成器循环律 / 任务构造 / ASCII OK 报告;5 项训练型打 `slow` 标记)。
+
+**Test coverage**: 945 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -620,13 +630,21 @@ basin 还原非线性边界/全局压缩封顶/中心非吸引子归零/零方�
 `test_long_context_memory.py` 4 项 O(1) 流式内存回归测试[在 T = 20× RoPE 窗口处钉死
 state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比]、
 `test_demo_cognitive_agent.py` 10 项自主认知智能体闭环 demo 测试[网格细胞码分离/认知地图按位置召回/
-闭门 no-op-开门转向/想象 0 参数+置信衰减/直线撞墙-绕行可行被提交/盲推滑行后转 DARK/命令恒在安全包络内+整环判决])。
+闭门 no-op-开门转向/想象 0 参数+置信衰减/直线撞墙-绕行可行被提交/盲推滑行后转 DARK/命令恒在安全包络内+整环判决]、
+`test_replay.py` 14 项经验回放缓冲测试[首次 add 推断字段 schema 且并行字段逐行对齐、填充阶段全保留后封顶、
+**蓄水池均匀性不变量**(n≫C 后每条流元素留存频率≈C/n,首尾无偏)、按种子确定、采样有放回可超容量/无放回封顶且对齐、
+add_batch==逐条 add、错误显式、类均衡蓄水池按标签路由+预算均分+采样跨类铺开]、
+`test_continual_eval.py` 9 项灾难性遗忘指标测试[完美保留→BWT=0/FM=0、完全遗忘→精确量化、正向后向迁移、
+FM 用历史最好非刚学、forward transfer 高于基线、一次性汇总 bundle、单任务边界为零、形状校验]、
+`test_demo_streaming_continual.py` 7 项流式持续学习 demo 测试[朴素确遗忘/回放保留且仍在学/0 参数/矩阵方阵/
+生成器循环律/任务构造/ASCII OK 报告])。
 
-其中 7 项「真训练循环 / 下载 CLIP 权重」的重量级测试打了 `@pytest.mark.slow` 标记
+其中 12 项「真训练循环 / 下载 CLIP 权重」的重量级测试打了 `@pytest.mark.slow` 标记
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
-`test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
-全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 908 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`test_overfit_single_batch`、`test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试,以及
+`test_demo_streaming_continual.py` 中 5 项真训练持续学习测试)。
+全套 `python -m pytest tests/` ≈ 8 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
+`python -m pytest tests/ -m "not slow"` 跑 933 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -981,6 +999,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
 | ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火真唤醒慢层多步评估→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |
 | ✅ 闭环 | 自主认知智能体 (2-D 障碍场景里把整条类脑栈串成自主闭环: 感知[L1 网格细胞群码]→记忆[L2 SpatialMemory 认知地图]→注意[top_down 目标注入, 闭门 no-op/开门转向]→想象[L4 潜空间 rollout 0参数]+物理校验[physics_ops 碰撞/运动学逐路径筛选, 直线撞墙→绕行被提交]→盲推[BlindRolloutGuard 滑行后转 DARK]→安全[CircuitBreaker 硬钳包络]; 唯 top_down 动 model.py, 余层 0参数零耦合) | `examples/demo_cognitive_agent.py` + `test_demo_cognitive_agent.py` (复合 spatial/spatial_memory/imagination/physics_ops/failsafe) | 完成 |
+| ✅ P2 | 流式持续学习 (真实 MTLNNModel 上的回放 vs 灾难性遗忘: 同序列训两遍, 朴素顺序训练彻底遗忘[最终准确率≈1/任务数, forgetting≈1.0], interleave 有界 ReservoirBuffer[Vitter 蓄水池, 对全流均匀样本]排练后几乎不遗忘[≈1.0]且新增 0 参数; 两条 T×T 准确率矩阵经 continual_eval 标准指标打分) | `examples/demo_streaming_continual.py` + `test_demo_streaming_continual.py` (复合 `replay.py` + `continual_eval.py`, 二者 0 参数零 model.py 耦合) | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |
