@@ -11,9 +11,19 @@ associative map with *soft place-cell codes* -- and those codes are produced by
 sum to one. **They are categorical probability distributions, i.e. points on the
 probability simplex** ``Δ^{n-1}``, not free vectors in ``R^n``.
 
-The associative read/write (``key @ M``) and any interpolation/comparison of two
-place-cell codes currently happen in *Euclidean* space. That is the wrong metric:
-on the simplex the natural, reparameterisation-invariant geometry is the
+A precise scoping note (honesty first). The associative read-out
+``out = key @ M`` is **not** a metric operation and is *not* in scope for this
+module: it is the classical linear-associator readout of Bicanski & Burgess
+(2021) -- a convex combination of the *content* rows ``M[p]`` (free vectors in
+``R^{d_model}``, not simplex points) weighted by the soft place key. Re-deriving
+it through a Fisher-Rao metric would be a category error, so ``spatial_memory``
+deliberately leaves the readout as-is.
+
+Where the Euclidean metric is genuinely *wrong* is whenever two place-cell
+**codes** are compared, interpolated, or averaged -- ``d(p, q)``, the midpoint
+of two codes, the mean of several recalls. Those operands are softmax rows:
+non-negative, sum-to-one, i.e. points on the probability simplex ``Δ^{n-1}``. On
+the simplex the natural, reparameterisation-invariant geometry is the
 **Fisher-Rao information metric**
 
     g_p(u, v) = sum_i  u_i v_i / p_i          (u, v tangent: sum u_i = sum v_i = 0)
@@ -23,7 +33,9 @@ Mixing a Euclidean metric on a curved statistical manifold is exactly the kind o
 between "before" and "after" a state transition. This module supplies the
 **correct** geometry as a set of composable, zero-parameter, analytic operators:
 distance, geodesics, the exponential / logarithm maps, parallel transport, the
-Fisher inner product, and a geodesic (Karcher) barycenter.
+Fisher inner product, and a geodesic (Karcher) barycenter -- ready for the
+code-comparison / consolidation use cases above (today its in-tree consumer is
+``topology_ops``).
 
 The closed form -- the sphere isometry
 ---------------------------------------
@@ -49,7 +61,9 @@ Brain / architecture mapping
 * The L2 place-cell key is a distribution over fields -> a simplex point. The
   Fisher-Rao distance is the metric-consistent "how different are these two
   remembered locations?" -- invariant to how we *label/permute* the fields, which
-  is the precise statement of the symmetry the Euclidean readout silently breaks.
+  is the precise statement of the symmetry a Euclidean *code comparison* would
+  silently break (the linear readout itself is unaffected -- see the scoping note
+  above).
 * :func:`geodesic_interpolate` is the metric-consistent way to blend two codes
   (path integration / morphing between remembered places); the Euclidean
   midpoint of two codes is generally *not* even the right "halfway" distribution.
