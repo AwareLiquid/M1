@@ -149,6 +149,12 @@ from .pipeline import (
 )
 from .plasticity import HebbianRegularizer
 from .neuromodulation import NeuromodulationController, NeuromodulatorState
+from .sleep_consolidation import (
+    SleepWakeConsolidator,
+    ReplayConsolidationResult,
+    DownscaleResult,
+    ConsolidationReport,
+)
 from .cloud_client import (
     OracleClient,
     OracleResult,
@@ -326,6 +332,11 @@ __all__ = [
     # Multi-neuromodulator global regulator (DA/ACh/5HT/NE orchestration hub)
     "NeuromodulationController",
     "NeuromodulatorState",
+    # Offline sleep-wake memory consolidation (NREM replay + SHY + REM)
+    "SleepWakeConsolidator",
+    "ReplayConsolidationResult",
+    "DownscaleResult",
+    "ConsolidationReport",
     "OracleClient",
     "OracleResult",
     "MockOracleClient",

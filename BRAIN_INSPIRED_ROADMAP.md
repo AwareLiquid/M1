@@ -142,11 +142,16 @@
 * **论文支撑**：三方突触（Araque et al. 1999）、星形胶质钙信号门控可塑性（De Pittà et al. 2016）。
 * **暂不落地原因**：需与可塑性+空间记忆双向联调，属壁垒加深、非路演必需，先入路线图。
 
-### 5.3 TODO — 多尺度网格细胞模块（P1，空间栈纵深）
-* **现状核对**：`spatial.py` 已有 `GridCellEncoding` / `PlaceCellCode`，但是**单一尺度**；生物内嗅皮层是 4–5 个比例约 1.4 递增的**网格模块** + 头方向细胞 + 边界细胞协同。
-* **目标**：把 L1 升级为多尺度网格模块组（ratio≈1.4）+ 头方向细胞 + 边界细胞，提供可组合、抗混叠的度量空间码。
-* **论文支撑**：Hafting et al. (2005) 网格细胞；Stensola et al. (2012) 网格模块离散化；Banino et al. (2018, DeepMind) 网格码涌现支撑向量导航。
-* **暂不落地原因**：改动可控但需与空间推理/物理算子回归联调，排在调质中枢之后。
+### 5.3 多尺度网格细胞模块（DONE，2026-06-15）
+* **现状核对**：`spatial.py` 的 `GridCellEncoding` 把所有尺度**压平成一张图**（共享朝向、零相位）；生物内嗅皮层是 4–5 个比例约 1.4 递增的**离散网格模块**（Stensola 2012），各有独立尺度/朝向/相位，再配头方向细胞与边界细胞。
+* **已落地**：在 `spatial.py` 新增三个**严格增量、零参数** `nn.Module`（不动现有已测类 → 零回归）：
+  * `MultiScaleGridCellModules`：一组独立六边形网格模块，逐模块朝向+相位、几何尺度递增、可切片的逐模块 6 维码（`module_code`）、按 seed 确定可复现。
+  * `HeadDirectionCells`：von Mises 环形朝向调谐，接受 2D 朝向向量或标量角度，偏好方向处峰值=1。
+  * `BoundaryDistanceCells`：逐墙高斯距离调谐细胞，矩形竞技场下对完整边界向量细胞的诚实简化（border cell：贴墙时该墙最近距离细胞点亮）。
+  * 零耦合：仅依赖 `torch`，不 import `model.py`，几何全为固定 buffer（无可训练参数）。
+* **论文支撑**：Hafting et al. (2005) 网格细胞；Stensola et al. (2012) 网格模块离散化；Taube et al. (1990) 头方向细胞；Solstad et al. (2008) 边界细胞；Banino et al. (2018, DeepMind) 网格码支撑向量导航。
+* **测试**：`tests/test_entorhinal_cells.py`（15 项，含尺度等比递增、逐模块周期性、细模块振荡更快、朝向抖动、确定性、HD 峰值/旋转/角度输入、边界墙判别、输入校验）。
+* **后续**：把这套更丰富的码并入 `SpatialCoordEncoder`（L1 输入栈）是下一步联调项。
 
 ### 5.4 TODO — 分层预测编码的双向回路（P1）
 * **现状核对**：`world_model.py` 的 `PredictiveStateHead` 已产出 `last_pred_error`（已被 `salience_events.py` 与新调质中枢消费）；但缺**逐层自上而下预测 + 预测误差上行**的完整双向回路。
@@ -154,11 +159,16 @@
 * **论文支撑**：Rao & Ballard (1999) 预测编码；Friston (2010) 自由能原理；Bastos et al. (2012) 皮层微回路的预测编码实现。
 * **暂不落地原因**：触及 `forward` 抛出逐层 loss 与 `train.py` 改动，需在调质中枢稳固后逐步合并。
 
-### 5.5 TODO — 睡眠-觉醒记忆巩固（P1）
-* **现状核对**：已有 `replay.py` 雏形与 `PersistentKnowledgeMemory`；缺**离线巩固循环**（NREM 回放 + 突触缩放 + REM 生成式重组）。
-* **目标**：新增 `mt_lnn/sleep_consolidation.py`，离线把工作记忆/经验回放进陈述性知识库，做突触稳态下调（synaptic downscaling），REM 阶段生成式增广。
+### 5.5 睡眠-觉醒记忆巩固（DONE，2026-06-15）
+* **现状核对**：已有 `replay.py` 的 `ReservoirBuffer`（水库采样经验回放）与 `PersistentKnowledgeMemory`（陈述性知识库），但缺把二者编排起来的**离线巩固循环**。
+* **已落地**：新增**零耦合**编排器 `mt_lnn/sleep_consolidation.py` 的 `SleepWakeConsolidator`，复用现有组件做三阶段离线维护：
+  * **NREM 回放→巩固**：从 `ReservoirBuffer` 采样过往经验，按显著性排序，把 top 比例**按内容**写入 `PersistentKnowledgeMemory`（快速海马→慢速新皮层迁移）。
+  * **突触稳态下调(SHY)**：对权重做**乘性**重归一化下调——精确保留相对模式（方向 cosine≈1），只缩小总突触权重，恢复容量与信噪比。
+  * **REM 生成式重组**：对回放潜变量做成对凸组合，合成新颖"梦境"样本做生成式增广。
+  * 零耦合 / 离线可选 / 可逆：仅依赖 `torch`+标准库，**不 import `model.py`**，回放缓冲/知识库/待下调模块全部 duck-typing；模型从不自动调用；乘性下调记录 `factor` 可分析、可逆；单一 RNG 确定可复现。
 * **论文支撑**：Tononi & Cirelli (2014) 突触稳态假说(SHY)；Wilson & McNaughton (1994) 海马回放；Diekelmann & Born (2010) 睡眠的记忆巩固。
-* **暂不落地原因**：需与三层记忆 + 回放联调，属长期能力，先入路线图。
+* **测试**：`tests/test_sleep_consolidation.py`（14 项，含巩固计数+可召回、显著性优先巩固、空缓冲 no-op、下调缩范数且保方向、factor=1 no-op、protect 跳过命名参数、REM 在线段上+确定性、完整 cycle 选择性执行各阶段、零耦合断言）。
+* **记忆分层闭环**：工作记忆(`SessionMemory`) + 程序性(权重) + 陈述性(`PersistentKnowledgeMemory`) 三层，现由睡眠巩固把回放经验从快层沉淀到慢层，形成"觉醒采集→睡眠巩固"闭环。
 
 ### 5.6 TODO — 主动推理的自主目标（P2）
 * **现状核对**：`imagination.py` 的 `LatentImagination` 已能潜空间想象 rollout；缺**期望自由能(EFE)打分**驱动的自主目标选择。
