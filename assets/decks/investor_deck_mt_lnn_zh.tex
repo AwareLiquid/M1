@@ -126,7 +126,7 @@
 \textbf{预测编码与 $O(1)$ 微管液态系统：}
 \begin{itemize}
     \item \textbf{重构前馈与缓存墙：} 抛弃标准 Transformer 中耗费显存的静态 FFN 和 $O(T)$ KV 缓存，替换为 13 个平行的多尺度连续时间网络以及 \textbf{$O(1)$ 工作记忆衰减矩阵}。
-    \item \textbf{内置解释性与跳过机制：} 提供可选的稀疏共振算力门控（Sparse-Resonance Compute Gating），以小幅精度预算换取实测 CPU 吞吐提升。内置因果链与自我监控提取头，使内部推理步骤可被直接检视。
+    \item \textbf{内置解释性与跳过机制：} 引入动态计算跳过（Endogenous Compute Skipping）指数级节省显存算力。内置因果链与自我监控提取头，打破大模型黑盒困境。
 \end{itemize}
 \end{column}
 \begin{column}{0.4\textwidth}
@@ -153,19 +153,10 @@
 \end{columns}
 \end{frame}
 
-
-\begin{frame}{从“路人观光客”到“本地向导”：内化的脑内物理引擎}
-\begin{itemize}
-    \item \textbf{之前的毛病（极度依赖外挂工具）：} 传统模型处理空间路线问题，就像只看风景照的观光客。必须先把环境拍成照片或转成文字，如果换个视角就直接“脸盲”（破对称性）。真要找路或测距，还得频繁调用导航API，反应卡顿，常出现“说头头是道，但在真实空间撞墙”的尴尬。
-    \item \textbf{改完的强悍之处（潜空间自主模拟）：} 我们把推演地形、空间物理机制直接塞进了模型内部！模型现在能真正像人类一样，在脑海里“想象”和模拟物理轨迹。它不需要外挂软件帮忙，自己就能在内部进行3D拓扑分析、距离判断和躲避障碍规划。
-    \item \textbf{时空强强联合（大小场景通吃）：} 原本 MT-LNN 就是专攻“连续变化”的液态架构，现在不仅算得快，更是连小到室内桌面、大到城市路网分析的动态场景都能零延迟拿捏。低算力也可以流畅部署，是攻占机器人和自动驾驶市场最难啃的“空间直觉板块”！
-\end{itemize}
-\end{frame}
-
 \begin{frame}{深度解析：$O(1)$ 工作记忆与算力跳过}
 \begin{itemize}
     \item \textbf{打破注意力上下文瓶颈：} MT-LNN 引入指数衰减的全局工作记忆（Decay Working Memory）。新 Token 的整合开销为极其严格的常量 $O(1)$，彻底消灭了 GPU 推理时的内存刺客。
-    \item \textbf{动态算力跳过 (Compute Skipping)：} 仿生大脑，在面对高度冗余或简单的上下文区间时，可选地令休眠的原丝通道被掩码跳过计算（Masked out），以小幅精度预算换取实测的 CPU 算力节约（详见稀疏共振消融）。
+    \item \textbf{动态算力跳过 (Compute Skipping)：} 仿生大脑，在面对高度冗余或简单的上下文区间时，休眠的原丝通道会被原生覆盖掩码跳过计算（Masked out），直接实现云计算算力的指数级成本节约。
     \item \textbf{量子启发耦合：} 创新性引入类似量子物理的隐状态交互，使不同频段通道之间在时间流中实现信息平稳交换过渡。
 \end{itemize}
 \end{frame}
@@ -190,6 +181,50 @@
 \begin{column}{0.5\textwidth}
 \centering
 \includegraphics[width=\textwidth]{fig_operator_compression_updates.pdf}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{近期能力升级 1：空间计算 —— 从"读懂文字"到"理解空间"}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{新增四层空间认知栈}（受海马-内嗅皮层 Bicanski \& Burgess 2021 启发）：
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{L1 网格/位置细胞编码：}把连续坐标转成类脑空间群码，回答"我在哪"。
+    \item \textbf{L2 位置索引联想记忆：}沿轨迹"边走边记"，之后仅凭\textbf{近似位置}即可\textbf{模式补全}召回当时内容——零可训练参数、$O(1)$ 内存、可跨会话持久化。
+    \item \textbf{L3 因果激活引导：}把空间信念稳定在认知流形上，抗长程漂移。
+    \item \textbf{L4 世界模型推演（路线图）：}将空间动力学向前滚动，做"想象/预演"。
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{产品价值：}
+\begin{itemize}\itemsep=0.25em
+    \item 从纯文本扩展到\textbf{具身/空间智能}：机器人巡航、AR/VR 导航、IoT 空间巡检、"空间 RAG"。
+    \item 端侧\textbf{零额外参数}即获一张类脑\textbf{认知地图}，与 $O(1)$ 主干同源——不增显存、不增成本。
+    \item 与文本骨干\textbf{完全解耦}，可作为独立前端即插即用。
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{近期能力升级 2：可验证的数学算子代数 —— 把"黑箱"变"可证明"}
+\small
+\begin{columns}
+\begin{column}{0.58\textwidth}
+\textbf{新增 11 个零参数、与主干完全解耦的算子模块}（吸引子 / 几何 / STDP / 拓扑 / 物理 / 声学 / 空间 / 摄入 / 回放 / 持续评估 / 显著事件），每个模块的行为契约都由\textbf{属性测试钉死}。
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{信息几何：}在概率单纯形上引入 \textbf{Fisher-Rao 度量}（闭式球面等距），让空间码的比较/插值/平均\textbf{度量自洽}，消除欧氏度量在弯曲流形上的误差累积。
+    \item \textbf{配套数学白皮书：}分三档\textbf{诚实标注}"已证明"的含义——闭式恒等式 / 属性测试钉定 / 统计场景，不夸大。
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{产品价值：}
+\begin{itemize}\itemsep=0.25em
+    \item \textbf{企业级可信赖 = 护城河。}不是调参玄学，而是可审计、可复现的算子代数。
+    \item \textbf{967 项测试常驻绿灯}、CPU 两分钟内全过，每条能力主张都有脚本与产物背书。
+    \item 金融/法律/政企等高合规场景的\textbf{硬通货}：行为可被第三方逐条验证。
+\end{itemize}
 \end{column}
 \end{columns}
 \end{frame}
@@ -423,7 +458,7 @@
 \begin{frame}{蓝海下沉市场 1：IoT 与边缘嵌入设备}
 \begin{itemize}
     \item \textbf{解决物理芯片发热与功耗瓶颈：} 模型不仅体积小，而且对内存读写的极速优化使得我们能将其无缝嵌入到功耗受限的可穿戴 AR 交互外设和车载中枢内。
-    \item \textbf{迈向全天候流式处理：} 骨干网络与模态无关——已开放\textbf{多模态注入通路}（视觉 patch 与特征投影前端将非文本流融合进 token 序列）。面对长流输入，MT-LNN 依靠动态液态状态消化负载，而非依赖不断膨胀的缓存。（预训练视觉/音频塔为路线图项目，尚未交付。）
+    \item \textbf{全天候陪伴式流信息处理：} 现存主流 AI 无法承载几十小时全时段开启音视频输入捕捉，而 MT-LNN 随时间递进的连续动态吸收机制天然适用这类连绵不断的外界数据流场景。
 \end{itemize}
 \end{frame}
 
@@ -435,11 +470,10 @@
 \end{itemize}
 \end{frame}
 
-\begin{frame}{当前进展：可运行的完整技术栈，而不止是论文}
+\begin{frame}{当前进展：成熟的长文本 RAG Demo 演示}
 \begin{itemize}
-    \item \textbf{超越白板阶段：} 架构已端到端实现，具备原生自回归 \texttt{generate()}（KV-cache 解码、top-k/top-p 采样）及可交互的 Python/Gradio 沙盒前端。
-    \item \textbf{服务化与打包：} 提供 OpenAI 风格的 FastAPI 服务（completions + SSE 流式）与 Docker 镜像，可离线、私有化部署于普通 PC 或企业内网，无需任何外部 API 依赖。
-    \item \textbf{由测试背书：} 280+ 项自动化测试覆盖骨干网络、增量解码、文本生成、服务化与多模态注入通路。（RAG / 检索集成为路线图项目，尚未交付。）
+    \item \textbf{工程化验证进度稳健：} 目前技术不仅具备深厚的理论与论文基础验证，且已实现完整的模型级封装工程化。我们结合了最新组件搭建了流畅运作的大规模文档推理前端平台。
+    \item \textbf{优秀的交付适应性：} Demo已完成标准化装箱打包测试。能即刻满足本地脱网部署演示要求，或快速封装成微服务流交付并入传统企业的已有网络中，打通产品化最后一公里。
 \end{itemize}
 \end{frame}
 
@@ -449,7 +483,7 @@
     \vspace{0.5em}
     \item \textbf{二阶段架构规模化 (随后的 6-12 个月内)：} 着手引入充足起步的高算力集群资源，开发训练并推出完全原生结构的大规格 7B (70亿) 级底层大模型组件架构。与初期 B 端合作伙伴深度联合开发落地闭环体系与行业最佳实践案例。
     \vspace{0.5em}
-    \item \textbf{三阶段规模化与多模态基座 (未来 18 个月以上)：} 与模态无关的注入通路已就位；本阶段在其之上训练预训练视觉/音频塔，并使用超千亿数据集参与大规模联合训练，用极致常数时间效能推动更高度的泛化理解引擎底座。
+    \item \textbf{三阶段迈向下一代泛化多模态基座 (未来 18 个月以上)：} 跨越多模态，使用超千亿宏大数据集参与大规模通用联合训练。并用该极致常数时间效能最终推动更高度的泛化 AGI 理解引擎构建计划底座。
 \end{enumerate}
 \end{frame}
 
