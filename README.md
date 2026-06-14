@@ -455,6 +455,18 @@ examples/demo_pipeline.py  Dual-speed sentry, all layers as one loop: a drone ma
                            coverage gap and is coasted on the world model) and a zone
                            breach; ASCII top-down map + per-tick log + verdict, every
                            aim command bounded +/-90 deg and slew-limited <=20 deg/tick
+examples/demo_cognitive_agent.py  The whole brain as one loop: an agent in a 2-D
+                           obstacle scene PERCEIVES every object as a grid-cell place
+                           code (L1), REMEMBERS what-is-where in a place-indexed
+                           cognitive map (L2 SpatialMemory), is STEERED by a top-down
+                           goal (closed gate = strict no-op, open = the goal biases the
+                           backbone), IMAGINES a latent rollout (L4, 0 params, confidence
+                           decays) while physics_ops validates candidate paths for
+                           collisions + kinematics (the straight line hits the wall, a
+                           detour is committed), SURVIVES a sensor blackout by coasting
+                           on the world model then going DARK ("lost perception, stop"),
+                           and CLAMPS its steering command to a safe envelope; ASCII map
+                           + per-stage report + verdict
 
 bench_llama_mt_ablation.py        One-shot ablation table over checkpoints
 bench_llama_mt_needle.py          Needle-in-a-haystack retrieval benchmark
@@ -464,7 +476,7 @@ benchmarks/run_benchmark.py       Full benchmark suite
 
 kaggle/                    Cloud-ready notebooks (Qwen-1.5B, Qwen-3B, ablations)
 scripts/                   Real-trace v3 (KV-cache O(N)) + cloud-inject helpers
-tests/                     Full test suite (905 tests, all pass)
+tests/                     Full test suite (915 tests, all pass)
 assets/                    decks/ (investor + paper), figures/ (architecture diagrams)
 ```
 
@@ -472,7 +484,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 905 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (898 tests in ~99s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
+Research-grade code. All 915 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (908 tests in ~99s, deselecting the 7 `slow` tests that train a model or download CLIP weights — the full run is ~6 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4

@@ -540,7 +540,20 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 而非写死;干净时钟下覆盖步为恒等重采样,故所有既有行为契约不变。均确定性、纯 ASCII(Windows/GBK 安全)。
 `tests/test_demo_pipeline.py` 11 项测试固定其行为契约(含慢层判决进入报告 + 摄入前端把丢帧识别为覆盖空洞)。
 
-**Test coverage**: 905 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
+**自主认知智能体 demo (`examples/demo_cognitive_agent.py`)**:把整条类脑栈串成一个**自主智能体闭环**,在带障碍物的
+2-D 场景里完成"感知→记忆→注意→想象+物理校验→故障盲推→安全输出"——ASCII 俯视图(S 起点、G 目标、# 障碍、. 提交路径)
++ 六阶段分项报告 + 判决。每一阶段都**真调用真实模块**(非 mock):**①感知** `GridCellEncoding`(L1)把每个物体坐标编成
+36 维内嗅网格细胞群码,异物近正交(平均离对角余弦≈0.09,自余弦=1.0,空间作为度量空间);**②记忆** `SpatialMemory`(L2)
+把(位置,内容)写进按位置索引的认知地图,锐化 place field(`sigma=0.04`<物体间距)解决中心簇障碍,模糊位置线索仍模式补全
+召回(clean≈0.99/fuzzy≈0.99,0 可训练参数);**③注意** 把目标向量经 top_down 通路注入——闭门**严格 no-op**(隐状态逐位等价,
+`closed_diff=0`),开门**转向**(`open_diff≈0.65`,更大门转向不减);**④想象** `LatentImagination`(L4)以目标调制后的隐态做
+潜空间 rollout(0 参数、置信随地平线衰减),同时 `physics_ops.overlapping_pairs` + 有限差分速度/加速度对**三条候选路径**逐条
+做碰撞与运动学校验(直线撞墙→绕行被提交);**⑤盲推** 中途切断感知,`BlindRolloutGuard` 靠内部世界模型滑行数拍,失信后转
+**DARK**("失去感知,停止行动");**⑥安全** 提交路径的转向命令经 `CircuitBreaker` 硬钳到 ±45°/步包络(掺入 NaN+9.0 rad 尖刺验证钳位
+真生效)。唯一动 model.py 的是 top_down,其余层全部 0 参数、零 model.py 耦合;均确定性、纯 ASCII、秒级。
+`tests/test_demo_cognitive_agent.py` 10 项测试固定其端到端契约(六阶段逐项 + 整环判决 + 报告)。
+
+**Test coverage**: 915 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、
 `test_causal_decoding.py` 10 项 L3 解码闭环转向测试、`test_demo_causal_decoding.py`
@@ -605,13 +618,15 @@ basin 还原非线性边界/全局压缩封顶/中心非吸引子归零/零方�
 `test_slow_layer.py` 12 项双速引擎慢层多步威胁评估测试、
 `test_pipeline.py` 19 项双速哨兵编排集成测试、`test_demo_pipeline.py` 11 项双速哨兵 demo 测试、
 `test_long_context_memory.py` 4 项 O(1) 流式内存回归测试[在 T = 20× RoPE 窗口处钉死
-state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比])。
+state-only cache 字节恒定,并与 KV cache 的 O(T) 线性增长做对比]、
+`test_demo_cognitive_agent.py` 10 项自主认知智能体闭环 demo 测试[网格细胞码分离/认知地图按位置召回/
+闭门 no-op-开门转向/想象 0 参数+置信衰减/直线撞墙-绕行可行被提交/盲推滑行后转 DARK/命令恒在安全包络内+整环判决])。
 
 其中 7 项「真训练循环 / 下载 CLIP 权重」的重量级测试打了 `@pytest.mark.slow` 标记
 (`test_real_clip_vision_tower_smoke`、`test_world_model_long_run_surprise_bounded_no_collapse`、
 `test_overfit_single_batch`、以及 `test_v2_mechanism_effectiveness.py` 中 4 项多步训练测试)。
 全套 `python -m pytest tests/` ≈ 6 分钟(其中单是 CLIP 权重下载就占 ~258s);快速冒烟路径
-`python -m pytest tests/ -m "not slow"` 跑 898 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
+`python -m pytest tests/ -m "not slow"` 跑 908 项 ≈ 99s(5× 加速),markers 仅启用筛选、不改变默认全跑。
 
 ---
 
@@ -965,6 +980,7 @@ ProtofilamentLTC 是连续时间 ODE，没有离散脉冲事件。STDP 的数学
 | ✅ 落地 | 断流盲推 + 输出断路器 + 拓扑失效保护 (置信度门控盲推[借 imagination 盲滚, 失信转 DARK] + 模型外硬钳位/去抖 trip/无扰切换 + TopologyBreaker[盯表示形状: SRTD H0 漂移+可选 Betti-0, 同款去抖 FSM 跳闸/复位, 复合 topology_ops], 0参数, 不耦合 backbone) | `failsafe.py` + `examples/demo_failsafe.py` + `examples/demo_topology_failsafe.py` + `test_failsafe.py` | 完成 |
 | ✅ 落地 | 双速引擎慢半边 (点火时才唤醒的多步弹道前瞻威胁评估: rollout+in_ball→突破ETA/最近接近/CLEAR-WATCH-ENGAGE等级+处置姿态, 纯算子 0参数, 仅点火付费) | `slow_layer.py` + `test_slow_layer.py` | 完成 |
 | ✅ 落地 | 双速哨兵编排 (感知[声学+空间]→预测[物理惊讶]→显著度点火真唤醒慢层多步评估→盲推续命→断路器限幅, 把各层串成一个商用闭环, 编排器 0新参数, 零 model.py 耦合) | `pipeline.py` + `examples/demo_pipeline.py` + `test_pipeline.py` | 完成 |
+| ✅ 闭环 | 自主认知智能体 (2-D 障碍场景里把整条类脑栈串成自主闭环: 感知[L1 网格细胞群码]→记忆[L2 SpatialMemory 认知地图]→注意[top_down 目标注入, 闭门 no-op/开门转向]→想象[L4 潜空间 rollout 0参数]+物理校验[physics_ops 碰撞/运动学逐路径筛选, 直线撞墙→绕行被提交]→盲推[BlindRolloutGuard 滑行后转 DARK]→安全[CircuitBreaker 硬钳包络]; 唯 top_down 动 model.py, 余层 0参数零耦合) | `examples/demo_cognitive_agent.py` + `test_demo_cognitive_agent.py` (复合 spatial/spatial_memory/imagination/physics_ops/failsafe) | 完成 |
 | ✅ D | HebbianRegularizer | `plasticity.py` + `train.py` | 完成 |
 | ✅ 观测 | v2 模块 JSONL 指标 | `observability.py` (`v2_module_metrics`/`record_v2_metrics`) | 完成 (v2.1) |
 | 🔲 E | 完整 125M 预训练 + A-D 验证 | 全栈 | 进行中 |
