@@ -166,7 +166,12 @@ def test_event_stream_is_invariant_under_an_additive_dc_offset(cfg, sig, b):
     shifted = _run(cfg, [x + b for x in sig])
     assert [(e.step, e.kind) for e in base] == [(e.step, e.kind) for e in shifted]
     for e0, e1 in zip(base, shifted):
-        assert abs(e0.z - e1.z) <= 1e-9                             # exact
+        # Exact in real arithmetic; in float64 the shift-then-subtract cancels a
+        # large common term, so the residual scales with |z| (it can reach ~1e-9
+        # absolute when the variance floor drives |z| into the hundreds). Pin the
+        # invariance to floating-point PRECISION (relative-aware), not an absolute
+        # bound that ignores the magnitude of z.
+        assert abs(e0.z - e1.z) <= 1e-9 * max(1.0, abs(e0.z))      # exact to fp
 
 
 # --------------------------------------------------------------------------- #
