@@ -563,6 +563,17 @@ O 区域中心、o 危险半径环、数字无人机轨迹、# 点火拍)+ 逐�
 **0 参数、零 model.py 耦合**的纯算子;ASCII 准确率矩阵 + 判决。`tests/test_demo_streaming_continual.py` 7 项测试固定其契约
 (朴素确遗忘 / 回放保留且仍在学 / 0 参数 / 矩阵方阵 / 生成器循环律 / 任务构造 / ASCII OK 报告;5 项训练型打 `slow` 标记)。
 
+**算子代数数学白皮书 (`mt_lnn_operator_algebra_whitepaper.tex`)**:把整个算子层的数学**一次性、诚实地**收拢成一篇自包含的
+LaTeX 技术论文(standard `article` + `amsmath/amsthm`,因本机无 LaTeX 编译器故交付 `.tex` 源,与仓库其它未编译论文一致)。
+主旨:一套**零参数、与 backbone 解耦、由 property 测试钉住**的脑启发算子,环绕连续时间 LTC 核构成一个可复合的"代数"。
+逐个给出 11 个算子(attractor/geometry/stdp/topology/physics/acoustic/spatial/ingest/replay/continual_eval/salience)与 LTC 核的
+**精确数学定义**,并以定理式环境陈述每个算子的不变量。**核心诚实承诺**(§9):严格区分三档主张——少数**闭式恒等式**
+(仿射不动点、MST=H0、辛 Euler 闭式、线性重采样对仿射信号精确、Vitter C/n)、多数**property 测试钉住的律**
+(Hypothesis 在有界搜索空间内的经验固定,**非**形式化证明)、以及两处**统计/场景**主张(replay 蒙特卡洛均匀性、手算矩阵)。
+§10 罗列诚实边界:eps 地板破坏精确尺度不变、一阶辛积分能量稳定非精确、H0-only 拓扑代理、远场声学近似、阈值不可微、
+STDP/黎曼算子按设计**未**接入训练目标。并据实纠正代码 prose 的过度主张(`continual_eval` 的 "FM≥0" 被其自身测试证伪——
+正向回迁下 FM 可为负)。
+
 **Test coverage**: 945 tests in `tests/` (含 `test_spatial.py` 17 项空间前端测试[含
 `PlaceCellCode` 5 项]、`test_thinking.py` 10 项自我思考测试、`test_spatial_reasoning.py`
 14 项空间思考测试[含 7 项 L2 记忆侧通道]、`test_causal_steering.py` 9 项因果转向测试、

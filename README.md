@@ -545,6 +545,7 @@ What's not yet shown (by design):
 | [TECH_BLOG.md](TECH_BLOG.md) | Cross-architecture reproducibility story |
 | [PRD.md](PRD.md) | Product requirements & roadmap |
 | [SPEC.md](SPEC.md) | Component spec |
+| [mt_lnn_operator_algebra_whitepaper.tex](mt_lnn_operator_algebra_whitepaper.tex) | Operator-algebra math white paper: exact definitions + property-pinned invariants for all 11 zero-parameter operators wrapping the LTC core (honest "identity vs property-pinned vs statistical" grading) |
 | [NEEDLE_FIX.md](NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
 | [CLOUD_RUN.md](CLOUD_RUN.md) / [KAGGLE_RUN.md](KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
 | [llm-viz-QUICKSTART.md](llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |

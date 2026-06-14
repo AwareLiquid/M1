@@ -1,0 +1,612 @@
+% =====================================================================
+% mt_lnn_operator_algebra_whitepaper.tex
+% An Operator Algebra for Brain-Inspired Computing
+%
+% A self-contained technical white paper consolidating the mathematics of
+% the MT-LNN operator layer: a family of zero-parameter, model-decoupled,
+% property-test-pinned primitives that wrap a continuous-time LTC core.
+%
+% HONESTY CONTRACT (see Section 9): every statement labelled a "Property"
+% is verified by Hypothesis property tests over a bounded, assume()-filtered
+% search space with finite tolerance bands -- NOT a formal, machine-checked
+% theorem. The handful of genuinely closed-form identities are flagged
+% explicitly as such. Admitted limitations are catalogued in Section 10.
+%
+% No LaTeX compiler is installed in this environment; the .tex source is the
+% delivered artefact, consistent with the repo's other uncompiled papers
+% (mt_lnn_v2_reliable_long_pretraining_arxiv.tex et al.).
+% =====================================================================
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+% --- theorem-like environments --------------------------------------- %
+% "Property" = an invariant pinned by the module's Hypothesis property test.
+% "Identity" = a genuinely closed-form / exact algebraic statement.
+% "Limitation" = an honest caveat admitted by the code or its tests.
+\theoremstyle{definition}
+\newtheorem{property}{Property}[section]
+\newtheorem{identity}{Identity}[section]
+\newtheorem{limitation}{Limitation}[section]
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\eps}{\varepsilon}
+
+\title{\textbf{An Operator Algebra for Brain-Inspired Computing}\\[2mm]
+\large Zero-Parameter, Model-Decoupled, Property-Pinned Primitives\\
+Wrapping a Continuous-Time Liquid Core}
+
+\author{AN MUNING\thanks{Correspondence: \texttt{e@awareness.market}}\\
+Everest Research\\
+MT-LNN / AwareLiquid Project}
+
+\date{June 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe and formalise the \emph{operator layer} of MT-LNN, a
+brain-inspired liquid neural network. The layer is a library of small,
+self-contained mathematical primitives -- dynamical-systems analysis,
+information geometry on the probability simplex, spike-timing plasticity,
+$H_0$ persistent homology, Newtonian micro-physics, binaural acoustics,
+spatial graphs, stream alignment, experience replay, continual-learning
+metrics, and a global-workspace salience detector. The layer obeys a single
+strict engineering contract: \textbf{(i)} no operator imports the model
+backbone; \textbf{(ii)} every operator carries zero trainable parameters;
+\textbf{(iii)} every stateful operator exposes an idempotent \code{reset()};
+\textbf{(iv)} every operator computes in an explicit, caller-independent
+dtype discipline; and \textbf{(v)} every operator's mathematical behaviour
+is pinned by property-based tests. The contract makes the operators a
+genuine \emph{algebra}: composable, side-effect-free instruments that can be
+attached to the continuous-time liquid-time-constant (LTC) core without
+coupling to it. We give exact definitions for each operator, state the
+invariants its tests pin, and -- as a matter of scientific hygiene -- draw a
+sharp line between the handful of closed-form identities the layer truly
+guarantees and the larger set of \emph{property-test-pinned} laws that are
+empirically robust but not formally proven. We close with the layer's
+honestly admitted limitations: epsilon floors that break exact
+scale-invariance, far-field approximations, first-order energy stability,
+and an $H_0$-only topology surrogate.
+\par\smallskip
+\noindent\textbf{Keywords:} liquid neural networks, operator algebra,
+property-based testing, information geometry, persistent homology,
+spike-timing-dependent plasticity, continual learning, global workspace.
+\end{abstract}
+
+% ===================================================================== %
+\section{Introduction}
+% ===================================================================== %
+Brain-inspired model engineering tends to accrue heterogeneous mechanisms:
+plasticity rules, geometric regularisers, salience gates, replay buffers,
+sensorimotor front-ends. Bolted directly into a training loop, such
+mechanisms entangle with the backbone, resist testing, and silently drift.
+MT-LNN takes the opposite stance. Each mechanism is first distilled into a
+\emph{pure mathematical operator} that knows nothing about the model it will
+eventually serve. The operators form a layer that sits beside -- never
+inside -- the network, and they earn their place by satisfying a uniform
+contract that makes their behaviour auditable.
+
+This paper consolidates the mathematics of that layer. The thesis is
+deliberately modest and concrete: \emph{a useful brain-inspired system can
+be built from a small algebra of zero-parameter, model-decoupled primitives
+whose every law is pinned by an executable test}. We are explicit about what
+``pinned'' means. Most of the laws below are verified by Hypothesis
+property tests that draw inputs from a bounded search space and assert an
+invariant within a finite tolerance. That is strong empirical evidence, not
+a proof. A minority are genuine closed-form identities. We flag which is
+which throughout, and we devote Section~\ref{sec:honesty} to the
+distinction.
+
+\paragraph{Scope.} We cover the eleven operator modules and the LTC core
+they are designed to instrument. We do \emph{not} claim leaderboard
+results; the contribution is a design discipline and its formalisation. We
+also do not claim that every operator is currently wired into the training
+objective -- several (notably the plasticity and Riemannian operators) are
+deliberately kept at the operator layer, available but not yet integrated.
+
+% ===================================================================== %
+\section{The Layer Contract}\label{sec:contract}
+% ===================================================================== %
+The operators are not merely a utility grab-bag; they satisfy a contract
+that we verified directly against the source (not against docstrings).
+
+\begin{enumerate}[leftmargin=1.4em]
+\item \textbf{Backbone decoupling.} No operator module imports the model
+backbone. The only inter-operator dependency is that the topology module
+reuses the spatial module's graph primitives. This is what lets an operator
+be reasoned about, and tested, in isolation.
+\item \textbf{Zero parameters.} No operator instantiates a trainable
+parameter. The stateful operators that advertise a parameter count
+(\code{ReservoirBuffer}, \code{ClassBalancedReservoir},
+\code{SalienceEventDetector}) hard-return \code{n\_parameters == 0}. The
+pure-function operators hold no state at all.
+\item \textbf{Resettable state.} Every stateful operator exposes a
+\code{reset()} that returns it to its constructed state (cleared buffers,
+re-seeded RNG, neutral baseline). Pure-function operators need none.
+\item \textbf{Dtype discipline.} Operators compute in an explicit dtype
+chosen for the task -- the continual-learning metrics, for instance, compute
+in \code{float64} regardless of caller dtype so that reported scores are
+citation-exact. Property tests build their own \code{float64} tensors and
+never mutate the global default, so they cannot perturb \code{float32} model
+tests sharing the process.
+\item \textbf{Property-pinned behaviour.} Every operator ships a test that
+asserts its mathematical invariants over randomised inputs.
+\end{enumerate}
+
+The contract is what upgrades a collection of functions into an
+\emph{algebra}: because the pieces are pure (or explicitly resettable),
+parameter-free, and decoupled, they compose without hidden interactions, and
+their composition can be tested as freely as the parts.
+
+% ===================================================================== %
+\section{The Continuous-Time Core Being Instrumented}\label{sec:ltc}
+% ===================================================================== %
+The operators exist to measure, regularise, and feed a liquid core. Unlike
+the operators, the core \emph{is} a parametric module; it is the object of
+study, not part of the algebra.
+
+The production core, \code{VectorizedMultiScaleResonance}, evaluates the
+closed-form liquid-time-constant (LTC) update across $P$ protofilaments and
+$S$ timescales simultaneously. For protofilament $p$, scale $s$, with fixed
+step $dt$ and a learned time constant $\tau_{p,s}>0$,
+\begin{align}
+\text{decay}_{p,s} &= e^{-dt/\tau_{p,s}}, &
+A^{p,s}_{b,t} &= \sigma\!\big(W^{p,s}_{\text{in}}\,x_{b,t,p} + b^{p,s}_{\text{in}}\big),\\
+h^{p,s}_{\text{new}} &= h_{\text{prev}}\,\text{decay}_{p,s}
+   + A^{p,s}_{b,t}\,(1-\text{decay}_{p,s}),
+\end{align}
+followed by a cross-scale blend $h_{b,t,p} = \sum_s w_{p,s}\,h^{p,s}_{\text{new}}$
+with $w_{p,\cdot} = \mathrm{softmax}(\text{blend\_weights}_{p,\cdot})$, and
+$\tau = \mathrm{clamp}(\mathrm{softplus}(\log\tau)+\tau_{\min}, \tau_{\min}, \tau_{\max})$.
+The legacy single-protofilament \code{ProtofilamentLTC} is the same closed
+form with a scalar $\tau$.
+
+Algebraically, each step is a discrete \emph{affine contraction toward a
+state-dependent equilibrium},
+\begin{equation}\label{eq:ltc-affine}
+h_t = e^{-dt/\tau}\,h_{t-1} + (1-e^{-dt/\tau})\,A_t,
+\end{equation}
+with fixed $dt$. This is exactly the structure the dynamical operators of
+Section~\ref{sec:attractor} are built to analyse, and the fixed $dt$ is the
+grid onto which the ingest operators of Section~\ref{sec:ingest} resample
+sensor streams.
+
+% ===================================================================== %
+\section{Dynamical-Systems Operators}\label{sec:attractor}
+% ===================================================================== %
+\code{attractor\_ops} treats the LTC step \eqref{eq:ltc-affine} as an affine
+map $x\mapsto Ax+b$ and reports its convergence behaviour.
+
+\paragraph{Definitions.}
+The fixed point solves $(I-A)x^\star=b$, i.e.
+$x^\star=(I-A)^{-1}b$ (an error is raised when $I-A$ is singular). The
+spectral radius is $\rho(A)=\max_i|\lambda_i(A)|$ and the asymptotic
+convergence rate is $-\log\rho(A)$. Given a trajectory with distances
+$d_t=\norm{x_t-x^\star}$, the empirical \code{convergence\_rate} is the
+negative least-squares slope of $\log d_t$ versus $t$ (over steps with
+$d_t>10^{-12}$), and \code{lyapunov\_descent} returns the energy ratios
+$V_{t+1}/V_t$ with $V_t=d_t^2$. \code{settling\_time} and \code{basin\_radius}
+are bisection/threshold routines and are deliberately piecewise-constant.
+
+\begin{identity}[Fixed point]
+For the affine map $x\mapsto Ax+b$ with $I-A$ invertible,
+$A x^\star + b = x^\star$. \emph{(Closed form; pinned to \code{atol} $10^{-6}$
+over random diagonalisable and symmetric contractions.)}
+\end{identity}
+
+\begin{property}[Spectrum and rate]
+For $A=P\,\mathrm{diag}(d)\,P^{-1}$, $\rho(A)=\max_i|d_i|$;
+\code{is\_contraction}$(A)\Leftrightarrow\rho(A)<1$; and the rate equals
+$-\log\rho(A)$. The pair $(\rho,\text{rate})$ is invariant under
+permutation similarity $A\mapsto P A P^\top$.
+\end{property}
+
+\begin{property}[Convergence]
+From any start, the relaxation $x_{t+1}=Ax_t+b$ converges to $x^\star$; on
+the dominant eigenvector the empirical rate equals the asymptotic rate.
+\end{property}
+
+\begin{property}[Lyapunov descent for normal maps]
+For a \emph{symmetric} contraction with $\rho<1$, every energy ratio
+satisfies $V_{t+1}/V_t\le\rho^2$.
+\end{property}
+
+\begin{limitation}
+The Euclidean-energy descent certificate is sufficient, not necessary. A
+\emph{non-normal} contraction ($\rho<1$ but $A^\top A\neq AA^\top$) can grow
+$V_t$ transiently while still converging at asymptotic rate $\rho$. Descent
+is therefore pinned only for symmetric maps. \code{settling\_time} and
+\code{basin\_radius} are non-differentiable, and $-\log\rho$ diverges as
+$\rho\to0$ (tests skip $\rho<10^{-3}$).
+\end{limitation}
+
+% ===================================================================== %
+\section{Information-Geometry Operators}\label{sec:geometry}
+% ===================================================================== %
+\code{geometry\_ops} equips the probability simplex with the Fisher--Rao
+metric via the isometry $\phi(p)=\sqrt{p}$ onto the positive orthant of the
+unit sphere.
+
+\paragraph{Definitions.}
+With the Bhattacharyya coefficient
+$BC(p,q)=\sum_i\sqrt{p_iq_i}$, the Fisher--Rao distance is
+\begin{equation}
+d(p,q)=2\arccos\!\big(\mathrm{clip}(BC(p,q),-1,1)\big)\in[0,\pi].
+\end{equation}
+The Fisher inner product is $\langle u,v\rangle_p=\sum_i u_iv_i/\max(p_i,\eps)$,
+$\eps=10^{-12}$. The geodesic is the pulled-back spherical slerp: with
+$u=\sqrt p$, $v=\sqrt q$, $\Omega=\arccos\langle u,v\rangle$,
+\begin{equation}
+\gamma(t)=\Pi\!\left[\left(
+\frac{\sin((1-t)\Omega)\,u+\sin(t\Omega)\,v}{\sin\Omega}\right)^{\!2}\right],
+\end{equation}
+where $\Pi$ is simplex projection
+$\Pi[x]=\max(x,0)/\max(\sum_i\max(x_i,0),\eps)$, with a linear-blend
+fallback for $\sin\Omega<10^{-7}$. The exponential and logarithmic maps and
+parallel transport are the standard sphere formulas pushed through $\phi$;
+\code{geodesic\_barycenter} is the Karcher mean minimising
+$\sum_k w_k\,d(b,c_k)^2$.
+
+\begin{property}[Metric axioms]
+$d$ is non-negative, symmetric, bounded by $\pi$, zero on the diagonal, and
+obeys the triangle inequality; it is invariant under a common permutation of
+categories.
+\end{property}
+
+\begin{property}[Geodesic structure]
+$\gamma$ stays on the simplex, satisfies $\gamma(0)=p$, $\gamma(1)=q$, has
+constant speed $d(p,\gamma(t))=t\,d(p,q)$, reverses consistently
+$\gamma_{p\to q}(t)=\gamma_{q\to p}(1-t)$, and is permutation-equivariant.
+\end{property}
+
+\begin{property}[Exp/log and transport]
+$\log_p(p)=0$; $\log_p(q)$ is zero-sum with $\norm{\log_p(q)}_p=d(p,q)$;
+$\exp_p(\log_p(q))=q$; parallel transport preserves tangency and Fisher
+norm; the two-point equal-weight barycenter is the geodesic midpoint.
+\end{property}
+
+\begin{limitation}
+The floor $1/\max(p_i,\eps)$ keeps the metric finite on the simplex
+boundary, breaking exactness near zero-probability categories. Because
+$\arccos$ has infinite slope at $BC=1$, self-distance is pinned only to
+\code{atol} $10^{-6}$. The small-angle geodesic is a linear blend, not the
+true arc.
+\end{limitation}
+
+% ===================================================================== %
+\section{Plasticity, Topology, Physics, and Acoustics}
+% ===================================================================== %
+
+\subsection{Spike-Timing-Dependent Plasticity (\code{stdp\_ops})}
+The asymmetric exponential learning window, with
+$\Delta t = t_{\text{post}}-t_{\text{pre}}$, is
+\begin{equation}
+W(\Delta t)=\begin{cases}
+A_+\,e^{-\Delta t/\tau_+}, & \Delta t>0\quad(\text{potentiation}),\\
+-A_-\,e^{\Delta t/\tau_-}, & \Delta t<0\quad(\text{depression}),\\
+0, & \Delta t=0.
+\end{cases}
+\end{equation}
+The batch rule \code{pairwise\_stdp} sums $W$ over all pre/post spike pairs;
+the online rule \code{stdp\_trace\_update} maintains eligibility traces with
+decays $e^{-dt/\tau_\pm}$, ordered decay-then-accumulate so that
+simultaneous spikes contribute $0$, matching $W(0)=0$.
+
+\begin{property}[Window shape]
+$W$ is causal-signed ($\ge 0$ for $\Delta t>0$, $\le 0$ for $\Delta t<0$),
+bounded by $\max(A_+,A_-)$, monotone within each lobe, and antisymmetric
+when balanced ($A_+=A_-$, $\tau_+=\tau_-$). It is invariant under a global
+time shift, and $\Delta w$ is linear in the amplitudes $A_\pm$.
+\end{property}
+
+\begin{property}[Online $=$ batch]\label{prop:stdp-equiv}
+For every synapse $(i,j)$, the online trace update's $\Delta w_{ij}$ equals
+the batch \code{pairwise\_stdp} computed over that synapse's spike times
+(\code{atol} $10^{-9}$). This is the load-bearing equivalence between the
+streaming and offline forms.
+\end{property}
+
+\begin{limitation}
+The module provides the plasticity \emph{rule} only; gating L2 memory writes
+on salience ignitions is a separate, not-yet-implemented integration. The
+trace form requires a uniform $dt$ grid.
+\end{limitation}
+
+\subsection{$H_0$ Persistent Homology (\code{topology\_ops})}
+The module rests on a classical fact: single-linkage clustering equals the
+minimum spanning tree (MST), and the multiset of $H_0$ death scales equals
+the multiset of MST edge weights, so
+$\text{Betti-}0(\eps)=N-\#\{\text{MST edges}\le\eps\}$.
+
+\begin{identity}[MST $=$ $H_0$]
+The barcode death multiset equals the MST edge-weight multiset; the MST has
+exactly $N-1$ edges and \code{total\_persistence} equals their sum.
+\emph{(Closed form; pinned over well-separated clouds.)}
+\end{identity}
+
+\begin{property}[Betti curve and SRTD]
+Betti-$0$ equals $N$ at scale $0$, equals $1$ at large scale, and is
+monotone non-increasing in $\eps$. \code{total\_persistence} is permutation-
+and translation-invariant and scales linearly with the cloud. The sorted
+death-distance surrogate
+$\mathrm{SRTD}_p(X,Y)=\big(\tfrac1n\sum_k|s^X_k-s^Y_k|^p\big)^{1/p}$ (sorted,
+zero-padded deaths) is symmetric, non-negative, zero on coincidence,
+permutation-invariant, and obeys the triangle inequality for equal-size
+clouds.
+\end{property}
+
+\begin{limitation}
+This is $H_0$ only -- connected components, the cheap exact part. Loops
+($H_1$), voids ($H_2$), and certified bottleneck/RTD distances are out of
+scope; SRTD is a regulariser \emph{signal}, not a certified metric. Integer
+Betti numbers are non-differentiable; only the metric quantities are.
+\end{limitation}
+
+\subsection{Newtonian Micro-Physics (\code{physics\_ops})}
+Semi-implicit (symplectic) Euler updates velocity first,
+$v'=v+a\,dt$, then $x'=x+v'\,dt$; velocity Verlet uses the kick--drift--kick
+form. Plummer-softened gravity is
+$a_i=G\sum_{j\neq i} m_j (p_j-p_i)/(\norm{p_j-p_i}^2+\delta^2)^{3/2}$
+with $\delta=10^{-3}$. Collisions apply the standard restitution impulse to
+approaching overlapping pairs.
+
+\begin{identity}[Symplectic closed form]
+Under constant acceleration $a$, semi-implicit Euler gives exactly
+$v_k=v_0+k\,dt\,a$ and
+$x_k=x_0+k\,dt\,v_0+a\,dt^2\,\tfrac{k(k+1)}{2}$.
+\end{identity}
+
+\begin{property}[Conservation laws]
+Pairwise gravity obeys $\sum_i m_i a_i=0$ (Newton's third law) and is
+translation-invariant. Collisions conserve momentum unconditionally; elastic
+collisions conserve kinetic energy; inelastic collisions never create energy
+($KE'\le KE+10^{-9}$ for any restitution $e\in[0,1]$). A force-free rollout
+is a straight line at constant energy, and a closed $N$-body rollout
+conserves total momentum at every snapshot.
+\end{property}
+
+\begin{limitation}
+Integration is first-order symplectic: energy-\emph{stable}, not exact.
+Verlet assumes a position-only force and degrades for velocity-dependent
+forces. Simultaneous multi-body contacts are resolved in one pass --
+exact for isolated pairs, approximate for dense pile-ups. Contact/wall
+thresholds are non-differentiable.
+\end{limitation}
+
+\subsection{Binaural Acoustics (\code{acoustic\_ops})}
+With sound speed $c=343$, propagation delay is $\norm{s-r}/c$, spreading
+gain is $\text{ref}/\max(r,\eps)$, the interaural time difference is
+$\text{ITD}=\text{delay}_L-\text{delay}_R$, and the level difference is
+$\text{ILD}=20\log_{10}(r_L/r_R)$ dB. Localisation inverts the far-field
+model, $\theta=\arcsin(\mathrm{clip}(\text{ITD}\cdot c/\text{head\_width},-1,1))$.
+
+\begin{property}[Cue consistency]
+Delay recovers distance and scales as $1/c$; gain recovers \code{ref\_dist}
+and decreases monotonically; ITD is antisymmetric under ear swap, bounded by
+$\text{head\_width}/c$, and vanishes on the median plane; ITD and ILD are
+sign-aligned; Doppler raises pitch on approach and lowers it on recession;
+superposition is linear and obeys the triangle inequality in magnitude; and
+localisation inverts the far-field model exactly, saturating at the poles.
+The composed \code{binaural\_scene} agrees field-by-field with the
+individual cue operators.
+\end{property}
+
+\begin{limitation}
+The ITD$\to$azimuth map is the far-field plane-wave model: exact far from the
+head, approximate near it. The Doppler denominator is clamped away from the
+shock-wave regime. This is not a learned head-related transfer function.
+\end{limitation}
+
+% ===================================================================== %
+\section{Spatial and Ingest Operators}\label{sec:ingest}
+% ===================================================================== %
+
+\subsection{Spatial Graphs (\code{spatial\_ops})}
+Pairwise distance is $d_{ij}=\sqrt{\norm{p_i-p_j}^2+\eps}$; unit relative
+directions, 2-D bearings, radius and $k$-NN graphs, reachability (transitive
+closure), hop distance (BFS), and connected components (min-index label
+propagation) complete the toolkit.
+
+\begin{property}[Geometric and graph laws]
+Distance is a metric (symmetric, zero-diagonal, triangle inequality) and is
+invariant under rigid motion. Radius graphs are symmetric with edges exactly
+at the threshold and monotone in radius; $k$-NN graphs are symmetric with
+degree $\ge k$. Reachability contains the seeds, is monotone in the hop
+budget, and agrees with finite hop distance; component labels are constant
+along edges and identify mutually reachable nodes.
+\end{property}
+
+\subsection{Stream Alignment (\code{ingest\_ops})}
+Sensor streams arriving on an irregular clock are resampled onto the LTC
+grid. Linear resampling clamps queries into the sample span (never
+extrapolating) and interpolates
+$\text{out}=v_0+w(v_1-v_0)$, $w=\mathrm{clip}((q-t_0)/\max(t_1-t_0,\eps),0,1)$;
+a previous-sample (zero-order-hold) mode is also provided. Coverage flags
+$\text{gap}\le\text{max\_gap}$ (default $1.5\,dt$).
+
+\begin{property}[Exactness on affine signals]
+Linear resampling is \emph{exact} on any affine signal $a\,t+b$ over any
+input clock (\code{atol} $10^{-7}$) and never leaves the convex hull of the
+samples. Zero-order-hold emits only real sample values and holds the most
+recent past sample. Gaps are non-negative and vanish exactly at sample
+times; coverage is monotone in \code{max\_gap}; jitter is zero on a uniform
+clock; and \code{align\_stream} equals resampling and coverage applied
+separately.
+\end{property}
+
+\begin{limitation}
+Resampling is exact only to its model order (affine for the linear mode);
+across a long gap it flags the gap and defers to the predictor rather than
+inventing a high-order fit. Coverage thresholds are non-differentiable.
+There is no Kalman/learned filtering.
+\end{limitation}
+
+% ===================================================================== %
+\section{Memory, Continual Evaluation, and Salience}\label{sec:memory}
+% ===================================================================== %
+
+\subsection{Experience Replay (\code{replay.py})}
+\code{ReservoirBuffer} implements Vitter's Algorithm~R for a uniform sample
+of an unbounded stream in $O(C)$ memory and $O(1)$ time per item: with
+capacity $C$ and 0-based index $i$, item $i$ fills slot $i$ while $i<C$;
+otherwise a draw $j\sim\mathrm{Uniform}\{0,\dots,i\}$ overwrites slot $j$
+when $j<C$. The RNG is an owned, seeded CPU generator, so draws are
+device-independent and reproducible. \code{ClassBalancedReservoir} runs
+$\lfloor C/n_{\text{classes}}\rfloor$ slots per class.
+
+\begin{property}[Algorithm R]
+After $n>C$ items each is retained with empirical frequency $\approx C/n$;
+over $4000$ Monte-Carlo runs ($C=10$, $n=200$) the max$-$min retention
+frequency is below $0.05$ and the first-versus-last difference below $0.04$.
+Draws are seed-deterministic; \code{add\_batch} matches repeated \code{add};
+\code{reset()} clears the buffer, schema, and RNG; the class-balanced variant
+splits its budget evenly regardless of arrival skew.
+\end{property}
+
+\begin{limitation}
+The uniformity guarantee is statistical -- pinned via Monte-Carlo frequency
+bands, not an algebraic identity. Class-balanced capacity is
+$\lfloor C/n_{\text{classes}}\rfloor\cdot n_{\text{classes}}$; remainder
+slots are deliberately unused for fairness.
+\end{limitation}
+
+\subsection{Continual-Learning Metrics (\code{continual\_eval.py})}
+Given the accuracy matrix $R$ with $R[i,j]$ the accuracy on task $j$ after
+training through task $i$, the metrics (Lopez-Paz \& Ranzato 2017; Chaudhry
+et al.\ 2018), all computed in \code{float64}, are
+\begin{align}
+\text{ACC} &= \tfrac1T\textstyle\sum_j R[T{-}1,j], &
+\text{LA} &= \tfrac1T\textstyle\sum_i R[i,i],\\
+\text{BWT} &= \tfrac1{T-1}\textstyle\sum_{i<T-1}\!\big(R[T{-}1,i]-R[i,i]\big), &
+\text{FWT} &= \tfrac1{T-1}\textstyle\sum_{i\ge1}\!\big(R[i{-}1,i]-b_i\big),\\
+\text{FM} &= \tfrac1{T-1}\textstyle\sum_{i<T-1}\!\Big(\max_{i\le l<T-1}R[l,i]-R[T{-}1,i]\Big).
+\end{align}
+
+\begin{property}[Metric correctness]
+Perfect retention gives $\text{BWT}=\text{FM}=0$; total forgetting gives
+$\text{BWT}=-1$, $\text{FM}=1$; the formulas match hand-computed matrices;
+single-task inputs collapse to the identity/zero cases; and non-square,
+non-2-D, empty, or mismatched-baseline inputs are rejected.
+\end{property}
+
+\begin{limitation}\label{lim:fm}
+The implementation defines forgetting as
+$\max_{i\le l<T-1}R[l,i]-R[T{-}1,i]$ (best-ever minus final). The module's
+prose claims this is always $\ge 0$, but under positive backward transfer
+the best old-task accuracy can be the just-learned value while the final
+exceeds it, making FM \emph{negative} -- the tests pin a case at $-0.2$. We
+report the code's actual behaviour, not the prose claim. Metrics read only
+the entries they are defined on, so un-evaluated future-task entries may be
+\code{NaN} without corrupting any score.
+\end{limitation}
+
+\subsection{Salience / Ignition Detection (\code{salience\_events.py})}
+A streaming Schmitt-trigger finite-state machine flags global-workspace
+ignitions. With EMA mean $\mu$ and second moment $\overline{x^2}$ (decay
+$d$), the standard deviation is
+$\sigma=\sqrt{\max(\overline{x^2}-\mu^2,\eps)}$, $\eps=10^{-6}$, and the
+one-sided surprise is $z=(x-\mu)/\sigma$. The machine ignites when
+$z\ge\text{ignite\_z}$ and quiesces when $z\le\text{release\_z}$ (with
+$\text{release\_z}<\text{ignite\_z}$), with a refractory countdown after
+each event. The baseline adapts only on event-free, non-refractory samples,
+so the detector re-arms on sustained shifts rather than latching.
+
+\begin{property}[Detector contract]
+The detector is deterministic, and the online \code{update} path equals the
+batch \code{observe} path. No event fires during warmup; events strictly
+alternate ignition$\to$quiescence starting with an ignition; consecutive
+events are separated by at least $\text{refractory}+1$ steps; every ignition
+carries $z\ge\text{ignite\_z}$ and every quiescence $z\le\text{release\_z}$.
+A constant stream never fires; a single spike on a settled baseline fires
+exactly one ignition. The event stream is invariant under an additive DC
+offset $x\mapsto x+b$ (pinned to floating-point precision,
+$|z_0-z_1|\le 10^{-9}\max(1,|z_0|)$).
+\end{property}
+
+\begin{limitation}
+Because the variance floor $\eps$ is absolute, not relative, the detector is
+\emph{not} invariant under a multiplicative rescale $x\mapsto a\,x$ near a
+flat baseline; only additive-shift invariance is pinned. Salience is
+one-sided (upward departures only).
+\end{limitation}
+
+% ===================================================================== %
+\section{On the Meaning of ``Proven''}\label{sec:honesty}
+% ===================================================================== %
+We separate three grades of claim, in decreasing order of strength.
+
+\paragraph{(1) Closed-form identities.} A handful of statements are exact
+algebra and would survive a hand proof: the affine fixed point
+$x^\star=(I-A)^{-1}b$; the MST/$H_0$ death-scale equivalence; the
+constant-acceleration symplectic-Euler closed form; the exactness of linear
+resampling on affine signals; and Vitter's $C/n$ retention identity
+(probabilistic but exact in expectation). These we label
+\emph{Identity}.
+
+\paragraph{(2) Property-test-pinned laws.} The majority of statements above
+are verified by Hypothesis property tests: each draws inputs from a bounded,
+\code{assume()}-filtered space (typically $80$ or $120$ examples) and asserts
+an invariant within a finite tolerance. This is strong, reproducible,
+regression-guarding evidence -- the invariants have survived a directed
+adversarial search -- but it is \emph{not} a formal, machine-checked proof
+over the entire input domain. We label these \emph{Property} and we
+intend the word literally: the law is pinned, not proven.
+
+\paragraph{(3) Statistical / scenario claims.} Two operators are pinned by
+hand-computed unit tests rather than property tests (\code{replay} and
+\code{continual\_eval}); the replay uniformity guarantee in particular is
+Monte-Carlo statistical, asserted via frequency bands. These are the weakest
+form of evidence in the layer and are flagged as such.
+
+This taxonomy is the paper's central honesty commitment. Where prose in the
+codebase over-claimed -- notably the ``$\text{FM}\ge 0$'' assertion
+contradicted by its own test (Limitation~\ref{lim:fm}) -- we have reported
+the code's true behaviour.
+
+% ===================================================================== %
+\section{Limitations and Non-Goals}\label{sec:limitations}
+% ===================================================================== %
+Collecting the per-module caveats, the layer's honest boundaries are:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Epsilon floors break exact scale-invariance.} The Fisher
+metric's $1/\max(p,\eps)$ and the salience detector's absolute variance
+floor make those operators only \emph{additively} invariant, not
+multiplicatively, near degenerate inputs.
+\item \textbf{Approximate physics.} Integration is first-order
+symplectic (energy-stable, not exact); dense simultaneous contacts are
+resolved approximately.
+\item \textbf{$H_0$-only topology.} Loops and voids are out of scope; SRTD
+is a surrogate signal, not a certified bottleneck distance.
+\item \textbf{Far-field acoustics.} Localisation is exact only in the
+far field.
+\item \textbf{Non-differentiable thresholds.} Graph construction, settling
+time, basin radius, coverage masks, and integer Betti numbers are
+piecewise-constant and cannot pass gradients.
+\item \textbf{Unintegrated by design.} The plasticity and Riemannian
+operators are intentionally kept at the operator layer, available but not
+wired into the training objective.
+\end{itemize}
+
+% ===================================================================== %
+\section{Conclusion}
+% ===================================================================== %
+The MT-LNN operator layer is a small algebra of brain-inspired primitives
+that earns its composability from a strict contract: backbone-decoupled,
+zero-parameter, resettable, dtype-disciplined, and property-pinned. We have
+given exact definitions for all eleven operators and the LTC core they
+instrument, stated the invariants their tests pin, and -- crucially --
+separated the few closed-form identities from the larger body of
+property-test-pinned laws and the handful of statistical guarantees. The
+result is not a benchmark claim but a methodology: brain-inspired mechanisms
+become trustworthy when each is distilled into a parameter-free operator
+whose every law is an executable, honestly-graded test.
+
+\end{document}
