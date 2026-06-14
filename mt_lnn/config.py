@@ -89,6 +89,32 @@ class MTLNNConfig:
     gwtb_external_bids: bool = False
     gwtb_external_bid_gate_init: float = 0.0  # residual gate init for external bids
 
+    # Dynamic workspace bandwidth (2026-06-15): a per-channel "arousal" gate over
+    # the d_gw workspace bottleneck. The current GWTB bottleneck has a FIXED width
+    # (d_gw channels are always fully active); this makes it input-dependent.
+    #   g_t = sigmoid(W_g · z_t + b_g)   ∈ (0,1)^d_gw
+    #   z_gated = z_t * g_t
+    # Brain analog: the global workspace allocates how many bottleneck channels
+    # "ignite" per token — few cortical units active on calm/redundant input, many
+    # on surprising input (Dehaene's all-or-none ignition is graded here so it stays
+    # differentiable). This is the "fixed-bandwidth → dynamic-bandwidth" upgrade.
+    #
+    # Zero-regression contract:
+    #   • Default OFF → no gate parameters are built → forward is bit-identical to
+    #     the pre-existing fixed-bandwidth path.
+    #   • When ON, the gate weight is zero-init and the bias is large-positive
+    #     (gwtb_bandwidth_gate_bias) → g ≈ sigmoid(bias) ≈ "mostly open" at init →
+    #     the workspace starts at near-full bandwidth and *learns* to close
+    #     redundant channels, rather than starting sparse and risking dead units.
+    gwtb_dynamic_bandwidth: bool = False
+    gwtb_bandwidth_gate_bias: float = 4.0    # b_g: sigmoid(4)≈0.982 → mostly-open at init
+    gwtb_bandwidth_threshold: float = 0.1    # channels with g < this count as "dormant"
+    # Eval-time compute saving: hard-mask dormant channels to exactly zero (a
+    # genuine compute-skip, like cortical neurons staying silent). Training always
+    # uses the soft multiply so gradients flow to every channel. Default OFF keeps
+    # train/eval behaviour identical when you only want the soft gate.
+    gwtb_bandwidth_hard_mask: bool = False
+
     # Top-down modulation (P1 closed-loop ②, 2026-06-14): a high-level goal /
     # context vector biases EVERY block's representation (cortical top-down
     # feedback). Each block gets a zero-init-gated residual adapter:

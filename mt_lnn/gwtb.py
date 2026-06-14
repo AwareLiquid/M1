@@ -102,7 +102,91 @@ class GWTBLayer(nn.Module):
 
         self.dropout = nn.Dropout(config.dropout)
 
+        # ----------------------------------------------------------------
+        # Dynamic workspace bandwidth (2026-06-15)
+        # ----------------------------------------------------------------
+        # A per-channel "arousal" gate over the d_gw bottleneck makes the
+        # workspace capacity input-dependent instead of a fixed full width.
+        # Default OFF → no parameters built → bit-identical to the original
+        # fixed-bandwidth pipeline (zero regression). See MTLNNConfig for the
+        # neuroscience rationale and the init contract.
+        self.dynamic_bandwidth = bool(getattr(config, "gwtb_dynamic_bandwidth", False))
+        if self.dynamic_bandwidth:
+            # NOTE: implemented as explicit Parameters rather than an nn.Linear on
+            # purpose. MTLNNModel runs a global init pass (utils.init_weights) that
+            # re-initialises every nn.Linear (weight → N(0, 0.02), bias → 0). That
+            # would silently clobber the mostly-open init below. Bare Parameters are
+            # not touched by that pass, so the init contract holds uniformly whether
+            # the layer is built standalone or inside the full model.
+            #
+            # g = sigmoid(z @ W_gᵀ + b_g). Zero-init weight → at init the gate is
+            # input-INDEPENDENT and equals sigmoid(b_g) on every channel; large
+            # positive b_g → "mostly open" → the workspace starts at near-full
+            # bandwidth and *learns* to close redundant channels (avoids starting
+            # sparse with dead units).
+            self.bandwidth_gate_weight = nn.Parameter(torch.zeros(self.d_gw, self.d_gw))
+            self.bandwidth_gate_bias = nn.Parameter(
+                torch.full(
+                    (self.d_gw,),
+                    float(getattr(config, "gwtb_bandwidth_gate_bias", 4.0)),
+                )
+            )
+            self.bandwidth_threshold = float(
+                getattr(config, "gwtb_bandwidth_threshold", 0.1)
+            )
+            self.bandwidth_hard_mask = bool(
+                getattr(config, "gwtb_bandwidth_hard_mask", False)
+            )
+            # Diagnostics (non-persistent): mean gate value and the effective
+            # active bandwidth (fraction of channels above threshold) from the
+            # last forward. Monitoring only — never feeds back into compute.
+            self.register_buffer(
+                "last_bandwidth_gate_mean", torch.ones(()), persistent=False
+            )
+            self.register_buffer(
+                "last_active_bandwidth", torch.ones(()), persistent=False
+            )
+
         self._build_causal(config.max_seq_len)
+
+    # ------------------------------------------------------------------
+    # Dynamic workspace bandwidth gate
+    # ------------------------------------------------------------------
+
+    def _apply_bandwidth_gate(self, z: torch.Tensor) -> torch.Tensor:
+        """Gate the compressed bottleneck z by an input-dependent per-channel
+        arousal signal. No-op (returns z unchanged) when dynamic bandwidth is
+        disabled, so the default path is bit-identical to fixed bandwidth.
+
+        z : (B, T, d_gw) — pre-compressed workspace activations.
+        returns z_gated : (B, T, d_gw).
+        """
+        if not self.dynamic_bandwidth:
+            return z
+
+        # g ∈ (0,1)^d_gw — how strongly each bottleneck channel ignites for this
+        # token. Input-dependent once W_g has learned (zero at init → constant).
+        g = torch.sigmoid(F.linear(z, self.bandwidth_gate_weight, self.bandwidth_gate_bias))
+
+        if (not self.training) and self.bandwidth_hard_mask:
+            # Inference compute-saving: channels below threshold are treated as
+            # dormant and forced to exactly zero (a real compute-skip), while the
+            # surviving channels keep their graded gate multiplier.
+            keep = (g >= self.bandwidth_threshold).to(z.dtype)
+            z_gated = z * g * keep
+        else:
+            # Soft path (always during training): differentiable attenuation so
+            # gradients reach every channel and the gate can learn what to silence.
+            z_gated = z * g
+
+        # Diagnostics: report the gate mean and the effective active bandwidth
+        # (fraction of channels above the dormancy threshold).
+        with torch.no_grad():
+            self.last_bandwidth_gate_mean = g.detach().mean()
+            self.last_active_bandwidth = (
+                (g >= self.bandwidth_threshold).to(z.dtype).mean().detach()
+            )
+        return z_gated
 
     def _build_causal(self, seq_len: int) -> None:
         dev = self._causal.device if hasattr(self, "_causal") else None
@@ -177,6 +261,7 @@ class GWTBLayer(nn.Module):
         use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         z = self.compress_norm(self.compress(x))                      # (B, T_new, d_gw)
+        z = self._apply_bandwidth_gate(z)                             # dynamic bandwidth (no-op if off)
         delta, new_kv = self._run_workspace_pipeline(z, past_kv, position_offset, use_cache)
         return x + self.broadcast_gate * delta, new_kv
 
@@ -412,6 +497,7 @@ class CompetitiveGWTBLayer(GWTBLayer):
 
         # Compress the competed view into the bottleneck
         z = self.compress_norm(self.compress(x_workspace))              # (B, T, d_gw)
+        z = self._apply_bandwidth_gate(z)                              # dynamic bandwidth (no-op if off)
 
         # Workspace SA + broadcast (inherited pipeline, reused without modification)
         delta, new_kv = self._run_workspace_pipeline(

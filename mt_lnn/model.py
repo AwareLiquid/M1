@@ -750,6 +750,13 @@ class MTLNNModel(nn.Module):
             # Single top-level GWTB (standard or competitive)
             diag["gwtb_broadcast_gate"] = self.gwtb.broadcast_gate.item()
             diag["gwtb_d_gw"] = float(self.gwtb.d_gw)
+            # Dynamic workspace bandwidth diagnostics (only when enabled): the
+            # effective active bandwidth is the fraction of bottleneck channels
+            # that ignited on the last forward — the "fixed d_gw" upper bound is
+            # gwtb_d_gw, and this reports how much of it is actually in use.
+            if getattr(self.gwtb, "dynamic_bandwidth", False):
+                diag["gwtb_active_bandwidth"] = self.gwtb.last_active_bandwidth.item()
+                diag["gwtb_bandwidth_gate_mean"] = self.gwtb.last_bandwidth_gate_mean.item()
             # Competitive GWTB diagnostics
             from .gwtb import CompetitiveGWTBLayer
             if isinstance(self.gwtb, CompetitiveGWTBLayer):
