@@ -74,3 +74,43 @@
    - 原因：能立刻实现 $O(1)$ 显存，带来核心卖点的突破，但注意通过新增分支兼容以前的代码，做好单元测试 `test_model.py` 的防御。
 3. **(次优) 预测编码的多尺度 Loss**：
    - 原因：需要更改 `forward` 抛出 `loss_pred`，并改动 `train.py`。建议等 1、2 验证稳固后逐步合并。
+
+---
+
+## 第四阶段：架构纵深与系统扩展（2026-06-15 评审，基于代码实际状态）
+
+> 评审原则：所有优化必须守住底线 —— **不能为工程效率或性能牺牲类脑核心特性**（不把连续时间动力学改成离散步进、不把液态核改成注意力为主）。能立即做且零回归的先落地（带注释+测试），暂时做不到的诚实写入 TODO，不过度宣称。
+
+### 4.1 动态工作空间带宽（DONE，2026-06-15）
+* **现状核对**：`gwtb.py` 已有 `GWTBLayer` / `CompetitiveGWTBLayer`，但工作空间瓶颈 `d_gw` **是固定带宽**（所有通道恒满激活）。这正是"固定带宽 → 动态带宽"该补的纵深。
+* **已落地**：在 `GWTBLayer` 内新增**每通道唤醒门控** `g = sigmoid(W_g·z + b_g)`，让瓶颈按输入显著性决定多少通道"点火"（类脑唤醒：平静输入少通道激活，意外输入多通道激活）。
+  * 零回归契约：`gwtb_dynamic_bandwidth=False`（默认）→ 不建任何参数 → 与原固定带宽逐位一致；ON 时权重零初始化、bias 大正值 → 初始"几乎全开"，再学着关闭冗余通道。
+  * 推理期可选 `gwtb_bandwidth_hard_mask` 硬置零次阈通道 = 真正的算力跳过（训练期恒用软乘以保梯度）。
+  * 诊断：`model.diagnostics()` 暴露 `gwtb_active_bandwidth`（实际点火通道占比）与 `gwtb_bandwidth_gate_mean`。
+  * 测试：`tests/test_gwtb_dynamic_bandwidth.py`（12 项，含 OFF 逐位一致、输入依赖性、梯度连通、硬掩码算力跳过）。
+* **类脑契合**：对应 GWT 的"按需分配算力"——固定带宽工作空间升级为生物级动态带宽工作空间。
+
+### 4.2 持久化陈述性知识记忆（DONE，2026-06-15）
+* **现状核对**：`memory.py/SessionMemory` 存的是**循环隐状态**（工作记忆，位置绑定、不可按内容检索）。人脑记忆分层中的**长期陈述性记忆**（大容量、非实时、按相似度调取）此前缺失。
+* **已落地**：新增**零耦合**外挂模块 `mt_lnn/knowledge_memory.py` 的 `PersistentKnowledgeMemory`：
+  * 仅依赖 `torch` + 标准库 `sqlite3`，**不 import `model.py`**，`model.py` 也不 import 它 —— 通过显式小接口挂载，核心模型零改动。
+  * `write(key, content, meta)` / `query(key, top_k)`（余弦相似度检索）/ `recall(key)`；键写入即 L2 归一化，余弦排序。
+  * 本地优先 / 隐私：单一 SQLite 文件落盘，进程重启后仍可检索，可跨端复制同步 —— **小体积端侧模型 + 大知识库、按需调取、数据不出端**。
+  * 有界足迹：`max_entries` 触发 LRU 驱逐，端侧占用可控。
+  * 测试：`tests/test_knowledge_memory.py`（8 项，含相似度排序、重启持久化、LRU 驱逐、维度校验）。
+* **记忆分层定位**：工作记忆(`SessionMemory`) + 程序性记忆(模型权重) + **陈述性记忆(`PersistentKnowledgeMemory`)** 三层协同，符合人脑"不把所有知识塞进权重"的分层架构。
+
+### 4.3 TODO — Capsule 拓扑表征保持（P1，路演后）
+* **现状核对（重要）**：`mt_lnn/capsule.py` 是**状态持久化胶囊**（会话快照 belief_state/open_questions/evidence_log），**并非 Hinton/Sabour 式 Capsule 网络**——名字撞车。CapsNet 式"部分-整体"空间拓扑保持表征**当前未实现**。
+* **目标**：引入向量化 capsule + 动态路由（routing-by-agreement），在 L1–L4 空间认知栈中保持部分-整体拓扑关系（Transformer 注意力天然抹平拓扑，这是空间/物理推演超越 Transformer 的底层原因）。
+* **建议形态**：独立零耦合算子模块（如 `mt_lnn/capsule_topology.py`，避免与现有 `capsule.py` 命名冲突），默认关闭，与空间栈组合，property test 钉死路由不变量。
+* **暂不落地原因**：改动较大、需与 L1–L4 深度联调；属"核心壁垒加深"而非路演必需，先入路线图。
+
+### 4.4 TODO — 并行扫描的 Triton/CUDA 融合核（P2，拿到投资、做大规模预训练时再投入）
+* **现状核对**：`mt_lnn/parallel_scan.py` 的 Blelloch 并行前缀扫描（`pscan`）**已用纯 PyTorch 实现并已接入 `mt_lnn_layer.py`**。可线性化的递归部分本身已是 O(log T) 深度。
+* **缺口**：仅缺**融合算子内核**（Triton/CUDA）以削减常数因子与显存搬运。预期端到端训练加速约 **3–8×**（受限于 MT-LNN 核心非线性液态动力学无法完全线性化，**达不到 Mamba 式全序列并行的数量级跃迁，不做过度宣称**）。
+* **优先级理由**：纯性能优化、非能力升级，对路演无帮助（投资人不关心 CUDA vs PyTorch）。**当前阶段不碰**，留作大规模预训练前置工程。
+
+### 4.5 落地战略（NOW，叙事项）：主攻连续时间流，避开 LLM 红海
+* 类脑原生优势在**连续、实时、低功耗、高可靠的流式场景**，而非离散文本批处理。已有布局（双速引擎 `pipeline.py`、failsafe 安全体系 `failsafe.py`、空间认知+物理推演）天然服务于机器人/工业控制等物理世界场景。
+* **对外材料一律不提 MMLU/GLUE 等传统 LLM 榜单**，主动把战场划到连续流 / 端侧 / 高可靠这些 Transformer 进不来的领域（已贯彻到投资人 deck 的"近期能力升级"与战略页）。
