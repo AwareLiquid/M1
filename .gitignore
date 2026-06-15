@@ -53,6 +53,9 @@ scripts/oneoff/
 _kaggle_out/
 kaggle_out/
 
+# Duplicate scratch copy of kaggle kernels (source lives in kaggle_kernels/)
+kaggle_kernels_ea1/
+
 # Stray build/verification logs at repo root
 /checkpoint_wrapup.log
 /docker_verification.log
