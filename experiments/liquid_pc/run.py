@@ -47,7 +47,8 @@ from experiments.liquid_pc.model import build_models, count_params
 # training / evaluation helpers                                               #
 # --------------------------------------------------------------------------- #
 def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
-          lr: float, seed: int = 0, ss_max: float = 0.0) -> None:
+          lr: float, seed: int = 0, ss_max: float = 0.0,
+          ewc_lambda: float = 0.0) -> None:
     """Train a next-step predictor with MSE on (x[:, :-1] -> x[:, 1:]).
 
     ``ss_max`` enables *scheduled sampling* (Bengio et al. 2015): with a
@@ -83,6 +84,8 @@ def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
                 inp[:, 1:] = torch.where(mask, repl, inp[:, 1:])
             pred = model(inp)
             loss = nn.functional.mse_loss(pred, tgt)
+            if ewc_lambda > 0.0 and hasattr(model, "ewc_loss"):
+                loss = loss + model.ewc_loss(ewc_lambda)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()

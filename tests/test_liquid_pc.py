@@ -292,5 +292,115 @@ def test_two_regimes_shapes_differ_in_content():
     assert not torch.allclose(a, b)
 
 
+# --------------------------------------------------------------------------- #
+# calcium-weighted EWC-lite (continual-learning consolidation)                #
+# --------------------------------------------------------------------------- #
+def test_astro_gate_mean_exposed_in_aux():
+    # the astrocyte model exposes a per-level mean consolidation gate, detached.
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3, use_astrocyte=True)
+    x = torch.randn(2, 20, 1)
+    _, aux = m(x, return_aux=True)
+    assert "astro_gate_mean" in aux
+    g = aux["astro_gate_mean"]
+    assert g.shape == (3,)
+    assert not g.requires_grad
+    # zero-init scale -> gate == 1 everywhere.
+    assert torch.allclose(g, torch.ones(3), atol=1e-5)
+
+
+def test_param_level_parsing():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3, dynamic_precision=True)
+    assert m._param_level("generate.0.weight") == 0
+    assert m._param_level("recognize.2.bias") == 2
+    assert m._param_level("prec_gate.1.weight") == 1
+    # global params have no level.
+    assert m._param_level("embed.weight") is None
+    assert m._param_level("readout.bias") is None
+    assert m._param_level("log_tau") is None
+
+
+def test_ewc_loss_zero_before_consolidation():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2)
+    assert m.ewc_loss(1.0).item() == 0.0
+
+
+def test_consolidate_populates_omega_and_anchor():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2)
+    x = torch.randn(3, 25, 1)
+    m.consolidate(x, calcium_weighted=False)
+    assert getattr(m, "_ewc_omega", None)
+    assert getattr(m, "_ewc_anchor", None)
+    # importance is non-negative (squared gradient) and finite.
+    for name, om in m._ewc_omega.items():
+        assert (om >= 0).all()
+        assert torch.isfinite(om).all()
+        assert name in m._ewc_anchor
+
+
+def test_ewc_loss_zero_at_anchor_positive_when_moved():
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2)
+    x = torch.randn(3, 25, 1)
+    m.consolidate(x, calcium_weighted=False)
+    # at the anchor the penalty is exactly zero.
+    assert m.ewc_loss(10.0).item() == pytest.approx(0.0, abs=1e-9)
+    # moving any weight makes it strictly positive.
+    with torch.no_grad():
+        m.readout.weight.add_(0.5)
+    assert m.ewc_loss(10.0).item() > 0.0
+
+
+def test_ewc_penalty_grad_pulls_back_toward_anchor():
+    # the EWC loss gradient w.r.t. a moved weight points back to its anchor.
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2)
+    x = torch.randn(3, 25, 1)
+    m.consolidate(x, calcium_weighted=False)
+    with torch.no_grad():
+        m.readout.weight.add_(1.0)                # move away from anchor
+    m.zero_grad(set_to_none=True)
+    m.ewc_loss(1.0).backward()
+    g = m.readout.weight.grad
+    # positive displacement -> positive gradient (descent pulls weight down/back).
+    moved = (m.readout.weight.detach() - m._ewc_anchor["readout.weight"])
+    # only entries with non-zero importance get a gradient; check sign agreement.
+    nz = m._ewc_omega["readout.weight"] > 0
+    assert torch.all(torch.sign(g[nz]) == torch.sign(moved[nz]))
+
+
+def test_calcium_weighting_changes_importance_scale():
+    # calcium weighting rescales per-level Fisher relative to uniform EWC, so the
+    # stored omega differs once astro_scale is non-trivial.
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3, use_astrocyte=True)
+    with torch.no_grad():
+        m.astro_scale.copy_(torch.tensor([0.5, -0.3, 0.4]))
+    x = torch.randn(3, 30, 1)
+    m.consolidate(x, calcium_weighted=False)
+    plain = {k: v.clone() for k, v in m._ewc_omega.items()}
+    m.consolidate(x, calcium_weighted=True)
+    cal = m._ewc_omega
+    # at least one level's generate/recognize weights are rescaled.
+    diff = any(
+        not torch.allclose(plain[k], cal[k])
+        for k in plain
+        if m._param_level(k) is not None
+    )
+    assert diff
+
+
+def test_ewc_lambda_in_train_runs():
+    # train with an active EWC penalty after consolidation -> still optimises.
+    from experiments.liquid_pc.run import train, one_step_mse
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2)
+    a = torch.randn(8, 24, 1)
+    train(m, a, epochs=3, batch=4, lr=3e-3, seed=0)
+    m.consolidate(a, calcium_weighted=False)
+    b = torch.randn(8, 24, 1)
+    before = one_step_mse(m, b)
+    train(m, b, epochs=5, batch=4, lr=3e-3, seed=1, ewc_lambda=10.0)
+    after = one_step_mse(m, b)
+    assert after < before                        # still learns task B under EWC
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

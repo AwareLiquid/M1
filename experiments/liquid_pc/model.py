@@ -209,6 +209,8 @@ class PCLiquidCore(nn.Module):
         if self.use_astrocyte:
             ca = [x.new_zeros(B, 1) for _ in range(self.n_levels)]
             astro_leak = min(1.0, self.dt / self.astro_tau)
+            # running per-level sum of the consolidation gate (for EWC weighting).
+            gate_sum = [x.new_zeros(()) for _ in range(self.n_levels)]
 
         outs: List[torch.Tensor] = []
         fe_total = x.new_zeros(())
@@ -244,7 +246,9 @@ class PCLiquidCore(nn.Module):
                     ca[l] = (1.0 - astro_leak) * ca[l] + astro_leak * act
                     z = (ca[l] - self.astro_ca_peak) / self.astro_width
                     bump = torch.exp(-0.5 * z * z)                # (B,1) in (0,1]
-                    astro_gate.append(1.0 + self.astro_scale[l] * bump)
+                    g_l = 1.0 + self.astro_scale[l] * bump
+                    astro_gate.append(g_l)
+                    gate_sum[l] = gate_sum[l] + g_l.mean()
 
             # 3) liquid update: PRECISION-weighted error from below drives, own
             #    precision-weighted top-down error pulls. Weighting the error
@@ -269,8 +273,118 @@ class PCLiquidCore(nn.Module):
 
         xhat = torch.stack(outs, dim=1)                      # (B, T, d_in)
         if return_aux:
-            return xhat, {"free_energy": fe_total / max(1, T)}
+            aux = {"free_energy": fe_total / max(1, T)}
+            if self.use_astrocyte:
+                # mean consolidation gate per level over the sequence (detached:
+                # used as a static per-level importance weight, not a grad path).
+                aux["astro_gate_mean"] = torch.stack(
+                    [g / max(1, T) for g in gate_sum]
+                ).detach()                                   # (L,)
+            return xhat, aux
         return xhat
+
+    # ------------------------------------------------------------------ #
+    # continual-learning support: calcium-weighted EWC-lite               #
+    # ------------------------------------------------------------------ #
+    # When a task is finished we "consolidate": estimate each weight's
+    # importance via a diagonal-Fisher proxy (squared gradient of the task
+    # loss) and anchor the current weights. A later task then pays a
+    # quadratic penalty for moving important weights — Elastic Weight
+    # Consolidation (Kirkpatrick 2017). The PCLiquidCore-SPECIFIC twist is
+    # CALCIUM WEIGHTING: per-level Fisher is scaled by that level's mean
+    # astrocyte consolidation gate, so weights in levels the glial gate
+    # marked as "consolidated" are protected MORE. This is an architectural
+    # capability of the integrated core, not a generic add-on.
+
+    def _param_level(self, name: str) -> Optional[int]:
+        """Map a parameter name to its representation level (0..L-1), or None
+        for global params (embed/readout/log_tau/log_precision/astro_scale)."""
+        for prefix in ("generate.", "recognize.", "prec_gate."):
+            if name.startswith(prefix):
+                rest = name[len(prefix):]
+                try:
+                    return int(rest.split(".", 1)[0])
+                except ValueError:
+                    return None
+        return None
+
+    def consolidate(
+        self,
+        x: torch.Tensor,
+        *,
+        calcium_weighted: bool = True,
+        fisher_batch: int = 8,
+    ) -> None:
+        """Estimate the diagonal EMPIRICAL Fisher importance on task ``x`` and
+        anchor the current weights.
+
+        The empirical Fisher averages PER-(mini)SAMPLE squared gradients rather
+        than squaring the gradient of the batch-mean loss. This matters: at a
+        task-A minimum the mean gradient ~ 0, so ``(mean grad)**2`` collapses to
+        ~0 and the EWC penalty becomes a no-op (verified empirically — plain EWC
+        with that proxy did NOT reduce forgetting). Per-sample squared gradients
+        stay positive at the minimum (individual samples still pull, they only
+        cancel in the mean), giving a meaningful importance estimate.
+
+        Stores ``self._ewc_omega`` (per-param importance) and
+        ``self._ewc_anchor`` (per-param frozen reference). If ``calcium_weighted``
+        and the astrocyte gate is active, per-level Fisher is scaled by the
+        (mean-1 normalised) mean consolidation gate of that level — the
+        PCLiquidCore-specific twist.
+        """
+        # per-level calcium importance from a single full forward (detached).
+        level_scale = None
+        if calcium_weighted and self.use_astrocyte:
+            with torch.no_grad():
+                _, aux = self.forward(x, return_aux=True)
+            g = aux["astro_gate_mean"].detach().clamp_min(1e-6)
+            level_scale = (g / g.mean()).tolist()            # mean-1 normalised
+
+        fisher: dict = {n: torch.zeros_like(p)
+                        for n, p in self.named_parameters()}
+        n = x.shape[0]
+        n_batches = 0
+        for i in range(0, n, fisher_batch):
+            xb = x[i:i + fisher_batch]
+            self.zero_grad(set_to_none=True)
+            xhat = self.forward(xb)
+            loss = F.mse_loss(xhat[:, :-1, :], xb[:, 1:, :])
+            loss.backward()
+            for name, p in self.named_parameters():
+                if p.grad is not None:
+                    fisher[name] += p.grad.detach() ** 2
+            n_batches += 1
+        n_batches = max(1, n_batches)
+
+        omega: dict = {}
+        anchor: dict = {}
+        for name, p in self.named_parameters():
+            f = fisher[name] / n_batches
+            if level_scale is not None:
+                lvl = self._param_level(name)
+                if lvl is not None and 0 <= lvl < len(level_scale):
+                    f = f * level_scale[lvl]
+            omega[name] = f
+            anchor[name] = p.detach().clone()
+        self._ewc_omega = omega
+        self._ewc_anchor = anchor
+        self.zero_grad(set_to_none=True)
+
+    def ewc_loss(self, lam: float) -> torch.Tensor:
+        """Quadratic EWC penalty ``lam * sum omega * (theta - theta*)^2``.
+
+        Returns a zero scalar if no consolidation has been done or ``lam<=0``."""
+        dev = self.readout.weight.device
+        if lam <= 0.0 or not getattr(self, "_ewc_omega", None):
+            return torch.zeros((), device=dev)
+        total = torch.zeros((), device=dev)
+        params = dict(self.named_parameters())
+        for name, om in self._ewc_omega.items():
+            p = params.get(name)
+            if p is None:
+                continue
+            total = total + (om * (p - self._ewc_anchor[name]) ** 2).sum()
+        return lam * total
 
 
 # --------------------------------------------------------------------------- #
