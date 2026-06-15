@@ -421,5 +421,19 @@ def test_replay_reduces_forgetting_of_old_task():
     assert run(replay=True) < run(replay=False)
 
 
+def test_generate_synthetic_shape_and_determinism():
+    from experiments.liquid_pc.run import generate_synthetic
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=2, d=16, n_levels=2)
+    s1 = generate_synthetic(m, n_syn=5, seq_len=30, d_in=2, seed=7, warmup=8)
+    s2 = generate_synthetic(m, n_syn=5, seq_len=30, d_in=2, seed=7, warmup=8)
+    assert s1.shape == (5, 30, 2)
+    assert torch.equal(s1, s2)                   # deterministic for fixed seed
+    assert torch.isfinite(s1).all()
+    # a different seed gives different dreams.
+    s3 = generate_synthetic(m, n_syn=5, seq_len=30, d_in=2, seed=8, warmup=8)
+    assert not torch.allclose(s1, s3)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

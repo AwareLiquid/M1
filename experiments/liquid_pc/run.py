@@ -137,6 +137,34 @@ def rollout_mse(model: nn.Module, x: torch.Tensor, *, prime: int) -> float:
     return nn.functional.mse_loss(roll, x[:, prime:, :]).item()
 
 
+@torch.no_grad()
+def generate_synthetic(model: nn.Module, *, n_syn: int, seq_len: int, d_in: int,
+                       seed: int = 0, warmup: int = 16,
+                       noise_std: float = 1.0) -> torch.Tensor:
+    """DREAM synthetic sequences by free-running the model from a noise seed.
+
+    The model just trained on a task is rolled out autoregressively: seeded with
+    ``warmup`` steps of noise, it then predicts ``seq_len`` further steps, each fed
+    back as the next input. The warmup is discarded and the model-generated
+    continuation is returned. This is *generative replay / pseudo-rehearsal*
+    (Robins 1995; Shin et al. 2017): a snapshot of the model dreams up
+    old-task-like data, so a later task can rehearse WITHOUT storing any raw old
+    data. Because the sequence is built from the model's own predictions,
+    next-step MSE on it distils the snapshot (``x[t+1]`` IS its prediction at t).
+
+    It is a GENERIC tool — any next-step predictor (PCLiquidCore OR a GRU) can be
+    rolled out this way — so PCLiquidCore and the RNN baseline are dreamed
+    identically and the comparison of dream QUALITY stays fair.
+    """
+    g = torch.Generator().manual_seed(seed)
+    seq = noise_std * torch.randn(n_syn, warmup, d_in, generator=g)
+    model.eval()
+    for _ in range(seq_len):
+        nxt = model(seq)[:, -1:, :]
+        seq = torch.cat([seq, nxt], dim=1)
+    return seq[:, warmup:, :].contiguous()               # (n_syn, seq_len, d_in)
+
+
 def persistence_mse(x: torch.Tensor) -> float:
     """Naive reference: predict x_{t+1} = x_t."""
     return nn.functional.mse_loss(x[:, :-1], x[:, 1:]).item()
