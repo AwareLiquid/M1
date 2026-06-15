@@ -292,6 +292,16 @@ def test_two_regimes_shapes_differ_in_content():
     assert not torch.allclose(a, b)
 
 
+def test_three_regimes_shapes_and_distinctness():
+    from experiments.liquid_pc.data import three_regimes
+    a, b, c = three_regimes(4, 50, d_in=1, seed=0)
+    assert a.shape == b.shape == c.shape == (4, 50, 1)
+    # the three timescale regimes must be mutually distinct signals.
+    assert not torch.allclose(a, b)
+    assert not torch.allclose(a, c)
+    assert not torch.allclose(b, c)
+
+
 # --------------------------------------------------------------------------- #
 # calcium-weighted EWC-lite (continual-learning consolidation)                #
 # --------------------------------------------------------------------------- #

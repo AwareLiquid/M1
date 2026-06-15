@@ -108,3 +108,23 @@ def two_regimes(
     a = make_signal(n_seq, seq_len, d_in, spec=spec_a, seed=seed)
     b = make_signal(n_seq, seq_len, d_in, spec=spec_b, seed=seed + 1000)
     return a, b
+
+
+def three_regimes(
+    n_seq: int, seq_len: int, d_in: int = 1, *, seed: int = 0
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Three well-separated timescale regimes for A->B->C continual learning.
+
+    Regime A is slow-dominated (periods 20-80), B is fast-dominated (3-12), and C
+    is a mid-band regime (8-30) that overlaps neither extreme. The three bands are
+    distinct enough that naively training A->B->C catastrophically overwrites the
+    earlier regimes unless old knowledge is rehearsed. Each regime uses a
+    well-separated seed offset so the per-sequence phases differ across tasks.
+    """
+    spec_a = SignalSpec(period_min=20.0, period_max=80.0, amp_decay=0.6)
+    spec_b = SignalSpec(period_min=3.0, period_max=12.0, amp_decay=0.6)
+    spec_c = SignalSpec(period_min=8.0, period_max=30.0, amp_decay=0.6)
+    a = make_signal(n_seq, seq_len, d_in, spec=spec_a, seed=seed)
+    b = make_signal(n_seq, seq_len, d_in, spec=spec_b, seed=seed + 1000)
+    c = make_signal(n_seq, seq_len, d_in, spec=spec_c, seed=seed + 2000)
+    return a, b, c
