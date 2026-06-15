@@ -59,3 +59,10 @@ kaggle_out/
 
 # Bundled fonts
 NotoSC*.otf
+
+# Local agent / tool state and binaries
+.claude/
+.tools/
+
+# Nested external clone (its own git repo), kept out of this tree
+temp_nature_skills/
