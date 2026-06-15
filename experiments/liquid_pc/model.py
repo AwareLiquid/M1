@@ -84,6 +84,10 @@ class PCLiquidCore(nn.Module):
         learn_precision: bool = True,
         precision_init: float | None = None,
         dynamic_precision: bool = False,
+        use_astrocyte: bool = False,
+        astro_tau: float | None = None,
+        astro_ca_peak: float = 0.3,
+        astro_width: float = 0.3,
     ):
         super().__init__()
         if n_levels < 1:
@@ -94,6 +98,7 @@ class PCLiquidCore(nn.Module):
         self.dt = float(dt)
         self.free_energy_weight = float(free_energy_weight)
         self.dynamic_precision = bool(dynamic_precision)
+        self.use_astrocyte = bool(use_astrocyte)
 
         # Level 0 = embedded input (clamped to data each step).
         self.embed = nn.Linear(d_in, d)
@@ -156,6 +161,27 @@ class PCLiquidCore(nn.Module):
                 nn.init.zeros_(g.weight)
                 nn.init.zeros_(g.bias)
 
+        # Optional ASTROCYTE consolidation gate (tripartite synapse, Araque 1999;
+        # De Pittà 2016). Each level carries a SLOW leaky-calcium variable on a
+        # time constant far slower than the state's own tau, and an inverted-U
+        # band over that calcium gates how strongly NEW drive is written into the
+        # slow state: a productive mid-band deepens consolidation, while quiescent
+        # OR saturated (over-driven) channels hold back — a homeostatic brake that
+        # protects already-consolidated structure from being overwritten. This
+        # targets the one ROBUST, error-barred PCLiquidCore advantage found in the
+        # multi-seed pass: less catastrophic forgetting than RNNs. The per-level
+        # gate scale is zero-initialised so a fresh astrocyte model is bit-for-bit
+        # identical to the non-astrocyte core (the ablation chain extends to
+        # none -> static -> dynamic -> astrocyte), and the gate is parameterised
+        # additively as gate = 1 + scale * bump so scale=0 is a literal no-op.
+        if self.use_astrocyte:
+            self.astro_tau = float(astro_tau if astro_tau is not None
+                                   else 4.0 * tau_max)
+            self.astro_ca_peak = float(astro_ca_peak)
+            self.astro_width = float(astro_width)
+            # learnable per-level consolidation depth, zero-init -> identity.
+            self.astro_scale = nn.Parameter(torch.zeros(self.n_levels))
+
         # Read next-step prediction from the full multi-timescale state.
         self.readout = nn.Linear(self.n_levels * d, d_in)
 
@@ -179,6 +205,10 @@ class PCLiquidCore(nn.Module):
         prec = self._precision()                             # (L,) error precisions
         # Initialise level states to zero.
         r = [x.new_zeros(B, self.d) for _ in range(self.n_levels)]
+        # Astrocyte slow-calcium state (one per level), if enabled.
+        if self.use_astrocyte:
+            ca = [x.new_zeros(B, 1) for _ in range(self.n_levels)]
+            astro_leak = min(1.0, self.dt / self.astro_tau)
 
         outs: List[torch.Tensor] = []
         fe_total = x.new_zeros(())
@@ -203,6 +233,19 @@ class PCLiquidCore(nn.Module):
             else:
                 prec_t = prec                               # (L,) scalar broadcast
 
+            # Astrocyte slow-calcium update + inverted-U consolidation gate. The
+            # calcium integrates each level's sustained activity on a slow tau;
+            # the band gate (1 + scale*bump) deepens or holds back how much new
+            # drive is written this step (scale=0 -> gate==1 -> no-op).
+            if self.use_astrocyte:
+                astro_gate: List[torch.Tensor] = []
+                for l in range(self.n_levels):
+                    act = r[l].abs().mean(dim=-1, keepdim=True)   # (B,1) busy-ness
+                    ca[l] = (1.0 - astro_leak) * ca[l] + astro_leak * act
+                    z = (ca[l] - self.astro_ca_peak) / self.astro_width
+                    bump = torch.exp(-0.5 * z * z)                # (B,1) in (0,1]
+                    astro_gate.append(1.0 + self.astro_scale[l] * bump)
+
             # 3) liquid update: PRECISION-weighted error from below drives, own
             #    precision-weighted top-down error pulls. Weighting the error
             #    residual (not the synaptic map) keeps it a true inverse-variance
@@ -212,6 +255,8 @@ class PCLiquidCore(nn.Module):
                 bu = self.recognize[l](prec_t[l] * eps[l])   # bottom-up error drive
                 td = prec_t[l + 1] * eps[l + 1] if l + 1 < self.n_levels else 0.0
                 drive = torch.tanh(bu - td)
+                if self.use_astrocyte:
+                    drive = astro_gate[l] * drive            # glial consolidation gate
                 new_r.append(decay[l] * r[l] + (1.0 - decay[l]) * drive)
             r = new_r
 

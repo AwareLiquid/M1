@@ -68,6 +68,11 @@ def make_model(label: str, d_in: int, seed: int):
         return PCLiquidCore(d_in, d=48, n_levels=3)
     if label == "PC-dynamic":
         return PCLiquidCore(d_in, d=48, n_levels=3, dynamic_precision=True)
+    if label == "PC-astro":
+        # dynamic precision (validated >= static) + astrocyte consolidation gate,
+        # targeting the robust low-forgetting advantage.
+        return PCLiquidCore(d_in, d=48, n_levels=3, dynamic_precision=True,
+                            use_astrocyte=True)
     if label == "GRU":
         return GRUBaseline(d_in, hidden=70)
     if label == "LSTM":
@@ -77,7 +82,7 @@ def make_model(label: str, d_in: int, seed: int):
     raise ValueError(f"unknown model label: {label}")
 
 
-LABELS = ["PC-static", "PC-dynamic", "GRU", "LSTM", "Transformer"]
+LABELS = ["PC-static", "PC-dynamic", "PC-astro", "GRU", "LSTM", "Transformer"]
 
 
 def _mean_std(xs: List[float]) -> Dict[str, float]:
@@ -199,6 +204,10 @@ def _print(report: Dict) -> None:
     pdy = s["PC-dynamic"]["rollout"]["mean"]
     print(f"\nrollout: PC-dynamic {pdy:.5f} vs PC-static {pst:.5f} "
           f"-> dynamic {'better' if pdy < pst else 'NOT better'}")
+    fdy = s["PC-dynamic"]["forgetting"]["mean"]
+    fas = s["PC-astro"]["forgetting"]["mean"]
+    print(f"forgetting: PC-astro {fas:+.5f} vs PC-dynamic {fdy:+.5f} "
+          f"-> astrocyte {'reduces forgetting' if fas < fdy else 'does NOT reduce'}")
 
 
 if __name__ == "__main__":

@@ -153,6 +153,52 @@ def test_dynamic_precision_is_input_dependent():
     assert not torch.allclose(y0, y1, atol=1e-6)
 
 
+# --------------------------------------------------------------------------- #
+# astrocyte consolidation gate                                                #
+# --------------------------------------------------------------------------- #
+def test_astrocyte_builds_and_runs():
+    m = PCLiquidCore(d_in=2, d=8, n_levels=3, use_astrocyte=True)
+    assert hasattr(m, "astro_scale") and m.astro_scale.shape == (3,)
+    assert m.astro_scale.requires_grad
+    y = m(torch.randn(4, 12, 2))
+    assert y.shape == (4, 12, 2)
+
+
+def test_astrocyte_zero_scale_matches_plain():
+    # Ablation chain: the gate scale is zero-initialised, so on the SAME weights
+    # the astrocyte path (gate == 1) is identical to the non-astrocyte core.
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3, use_astrocyte=True).eval()
+    x = torch.randn(2, 14, 1)
+    y_astro = m(x)
+    m.use_astrocyte = False                              # same weights, plain path
+    y_plain = m(x)
+    assert torch.allclose(y_astro, y_plain, atol=1e-6)
+
+
+def test_astrocyte_gate_changes_dynamics_when_active():
+    # With a non-zero consolidation depth the slow-calcium band gate modulates
+    # the drive, so the dynamics genuinely change.
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2, use_astrocyte=True).eval()
+    x = torch.randn(1, 16, 1)
+    y0 = m(x)                                            # zero scale -> plain-equiv
+    with torch.no_grad():
+        m.astro_scale.fill_(0.5)
+    y1 = m(x)
+    assert not torch.allclose(y0, y1, atol=1e-6)
+
+
+def test_astrocyte_calcium_is_slow():
+    # The glial calcium must respond only to SUSTAINED activity: its leak rate is
+    # dt/astro_tau with astro_tau >> the state taus, so it is a slow integrator.
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2, use_astrocyte=True,
+                     tau_max=40.0, astro_tau=160.0)
+    assert m.astro_tau >= 4.0 * 40.0                     # far slower than states
+    leak = min(1.0, m.dt / m.astro_tau)
+    assert leak < 0.1                                    # one step barely moves Ca
+
+
 def test_zero_prediction_error_freezes_state():
     # Predictive-coding tenet: the state is driven by errors. If we null the
     # recognition + generative pathways so every error maps to zero drive, the
