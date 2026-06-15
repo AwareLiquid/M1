@@ -402,5 +402,24 @@ def test_ewc_lambda_in_train_runs():
     assert after < before                        # still learns task B under EWC
 
 
+def test_replay_reduces_forgetting_of_old_task():
+    # rehearsing a buffer of task A during task B should leave A-error lower than
+    # training B with no replay at all (the whole point of experience replay).
+    from experiments.liquid_pc.run import train, one_step_mse
+    from experiments.liquid_pc.data import two_regimes
+    torch.manual_seed(0)
+    a, b = two_regimes(64, 32, d_in=1, seed=0)
+
+    def run(replay):
+        torch.manual_seed(0)
+        m = PCLiquidCore(d_in=1, d=16, n_levels=2)
+        train(m, a, epochs=20, batch=16, lr=3e-3, seed=0)
+        train(m, b, epochs=20, batch=16, lr=3e-3, seed=1,
+              replay_x=(a[:16] if replay else None), replay_batch=8)
+        return one_step_mse(m, a)
+
+    assert run(replay=True) < run(replay=False)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

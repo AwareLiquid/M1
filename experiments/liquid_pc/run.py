@@ -48,7 +48,8 @@ from experiments.liquid_pc.model import build_models, count_params
 # --------------------------------------------------------------------------- #
 def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
           lr: float, seed: int = 0, ss_max: float = 0.0,
-          ewc_lambda: float = 0.0) -> None:
+          ewc_lambda: float = 0.0, replay_x: torch.Tensor | None = None,
+          replay_batch: int = 16, replay_weight: float = 1.0) -> None:
     """Train a next-step predictor with MSE on (x[:, :-1] -> x[:, 1:]).
 
     ``ss_max`` enables *scheduled sampling* (Bengio et al. 2015): with a
@@ -60,10 +61,20 @@ def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
     The cheap 2-pass approximation is used (one teacher-forced pass to source the
     predictions, one mixed-input pass for the gradient), applied IDENTICALLY to
     every model so the comparison stays fair.
+
+    ``replay_x`` enables *experience replay / rehearsal* (the systems-
+    consolidation / hippocampal-replay analogue): a small buffer of an OLD task's
+    sequences is interleaved each step, adding ``replay_weight`` * MSE on a random
+    replay minibatch to the loss. Unlike EWC (which protects weights in parameter
+    space), replay revisits the old data directly — the strongest-known continual-
+    learning lever, but it stores raw old data. Applied identically to every model
+    (it is a training protocol, not an architectural advantage), so PCLiquidCore
+    and the RNN baseline are rehearsed the same way for a fair comparison.
     """
     g = torch.Generator().manual_seed(seed)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     n = x.shape[0]
+    n_replay = replay_x.shape[0] if replay_x is not None else 0
     model.train()
     for ep in range(epochs):
         p = ss_max * (ep / max(1, epochs - 1)) if ss_max > 0.0 else 0.0
@@ -86,6 +97,13 @@ def train(model: nn.Module, x: torch.Tensor, *, epochs: int, batch: int,
             loss = nn.functional.mse_loss(pred, tgt)
             if ewc_lambda > 0.0 and hasattr(model, "ewc_loss"):
                 loss = loss + model.ewc_loss(ewc_lambda)
+            if n_replay > 0 and replay_weight > 0.0:
+                ridx = torch.randint(0, n_replay, (min(replay_batch, n_replay),),
+                                     generator=g)
+                rb = replay_x[ridx]
+                rpred = model(rb[:, :-1])
+                loss = loss + replay_weight * nn.functional.mse_loss(
+                    rpred, rb[:, 1:])
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()

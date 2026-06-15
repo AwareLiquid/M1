@@ -1,35 +1,41 @@
 """
-experiments/liquid_pc/continual.py — calcium-weighted EWC continual-learning probe.
+experiments/liquid_pc/continual.py — continual-learning probe: which consolidation
+lever actually reduces catastrophic forgetting, and is any of it PCLiquidCore-
+specific?
 
 WHY THIS EXISTS
 ---------------
 The multi-seed pass (report_multiseed.md) established ONE robust, error-barred
-PCLiquidCore advantage: less catastrophic forgetting than the RNN baselines. The
-astrocyte consolidation gate then shaved that forgetting a little further (~3%,
-5/5 seeds). This script asks the next honest question: can an EXPLICIT
-consolidation protocol — Elastic Weight Consolidation (Kirkpatrick 2017) — reduce
-forgetting MORE, and does the PCLiquidCore-specific CALCIUM WEIGHTING of the
-Fisher importance beat plain (uniform) EWC?
+PCLiquidCore advantage: less catastrophic forgetting than the RNN baselines. We
+then tried to AMPLIFY it with two explicit consolidation levers and measure each
+honestly with error bars:
+  * EWC — Elastic Weight Consolidation (Kirkpatrick 2017): protect weights in
+    PARAMETER space via a diagonal empirical-Fisher importance + quadratic anchor.
+    (A naive (mean-grad)^2 Fisher collapses to ~0 at the task-A minimum and makes
+    EWC a no-op — the per-sample EMPIRICAL Fisher is required; see model.py.)
+  * Replay — experience replay / rehearsal (the systems-consolidation / hippocampal
+    -replay analogue): interleave a small buffer of the OLD task during the new
+    task. Revisits old DATA directly rather than protecting weights.
 
-Protocol per seed (the forgetting probe, focused — no rollout/main-task here):
-  two_regimes -> train on A -> measure A-error (a_before) -> CONSOLIDATE on A
-  (estimate Fisher importance + anchor weights) -> train on B WITH the EWC
-  penalty active -> re-measure A-error (a_after). forgetting = a_after - a_before.
-  We also record B-error after training B, to confirm EWC did not simply block
-  learning B (low forgetting is worthless if the model never learned the new task).
+Protocol per seed (forgetting probe, focused — no rollout/main-task here):
+  two_regimes -> train A -> measure A-error (a_before) -> [consolidate A for EWC]
+  -> train B WITH the lever active -> re-measure A-error (a_after).
+  forgetting = a_after - a_before. We also record B-error after B, to confirm a
+  lever did not simply BLOCK learning B (low forgetting is worthless if the model
+  never learned the new task).
 
-Variants (all share the SAME astrocyte architecture, so the only difference is
+Variants (PC-* all share the SAME astrocyte architecture; the only difference is
 the consolidation protocol — a clean ablation):
-  * PC-astro      : astrocyte gate, NO EWC (the multiseed reference).
-  * PC-ewc-plain  : astrocyte gate + EWC with UNIFORM Fisher.
-  * PC-ewc-cal    : astrocyte gate + EWC with CALCIUM-weighted Fisher.
-  * GRU           : RNN reference (no consolidation mechanism), for scale.
+  * PC-astro      : no explicit consolidation (the multiseed reference).
+  * PC-ewc        : EWC (uniform empirical Fisher).
+  * PC-replay     : experience replay only.
+  * PC-ewc-replay : EWC + replay (do they STACK?).
+  * GRU-replay    : RNN + replay (is replay PCLiquidCore-specific, or generic?).
 
-Honesty notes: EWC is a well-known generic method; the only PCLiquidCore-specific
-claim under test is whether glial-calcium importance weighting helps OVER plain
-EWC. Whatever the result, it is printed and saved verbatim. ``lam`` (EWC strength)
-is a hyperparameter — too large blocks learning B, too small gives no protection;
-it is fixed across variants so the calcium-vs-uniform comparison is fair.
+Honesty notes: both EWC and replay are well-known GENERIC methods applied
+identically to every architecture, so this is a fair head-to-head; replay stores
+raw old data (O(buffer) memory) whereas EWC is O(params). ``lam`` and the replay
+buffer/batch are fixed across variants. Whatever the result, it is saved verbatim.
 
 Run:  python -m experiments.liquid_pc.continual
 """
@@ -61,22 +67,25 @@ from experiments.liquid_pc.run import train, one_step_mse
 # variant -> (factory needs, ewc config). All PC variants share architecture.
 def make_model(label: str, d_in: int, seed: int):
     torch.manual_seed(seed)
-    if label in ("PC-astro", "PC-ewc-plain", "PC-ewc-cal"):
+    if label.startswith("PC"):
         return PCLiquidCore(d_in, d=48, n_levels=3, dynamic_precision=True,
                             use_astrocyte=True)
-    if label == "GRU":
+    if label.startswith("GRU"):
         return GRUBaseline(d_in, hidden=70)
     raise ValueError(f"unknown model label: {label}")
 
 
-# per-variant consolidation config: (uses_ewc, calcium_weighted).
-EWC_CFG = {
-    "PC-astro": (False, False),
-    "PC-ewc-plain": (True, False),
-    "PC-ewc-cal": (True, True),
-    "GRU": (False, False),
+# per-variant consolidation config: (uses_ewc, calcium_weighted, uses_replay).
+# EWC protects weights in parameter space; replay rehearses a small buffer of the
+# OLD task. Both are training protocols applied identically across architectures.
+CFG = {
+    "PC-astro": (False, False, False),       # no explicit consolidation (ref)
+    "PC-ewc": (True, False, False),          # EWC (uniform empirical Fisher)
+    "PC-replay": (False, False, True),       # experience replay only
+    "PC-ewc-replay": (True, False, True),    # EWC + replay (do they stack?)
+    "GRU-replay": (False, False, True),      # replay reference (no PC machinery)
 }
-LABELS = ["PC-astro", "PC-ewc-plain", "PC-ewc-cal", "GRU"]
+LABELS = ["PC-astro", "PC-ewc", "PC-replay", "PC-ewc-replay", "GRU-replay"]
 
 
 def _mean_std(xs: List[float]) -> Dict:
@@ -98,6 +107,8 @@ def main(
     batch: int = 64,
     lr: float = 3e-3,
     ewc_lambda: float = 1e5,
+    replay_buffer: int = 32,
+    replay_batch: int = 16,
 ) -> Dict:
     t0 = time.time()
     acc = {lab: {"a_before": [], "a_after": [], "forgetting": [], "b_after": []}
@@ -110,7 +121,7 @@ def main(
         b_tr, b_te = train_test_split(b, 0.8)
 
         for lab in LABELS:
-            uses_ewc, cal = EWC_CFG[lab]
+            uses_ewc, cal, uses_replay = CFG[lab]
             m = make_model(lab, d_in, seed)
             params.setdefault(lab, count_params(m))
 
@@ -122,10 +133,11 @@ def main(
             if uses_ewc:
                 m.consolidate(a_tr, calcium_weighted=cal)
 
-            # task B (with EWC penalty active for EWC variants).
+            # task B: EWC penalty (param-space) and/or replay (a small A buffer).
             lam = ewc_lambda if uses_ewc else 0.0
+            rbuf = a_tr[:replay_buffer] if uses_replay else None
             train(m, b_tr, epochs=epochs, batch=batch, lr=lr, seed=seed + 1,
-                  ewc_lambda=lam)
+                  ewc_lambda=lam, replay_x=rbuf, replay_batch=replay_batch)
             a_after = one_step_mse(m, a_te)
             b_after = one_step_mse(m, b_te)
 
@@ -148,8 +160,8 @@ def main(
         }
         for lab in LABELS
     }
-    # paired (per-seed) deltas: does EWC reduce forgetting vs astrocyte-only,
-    # and does calcium weighting beat plain EWC? Same seeds -> a paired test.
+    # paired (per-seed) deltas: which consolidation lever cuts forgetting, and do
+    # EWC + replay STACK? Same seeds across variants -> a paired comparison.
     def _paired(lab_a: str, lab_b: str) -> Dict:
         da = acc[lab_a]["forgetting"]
         db = acc[lab_b]["forgetting"]
@@ -160,14 +172,17 @@ def main(
                 "diffs": [round(d, 5) for d in diffs]}
 
     paired = {
-        "ewc_plain_vs_astro": _paired("PC-ewc-plain", "PC-astro"),
-        "ewc_cal_vs_astro": _paired("PC-ewc-cal", "PC-astro"),
-        "ewc_cal_vs_plain": _paired("PC-ewc-cal", "PC-ewc-plain"),
+        "ewc_vs_astro": _paired("PC-ewc", "PC-astro"),
+        "replay_vs_astro": _paired("PC-replay", "PC-astro"),
+        "replay_vs_ewc": _paired("PC-replay", "PC-ewc"),
+        "ewcreplay_vs_replay": _paired("PC-ewc-replay", "PC-replay"),
+        "pcreplay_vs_grureplay": _paired("PC-replay", "GRU-replay"),
     }
 
     report = {
         "config": dict(seeds=list(seeds), n_seq=n_seq, seq_len=seq_len, d_in=d_in,
-                       epochs=epochs, batch=batch, lr=lr, ewc_lambda=ewc_lambda),
+                       epochs=epochs, batch=batch, lr=lr, ewc_lambda=ewc_lambda,
+                       replay_buffer=replay_buffer, replay_batch=replay_batch),
         "summary": summary,
         "paired": paired,
         "seconds": round(time.time() - t0, 1),
@@ -185,14 +200,16 @@ def _save(report: Dict) -> None:
     s = report["summary"]
     cfg = report["config"]
     p = report["paired"]
-    lines = ["# PC-Liquid-Core continual-learning (calcium-weighted EWC) report", ""]
+    lines = ["# PC-Liquid-Core continual-learning: EWC vs replay report", ""]
     lines.append(f"Seeds: `{cfg['seeds']}` (n={len(cfg['seeds'])})  |  "
-                 f"EWC lambda={cfg['ewc_lambda']}  |  runtime {report['seconds']}s")
+                 f"EWC lambda={cfg['ewc_lambda']}  |  "
+                 f"replay buffer={cfg['replay_buffer']} (batch {cfg['replay_batch']})  |  "
+                 f"runtime {report['seconds']}s")
     lines.append("")
-    lines.append("Forgetting probe: train A -> consolidate A -> train B (EWC on) "
-                 "-> re-measure A. Lower `forgetting` = less catastrophic "
-                 "forgetting; `B_after` must stay low or EWC merely blocked "
-                 "learning B.")
+    lines.append("Forgetting probe: train A -> consolidate A -> train B (EWC "
+                 "and/or replay on) -> re-measure A. Lower `forgetting` = less "
+                 "catastrophic forgetting; `B_after` must stay low or the lever "
+                 "merely blocked learning B.")
     lines.append("")
     lines.append("| variant | #params | A_before | A_after | forgetting | B_after |")
     lines.append("|---|---:|---:|---:|---:|---:|")
@@ -211,12 +228,16 @@ def _save(report: Dict) -> None:
     lines.append("")
     lines.append("| comparison | mean diff | first-lower-in |")
     lines.append("|---|---:|---:|")
-    lines.append(f"| EWC-plain vs astro-only | {p['ewc_plain_vs_astro']['mean_diff']:+.5f} | "
-                 f"{p['ewc_plain_vs_astro']['a_lower_in']} |")
-    lines.append(f"| EWC-cal vs astro-only | {p['ewc_cal_vs_astro']['mean_diff']:+.5f} | "
-                 f"{p['ewc_cal_vs_astro']['a_lower_in']} |")
-    lines.append(f"| EWC-cal vs EWC-plain | {p['ewc_cal_vs_plain']['mean_diff']:+.5f} | "
-                 f"{p['ewc_cal_vs_plain']['a_lower_in']} |")
+    rows = [
+        ("EWC vs astro-only", "ewc_vs_astro"),
+        ("replay vs astro-only", "replay_vs_astro"),
+        ("replay vs EWC", "replay_vs_ewc"),
+        ("EWC+replay vs replay", "ewcreplay_vs_replay"),
+        ("PC-replay vs GRU-replay", "pcreplay_vs_grureplay"),
+    ]
+    for label, key in rows:
+        lines.append(f"| {label} | {p[key]['mean_diff']:+.5f} | "
+                     f"{p[key]['a_lower_in']} |")
     lines.append("")
     with open(os.path.join(here, "report_continual.md"), "w") as f:
         f.write("\n".join(lines))
@@ -231,15 +252,15 @@ def _print(report: Dict) -> None:
         print(f"{lab:13s} forget={v['forgetting']['mean']:+.5f}"
               f"+/-{v['forgetting']['std']:.5f} "
               f"B_after={v['b_after']['mean']:.5f}")
-    print(f"\nEWC-plain vs astro-only: mean diff "
-          f"{p['ewc_plain_vs_astro']['mean_diff']:+.5f} "
-          f"(plain forgets less in {p['ewc_plain_vs_astro']['a_lower_in']})")
-    print(f"EWC-cal   vs astro-only: mean diff "
-          f"{p['ewc_cal_vs_astro']['mean_diff']:+.5f} "
-          f"(cal forgets less in {p['ewc_cal_vs_astro']['a_lower_in']})")
-    print(f"EWC-cal   vs EWC-plain : mean diff "
-          f"{p['ewc_cal_vs_plain']['mean_diff']:+.5f} "
-          f"(cal forgets less in {p['ewc_cal_vs_plain']['a_lower_in']})")
+    for label, key in [
+        ("EWC vs astro      ", "ewc_vs_astro"),
+        ("replay vs astro   ", "replay_vs_astro"),
+        ("replay vs EWC     ", "replay_vs_ewc"),
+        ("EWC+replay vs repl", "ewcreplay_vs_replay"),
+        ("PC-repl vs GRU-rep", "pcreplay_vs_grureplay"),
+    ]:
+        print(f"{label}: mean diff {p[key]['mean_diff']:+.5f} "
+              f"(first lower in {p[key]['a_lower_in']})")
 
 
 if __name__ == "__main__":
