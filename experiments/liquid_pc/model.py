@@ -83,6 +83,7 @@ class PCLiquidCore(nn.Module):
         free_energy_weight: float = 0.0,
         learn_precision: bool = True,
         precision_init: float | None = None,
+        dynamic_precision: bool = False,
     ):
         super().__init__()
         if n_levels < 1:
@@ -92,6 +93,7 @@ class PCLiquidCore(nn.Module):
         self.n_levels = int(n_levels)
         self.dt = float(dt)
         self.free_energy_weight = float(free_energy_weight)
+        self.dynamic_precision = bool(dynamic_precision)
 
         # Level 0 = embedded input (clamped to data each step).
         self.embed = nn.Linear(d_in, d)
@@ -136,6 +138,24 @@ class PCLiquidCore(nn.Module):
         else:
             self.register_buffer("log_precision", logp, persistent=True)
 
+        # Optional INPUT-DEPENDENT (dynamic) precision: instead of a single
+        # learned scalar per level, the precision is modulated each step by the
+        # current context (the level's own state), so the core can raise gain on
+        # channels that are momentarily reliable and lower it on noisy ones in
+        # real time — Friston's "precision IS attention". A per-level gate adds a
+        # log-precision offset: pi_l(t) = softplus(log_precision[l] + gate_l(r_l)).
+        # The gate is zero-initialised, so at construction the dynamic model is
+        # bit-for-bit identical to the static-precision core (and hence to the
+        # precision-free core) — completing the clean ablation chain
+        # none -> static -> dynamic.
+        if self.dynamic_precision:
+            self.prec_gate = nn.ModuleList(
+                [nn.Linear(d, 1) for _ in range(self.n_levels)]
+            )
+            for g in self.prec_gate:
+                nn.init.zeros_(g.weight)
+                nn.init.zeros_(g.bias)
+
         # Read next-step prediction from the full multi-timescale state.
         self.readout = nn.Linear(self.n_levels * d, d_in)
 
@@ -172,21 +192,32 @@ class PCLiquidCore(nn.Module):
                 phat = self.generate[l](r[l])                # predict level l-1 from r_l
                 eps.append(below[l] - phat)                  # error at level l-1
 
+            # Per-step precision: static scalar per level, or — when dynamic —
+            # context-modulated from each level's current state (B, 1), so the
+            # gain on each error channel adapts in real time.
+            if self.dynamic_precision:
+                prec_t = [
+                    F.softplus(self.log_precision[l] + self.prec_gate[l](r[l]))
+                    for l in range(self.n_levels)
+                ]                                            # each (B, 1)
+            else:
+                prec_t = prec                               # (L,) scalar broadcast
+
             # 3) liquid update: PRECISION-weighted error from below drives, own
             #    precision-weighted top-down error pulls. Weighting the error
             #    residual (not the synaptic map) keeps it a true inverse-variance
             #    term: prec[l] scales error eps[l] everywhere it appears.
             new_r: List[torch.Tensor] = []
             for l in range(self.n_levels):
-                bu = self.recognize[l](prec[l] * eps[l])     # bottom-up error drive
-                td = prec[l + 1] * eps[l + 1] if l + 1 < self.n_levels else 0.0
+                bu = self.recognize[l](prec_t[l] * eps[l])   # bottom-up error drive
+                td = prec_t[l + 1] * eps[l + 1] if l + 1 < self.n_levels else 0.0
                 drive = torch.tanh(bu - td)
                 new_r.append(decay[l] * r[l] + (1.0 - decay[l]) * drive)
             r = new_r
 
             if self.free_energy_weight > 0.0:
                 fe_total = fe_total + sum(
-                    (prec[i] * e.pow(2).mean() for i, e in enumerate(eps))
+                    (prec_t[i] * e.pow(2).mean() for i, e in enumerate(eps))
                 )
 
             outs.append(self.readout(torch.cat(r, dim=-1)))  # predict next input
@@ -258,10 +289,16 @@ class TinyTransformer(nn.Module):
         return self.readout(h)
 
 
-def build_models(d_in: int) -> dict:
-    """Construct the integrated model and baselines at comparable param budgets."""
+def build_models(d_in: int, *, pc_kwargs: dict | None = None) -> dict:
+    """Construct the integrated model and baselines at comparable param budgets.
+
+    ``pc_kwargs`` are forwarded to ``PCLiquidCore`` (e.g.
+    ``{"dynamic_precision": True}``) so a runner can pick the integrated-model
+    variant without touching the baselines.
+    """
+    pc_kwargs = dict(pc_kwargs or {})
     return {
-        "PCLiquidCore": PCLiquidCore(d_in, d=48, n_levels=3),
+        "PCLiquidCore": PCLiquidCore(d_in, d=48, n_levels=3, **pc_kwargs),
         "GRU": GRUBaseline(d_in, hidden=70),
         "LSTM": LSTMBaseline(d_in, hidden=60),
         "Transformer": TinyTransformer(

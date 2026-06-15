@@ -136,6 +136,7 @@ def main(
     seed: int = 0,
     ss_max: float = 0.0,
     tag: str = "",
+    pc_kwargs: Dict | None = None,
 ) -> Dict:
     torch.manual_seed(seed)
     t0 = time.time()
@@ -146,10 +147,10 @@ def main(
     persist = persistence_mse(x_te)
 
     rows = {}
-    for name, model in build_models(d_in).items():
+    for name, model in build_models(d_in, pc_kwargs=pc_kwargs).items():
         torch.manual_seed(seed)                          # same init RNG draw order
         # rebuild so every model starts from the same seed state
-        model = build_models(d_in)[name]
+        model = build_models(d_in, pc_kwargs=pc_kwargs)[name]
         n_params = count_params(model)
         train(model, x_tr, epochs=epochs, batch=batch, lr=lr, seed=seed, ss_max=ss_max)
         rows[name] = {
@@ -166,9 +167,9 @@ def main(
     a_tr, a_te = train_test_split(a, 0.8)
     b_tr, _ = train_test_split(b, 0.8)
     forget = {}
-    for name in build_models(d_in):
+    for name in build_models(d_in, pc_kwargs=pc_kwargs):
         torch.manual_seed(seed)
-        model = build_models(d_in)[name]
+        model = build_models(d_in, pc_kwargs=pc_kwargs)[name]
         train(model, a_tr, epochs=epochs, batch=batch, lr=lr, seed=seed, ss_max=ss_max)
         a_err_before = one_step_mse(model, a_te)
         train(model, b_tr, epochs=epochs, batch=batch, lr=lr, seed=seed + 1, ss_max=ss_max)
@@ -184,7 +185,8 @@ def main(
 
     report = {
         "config": dict(n_seq=n_seq, seq_len=seq_len, d_in=d_in, epochs=epochs,
-                       batch=batch, lr=lr, prime=prime, seed=seed, ss_max=ss_max),
+                       batch=batch, lr=lr, prime=prime, seed=seed, ss_max=ss_max,
+                       pc_kwargs=pc_kwargs or {}),
         "persistence_mse": persist,
         "main": rows,
         "forgetting": forget,

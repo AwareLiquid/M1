@@ -114,6 +114,45 @@ def test_precision_can_be_fixed():
     assert "log_precision" not in names                  # a buffer, not trained
 
 
+def test_dynamic_precision_builds_and_runs():
+    m = PCLiquidCore(d_in=2, d=8, n_levels=3, dynamic_precision=True)
+    assert hasattr(m, "prec_gate") and len(m.prec_gate) == 3
+    y = m(torch.randn(4, 12, 2))
+    assert y.shape == (4, 12, 2)
+    # the gate is a real, trained pathway.
+    gate_names = [n for n, _ in m.named_parameters() if "prec_gate" in n]
+    assert gate_names and all(
+        p.requires_grad for n, p in m.named_parameters() if "prec_gate" in n
+    )
+
+
+def test_dynamic_precision_zero_gate_matches_static():
+    # Clean-ablation property: the precision gate is zero-initialised, so on the
+    # SAME weights the dynamic path equals the static path (none->static->dynamic
+    # is a strict refinement chain, each step a no-op at init).
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=3, dynamic_precision=True).eval()
+    x = torch.randn(2, 14, 1)
+    y_dyn = m(x)
+    m.dynamic_precision = False                          # same weights, static path
+    y_stat = m(x)
+    assert torch.allclose(y_dyn, y_stat, atol=1e-6)
+
+
+def test_dynamic_precision_is_input_dependent():
+    # Once the gate is non-zero, precision is modulated by the state/context, so
+    # the dynamics genuinely depend on the input through the precision channel.
+    torch.manual_seed(0)
+    m = PCLiquidCore(d_in=1, d=8, n_levels=2, dynamic_precision=True).eval()
+    x = torch.randn(1, 12, 1)
+    y0 = m(x)                                            # zero gate -> static-equiv
+    with torch.no_grad():
+        m.prec_gate[0].weight.normal_()
+        m.prec_gate[0].bias.normal_()
+    y1 = m(x)
+    assert not torch.allclose(y0, y1, atol=1e-6)
+
+
 def test_zero_prediction_error_freezes_state():
     # Predictive-coding tenet: the state is driven by errors. If we null the
     # recognition + generative pathways so every error maps to zero drive, the
