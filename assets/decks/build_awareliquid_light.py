@@ -32,6 +32,7 @@ LOGO = b64(FIG / "logo.png")
 IMG_COST = b64(FIG / "cost_explosion.png")
 IMG_MICRO = b64(FIG / "fig_microtubules.png")
 IMG_ARCH = b64(FIG / "fig_architecture.png")
+IMG_VIZ = b64(FIG / "fig_mtlnn_viz.png")
 FONT_MANROPE = b64(DECK / "Manrope-variable.ttf")
 
 # ---- iOS frosted-glass palette ----
@@ -204,7 +205,86 @@ slide(f"""
 </section>
 """)
 
-# 7. Evidence, graded ------------------------------------------------------
+# 7. NEW: architecture visualization --------------------------------------
+slide(f"""
+<section class="slide">
+  <div class="panel">
+    <h2>架构可视化：把 Transformer 的 FFN 换成<b>类脑核心</b></h2>
+    <div class="split viz-split">
+      <div class="split-l">
+        <div class="pipe">
+          <div class="pstep"><span class="pn">1</span><b>Tokens → Embedding</b>　与标准 GPT 一致的输入/位置嵌入。</div>
+          <div class="pstep"><span class="pn">2</span><b>Causal Self-Attention</b>　保留注意力做 token 间混合。</div>
+          <div class="pstep hot"><span class="pn">3</span><b>MT-DL（13 Protofilaments × 5 液态时间尺度）</b>
+            用类微管动态层替换 FFN——连续时间、多时间尺度的状态流，是架构核心创新。</div>
+          <div class="pstep hot"><span class="pn">4</span><b>GWTB 全局工作空间瓶颈</b>
+            832 → 104 → 832 编解码，核心以 <i>O(1)</i> 更新维持工作记忆，而非 <i>O(N²)</i> KV 缓存。</div>
+          <div class="pstep"><span class="pn">5</span><b>Output Projection → Softmax</b>　标准输出头，整链可与 GPT 对照。</div>
+        </div>
+        <div class="vnote">右图为仓库内 <b>llm-viz</b> 工具直接渲染的真实结构视图（非概念示意）；
+        13 通道与 5 时间尺度对应代码中的 <i>n_heads=13</i> 与液态时间常数配置。</div>
+      </div>
+      <div class="split-r">
+        <div class="fig-card dark"><img src="data:image/png;base64,{IMG_VIZ}" alt="mtlnn 3d"></div>
+        <div class="fig-cap">MT-LNN 3D 结构：Self-Attention + MT-DL(13×5) ×N → GWTB(O(1))。</div>
+      </div>
+    </div>
+  </div>
+</section>
+""")
+
+# 8. NEW: Liquid AI competitor comparison ---------------------------------
+slide(f"""
+<section class="slide">
+  <div class="panel">
+    <h2>竞品对照：Liquid AI vs <b>AwareLiquid</b></h2>
+    <p class="sublead">同样押注「Transformer 之外的连续时间路线」，但<b>架构轴心与目标市场不同</b>。
+    Liquid AI 更成熟、资金更充足；我们押的是另一条更偏<b>类脑结构 + 安全可审计 + 全栈开源</b>的差异化轴。</p>
+    <div class="cmp">
+      <div class="cmp-row cmp-head">
+        <div class="cmp-k">维度</div>
+        <div class="cmp-a">Liquid AI</div>
+        <div class="cmp-b">AwareLiquid（我们）</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">阶段 / 资金</div>
+        <div class="cmp-a">~$2.35B 估值，$250M A 轮（AMD 领投，2024）</div>
+        <div class="cmp-b">早期；125M 基座跑通，全栈开源可复现</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">核心架构</div>
+        <div class="cmp-a">LFM2：卷积 + GQA 混合；LIV 算子 / STAR 架构搜索；从 7B 蒸馏</div>
+        <div class="cmp-b">13 平行通道（微管启发）× 5 液态时间尺度 + GWTB 瓶颈</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">记忆机制</div>
+        <div class="cmp-a">高吞吐近似；面向通用 edge 生成</div>
+        <div class="cmp-b"><i>O(1)</i> 工作记忆 + 层级预测编码误差自校正</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">安全 / 可靠</div>
+        <div class="cmp-a">通用基座，安全交由上层</div>
+        <div class="cmp-b">架构内置 failsafe 优雅降级 + 麻醉态可验证探针</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">目标市场</div>
+        <div class="cmp-a">通用端侧基座（350M–1.2B）</div>
+        <div class="cmp-b">垂直窄域 / 工控 / 具身 / 高合规私有化</div>
+      </div>
+      <div class="cmp-row">
+        <div class="cmp-k">开放程度</div>
+        <div class="cmp-a">权重开放，核心研究框架闭源</div>
+        <div class="cmp-b">代码 + 模型 + 1083 项测试全栈开源</div>
+      </div>
+    </div>
+    <div class="posnote">诚实说明：Liquid AI 在规模、工程成熟度与商业化上<b>远领先于我们</b>。
+    我们不主张性能反超，而是押注一条不同的架构轴——<b>类脑可解释结构 + 原生安全兜底 + 全栈可独立验证</b>，
+    在通用基座覆盖不到的高可靠垂直场景里建立壁垒。</div>
+  </div>
+</section>
+""")
+
+# 9. Evidence, graded ------------------------------------------------------
 slide(f"""
 <section class="slide">
   <div class="panel">
@@ -447,6 +527,36 @@ h2:after {{ content: ""; position: absolute; left: 0; bottom: 0; width: 2.8cm; h
 .assets-h {{ font-family: {DISP}; font-size: 19px; font-weight: 700; color: {ACCENT}; margin-bottom: .3cm; }}
 .assets-row {{ font-family: {DISP}; font-size: 20px; line-height: 1.95; }}
 .assets-row .k {{ display: inline-block; width: 5.6cm; color: {MUTE}; }}
+
+/* architecture viz slide */
+.viz-split {{ align-items: stretch; }}
+.fig-card.dark {{ background: #1a1a2e; border-color: rgba(120,140,200,.35); }}
+.fig-card.dark img {{ max-height: 11.4cm; border-radius: 10px; }}
+.pipe {{ display: flex; flex-direction: column; gap: .3cm; }}
+.pstep {{ position: relative; font-size: 18px; line-height: 1.5; color: {INK};
+  padding: .32cm .55cm .32cm 1.15cm; border-radius: 12px; background: rgba(255,255,255,.55);
+  border: 1px solid {GLASS_BD}; box-shadow: 0 6px 18px rgba(31,45,90,.07); }}
+.pstep.hot {{ background: rgba(94,92,230,.10); border-left: 4px solid {ACCENT2}; }}
+.pstep b {{ color: {INK}; }}
+.pstep .pn {{ position: absolute; left: .42cm; top: .32cm; width: .56cm; height: .56cm; line-height: .56cm;
+  text-align: center; font-family: {DISP}; font-size: 13px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, {ACCENT}, {ACCENT2}); border-radius: 50%; }}
+.vnote {{ margin-top: .4cm; font-size: 15.5px; line-height: 1.55; color: {MUTE};
+  border-left: 4px solid {ACCENT}; padding-left: .5cm; }}
+.vnote b {{ color: {INK}; }}
+
+/* competitor comparison table */
+.cmp {{ display: flex; flex-direction: column; gap: 4px; margin-top: .2cm; }}
+.cmp-row {{ display: flex; gap: 6px; }}
+.cmp-row > div {{ border-radius: 10px; padding: .28cm .5cm; font-size: 16.5px; line-height: 1.42; }}
+.cmp-k {{ flex: .8; font-family: {DISP}; font-weight: 700; color: {INK};
+  background: rgba(255,255,255,.45); border: 1px solid {GLASS_BD}; display: flex; align-items: center; }}
+.cmp-a {{ flex: 1.35; color: {INK}; background: rgba(120,130,160,.10); border: 1px solid rgba(120,130,160,.2); }}
+.cmp-b {{ flex: 1.35; color: {INK}; background: rgba(10,132,255,.10); border: 1px solid rgba(10,132,255,.22); }}
+.cmp-b i, .cmp-a i {{ font-style: normal; font-weight: 700; }}
+.cmp-head > div {{ font-family: {DISP}; font-weight: 800; font-size: 18px; }}
+.cmp-head .cmp-a {{ color: {MUTE}; }}
+.cmp-head .cmp-b {{ color: {ACCENT}; }}
 """
 
 HTML = f"""<!doctype html>
