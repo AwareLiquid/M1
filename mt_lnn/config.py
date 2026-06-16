@@ -208,6 +208,30 @@ class MTLNNConfig:
     hebbian_lr: float = 1e-4          # base co-activation weight
     hebbian_lavi_gate: bool = True    # gate α by LAVI (False → constant α)
 
+    # ---- Hebbian REFACTOR (mechanism A: loss-term式), 2026-06-16 -------------
+    # A staged rebuild of the Hebbian branch that fixes the three verified
+    # failure modes of the legacy `use_hebbian` path:
+    #   (1) the LAVI gate sat at sigmoid(0)=0.5 because LAVI is only produced
+    #       when use_rhythm=True (a separate, off-by-default module) -> the new
+    #       path owns a DEDICATED lightweight LAVI estimator (Stage 1) so the
+    #       gate has a live, non-trivial input regardless of use_rhythm;
+    #   (2) the term's gradient share was ~8e-5 even at hebbian_lr=1e-1
+    #       (see experiments/report_ablation_hebbian_lr.md) -> the new path
+    #       decouples its base lr AND adaptively aligns its gradient norm to the
+    #       main gradient, capped at `hebbian_grad_frac_cap` (Stage 2);
+    #   (3) the legacy signal was a same-timestep co-activation only -> Stage 1+
+    #       adds a within-sequence lagged term (h_t · h_{t-1}) along the seq dim.
+    #
+    # Zero-regression contract: use_hebbian_refactor=False (default) builds NO
+    # module and adds NO forward/loss op -> bit-identical to the current model.
+    # When ON during Stage 0 the module is param-free and compute_loss() returns
+    # None, so even the opt-in path is a verified no-op until Stage 2 lands.
+    use_hebbian_refactor: bool = False
+    hebbian_base_lr: float = 1e-2          # independent base lr (decoupled from main BP lr)
+    hebbian_window: int = 32               # LAVI sliding-window length (Stage 1)
+    hebbian_grad_frac_cap: float = 0.05    # max share of per-step grad norm (Stage 2)
+    hebbian_refactor_mode: str = "weak"    # "weak" (residual-only) | "strong" (all-layer)
+
     # Predictive State Head / World Model (Phase C, 2026-06-06)
     # When True, a PredictiveStateHead is mounted after final_norm.
     # Training: L_total = L_lm + world_model_loss_weight × L_wm

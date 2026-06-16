@@ -320,6 +320,16 @@ class MTLNNModel(nn.Module):
         else:
             self.hebbian_reg = None
 
+        # Hebbian REFACTOR (mechanism A, 2026-06-16). Fully isolated rebuild
+        # gated by use_hebbian_refactor (default False -> not built -> no params,
+        # no forward/loss op -> bit-identical to the legacy model). See
+        # mt_lnn/hebbian_plasticity.py. Independent of the legacy hebbian_reg.
+        if getattr(config, "use_hebbian_refactor", False):
+            from .hebbian_plasticity import HebbianPlasticity
+            self.hebbian_plasticity = HebbianPlasticity(config)
+        else:
+            self.hebbian_plasticity = None
+
         # LM head (no bias, optionally weight-tied)
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         if config.tie_embeddings:
@@ -620,6 +630,17 @@ class MTLNNModel(nn.Module):
                 if hebb_loss is not None:
                     loss = loss + hebb_loss
                     result["hebbian_loss"] = hebb_loss.detach()
+
+            # Phase D' (refactor): isolated loss-term Hebbian (training only).
+            # Gated by use_hebbian_refactor. compute_loss() returns None in
+            # Stage 0, so this branch is a verified no-op until Stage 2.
+            if self.hebbian_plasticity is not None and self.training:
+                hebb_ref = self._aux_or_skip(
+                    "hebbian_refactor_loss", self.hebbian_plasticity.compute_loss(self)
+                )
+                if hebb_ref is not None:
+                    loss = loss + hebb_ref
+                    result["hebbian_refactor_loss"] = hebb_ref.detach()
 
             # Phase A: orthogonality penalty for CompetitiveGWTBLayer (training only)
             # Pushes bid projectors apart in weight space (DeepSeekMoE-style).
