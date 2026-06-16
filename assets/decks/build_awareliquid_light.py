@@ -121,26 +121,29 @@ slide(f"""
 </section>
 """)
 
-# 4. One line + product lines ---------------------------------------------
+# 4. Product matrix + market positioning ----------------------------------
 slide(f"""
 <section class="slide">
   <div class="panel">
-    <h2>一句话 + 两条产品线</h2>
-    <p class="lead">AwareLiquid 是国内首个<b>全栈自研的液态神经网络类脑架构</b>。
-    不走参数堆叠的老路，而是从<b>连续时间动力学</b>这一根上重做底座——
-    押注 Transformer 之外的<b>第二条技术路线</b>。</p>
+    <h2>产品矩阵与市场定位</h2>
+    <p class="lead">一条主线：<b>低成本 · 低幻觉 · 可私有化</b>。不在通用基准上正面拼参数，
+    而是用架构差异，在两个具体市场把<b>「大材小用 + 数据出境 + 幻觉不可控」</b>的痛点接走。</p>
     <div class="cards">
       <div class="card">
-        <div class="card-tag">产品线 O1</div>
+        <div class="card-tag">产品线 O1 · 面向硬件</div>
         <div class="card-title">液态时序基座</div>
-        <div class="card-body">Liquid temporal foundation。原生处理连续时序与长流数据的底座模型。</div>
+        <div class="card-body"><b>端侧 / 边缘的低成本、低功耗推理</b>。O(1) 工作记忆不随上下文爆显存，
+        可在手机与边缘设备长驻。正面对标 edge 推理这一层——但<b>全栈开源可复现</b>。</div>
       </div>
       <div class="card">
-        <div class="card-tag">产品线 M1</div>
+        <div class="card-tag">产品线 M1 · 面向应用</div>
         <div class="card-title">自主认知智能体</div>
-        <div class="card-body">感知编码 → 空间记忆 → 目标调制 → 想象推演 → 安全输出 的闭环。是主动体，不是被动应答工具。</div>
+        <div class="card-body">在<b>高可靠 / 私有化 / 垂直窄域</b>场景，替代「凡事调用 DeepSeek / Gemini」的重方案：
+        更便宜、数据不出境、自主闭环，架构内置误差自校正以<b>降低幻觉</b>。</div>
       </div>
     </div>
+    <div class="posnote">定位说明：M1 <b>不</b>在通用 benchmark 上与前沿大模型正面对打；主打「在不需要前沿能力的场景里替换掉它们」。
+    「低幻觉」为架构设计目标——误差自校正机制已落地（Built），规模化有效性见分级（Target）。</div>
   </div>
 </section>
 """)
@@ -384,7 +387,11 @@ h2:after {{ content: ""; position: absolute; left: 0; bottom: 0; width: 2.8cm; h
   border-top: 4px solid {ACCENT}; box-shadow: 0 12px 30px rgba(31,45,90,.10); }}
 .card-tag {{ font-family: {DISP}; font-size: 17px; color: {ACCENT}; font-weight: 700; letter-spacing: .5px; }}
 .card-title {{ font-size: 30px; font-weight: 700; margin: .18cm 0 .3cm; }}
-.card-body {{ font-size: 20px; line-height: 1.65; color: {INK}; }}
+.card-body {{ font-size: 19px; line-height: 1.62; color: {INK}; }}
+.posnote {{ margin-top: .55cm; font-size: 16px; line-height: 1.55; color: {MUTE};
+  background: rgba(122,63,242,.08); border-left: 4px solid {TARGET};
+  border-radius: 0 12px 12px 0; padding: .4cm .6cm; }}
+.posnote b {{ color: {INK}; }}
 
 /* capabilities grid */
 .cap-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .55cm; flex: 1; align-content: center; }}
