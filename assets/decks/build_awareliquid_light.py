@@ -1,24 +1,42 @@
 # -*- coding: utf-8 -*-
 """Build the AwareLiquid "Investor Deck Light" as a styled HTML, ready for
-Chrome headless --print-to-pdf. Visual style mirrors the prior beamer deck
-(serif CJK body, "Awareness" wordmark, 3-box footline, logo top-right), but the
-CONTENT is the honest, graded (Built / Early-signal / Target) 5-minute version.
+Chrome headless --print-to-pdf.
+
+Design: a nature / organic ("liquid", brain-inspired) aesthetic -- botanical
+green + warm-sand palette, soft water-like gradients, larger type. Visual
+lineage keeps the prior deck's "Awareness" wordmark, 3-box footline, and
+logo top-right. CONTENT is the honest, graded (Built / Early-signal / Target)
+5-minute version, now with the strongest NARRATIVE beats ported from the old
+deck (memory crisis / KV-cache, microtubule bio-inspiration) -- but WITHOUT
+the old deck's fabricated benchmark numbers.
 """
 import base64
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-LOGO = base64.b64encode((ROOT / "assets/figures/logo.png").read_bytes()).decode()
+FIG = ROOT / "assets/figures"
 
-# ---- palette (sober, investor-grade) ----
-INK = "#15202b"        # near-black body ink
-MUTE = "#5b6b7a"       # muted gray
-ACCENT = "#1f6feb"     # liquid blue
-LINE = "#d7dee6"       # hairline
-BG = "#ffffff"
-BUILT = "#15803d"      # green
-SIGNAL = "#b45309"     # amber
-TARGET = "#6d28d9"     # violet
+
+def b64(path):
+    return base64.b64encode(pathlib.Path(path).read_bytes()).decode()
+
+
+LOGO = b64(FIG / "logo.png")
+IMG_COST = b64(FIG / "cost_explosion.png")
+IMG_MICRO = b64(FIG / "fig_microtubules.png")
+IMG_ARCH = b64(FIG / "fig_architecture.png")
+
+# ---- nature / organic palette ----
+BG = "#faf8f2"          # warm paper
+PANEL = "#f2f0e6"       # soft sand panel
+INK = "#1c2b25"         # deep forest ink
+MUTE = "#5e6b62"        # sage gray
+ACCENT = "#1f7a5a"      # liquid leaf-green
+ACCENT_D = "#155c43"    # deep green
+LINE = "#d8d6c8"        # natural hairline
+BUILT = "#1f7a5a"       # green (Built)
+SIGNAL = "#b3781f"      # amber (Early signal)
+TARGET = "#6a4ea8"      # muted violet (Target)
 
 SLIDES = []
 
@@ -30,27 +48,70 @@ def slide(html):
 # 1. Title -----------------------------------------------------------------
 slide(f"""
 <section class="slide title">
+  <div class="leaf-bg"></div>
   <div class="brand-mark">Awareness</div>
   <h1>AwareLiquid</h1>
-  <div class="sub">全栈自研的液态神经网络类脑架构<br>
-  <span class="sub2">Investor Deck · Light · 五分钟精华版</span></div>
+  <div class="sub">全栈自研的<b>液态神经网络</b>类脑架构</div>
+  <div class="sub2">Investor Deck · Light · 五分钟精华版</div>
   <div class="title-meta">
     <div><span class="k">GitHub</span> github.com/everest-an/M1</div>
     <div><span class="k">HuggingFace</span> huggingface.co/EverestAn/MT-LNN</div>
     <div><span class="k">Live demo</span> awareliquid.ai（部署中）</div>
   </div>
-  <div class="honesty">诚实分级原则：每条结论标注为 <b class="bd">Built</b> / <b class="sg">Early&nbsp;signal</b> / <b class="tg">Target</b>。<br>
-  无法通过技术尽调的数字，不写进本 deck。</div>
+  <div class="honesty">诚实分级：每条结论标注
+    <b class="bd">Built</b> · <b class="sg">Early&nbsp;signal</b> · <b class="tg">Target</b>；
+    无法通过技术尽调的数字，不写进本 deck。</div>
 </section>
 """)
 
-# 2. One line + product lines ---------------------------------------------
+# 2. Memory crisis / why now (ported narrative) ---------------------------
 slide(f"""
 <section class="slide">
-  <h2>一句话</h2>
+  <h2>AI 的内存危机 — 为什么是现在</h2>
+  <div class="split">
+    <div class="split-l">
+      <ul class="big-list">
+        <li><b>强迫式记录引擎</b>　Transformer 预测下一个词，必须把过去所有词放进显存（KV Cache）。</li>
+        <li><b>复杂度灾难</b>　文本越长，内存 <i>O(N)</i>、算力飙到 <i>O(N²)</i>——成本指数级爆炸。</li>
+        <li><b>端侧不可能</b>　十几 GB 内存的手机 / 边缘设备，物理上塞不下长上下文。</li>
+      </ul>
+      <div class="callout">这正是工业控制、端侧机器人、高合规政企的刚需缺口。</div>
+    </div>
+    <div class="split-r">
+      <img class="fig" src="data:image/png;base64,{IMG_COST}" alt="cost">
+      <div class="fig-cap">概念示意：复杂度量级对比（asymptotic），非实测基准。</div>
+    </div>
+  </div>
+</section>
+""")
+
+# 3. Bio-inspiration / microtubules (ported narrative) --------------------
+slide(f"""
+<section class="slide">
+  <h2>生物学启示：从人脑到微管</h2>
+  <div class="split">
+    <div class="split-l">
+      <ul class="big-list">
+        <li><b>大脑不记录每个像素</b>　认知靠「工作记忆」滞存核心线索，靠「选择性遗忘」抛弃噪音。</li>
+        <li><b>微管：神经计算的底层基座</b>　神经元内部的细胞骨架网络，以极高频率动态过滤、压缩信息。</li>
+        <li><b>从生物到 LNN</b>　我们摒弃强制缓存历史，用类微管的<b>连续微分方程</b>，让信息随时间流动、留存与遗忘。</li>
+      </ul>
+    </div>
+    <div class="split-r">
+      <img class="fig" src="data:image/png;base64,{IMG_MICRO}" alt="microtubules">
+      <div class="fig-cap">受微管动态启发的「液态状态流」灵感链。</div>
+    </div>
+  </div>
+</section>
+""")
+
+# 4. One line + product lines ---------------------------------------------
+slide(f"""
+<section class="slide">
+  <h2>一句话 + 两条产品线</h2>
   <p class="lead">AwareLiquid 是国内首个<b>全栈自研的液态神经网络类脑架构</b>。
-  我们不走参数堆叠的老路，而是从<b>连续时间动力学</b>这一根上重做底座——
-  押注的是 Transformer 之外的<b>第二条技术路线</b>。</p>
+  不走参数堆叠的老路，而是从<b>连续时间动力学</b>这一根上重做底座——
+  押注 Transformer 之外的<b>第二条技术路线</b>。</p>
   <div class="cards">
     <div class="card">
       <div class="card-tag">产品线 O1</div>
@@ -66,45 +127,39 @@ slide(f"""
 </section>
 """)
 
-# 3. Pain point / why now --------------------------------------------------
-slide(f"""
-<section class="slide">
-  <h2>痛点 / 为什么是现在</h2>
-  <p class="lead">Transformer 大模型在三类场景天然吃力——而这些恰是工业与高合规市场的刚需。</p>
-  <ol class="big-list">
-    <li><b>端侧落地难</b>　参数大、算力高，难在边缘设备低功耗长驻。</li>
-    <li><b>时序场景弱</b>　长序列幻觉累积、连续流处理效率低、分布外（OOD）泛化差。</li>
-    <li><b>自主性缺失</b>　只能被动应答，无法自主发现问题、设目标、闭环决策；高可靠场景缺原生安全兜底。</li>
-  </ol>
-  <div class="footnote">目标场景：工业控制 · 端侧机器人 · 高合规金融/政企 · 边缘监测。</div>
-</section>
-""")
-
-# 4. Differentiation -------------------------------------------------------
+# 5. Differentiation -------------------------------------------------------
 slide(f"""
 <section class="slide">
   <h2>差异化：架构根源，不是调参</h2>
-  <div class="rows">
-    <div class="row">
-      <div class="row-h">液态时间常数神经元 + 层级预测编码</div>
-      <div class="row-b">原生适配连续时序数据，自带误差自校正机制——这是<b>架构层面</b>的根源差异，不是在 Transformer 上做的优化。</div>
+  <div class="split">
+    <div class="split-l">
+      <div class="rows">
+        <div class="row">
+          <div class="row-h">液态时间常数神经元 + 层级预测编码</div>
+          <div class="row-b">原生适配连续时序，自带误差自校正——<b>架构层面</b>的根源差异，不是在 Transformer 上调优。</div>
+        </div>
+        <div class="row">
+          <div class="row-h">双产品矩阵：O1 基座 + M1 主动体</div>
+          <div class="row-b">M1 能自主设目标、闭环决策，而非被动应答。</div>
+        </div>
+        <div class="row">
+          <div class="row-h">全栈自研、完全开源可复现</div>
+          <div class="row-b">代码、模型、测试全部公开，可被第三方独立验证。</div>
+        </div>
+      </div>
     </div>
-    <div class="row">
-      <div class="row-h">双产品矩阵</div>
-      <div class="row-b">O1 基座 + M1 主动智能体。M1 是主动体，能自主设目标、闭环决策，而非被动应答。</div>
-    </div>
-    <div class="row">
-      <div class="row-h">全栈自研、完全开源可复现</div>
-      <div class="row-b">代码、模型、测试全部公开，可被任何第三方独立验证。</div>
+    <div class="split-r">
+      <img class="fig" src="data:image/png;base64,{IMG_ARCH}" alt="architecture">
+      <div class="fig-cap">MT-LNN 架构示意。</div>
     </div>
   </div>
 </section>
 """)
 
-# 5. Evidence, graded (the core slide) ------------------------------------
+# 6. Evidence, graded (core slide) ----------------------------------------
 slide(f"""
 <section class="slide">
-  <h2>进展与证据 <span class="h2-note">— 诚实分级，这页是尽调友好的核心</span></h2>
+  <h2>进展与证据 <span class="h2-note">— 诚实分级，尽调友好</span></h2>
   <div class="grade">
     <div class="grade-head bd">✅ Built — 已构建并可复现</div>
     <ul>
@@ -131,7 +186,7 @@ slide(f"""
 </section>
 """)
 
-# 6. Go-to-market + milestones --------------------------------------------
+# 7. Go-to-market + milestones --------------------------------------------
 slide(f"""
 <section class="slide">
   <h2>商业切入 + 里程碑</h2>
@@ -157,12 +212,13 @@ slide(f"""
 </section>
 """)
 
-# 7. Investment logic + verifiable assets ---------------------------------
+# 8. Investment logic + verifiable assets ---------------------------------
 slide(f"""
 <section class="slide closing">
+  <div class="leaf-bg"></div>
   <h2>投资逻辑</h2>
   <p class="lead big">这是一次<b>架构路线的早期押注</b>：底层动力学差异化已成型、全栈工程已可复现、
-  小规模方向性信号已出现。我们要用本轮资金，把这些信号在真实规模上
+  小规模方向性信号已出现。本轮资金，把这些信号在真实规模上
   <b>坐实成带误差棒的、独立可验证的优势</b>——而不是急于声称尚未验证的结果。</p>
   <div class="assets">
     <div class="assets-h">可独立验证的资产</div>
@@ -185,8 +241,7 @@ for i, s in enumerate(SLIDES, 1):
   </div>
   <img class="logo" src="data:image/png;base64,{LOGO}" alt="logo">
 """
-    s = s.replace("</section>", foot + "</section>")
-    footed.append(s)
+    footed.append(s.replace("</section>", foot + "</section>"))
 
 CSS = f"""
 @page {{ size: 33.867cm 19.05cm; margin: 0; }}
@@ -195,99 +250,125 @@ html, body {{ background: {BG}; color: {INK};
   font-family: "SimSun","Songti SC","Noto Serif CJK SC",serif; }}
 .slide {{
   position: relative; width: 33.867cm; height: 19.05cm;
-  padding: 1.5cm 2.0cm 1.6cm 2.0cm; overflow: hidden;
+  padding: 1.5cm 2.0cm 1.7cm 2.0cm; overflow: hidden;
   page-break-after: always; display: flex; flex-direction: column;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(31,122,90,.06), transparent 55%),
+    radial-gradient(90% 70% at 0% 100%, rgba(31,122,90,.05), transparent 55%),
+    {BG};
 }}
 .slide:last-child {{ page-break-after: auto; }}
+
 h2 {{ font-family: "Microsoft YaHei","Segoe UI",sans-serif; font-weight: 700;
-  font-size: 30px; color: {INK}; letter-spacing: .3px;
-  padding-bottom: .35cm; margin-bottom: .5cm;
-  border-bottom: 2px solid {ACCENT}; }}
-.h2-note {{ font-size: 16px; font-weight: 400; color: {MUTE}; }}
-.lead {{ font-size: 20px; line-height: 1.7; color: {INK}; margin-bottom: .55cm; }}
-.lead.big {{ font-size: 22px; line-height: 1.8; }}
-.lead b, .row-b b, li b, .card-body b {{ color: {ACCENT}; font-weight: 700; }}
-.footnote {{ margin-top: auto; font-size: 14px; color: {MUTE};
+  font-size: 38px; color: {INK}; letter-spacing: .3px;
+  padding-bottom: .35cm; margin-bottom: .55cm; position: relative; }}
+h2:after {{ content: ""; position: absolute; left: 0; bottom: 0;
+  width: 3.2cm; height: 4px; background: {ACCENT}; border-radius: 3px; }}
+.h2-note {{ font-size: 20px; font-weight: 400; color: {MUTE}; }}
+
+.lead {{ font-size: 25px; line-height: 1.75; color: {INK}; margin-bottom: .55cm; }}
+.lead.big {{ font-size: 27px; line-height: 1.85; }}
+.lead b, .row-b b, li b, .card-body b, .callout b {{ color: {ACCENT_D}; font-weight: 700; }}
+.footnote {{ margin-top: auto; font-size: 17px; color: {MUTE};
   border-top: 1px solid {LINE}; padding-top: .3cm; }}
 
 /* footline + logo */
 .footline {{ position: absolute; left: 0; right: 0; bottom: .55cm;
   display: flex; font-family: "Microsoft YaHei","Segoe UI",sans-serif;
-  font-size: 12px; color: {MUTE}; }}
+  font-size: 13px; color: {MUTE}; }}
 .fl {{ flex: 1; }}
 .fl-l {{ padding-left: 2.0cm; letter-spacing: 1px; }}
 .fl-c {{ text-align: center; }}
 .fl-r {{ text-align: right; padding-right: 2.0cm; letter-spacing: .5px; }}
-.logo {{ position: absolute; top: .5cm; right: .55cm; height: 1.05cm; opacity: .92; }}
+.logo {{ position: absolute; top: .55cm; right: .6cm; height: 1.15cm; opacity: .9; }}
+
+/* split layout (text + figure) */
+.split {{ display: flex; gap: 1.0cm; flex: 1; align-items: center; }}
+.split-l {{ flex: 1.15; }}
+.split-r {{ flex: .95; text-align: center; }}
+.fig {{ max-width: 100%; max-height: 11.5cm; border-radius: 8px;
+  background: #fff; padding: .35cm; border: 1px solid {LINE};
+  box-shadow: 0 6px 22px rgba(21,92,67,.10); }}
+.fig-cap {{ font-size: 15px; color: {MUTE}; font-style: italic; margin-top: .25cm; }}
+.callout {{ margin-top: .5cm; font-size: 20px; line-height: 1.6; color: {ACCENT_D};
+  background: rgba(31,122,90,.08); border-left: 4px solid {ACCENT};
+  border-radius: 0 6px 6px 0; padding: .4cm .6cm; }}
 
 /* title slide */
-.title {{ justify-content: center; }}
+.title {{ justify-content: flex-start; padding-top: 2.6cm; }}
+.leaf-bg {{ position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(60% 90% at 88% 18%, rgba(31,122,90,.16), transparent 60%),
+    radial-gradient(70% 70% at 12% 92%, rgba(21,92,67,.12), transparent 60%); }}
+.title > *:not(.footline):not(.logo),
+.closing > *:not(.footline):not(.logo) {{ position: relative; z-index: 1; }}
 .brand-mark {{ font-family: "Aeonik","Microsoft YaHei","Segoe UI",sans-serif;
-  font-size: 26px; letter-spacing: 3px; color: {MUTE}; margin-bottom: .5cm; }}
+  font-size: 30px; letter-spacing: 4px; color: {ACCENT}; margin-bottom: .45cm; }}
 .title h1 {{ font-family: "Aeonik","Microsoft YaHei","Segoe UI",sans-serif;
-  font-size: 84px; font-weight: 800; letter-spacing: 1px; color: {INK}; }}
-.title .sub {{ font-size: 24px; line-height: 1.6; margin-top: .35cm; color: {INK}; }}
-.title .sub2 {{ font-size: 17px; color: {MUTE}; }}
-.title-meta {{ margin-top: 1.0cm; font-size: 16px; line-height: 1.9;
+  font-size: 84px; font-weight: 800; letter-spacing: 1px; color: {INK};
+  line-height: 1.0; }}
+.title .sub {{ font-size: 30px; line-height: 1.5; margin-top: .4cm; color: {INK}; }}
+.title .sub2 {{ font-size: 21px; color: {MUTE}; margin-top: .15cm; }}
+.title-meta {{ margin-top: .8cm; font-size: 19px; line-height: 1.9;
   font-family: "Microsoft YaHei","Segoe UI",sans-serif; color: {INK}; }}
-.title-meta .k {{ display: inline-block; width: 3.6cm; color: {ACCENT}; font-weight: 700; }}
-.honesty {{ margin-top: 1.0cm; font-size: 15px; line-height: 1.7; color: {MUTE};
-  border-left: 3px solid {ACCENT}; padding-left: .5cm; }}
+.title-meta .k {{ display: inline-block; width: 4.0cm; color: {ACCENT}; font-weight: 700; }}
+.honesty {{ margin-top: .7cm; font-size: 16px; line-height: 1.55; color: {MUTE};
+  border-left: 4px solid {ACCENT}; padding-left: .55cm; white-space: nowrap; }}
 .honesty .bd {{ color: {BUILT}; }} .honesty .sg {{ color: {SIGNAL}; }} .honesty .tg {{ color: {TARGET}; }}
 
 /* cards */
-.cards {{ display: flex; gap: .8cm; margin-top: .3cm; }}
-.card {{ flex: 1; border: 1px solid {LINE}; border-top: 4px solid {ACCENT};
-  border-radius: 6px; padding: .6cm .7cm; background: #fbfcfe; }}
-.card-tag {{ font-family: "Microsoft YaHei",sans-serif; font-size: 14px;
-  color: {ACCENT}; font-weight: 700; letter-spacing: .5px; }}
-.card-title {{ font-size: 24px; font-weight: 700; margin: .15cm 0 .25cm; }}
-.card-body {{ font-size: 17px; line-height: 1.65; color: {INK}; }}
+.cards {{ display: flex; gap: 1.0cm; margin-top: .4cm; }}
+.card {{ flex: 1; border: 1px solid {LINE}; border-top: 5px solid {ACCENT};
+  border-radius: 8px; padding: .7cm .8cm; background: {PANEL}; }}
+.card-tag {{ font-family: "Microsoft YaHei",sans-serif; font-size: 17px;
+  color: {ACCENT_D}; font-weight: 700; letter-spacing: .5px; }}
+.card-title {{ font-size: 30px; font-weight: 700; margin: .18cm 0 .3cm; }}
+.card-body {{ font-size: 20px; line-height: 1.65; color: {INK}; }}
 
-/* big numbered list */
-.big-list {{ list-style: none; counter-reset: bl; }}
-.big-list li {{ counter-increment: bl; position: relative; font-size: 20px;
-  line-height: 1.6; padding: .28cm 0 .28cm 1.25cm; border-bottom: 1px solid {LINE}; }}
-.big-list li:before {{ content: counter(bl); position: absolute; left: 0; top: .28cm;
-  width: .85cm; height: .85cm; background: {ACCENT}; color: #fff; border-radius: 50%;
-  font-family: "Microsoft YaHei",sans-serif; font-size: 15px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; }}
+/* big bullet list */
+.big-list {{ list-style: none; }}
+.big-list li {{ position: relative; font-size: 22px; line-height: 1.55;
+  padding: .3cm 0 .3cm 1.0cm; border-bottom: 1px solid {LINE}; }}
+.big-list li:last-child {{ border-bottom: none; }}
+.big-list li:before {{ content: ""; position: absolute; left: 0; top: .52cm;
+  width: .42cm; height: .42cm; background: {ACCENT}; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); }}
 
 /* differentiation rows */
 .rows {{ display: flex; flex-direction: column; gap: .5cm; }}
-.row {{ border: 1px solid {LINE}; border-left: 4px solid {ACCENT}; border-radius: 5px;
-  padding: .45cm .7cm; }}
-.row-h {{ font-size: 21px; font-weight: 700; margin-bottom: .12cm; }}
-.row-b {{ font-size: 17px; line-height: 1.6; color: {INK}; }}
+.row {{ border: 1px solid {LINE}; border-left: 5px solid {ACCENT}; border-radius: 6px;
+  padding: .5cm .7cm; background: {PANEL}; }}
+.row-h {{ font-size: 23px; font-weight: 700; margin-bottom: .12cm; }}
+.row-b {{ font-size: 19px; line-height: 1.55; color: {INK}; }}
 
 /* graded evidence */
-.grade {{ margin-bottom: .35cm; }}
-.grade-head {{ font-family: "Microsoft YaHei",sans-serif; font-size: 18px;
-  font-weight: 700; padding: .12cm 0 .1cm; }}
+.grade {{ margin-bottom: .4cm; }}
+.grade-head {{ font-family: "Microsoft YaHei",sans-serif; font-size: 22px;
+  font-weight: 700; padding: .12cm 0 .12cm; }}
 .grade-head.bd {{ color: {BUILT}; }} .grade-head.sg {{ color: {SIGNAL}; }} .grade-head.tg {{ color: {TARGET}; }}
 .grade ul {{ list-style: none; }}
-.grade li {{ position: relative; font-size: 15.5px; line-height: 1.5;
-  padding: .05cm 0 .05cm .5cm; }}
-.grade li:before {{ content: ""; position: absolute; left: 0; top: .28cm;
-  width: 5px; height: 5px; background: {MUTE}; border-radius: 50%; }}
-.scope {{ display: block; font-size: 13px; color: {MUTE}; font-style: italic; }}
+.grade li {{ position: relative; font-size: 18px; line-height: 1.5;
+  padding: .06cm 0 .06cm .55cm; }}
+.grade li:before {{ content: ""; position: absolute; left: 0; top: .32cm;
+  width: 6px; height: 6px; background: {MUTE}; border-radius: 50%; }}
+.scope {{ display: block; font-size: 15px; color: {MUTE}; font-style: italic; }}
 
 /* columns */
-.cols {{ display: flex; gap: 1.0cm; }}
+.cols {{ display: flex; gap: 1.2cm; }}
 .col {{ flex: 1; }}
-.col-h {{ font-family: "Microsoft YaHei",sans-serif; font-size: 16px; font-weight: 700;
-  color: {ACCENT}; letter-spacing: .5px; margin-bottom: .25cm;
-  border-bottom: 1px solid {LINE}; padding-bottom: .15cm; }}
-.ms {{ padding-left: .6cm; }}
-.ms li {{ font-size: 18px; line-height: 1.55; margin-bottom: .25cm; }}
+.col-h {{ font-family: "Microsoft YaHei",sans-serif; font-size: 19px; font-weight: 700;
+  color: {ACCENT_D}; letter-spacing: .5px; margin-bottom: .3cm;
+  border-bottom: 2px solid {ACCENT}; padding-bottom: .15cm; display: inline-block; }}
+.ms {{ padding-left: .7cm; margin-top: .15cm; }}
+.ms li {{ font-size: 21px; line-height: 1.55; margin-bottom: .3cm; }}
 
 /* closing */
-.assets {{ margin-top: .4cm; border: 1px solid {LINE}; border-radius: 6px;
-  padding: .55cm .8cm; background: #fbfcfe; }}
-.assets-h {{ font-family: "Microsoft YaHei",sans-serif; font-size: 16px; font-weight: 700;
-  color: {ACCENT}; margin-bottom: .25cm; }}
-.assets-row {{ font-family: "Microsoft YaHei",sans-serif; font-size: 17px; line-height: 1.9; }}
-.assets-row .k {{ display: inline-block; width: 5.0cm; color: {MUTE}; }}
+.assets {{ margin-top: .5cm; border: 1px solid {LINE}; border-radius: 8px;
+  padding: .65cm .9cm; background: {PANEL}; }}
+.assets-h {{ font-family: "Microsoft YaHei",sans-serif; font-size: 19px; font-weight: 700;
+  color: {ACCENT_D}; margin-bottom: .3cm; }}
+.assets-row {{ font-family: "Microsoft YaHei",sans-serif; font-size: 20px; line-height: 2.0; }}
+.assets-row .k {{ display: inline-block; width: 5.6cm; color: {MUTE}; }}
 """
 
 HTML = f"""<!doctype html>
