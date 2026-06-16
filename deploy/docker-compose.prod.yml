@@ -1,0 +1,64 @@
+# Production deployment: MT-LNN inference server behind a Caddy TLS reverse proxy.
+#
+# This is the public go-live stack for awareliquid.ai. It runs two containers:
+#   - mtlnn : the FastAPI inference server (CPU), built from the repo-root Dockerfile.
+#   - caddy : terminates HTTPS for the domain and proxies to mtlnn:8000.
+#
+# Prereqs on the host (see deploy/DEPLOY_VULTR.md):
+#   1. Docker + docker compose plugin installed.
+#   2. DNS A records for awareliquid.ai AND www.awareliquid.ai -> this host's IP.
+#   3. Ports 80 and 443 open in the Vultr firewall / ufw.
+#   4. The trained checkpoint at ./checkpoints/m2_final.pt (the slim serve.pt from
+#      the Kaggle M2 run, renamed). The server runs a FRESH untrained model until
+#      this file exists -- drop it in and `docker compose ... restart mtlnn`.
+#
+# Bring up:   docker compose -f deploy/docker-compose.prod.yml up -d --build
+# Logs:       docker compose -f deploy/docker-compose.prod.yml logs -f
+# Reload ckpt:docker compose -f deploy/docker-compose.prod.yml restart mtlnn
+# Tear down:  docker compose -f deploy/docker-compose.prod.yml down
+#
+# Run this from the REPO ROOT (build context `..` resolves the Dockerfile + code).
+
+services:
+  mtlnn:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: mtlnn:latest
+    container_name: mtlnn_prod
+    restart: unless-stopped
+    expose:
+      - "8000"                       # internal only; Caddy is the public edge
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+    environment:
+      CKPT_PATH: /app/checkpoints/m2_final.pt
+      TOKENIZER: gpt2
+      DEVICE: cpu
+      MAX_NEW_TOKENS_CAP: "512"
+      # Cap intra-op threads to the box's physical cores for steady latency.
+      OMP_NUM_THREADS: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_prod
+    restart: unless-stopped
+    depends_on:
+      - mtlnn
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data               # persists the issued TLS certs across restarts
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

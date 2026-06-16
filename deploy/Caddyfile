@@ -1,0 +1,42 @@
+# Caddy reverse proxy for the MT-LNN inference server.
+#
+# Caddy obtains and renews a Let's Encrypt TLS certificate automatically for the
+# domain below (HTTP-01 / TLS-ALPN over ports 80/443 -- both must be open and the
+# domain's A record must already point at this server's public IP).
+#
+# It forwards all traffic to the `mtlnn` container (FastAPI/uvicorn on :8000),
+# which serves the streaming chat UI at / and the /v1/* JSON API. SSE streaming
+# (/v1/completions/stream) works through Caddy with no extra config.
+#
+# Edit the domain if you use something other than awareliquid.ai. The email is
+# used only for Let's Encrypt expiry notices.
+
+{
+	email everest9812@gmail.com
+}
+
+awareliquid.ai, www.awareliquid.ai {
+	encode zstd gzip
+
+	# Stream tokens without buffering so SSE arrives token-by-token.
+	reverse_proxy mtlnn:8000 {
+		flush_interval -1
+	}
+
+	# Basic hardening + a sane request cap (the API itself also caps tokens).
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

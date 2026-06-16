@@ -1,0 +1,141 @@
+# Go-live on Vultr: MT-LNN server + domain (awareliquid.ai)
+
+End-to-end guide to put the native MT-LNN inference server online behind HTTPS on
+your own domain. The app stack (server + TLS reverse proxy) is fully defined in
+`deploy/docker-compose.prod.yml` + `deploy/Caddyfile`; the only manual steps are
+provisioning the box and pointing DNS at it (those need your Vultr/registrar
+account, which only you can do).
+
+---
+
+## 1. Which Vultr plan
+
+The model is ~125M params, CPU inference, autoregressive generation. RAM need is
+modest (weights ~0.5 GB fp32 + KV cache + torch/python ~1.5 GB), but token/s on CPU
+is bound by **sustained single-thread + a couple of cores**. So favour dedicated
+CPU over the cheapest shared burstable plan.
+
+| Tier | Vultr product | Specs | Notes |
+|---|---|---|---|
+| **Start here** | Cloud Compute - **High Performance** (AMD EPYC + NVMe) | 2 vCPU / 4 GB | Cheapest viable. Good single-thread; fine for a demo / low traffic. |
+| **Recommended** | **Optimized Cloud Compute - General Purpose** (dedicated vCPU) | 2-4 vCPU / 8 GB | No noisy-neighbour throttling -> predictable latency under sustained generation. Best price/perf for go-live. |
+| Overkill for now | Optimized / 8 vCPU+ | 8 vCPU / 16 GB | Only if you see real concurrent traffic. Scale up later, don't pre-buy. |
+
+- **Region**: closest to your users (latency on streaming is noticeable).
+- **OS**: Ubuntu 24.04 LTS x64.
+- **Do NOT** pick a GPU plan -- the CPU image is what we built; GPU adds cost with
+  no benefit at this size/traffic.
+
+> Pricing changes; verify the live monthly cost in the Vultr console before you
+> deploy. Start small -- you can resize the instance up without rebuilding.
+
+---
+
+## 2. Provision the instance (you do this in the Vultr console)
+
+1. **Deploy New Server** -> Cloud Compute (High Performance) or Optimized Cloud
+   Compute -> pick the plan from the table -> Ubuntu 24.04 -> add your SSH key.
+2. After it boots, note the **public IPv4**.
+3. **Firewall** (Vultr console -> Firewall, or `ufw` on the box): allow
+   `22` (SSH), `80` (HTTP, needed for the TLS challenge), `443` (HTTPS). Block the
+   rest. The app port 8000 stays internal -- never expose it directly.
+
+---
+
+## 3. Point the domain at the box (you do this at your registrar / Vultr DNS)
+
+At wherever awareliquid.ai's DNS is managed, create:
+
+| Type | Host | Value | TTL |
+|---|---|---|---|
+| A | `@`   | `<your server IPv4>` | 300 |
+| A | `www` | `<your server IPv4>` | 300 |
+
+(If your DNS host requires it, use a CNAME `www -> awareliquid.ai` instead of the
+second A record.) Wait for propagation -- check with `dig +short awareliquid.ai`
+returning your IP before the next step, or Caddy's certificate request will fail.
+
+---
+
+## 4. Bring the stack up (on the server, over SSH)
+
+```bash
+# install docker + compose plugin
+curl -fsSL https://get.docker.com | sh
+
+# get the code
+git clone https://github.com/everest-an/M1.git
+cd M1
+
+# drop the trained checkpoint in (see step 5). The stack runs a FRESH untrained
+# model until this file exists, so you can also start now and add it later.
+mkdir -p checkpoints
+# cp /path/to/serve.pt checkpoints/m2_final.pt
+
+# launch: builds the CPU image, starts mtlnn + caddy, Caddy auto-issues the cert
+docker compose -f deploy/docker-compose.prod.yml up -d --build
+
+# watch it come up (Caddy logs the cert issuance; mtlnn logs "ready | ...M params")
+docker compose -f deploy/docker-compose.prod.yml logs -f
+```
+
+Then open **https://awareliquid.ai** -- the streaming chat UI should load, and
+`https://awareliquid.ai/health` should return `{"status":"ok",...}`.
+
+---
+
+## 5. The trained checkpoint
+
+The public model comes from the Kaggle M2 pretrain run. When that kernel finishes:
+
+```bash
+# locally, download the kernel output, then copy the slim server checkpoint up:
+kaggle kernels output muningan/awareliquid-m2-pretrain -p ./m2_out
+scp ./m2_out/checkpoints/serve.pt <user>@<server-ip>:~/M1/checkpoints/m2_final.pt
+```
+
+On the server, load it without a full restart:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml restart mtlnn
+```
+
+`serve.pt` is the slim (config + weights, no optimizer) checkpoint the kernel
+writes specifically so it downloads over a flaky proxy and drops straight in here.
+
+---
+
+## 6. Operate
+
+| Task | Command (from `~/M1`) |
+|---|---|
+| Tail logs | `docker compose -f deploy/docker-compose.prod.yml logs -f` |
+| Reload new checkpoint | `docker compose -f deploy/docker-compose.prod.yml restart mtlnn` |
+| Update code | `git pull && docker compose -f deploy/docker-compose.prod.yml up -d --build` |
+| Stop everything | `docker compose -f deploy/docker-compose.prod.yml down` |
+
+**Sanity check from your laptop:**
+
+```bash
+curl https://awareliquid.ai/v1/model
+curl -X POST https://awareliquid.ai/v1/completions \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"The microtubule is","max_new_tokens":40}'
+```
+
+---
+
+## 7. Notes & honest caveats
+
+- **CPU generation is slow-ish.** A 125M model on 2-4 CPU cores will do roughly a
+  few-to-low-tens of tokens/sec. Fine for a demo; for snappy interactive use at
+  traffic, you'd move to a GPU box (swap the Dockerfile base for an
+  `nvidia/cuda` runtime + the CUDA torch wheel, and run with `DEVICE=cuda`).
+- **`MAX_NEW_TOKENS_CAP=512`** bounds per-request work so one client can't peg the
+  box. Raise/lower in the compose env.
+- **The model quality** is whatever the M2 run achieved (last clean run: val PPL
+  ~136 at 5000 steps). It is a small from-scratch model -- the demo shows the
+  architecture works end to end, not GPT-class fluency. Set expectations on the
+  landing page accordingly.
+- Caddy persists its issued certs in the `caddy_data` volume, so restarts don't
+  re-hit Let's Encrypt rate limits.
