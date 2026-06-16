@@ -318,7 +318,11 @@ def train(args):
                 if _wm_loss is not None:
                     aux_parts.append(f"wm={_wm_loss.item():.4f}")
                 if _hebb_loss is not None:
-                    aux_parts.append(f"hebb={_hebb_loss.item():.4f}")
+                    # Scientific notation: L_hebb = -alpha*coactivation is tiny by
+                    # design (alpha ~ hebbian_lr * 0.5-sigmoid-gate, ~1e-8 scale),
+                    # so :.4f always rounds to -0.0000 and looks dead. :+.2e shows
+                    # its true magnitude/sign so the metric is actually readable.
+                    aux_parts.append(f"hebb={_hebb_loss.item():+.2e}")
                 aux_str = " | " + " ".join(aux_parts) if aux_parts else ""
                 msg = (f"step {step:6d} | loss {avg_loss:.4f} | ppl {ppl:.2f} | "
                        f"lr {scheduler.current_lr:.2e} | {tps:.0f} tok/s{aux_str}")
