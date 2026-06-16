@@ -62,10 +62,94 @@ class HebbianPlasticity(nn.Module):
         # dict, not buffers, so it never enters a checkpoint or the autograd graph.
         self._last_stats: Dict[str, float] = {}
 
-        # NOTE: no nn.Parameters / submodules are created in Stage 0. The
-        # dedicated LAVI estimator (with its learnable bias + temperature) and
-        # the gradient-alignment state are introduced in Stage 1 / Stage 2. This
-        # keeps the opt-in path param-free and forward-identical for now.
+        # ---- Stage 1: dedicated lightweight LAVI gate ------------------------
+        # The legacy gate died because it consumed the resonance module's LAVI,
+        # which is only produced when use_rhythm=True (so the gate input was 0 ->
+        # sigmoid(0)=0.5, never modulating). This branch owns its OWN LAVI proxy:
+        # the within-sequence cosine similarity between adjacent-token block
+        # outputs (history-based "how stable is the representation"), so the gate
+        # has a live, per-token input regardless of use_rhythm.
+        #
+        # Both params are CONSTANT-init (torch.tensor, no RNG draw) so building
+        # this module consumes none of the model's init RNG stream -> the
+        # flag-on path stays bit-identical to flag-off at init (verified in
+        # tests). gate_temp = learnable sharpness s; b_lavi = learnable bias that
+        # shifts the sigmoid decision boundary (kills the death zone).
+        self.gate_temp = nn.Parameter(torch.tensor(1.0))   # s
+        self.b_lavi = nn.Parameter(torch.tensor(0.0))      # b_lavi
+
+    # ---- Stage 1 internals ---------------------------------------------------
+
+    @staticmethod
+    def _within_seq_lavi(out_seq: torch.Tensor) -> torch.Tensor:
+        """History-based LAVI proxy: cosine similarity between each token's block
+        output and the previous token's. (B, T, D) -> (B, T-1), in [-1, 1].
+        High => representation is persistent/stable across the step.
+
+        The sequence is first centred over time (per batch/feature). Without this
+        the raw block outputs are dominated by a shared DC component, so adjacent
+        cosines are ~1.0 with ZERO variance (verified at init) -> the gate would
+        be just as dead as the legacy one. Centring exposes the FLUCTUATION
+        stability, which carries genuine per-token variance (std ~0.25 at init).
+        This mirrors the Hebbian-covariance 'centre then correlate' philosophy."""
+        centred = out_seq - out_seq.mean(dim=1, keepdim=True)
+        cur = centred[:, 1:]
+        prev = centred[:, :-1]
+        return torch.nn.functional.cosine_similarity(cur, prev, dim=-1)
+
+    def _gate(self, lavi: torch.Tensor) -> torch.Tensor:
+        """Map a per-token LAVI signal to a dynamic gate in (0,1).
+
+        lavi_norm = lavi - mean_t(lavi) + b_lavi   (per-sequence centring removes
+        the death zone: the gate spans (0,1) with real per-token deviation rather
+        than sitting at a constant 0.5). gate = sigmoid(s * lavi_norm)."""
+        lavi_norm = lavi - lavi.mean(dim=1, keepdim=True) + self.b_lavi
+        return torch.sigmoid(self.gate_temp * lavi_norm)
+
+    def compute_signal(self, model: "MTLNNModel") -> Optional[torch.Tensor]:
+        """Gated within-sequence Hebbian co-activation, aggregated over blocks.
+
+        For each block we form the lagged covariance between the post-synaptic
+        output at t and the pre-synaptic input at t-1 (the h_t * h_{t-1} temporal
+        association the legacy same-timestep signal lacked), weighted per-token by
+        the dedicated LAVI gate. Returns a scalar in-graph tensor, or None if no
+        block stashed its sequences (e.g. use_hebbian_refactor off, or eval-only).
+        Populates last_stats for monitoring. Does NOT add anything to the loss --
+        Stage 2 consumes this to build the capped, gradient-aligned loss term.
+        """
+        sigs = []
+        gate_means, gate_stds, lavi_means = [], [], []
+        for block in model.blocks:
+            out_seq = getattr(block.lnn, "_hebb_ref_out", None)
+            in_seq = getattr(block.lnn, "_hebb_ref_in", None)
+            if out_seq is None or in_seq is None or out_seq.shape[1] < 2:
+                continue
+            post = out_seq[:, 1:]                 # h_t       (B, T-1, D)
+            pre = in_seq[:, :-1]                  # x_{t-1}   (B, T-1, D)
+            post_c = post - post.mean(dim=(0, 1), keepdim=True)
+            pre_c = pre - pre.mean(dim=(0, 1), keepdim=True)
+            coact = (post_c * pre_c).mean(dim=-1)  # (B, T-1) per-position covariance
+            lavi = self._within_seq_lavi(out_seq)  # (B, T-1)
+            gate = self._gate(lavi)                # (B, T-1)
+            sigs.append((gate * coact).mean())
+            with torch.no_grad():
+                gate_means.append(float(gate.mean()))
+                gate_stds.append(float(gate.std()))
+                lavi_means.append(float(lavi.mean()))
+
+        if not sigs:
+            self._last_stats = {}
+            return None
+
+        signal = torch.stack(sigs).mean()
+        self._last_stats = {
+            "signal": float(signal.detach()),
+            "gate_mean": sum(gate_means) / len(gate_means),
+            "gate_std": sum(gate_stds) / len(gate_stds),
+            "lavi_mean": sum(lavi_means) / len(lavi_means),
+            "n_blocks": float(len(sigs)),
+        }
+        return signal
 
     @property
     def last_stats(self) -> Dict[str, float]:
@@ -80,9 +164,9 @@ class HebbianPlasticity(nn.Module):
         legacy HebbianRegularizer.compute_loss so the model integration and the
         finiteness guard (`_aux_or_skip`) work unchanged once Stage 2 lands.
         """
-        # Stage 1 will: pull per-block hidden states, run the dedicated LAVI
-        # estimator to get a non-trivial gate, and form the within-sequence
-        # lagged co-activation signal.
-        # Stage 2 will: build the equivalent loss, measure its raw gradient norm
-        # vs the main gradient norm, and scale so the Hebbian share <= cap.
+        # Stage 1 (DONE): compute_signal() builds the dedicated-LAVI-gated,
+        # within-sequence lagged co-activation signal (see above).
+        # Stage 2 (TODO): wrap that signal into the loss term, measure its raw
+        # gradient norm vs the main gradient norm, and scale so the Hebbian share
+        # <= grad_frac_cap before adding to the total loss.
         return None

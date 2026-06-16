@@ -487,6 +487,15 @@ class MTLNNLayer(nn.Module):
         self.use_hebbian = getattr(config, "use_hebbian", False)
         self._hebb_signal: Optional[torch.Tensor] = None
 
+        # Hebbian REFACTOR (Phase D', 2026-06-16). When use_hebbian_refactor=True
+        # the forward stashes the block's input/output SEQUENCES (B,T,d_model,
+        # in-graph) so HebbianPlasticity can build a within-sequence lagged
+        # co-activation signal and its own LAVI gate. Gated so the flag-off path
+        # is untouched (both attrs stay None).
+        self.use_hebbian_refactor = getattr(config, "use_hebbian_refactor", False)
+        self._hebb_ref_out: Optional[torch.Tensor] = None
+        self._hebb_ref_in: Optional[torch.Tensor] = None
+
     def forward(
         self,
         x: torch.Tensor,                       # (B, T, d_model)
@@ -567,6 +576,16 @@ class MTLNNLayer(nn.Module):
             self._hebb_signal = (out_centered * x_centered).mean()
         else:
             self._hebb_signal = None
+
+        # Phase D' (refactor): stash the in/out SEQUENCES (in-graph) for the
+        # within-sequence Hebbian signal + dedicated LAVI gate. Gated so the
+        # flag-off path stays bit-identical.
+        if self.use_hebbian_refactor:
+            self._hebb_ref_out = out
+            self._hebb_ref_in = x
+        else:
+            self._hebb_ref_out = None
+            self._hebb_ref_in = None
 
         # We cache the resonance bank's per-scale state (B, P, S, D) — that
         # is the actual recurrent state of the LNN. Caching h_gated would
