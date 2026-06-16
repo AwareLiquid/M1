@@ -86,23 +86,32 @@ def test_stage1_param_light_two_scalars():
     assert sum(p.numel() for p in on.hebbian_plasticity.parameters()) == 2
 
 
-def test_compute_loss_returns_none_in_stage0():
+def test_compute_loss_none_without_forward():
+    # No forward => no block stashed its sequences => no signal => None.
     m = _build(use_refactor=True)
     m.train()
     assert m.hebbian_plasticity.compute_loss(m) is None
 
 
-def test_forward_omits_refactor_loss_and_keeps_shape():
+def test_forward_includes_refactor_loss_and_keeps_shape():
+    # Stage 2: the term is now added to the loss and surfaced in the output.
     m = _build(use_refactor=True)
     m.train()
     x = torch.randint(0, 64, (2, 16))
     out = m(x, labels=x.clone())
-    assert "hebbian_refactor_loss" not in out
+    assert "hebbian_refactor_loss" in out
+    assert out["hebbian_refactor_loss"].dim() == 0
     assert out["logits"].shape == (2, 16, 64)
     assert torch.isfinite(out["loss"])
 
 
-def test_zero_regression_bit_identical_off_vs_on():
+def test_logits_untouched_and_loss_is_main_plus_hebb():
+    # Hebbian is a LOSS-only term: it must NOT change the logits (forward output).
+    # The total loss = main LM loss + hebbian term. We verify additivity by
+    # reconstruction rather than by raw float inequality, because the term is
+    # tiny (~1e-7, capped at <=5% of the main GRADIENT, not of the loss VALUE) so
+    # it can sit below the float32 ULP of the ~4.3 LM loss -- value-small does not
+    # mean gradient-small, which is exactly why Stage 2 caps the gradient share.
     off = _build(use_refactor=False, seed=0)
     on = _build(use_refactor=True, seed=0)
     off.train()
@@ -112,8 +121,9 @@ def test_zero_regression_bit_identical_off_vs_on():
     o_off = off(x, labels=x.clone())
     torch.manual_seed(123)
     o_on = on(x, labels=x.clone())
-    assert torch.equal(o_off["logits"], o_on["logits"])
-    assert torch.equal(o_off["loss"], o_on["loss"])
+    assert torch.equal(o_off["logits"], o_on["logits"])          # logits untouched
+    main_recon = o_on["loss"] - o_on["hebbian_refactor_loss"]
+    assert abs(main_recon.item() - o_off["loss"].item()) < 1e-5  # total = main + hebb
 
 
 def test_last_stats_copy_is_isolated():
@@ -196,8 +206,64 @@ def test_gate_unit_dynamics_direct():
     assert g_sharp.std() > g.std()    # higher temperature => wider gate range
 
 
-def test_compute_loss_still_none_in_stage1():
-    # Stage 1 builds the signal but does NOT add it to the loss yet.
+# ---------------------------------------------------------------------------
+# Stage 2: loss term + gradient alignment + 5% cap
+# ---------------------------------------------------------------------------
+
+def test_compute_loss_returns_scalar_term_after_forward():
     m = _build(use_refactor=True)
-    _ = _forward_then_signal(m)
-    assert m.hebbian_plasticity.compute_loss(m) is None
+    m.train()
+    x = torch.randint(0, 64, (4, 24))
+    _ = m(x, labels=x.clone())
+    term = m.hebbian_plasticity.compute_loss(m)
+    assert term is not None
+    assert term.dim() == 0
+    assert term.requires_grad
+    # alpha_eff = base_lr * _scale recorded for monitoring
+    assert "alpha_eff" in m.hebbian_plasticity.last_stats
+
+
+def test_raw_loss_is_negative_signal():
+    m = _build(use_refactor=True)
+    m.train()
+    x = torch.randint(0, 64, (4, 24))
+    _ = m(x, labels=x.clone())
+    sig = m.hebbian_plasticity.compute_signal(m)
+    # need a fresh forward because compute_signal consumes the stashed tensors
+    _ = m(x, labels=x.clone())
+    raw = m.hebbian_plasticity.raw_loss(m)
+    assert torch.sign(raw) == -torch.sign(sig) or sig.item() == 0.0
+
+
+def test_recalibrate_enforces_grad_fraction_cap():
+    hp = _build(use_refactor=True).hebbian_plasticity
+    # raw Hebbian gradient much larger than allowed -> _scale must shrink so the
+    # post-scale fraction lands exactly at the cap.
+    hp.recalibrate(g_main_norm=1.0, g_hebb_raw_norm=100.0)
+    assert hp.last_stats["grad_frac"] <= hp.grad_frac_cap + 1e-9
+    assert hp._scale < 1.0
+    # tiny raw Hebbian gradient -> cap not binding -> _scale stays at 1.0.
+    hp.recalibrate(g_main_norm=1.0, g_hebb_raw_norm=1e-6)
+    assert hp._scale == 1.0
+
+
+def test_recalibrate_scale_formula():
+    hp = _build(use_refactor=True).hebbian_plasticity
+    g_main, g_hebb = 2.0, 50.0
+    hp.recalibrate(g_main_norm=g_main, g_hebb_raw_norm=g_hebb)
+    expected = min(1.0, hp.grad_frac_cap * g_main / (hp.base_lr * g_hebb))
+    assert abs(hp._scale - expected) < 1e-9
+
+
+def test_scale_changes_loss_magnitude():
+    m = _build(use_refactor=True)
+    m.train()
+    x = torch.randint(0, 64, (4, 24))
+    _ = m(x, labels=x.clone())
+    m.hebbian_plasticity._scale = 1.0
+    big = m.hebbian_plasticity.compute_loss(m).item()
+    _ = m(x, labels=x.clone())
+    m.hebbian_plasticity._scale = 0.1
+    small = m.hebbian_plasticity.compute_loss(m).item()
+    assert abs(small) < abs(big) + 1e-12
+    assert abs(small - 0.1 * big) < 1e-6

@@ -78,6 +78,17 @@ class HebbianPlasticity(nn.Module):
         self.gate_temp = nn.Parameter(torch.tensor(1.0))   # s
         self.b_lavi = nn.Parameter(torch.tensor(0.0))      # b_lavi
 
+        # ---- Stage 2: gradient-alignment scale ------------------------------
+        # The effective weight applied to the (already gated) co-activation term
+        # is alpha_eff = base_lr * _scale, where _scale in [0,1] is recomputed by
+        # recalibrate() from the measured gradient-norm ratio so the Hebbian
+        # contribution can never exceed grad_frac_cap (default 5%) of the main
+        # gradient norm -- the hard safety bound (cannot dominate the LM loss).
+        # Plain float (not a buffer/param): it is an optimisation-loop control
+        # knob, never learned and never checkpointed.
+        self._scale: float = 1.0
+        self._eps: float = 1e-12
+
     # ---- Stage 1 internals ---------------------------------------------------
 
     @staticmethod
@@ -164,9 +175,50 @@ class HebbianPlasticity(nn.Module):
         legacy HebbianRegularizer.compute_loss so the model integration and the
         finiteness guard (`_aux_or_skip`) work unchanged once Stage 2 lands.
         """
-        # Stage 1 (DONE): compute_signal() builds the dedicated-LAVI-gated,
-        # within-sequence lagged co-activation signal (see above).
-        # Stage 2 (TODO): wrap that signal into the loss term, measure its raw
-        # gradient norm vs the main gradient norm, and scale so the Hebbian share
-        # <= grad_frac_cap before adding to the total loss.
-        return None
+        # Stage 1: compute_signal() builds the dedicated-LAVI-gated, within-
+        # sequence lagged co-activation signal.
+        # Stage 2: wrap it into a loss term scaled by alpha_eff = base_lr*_scale,
+        # where _scale (<=1) is set by recalibrate() from the gradient-norm ratio
+        # so the Hebbian gradient share <= grad_frac_cap (hard safety bound).
+        raw = self.raw_loss(model)
+        if raw is None:
+            return None
+        alpha_eff = self.base_lr * self._scale
+        self._last_stats["alpha_eff"] = alpha_eff
+        return alpha_eff * raw
+
+    def raw_loss(self, model: "MTLNNModel") -> Optional[torch.Tensor]:
+        """Unscaled Hebbian loss = -signal (minimising it MAXIMISES co-activation,
+        the Hebb rule). In-graph scalar, or None when no block stashed sequences.
+        Carries no base_lr / _scale so its gradient norm is the 'raw' quantity
+        recalibrate() aligns against the main gradient."""
+        signal = self.compute_signal(model)
+        if signal is None:
+            return None
+        return -signal
+
+    @torch.no_grad()
+    def recalibrate(self, g_main_norm: float, g_hebb_raw_norm: float) -> float:
+        """Update _scale so that  alpha_eff * g_hebb_raw <= cap * g_main, i.e. the
+        Hebbian gradient never exceeds grad_frac_cap of the main gradient norm.
+
+            alpha_eff = base_lr * _scale ,  with
+            _scale = min(1, cap * g_main / (base_lr * g_hebb_raw))
+
+        Decoupled from the main BP lr (only base_lr appears) and self-limiting:
+        if the raw Hebbian gradient is large relative to the main one, _scale
+        shrinks; if it is already small, _scale stays at 1 (alpha_eff=base_lr).
+        Called periodically by the training loop (it owns the extra backward
+        passes that measure the two norms). Returns the new _scale.
+        """
+        denom = self.base_lr * g_hebb_raw_norm + self._eps
+        scale = min(1.0, self.grad_frac_cap * g_main_norm / denom)
+        self._scale = float(scale)
+        # projected post-scale gradient fraction (for monitoring / asserting cap)
+        self._last_stats["g_main_norm"] = float(g_main_norm)
+        self._last_stats["g_hebb_raw_norm"] = float(g_hebb_raw_norm)
+        self._last_stats["scale"] = self._scale
+        self._last_stats["grad_frac"] = (
+            (self.base_lr * self._scale * g_hebb_raw_norm) / (g_main_norm + self._eps)
+        )
+        return self._scale
