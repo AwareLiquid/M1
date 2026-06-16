@@ -1,0 +1,247 @@
+{
+  "config": {
+    "seeds": [
+      0,
+      1
+    ],
+    "steps": 150,
+    "batch": 8,
+    "seq_len": 192,
+    "lr": 0.0003,
+    "d_model": 128,
+    "n_layers": 4,
+    "n_heads": 8,
+    "recal_every": 15,
+    "eval_batches": 40,
+    "device": "cpu",
+    "red_line_cap": 0.05
+  },
+  "settings": {
+    "off": {
+      "base_lr": null,
+      "grad_frac_mean": 0.0,
+      "grad_frac_max": 0.0,
+      "scale_mean": null,
+      "nan_total": 0,
+      "val_ppl": {
+        "mean": 299.6483,
+        "std": 7.171800000000019
+      },
+      "late_ppl": {
+        "mean": 296.6087,
+        "std": 5.098299999999995
+      },
+      "late_minus_early": {
+        "mean": -2.0789999999999997,
+        "std": 2.2565
+      },
+      "per_seed": [
+        {
+          "val_ppl": 306.8201,
+          "nan_count": 0,
+          "final_grad_norm": 0.65645,
+          "grad_frac_mean": 0.0,
+          "grad_frac_max": 0.0,
+          "scale_mean": null,
+          "early_ppl": 306.0426,
+          "late_ppl": 301.707,
+          "late_minus_early": -4.3355,
+          "seconds": 259.4
+        },
+        {
+          "val_ppl": 292.4765,
+          "nan_count": 0,
+          "final_grad_norm": 0.94033,
+          "grad_frac_mean": 0.0,
+          "grad_frac_max": 0.0,
+          "scale_mean": null,
+          "early_ppl": 291.333,
+          "late_ppl": 291.5104,
+          "late_minus_early": 0.1775,
+          "seconds": 255.5
+        }
+      ]
+    },
+    "blr30": {
+      "base_lr": 30.0,
+      "grad_frac_mean": 0.026255399999999998,
+      "grad_frac_max": 0.05,
+      "scale_mean": 0.646885,
+      "nan_total": 0,
+      "val_ppl": {
+        "mean": 308.8251,
+        "std": 6.545199999999994
+      },
+      "late_ppl": {
+        "mean": 305.72535,
+        "std": 4.50385
+      },
+      "late_minus_early": {
+        "mean": -1.64435,
+        "std": 2.33905
+      },
+      "per_seed": [
+        {
+          "val_ppl": 315.3703,
+          "nan_count": 0,
+          "final_grad_norm": 0.49525,
+          "grad_frac_mean": 0.0299019,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.56925,
+          "early_ppl": 314.2126,
+          "late_ppl": 310.2292,
+          "late_minus_early": -3.9834,
+          "seconds": 291.4
+        },
+        {
+          "val_ppl": 302.2799,
+          "nan_count": 0,
+          "final_grad_norm": 0.6808,
+          "grad_frac_mean": 0.0226089,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.72452,
+          "early_ppl": 300.5268,
+          "late_ppl": 301.2215,
+          "late_minus_early": 0.6947,
+          "seconds": 289.1
+        }
+      ]
+    },
+    "blr100": {
+      "base_lr": 100.0,
+      "grad_frac_mean": 0.039168549999999996,
+      "grad_frac_max": 0.05,
+      "scale_mean": 0.42886,
+      "nan_total": 0,
+      "val_ppl": {
+        "mean": 311.43275,
+        "std": 7.486150000000009
+      },
+      "late_ppl": {
+        "mean": 308.12415,
+        "std": 5.654449999999997
+      },
+      "late_minus_early": {
+        "mean": -2.39965,
+        "std": 1.62395
+      },
+      "per_seed": [
+        {
+          "val_ppl": 318.9189,
+          "nan_count": 0,
+          "final_grad_norm": 0.5002,
+          "grad_frac_mean": 0.0401741,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.37746,
+          "early_ppl": 317.8022,
+          "late_ppl": 313.7786,
+          "late_minus_early": -4.0236,
+          "seconds": 287.2
+        },
+        {
+          "val_ppl": 303.9466,
+          "nan_count": 0,
+          "final_grad_norm": 0.64031,
+          "grad_frac_mean": 0.038163,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.48026,
+          "early_ppl": 303.2454,
+          "late_ppl": 302.4697,
+          "late_minus_early": -0.7757,
+          "seconds": 289.7
+        }
+      ]
+    },
+    "blr300": {
+      "base_lr": 300.0,
+      "grad_frac_mean": 0.047123399999999996,
+      "grad_frac_max": 0.05,
+      "scale_mean": 0.26470499999999997,
+      "nan_total": 0,
+      "val_ppl": {
+        "mean": 317.30785000000003,
+        "std": 3.35684999999998
+      },
+      "late_ppl": {
+        "mean": 313.9357,
+        "std": 1.3688000000000216
+      },
+      "late_minus_early": {
+        "mean": -2.0725000000000002,
+        "std": 2.0211
+      },
+      "per_seed": [
+        {
+          "val_ppl": 320.6647,
+          "nan_count": 0,
+          "final_grad_norm": 0.52205,
+          "grad_frac_mean": 0.0469214,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.25832,
+          "early_ppl": 319.3981,
+          "late_ppl": 315.3045,
+          "late_minus_early": -4.0936,
+          "seconds": 289.9
+        },
+        {
+          "val_ppl": 313.951,
+          "nan_count": 0,
+          "final_grad_norm": 0.65646,
+          "grad_frac_mean": 0.0473254,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.27109,
+          "early_ppl": 312.6183,
+          "late_ppl": 312.5669,
+          "late_minus_early": -0.0514,
+          "seconds": 288.0
+        }
+      ]
+    },
+    "blr1000": {
+      "base_lr": 1000.0,
+      "grad_frac_mean": 0.05,
+      "grad_frac_max": 0.05,
+      "scale_mean": 0.11289,
+      "nan_total": 0,
+      "val_ppl": {
+        "mean": 316.58645,
+        "std": 3.69165000000001
+      },
+      "late_ppl": {
+        "mean": 313.15790000000004,
+        "std": 1.8490999999999929
+      },
+      "late_minus_early": {
+        "mean": -2.2460500000000003,
+        "std": 1.69385
+      },
+      "per_seed": [
+        {
+          "val_ppl": 320.2781,
+          "nan_count": 0,
+          "final_grad_norm": 0.58897,
+          "grad_frac_mean": 0.05,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.1183,
+          "early_ppl": 318.9469,
+          "late_ppl": 315.007,
+          "late_minus_early": -3.9399,
+          "seconds": 289.7
+        },
+        {
+          "val_ppl": 312.8948,
+          "nan_count": 0,
+          "final_grad_norm": 0.63839,
+          "grad_frac_mean": 0.05,
+          "grad_frac_max": 0.05,
+          "scale_mean": 0.10748,
+          "early_ppl": 311.8611,
+          "late_ppl": 311.3088,
+          "late_minus_early": -0.5522,
+          "seconds": 288.5
+        }
+      ]
+    }
+  },
+  "seconds": 2835.8
+}
