@@ -1,0 +1,257 @@
+{
+  "config": {
+    "seeds": [
+      0,
+      1
+    ],
+    "steps_a": 120,
+    "steps_b": 120,
+    "batch": 8,
+    "seq_len": 128,
+    "lr": 0.0003,
+    "d_model": 128,
+    "n_layers": 4,
+    "n_heads": 8,
+    "recal_every": 15,
+    "eval_batches": 30,
+    "task_tok": 6000000,
+    "b_off": 200000000,
+    "c_off": 380000000,
+    "device": "cpu",
+    "red_line_cap": 0.05
+  },
+  "settings": {
+    "off": {
+      "base_lr": null,
+      "forgetting": {
+        "mean": -238.7466,
+        "std": 6.160799999999995,
+        "vals": [
+          -232.5858,
+          -244.9074
+        ]
+      },
+      "a_before": {
+        "mean": 466.67690000000005,
+        "std": 3.3522000000000105,
+        "vals": [
+          463.3247,
+          470.0291
+        ]
+      },
+      "a_after": {
+        "mean": 227.93025,
+        "std": 2.8085499999999968,
+        "vals": [
+          230.7388,
+          225.1217
+        ]
+      },
+      "b_after": {
+        "mean": 207.30615,
+        "std": 5.206250000000011,
+        "vals": [
+          212.5124,
+          202.0999
+        ]
+      },
+      "c_after": {
+        "mean": 176.08025,
+        "std": 6.0554500000000075,
+        "vals": [
+          182.1357,
+          170.0248
+        ]
+      },
+      "nan_total": 0,
+      "grad_frac_mean": 0.0,
+      "per_seed": [
+        {
+          "a_before": 463.3247,
+          "a_after": 230.7388,
+          "forgetting": -232.5858,
+          "b_after": 212.5124,
+          "c_after": 182.1357,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0,
+          "grad_frac_max": 0.0,
+          "scale": null,
+          "seconds": 287.1
+        },
+        {
+          "a_before": 470.0291,
+          "a_after": 225.1217,
+          "forgetting": -244.9074,
+          "b_after": 202.0999,
+          "c_after": 170.0248,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0,
+          "grad_frac_max": 0.0,
+          "scale": null,
+          "seconds": 282.5
+        }
+      ]
+    },
+    "blr100": {
+      "base_lr": 100.0,
+      "forgetting": {
+        "mean": -217.7776,
+        "std": 24.564400000000006,
+        "vals": [
+          -193.2132,
+          -242.342
+        ]
+      },
+      "a_before": {
+        "mean": 473.77705000000003,
+        "std": 4.222749999999991,
+        "vals": [
+          469.5543,
+          477.9998
+        ]
+      },
+      "a_after": {
+        "mean": 255.99945000000002,
+        "std": 20.341549999999998,
+        "vals": [
+          276.341,
+          235.6579
+        ]
+      },
+      "b_after": {
+        "mean": 234.61829999999998,
+        "std": 22.566500000000005,
+        "vals": [
+          257.1848,
+          212.0518
+        ]
+      },
+      "c_after": {
+        "mean": 198.58195,
+        "std": 20.51715,
+        "vals": [
+          219.0991,
+          178.0648
+        ]
+      },
+      "nan_total": 0,
+      "grad_frac_mean": 0.044837,
+      "per_seed": [
+        {
+          "a_before": 469.5543,
+          "a_after": 276.341,
+          "forgetting": -193.2132,
+          "b_after": 257.1848,
+          "c_after": 219.0991,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0446169,
+          "grad_frac_max": 0.05,
+          "scale": 0.0016,
+          "seconds": 235.6
+        },
+        {
+          "a_before": 477.9998,
+          "a_after": 235.6579,
+          "forgetting": -242.342,
+          "b_after": 212.0518,
+          "c_after": 178.0648,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0450571,
+          "grad_frac_max": 0.05,
+          "scale": 0.01693,
+          "seconds": 197.4
+        }
+      ]
+    },
+    "blr300": {
+      "base_lr": 300.0,
+      "forgetting": {
+        "mean": -217.77794999999998,
+        "std": 24.040350000000004,
+        "vals": [
+          -193.7376,
+          -241.8183
+        ]
+      },
+      "a_before": {
+        "mean": 476.9504,
+        "std": 4.509200000000021,
+        "vals": [
+          472.4412,
+          481.4596
+        ]
+      },
+      "a_after": {
+        "mean": 259.17245,
+        "std": 19.531149999999997,
+        "vals": [
+          278.7036,
+          239.6413
+        ]
+      },
+      "b_after": {
+        "mean": 237.59205,
+        "std": 21.79585,
+        "vals": [
+          259.3879,
+          215.7962
+        ]
+      },
+      "c_after": {
+        "mean": 201.4899,
+        "std": 19.224500000000006,
+        "vals": [
+          220.7144,
+          182.2654
+        ]
+      },
+      "nan_total": 0,
+      "grad_frac_mean": 0.048526,
+      "per_seed": [
+        {
+          "a_before": 472.4412,
+          "a_after": 278.7036,
+          "forgetting": -193.7376,
+          "b_after": 259.3879,
+          "c_after": 220.7144,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0485548,
+          "grad_frac_max": 0.05,
+          "scale": 0.00072,
+          "seconds": 183.3
+        },
+        {
+          "a_before": 481.4596,
+          "a_after": 239.6413,
+          "forgetting": -241.8183,
+          "b_after": 215.7962,
+          "c_after": 182.2654,
+          "nan_count": 0,
+          "grad_frac_mean": 0.0484972,
+          "grad_frac_max": 0.05,
+          "scale": 0.0062,
+          "seconds": 198.4
+        }
+      ]
+    }
+  },
+  "paired_forgetting_on_minus_off": {
+    "blr100": {
+      "mean_diff": 20.969,
+      "on_lower_in": "0/2",
+      "diffs": [
+        39.3726,
+        2.5654
+      ]
+    },
+    "blr300": {
+      "mean_diff": 20.9687,
+      "on_lower_in": "0/2",
+      "diffs": [
+        38.8482,
+        3.0891
+      ]
+    }
+  },
+  "seconds": 1388.8
+}
