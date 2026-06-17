@@ -39,6 +39,9 @@
   .tag.signal{background:#eaf1fb;color:#1f5fb5}
   .tag.target{background:#fdf0e6;color:#b5651d}
   .note{font-size:13.5px;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:18px 0}
+  figure{margin:14px 0 6px}
+  figure img{width:100%;display:block;border:1px solid var(--line);border-radius:10px;background:#fff}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
   table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 16px}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
   th{font-weight:600;color:var(--muted);font-size:12.5px}
@@ -100,15 +103,59 @@
 
   <h3>巩固机制：EWC（弹性权重巩固）</h3>
   <p>在领域 A 训完后快照锚点权重，用纯 CE 梯度估计对角 Fisher 信息，再在领域 B 训练时加二次惩罚项 <code>λ/2 · Σ Fᵢ(θᵢ−θ_Aᵢ)²</code>，约束对 A 重要的权重少动。这是一个架构无关的训练流程机制。</p>
+
+  <h3>实测结果（真实 GPU 跑，A=WikiText-103 → B=TinyStories）</h3>
+  <p>3 seeds，60.7M 模型，每领域 1200 步。<code>遗忘量</code> = 在 B 上训练后 A 的 PPL 上升（越小越好）；同时要求仍学得会 B。</p>
+  <div class="card">
+    <table>
+      <tr><th>对照臂</th><th>A 训练前</th><th>A 训练后</th><th>遗忘量</th><th>学会 B?</th></tr>
+      <tr><td>dense（无抗遗忘）</td><td class="num">244.9</td><td class="num">10806.9</td><td class="num">+10561.9</td><td>✅</td></tr>
+      <tr><td>liquid（液态骨干）</td><td class="num">248.5</td><td class="num">9792.0</td><td class="num">+9543.5</td><td>✅</td></tr>
+      <tr><td><strong>consolidation（EWC）</strong></td><td class="num">244.9</td><td class="num"><strong>1878.0</strong></td><td class="num"><strong>+1633.1</strong></td><td>✅</td></tr>
+    </table>
+    <p style="margin-bottom:0">配对统计（consolidation − dense）：<strong>−8928.8 ± 2155，SNR=4.14，3/3 个 seed 全部更优</strong>。即 EWC 把跨领域遗忘<strong>降低约 85%</strong>（10562 → 1633），且没有牺牲学新领域 B 的能力。</p>
+  </div>
   <p>
-    <span class="tag built">已实现</span>EWC 机制 + 三臂实验框架，代码可复现（<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>，<code>experiments/continual_crossdomain_liquid.py</code>）。<br>
-    <span class="tag target">尚待验证</span>“巩固机制能稳健、显著地降低遗忘”这一<strong>有效性</strong>结论——更大规模、更多 seed 的严格验证仍在进行中，目前还不能下定论。
+    <span class="tag built">已实现</span>EWC 机制 + 三臂实验框架，代码与上面这组结果可复现（<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>，<code>experiments/continual_crossdomain_liquid.py</code>）。<br>
+    <span class="tag signal">早期信号</span>抑制遗忘的效果<strong>真实、强、且每个 seed 都一致</strong>（−85%，SNR 4.14）——这是机制有效性的第一个明确证据。<br>
+    <span class="tag target">尚未达成</span>“让旧领域保持<strong>可用</strong>”：EWC 后 A 的绝对 PPL（1878）相对训练前（245）仍退化约 7.6 倍，按“退化 &lt;5 倍才算可用”的硬标准，仍判定为灾难性遗忘。所以严格裁决是 <strong>WEAK-TREND</strong>，不是 SUPPORTED。
   </p>
   <div class="note">
-    诚实区分：机制<strong>已实现</strong>（代码跑得通）不等于机制<strong>已被证明有效</strong>（统计上稳健降低遗忘）。后者是我们当前正在验证的目标，结果出来后会更新本页。
+    诚实结论：巩固机制<strong>确实在起作用、方向正确、可复现</strong>，把遗忘砍掉了一大截；但“持续学习已攻克”还远谈不上——旧领域绝对性能尚未达到可用线。我们如实把它定为<strong>早期信号</strong>，而非已验证的成功。
   </div>
 
-  <h2>4. 怎么复现</h2>
+  <h2>4. 空间计算（实验方向）</h2>
+  <p>MT-LNN 的循环动力学是否适合<strong>空间表征与推理</strong>？这是一条受神经科学（网格细胞、位置细胞、路径积分）启发的实验线。代码完整、能跑出图，但各部分的验证程度不同，如实分述。</p>
+
+  <h3>已实现的模块（代码可跑）</h3>
+  <ul>
+    <li><strong>空间编码前端</strong>：网格细胞编码、多尺度网格模块、头朝向细胞、边界距离细胞、位置细胞码（含 DoG 中心-环绕模式）——<code>mt_lnn/spatial.py</code>；</li>
+    <li><strong>位置索引联想记忆</strong>：Hebbian 写入 + 模式补全读取，零可训练参数——<code>mt_lnn/spatial_memory.py</code>；</li>
+    <li><strong>因果空间转向</strong>：检测循环轨迹断裂并把状态投影回合法子空间——<code>mt_lnn/causal_steering.py</code>；</li>
+    <li><strong>空间算子 + 推理脚手架</strong>：距离/方位/可达性图、按位置路由——<code>spatial_ops.py</code> / <code>spatial_reasoning.py</code>。</li>
+  </ul>
+
+  <h3>两个验证过的玩具 demo（按预期工作）</h3>
+  <figure>
+    <img src="/static/causal_spatial_steering.png" alt="因果空间转向：检测轨迹断裂并把离流形误差投影回 0" loading="lazy">
+    <figcaption><span class="tag built">已实现</span>因果转向：在第 18 步人为制造一次“瞬移”断裂，转向机制检测到并把离流形误差拉回 0；不转向的基线则一直带着误差。</figcaption>
+  </figure>
+  <figure>
+    <img src="/static/spatial_memory_recall.png" alt="空间记忆模式补全：带噪位置查询仍能取回正确内容" loading="lazy">
+    <figcaption><span class="tag built">已实现</span>空间记忆模式补全：对带噪的位置查询，仍能取回正确存储内容，且随噪声<strong>平滑退化</strong>而非乱编。</figcaption>
+  </figure>
+
+  <h3>网格细胞涌现：尚未验证</h3>
+  <p>把 MT-LNN 循环核与 GRU 基线放在同一个“速度→位置”路径积分任务上对比，看是否自发涌现六边形网格细胞（标准门槛 grid score &gt; 0.3）。</p>
+  <p>
+    <span class="tag built">已实现</span>轨迹生成、损失、网格分自相关分析全套流程能跑；<br>
+    <span class="tag target">尚未达成</span>到目前为止<strong>都是 CPU 冒烟规模的跑</strong>，没有任何一次（GRU 或 MT-LNN）越过 0.3 门槛，MT-LNN 也未跑赢 GRU 基线。要下结论需要 GPU 上认真规模的训练——<strong>现在不声称任何空间优势</strong>。
+  </p>
+  <div class="note">
+    诚实小结：空间计算这条线，<strong>基础模块和两个 demo 是实打实能跑的</strong>；但“MT-LNN 在空间任务上更强”这个核心论点<strong>还没有数据支撑</strong>，目前是一个开放的实验方向，不是已验证的能力。
+  </div>
+
+  <h2>5. 怎么复现</h2>
   <ul>
     <li>代码、实验脚本、可复现配置：<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">github.com/everest-an/M1</a>；</li>
     <li>架构与预训练细节：<a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a>；</li>
