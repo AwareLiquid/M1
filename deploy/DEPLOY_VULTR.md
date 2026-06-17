@@ -42,18 +42,42 @@ CPU over the cheapest shared burstable plan.
 
 ---
 
-## 3. Point the domain at the box (you do this at your registrar / Vultr DNS)
+## 3. Point the domain at the box (DNS)
 
-At wherever awareliquid.ai's DNS is managed, create:
+`awareliquid.ai` is registered at **Alibaba Cloud** and uses **Alibaba Cloud DNS**
+("Cloud DNS / 云解析 DNS"). Two distinct consoles are involved -- records live in
+*Cloud DNS*, but the nameserver delegation is changed in the *Domains* console.
+
+**3a. A records (Alibaba Cloud DNS / 云解析 DNS console):**
 
 | Type | Host | Value | TTL |
 |---|---|---|---|
-| A | `@`   | `<your server IPv4>` | 300 |
-| A | `www` | `<your server IPv4>` | 300 |
+| A | `@`   | `<your server IPv4>` | 300 (10 min) |
+| A | `www` | `<your server IPv4>` | 300 (10 min) |
 
-(If your DNS host requires it, use a CNAME `www -> awareliquid.ai` instead of the
-second A record.) Wait for propagation -- check with `dig +short awareliquid.ai`
-returning your IP before the next step, or Caddy's certificate request will fail.
+**3b. Nameserver delegation (Alibaba "Domains / 域名" console -> the domain ->
+Manage -> Modify DNS Servers).** The records in 3a only take effect once the
+domain's authoritative NS point at Alibaba. If the NS still read a third party
+(e.g. `*.ns.cloudflare.com`), switch them to the Alibaba-assigned pair shown in
+the Cloud DNS console, typically:
+
+```
+ns7.alidns.com
+ns8.alidns.com
+```
+
+> If the NS already point to a **non-Alibaba** DNS host you prefer to keep (e.g.
+> Cloudflare), DON'T switch -- just add the two A records there instead, and set
+> them **DNS-only (grey cloud)** so Caddy's HTTP-01 challenge isn't intercepted by
+> the proxy. Migrate any existing MX/TXT/CNAME records before changing NS.
+
+Wait for propagation, then confirm BOTH before the next step (or Caddy's cert
+request fails):
+
+```bash
+nslookup -type=NS awareliquid.ai 8.8.8.8   # -> ns7/ns8.alidns.com
+nslookup awareliquid.ai 8.8.8.8            # -> <your server IPv4>
+```
 
 ---
 
