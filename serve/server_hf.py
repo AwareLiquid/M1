@@ -49,11 +49,25 @@ from pydantic import BaseModel, Field
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "512"))
 
+# Honest default identity. When NO trained MT-LNN adapter is loaded, the model
+# is just the frozen HF base model (the residual adapters are identity-like
+# no-ops), so it must NOT claim to be "powered by MT-LNN". We only attach the
+# MT-LNN identity when a real ADAPTER_CKPT is loaded (see _startup). The default
+# below is a neutral, honest baseline-assistant prompt.
 _DEFAULT_SYSTEM = (
-    "你是 AwareLiquid，一个由 MT-LNN 液态神经网络驱动的多语言助手。"
+    "你是一个乐于助人的多语言助手。"
     "请始终使用用户所用的语言回复：用户用中文提问就用中文回答，用英文提问就用英文回答。\n"
-    "You are AwareLiquid, a helpful multilingual assistant powered by MT-LNN "
-    "liquid neural dynamics. Always reply in the same language the user writes in."
+    "You are a helpful multilingual assistant. Always reply in the same "
+    "language the user writes in."
+)
+
+# Identity used ONLY when a trained MT-LNN adapter checkpoint is actually loaded.
+_MTLNN_SYSTEM = (
+    "你是 AwareLiquid，一个在冻结基座模型上叠加 MT-LNN 液态神经网络残差适配器的多语言助手。"
+    "请始终使用用户所用的语言回复。\n"
+    "You are AwareLiquid, a multilingual assistant that augments a frozen base "
+    "model with trained MT-LNN liquid-dynamics residual adapters. Always reply "
+    "in the same language the user writes in."
 )
 
 app = FastAPI(title="AwareLiquid HF-Adapter Server", version="1.0")
@@ -69,6 +83,24 @@ def index():
     if os.path.exists(idx):
         return FileResponse(idx, media_type="text/html")
     raise HTTPException(404, "frontend not built")
+
+
+def _static_page(name: str) -> FileResponse:
+    """Serve a standalone static HTML page (about/research) by base name."""
+    path = os.path.join(_STATIC_DIR, f"{name}.html")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="text/html")
+    raise HTTPException(404, f"{name} page not built")
+
+
+@app.get("/about")
+def about():
+    return _static_page("about")
+
+
+@app.get("/research")
+def research():
+    return _static_page("research")
 
 
 @app.on_event("startup")
@@ -102,23 +134,31 @@ def _startup() -> None:
     total = sum(p.numel() for p in model.parameters())
     print(f"[serve] {trainable:,} adapter params / {total:,} total ({100*trainable/total:.3f}%)")
 
+    adapter_loaded = False
     if adapter_ckpt and os.path.exists(adapter_ckpt):
         ck = torch.load(adapter_ckpt, map_location="cpu", weights_only=False)
         sd = ck.get("state_dict", {})
         missing, unexpected = model.load_state_dict(sd, strict=False)
         adapter_keys = [k for k in sd if "mt_adapter" in k or "lora_" in k]
+        adapter_loaded = len(adapter_keys) > 0
         print(f"[serve] loaded {len(adapter_keys)} adapter tensors from {adapter_ckpt} "
               f"(step {ck.get('step', '?')}); missing={len(missing)} unexpected={len(unexpected)}")
     else:
-        print("[serve] no ADAPTER_CKPT -- using freshly initialized (identity-like) adapters")
+        print("[serve] no ADAPTER_CKPT -- using freshly initialized (identity-like) "
+              "adapters; serving as a labeled BASELINE (frozen base model).")
 
     model = model.to(device_str).eval()
     torch.set_grad_enabled(False)
 
     # Detect instruct / chat mode from the tokenizer's chat_template field.
     use_chat = getattr(tok, "chat_template", None) is not None
-    system_prompt = os.environ.get("SYSTEM_PROMPT", _DEFAULT_SYSTEM)
-    print(f"[serve] chat_template={'yes' if use_chat else 'no'} | system_prompt set")
+    # Pick identity honestly: the AwareLiquid/MT-LNN identity is only claimed
+    # when a trained adapter is actually loaded; otherwise this is a labeled
+    # baseline (the frozen base model). An explicit SYSTEM_PROMPT env overrides.
+    default_system = _MTLNN_SYSTEM if adapter_loaded else _DEFAULT_SYSTEM
+    system_prompt = os.environ.get("SYSTEM_PROMPT", default_system)
+    print(f"[serve] chat_template={'yes' if use_chat else 'no'} | "
+          f"identity={'mtlnn' if adapter_loaded else 'baseline'} | system_prompt set")
 
     _STATE.update(
         model=model, tok=tok, device=device_str,
@@ -128,6 +168,8 @@ def _startup() -> None:
         adapter_params=trainable,
         use_chat=use_chat,
         system_prompt=system_prompt,
+        adapter_loaded=adapter_loaded,
+        is_baseline=not adapter_loaded,
         ready=True,
     )
     print(f"[serve] ready | {total/1e9:.2f}B params | device={device_str}")
@@ -171,6 +213,10 @@ def model_info():
         "adapter_ckpt": _STATE["adapter_ckpt"],
         "device": _STATE["device"],
         "chat_mode": _STATE.get("use_chat", False),
+        # Honest labeling: True when no trained MT-LNN adapter is loaded, i.e.
+        # this is the frozen base model served as a comparison baseline.
+        "is_baseline": _STATE.get("is_baseline", True),
+        "adapter_loaded": _STATE.get("adapter_loaded", False),
         "multimodal": False,
         "vision_tower": None,
         "multimodal_error": None,

@@ -45,6 +45,41 @@ services:
       start_period: 40s
       retries: 3
 
+  # Optional comparison BASELINE: a known-good open instruct model (Qwen2.5-0.5B
+  # by default) served through serve/server_hf.py with the SAME REST API + UI.
+  # It is a LABELED baseline, not AwareLiquid's own model -- with no trained
+  # MT-LNN adapter it is just the frozen base model (see server_hf.py honesty
+  # notes). Profile-gated so it never auto-starts; launch it explicitly:
+  #   docker compose -f deploy/docker-compose.prod.yml --profile baseline up -d baseline
+  # Then try it on the box before deciding how to expose it publicly:
+  #   curl -X POST localhost:8001/v1/completions -H 'content-type: application/json' \
+  #        -d '{"prompt":"用中文介绍一下你自己","max_new_tokens":80}'
+  baseline:
+    image: mtlnn:latest                # reuse the already-built image (has transformers)
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mtlnn_baseline
+    restart: unless-stopped
+    profiles: ["baseline"]
+    command: ["uvicorn", "serve.server_hf:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8001:8000"          # bound to localhost only; not public until you wire Caddy
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+      - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
+    environment:
+      BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
+      DEVICE: cpu
+      MAX_NEW_TOKENS_CAP: "512"
+      OMP_NUM_THREADS: "2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s               # first start downloads the base model
+      retries: 3
+
   caddy:
     image: caddy:2-alpine
     container_name: caddy_prod
@@ -62,3 +97,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  hf_cache:                            # cached base-model weights for the baseline service
