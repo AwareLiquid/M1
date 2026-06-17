@@ -265,6 +265,45 @@ def _mean_std(xs: List[float]) -> Dict:
             "vals": [round(v, 4) for v in xs]}
 
 
+def _decide_verdict(paired: Dict, liquid_learns: bool, arms: Dict,
+                    catastrophic_ratio: float = 5.0) -> Dict:
+    """Honest verdict, robust to seed noise and to absolute catastrophe.
+
+    A favourable MEAN direction is necessary but NOT sufficient. We additionally
+    require the effect to clear the seed-to-seed variance (signal-to-noise ratio
+    SNR = |mean_diff| / std_diff >= 1) and to hold in EVERY seed -- because with a
+    handful of seeds, a sign-flipping effect whose std exceeds its mean is
+    indistinguishable from noise. Separately, we flag whether forgetting is
+    CATASTROPHIC for both arms (A's PPL blows up > catastrophic_ratio x): if so,
+    the liquid core has at best *reduced the damage*, not *enabled continual
+    learning*, so the differentiator claim is not met in absolute terms.
+
+      SUPPORTED      robust relative reduction AND A stays usable for liquid.
+      WEAK-TREND     mean favours liquid but noise-dominated, OR both still
+                     catastrophically forget (mechanism Built, effect a Target).
+      NOT-SUPPORTED  no favourable direction.
+    """
+    md, sd = paired["mean_diff"], paired["std_diff"]
+    n_lower, n_total = (int(x) for x in paired["liquid_lower_in"].split("/"))
+    snr = abs(md) / (sd + 1e-9)
+
+    def catastrophic(arm: str) -> bool:
+        a = arms[arm]
+        return a["a_after"]["mean"] > catastrophic_ratio * a["a_before"]["mean"]
+
+    both_catastrophic = catastrophic("dense") and catastrophic("liquid")
+    robust = (md < 0) and (snr >= 1.0) and (n_lower == n_total) and liquid_learns
+
+    if robust and not both_catastrophic:
+        verdict = "SUPPORTED"
+    elif (md < 0) and (n_lower > n_total / 2) and liquid_learns:
+        verdict = "WEAK-TREND"
+    else:
+        verdict = "NOT-SUPPORTED"
+    return {"verdict": verdict, "effect_snr": round(snr, 3),
+            "both_arms_catastrophic": both_catastrophic}
+
+
 # ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
@@ -329,8 +368,7 @@ def main(args) -> Dict:
         "diffs": [round(d, 4) for d in diffs],
     }
     liquid_learns = results["liquid"]["b_learned"]["mean"] > 0
-    supported = (paired["mean_diff"] < 0 and n_lower > len(diffs) / 2 and liquid_learns)
-    verdict = "SUPPORTED" if supported else "NOT-SUPPORTED"
+    verdict_info = _decide_verdict(paired, liquid_learns, results)
 
     report = {
         "config": dict(seeds=list(seeds), steps_a=args.steps_a, steps_b=args.steps_b,
@@ -342,7 +380,8 @@ def main(args) -> Dict:
         "arms": results,
         "paired_forgetting_liquid_minus_dense": paired,
         "liquid_learns_b": liquid_learns,
-        "verdict": verdict,
+        **verdict_info,
+        "verdict": verdict_info["verdict"],
     }
     _save(report, args.out)
     _print(report)
@@ -383,17 +422,21 @@ def _save(report: Dict, out_prefix: str) -> None:
     L += ["",
           f"**Paired (per-seed) forgetting delta, liquid - dense:** "
           f"{p['mean_diff']:+.4f} +/- {p['std_diff']:.4f}  "
-          f"(liquid forgets less in {p['liquid_lower_in']} seeds; "
-          f"per-seed diffs {p['diffs']})",
+          f"(SNR={report.get('effect_snr')}; liquid forgets less in "
+          f"{p['liquid_lower_in']} seeds; per-seed diffs {p['diffs']})",
           "",
-          f"**Liquid learns B:** {report['liquid_learns_b']}",
+          f"**Liquid learns B:** {report['liquid_learns_b']}  |  "
+          f"**Both arms catastrophically forget A:** "
+          f"{report.get('both_arms_catastrophic')}",
           "",
           f"## Verdict: {report['verdict']}",
           "",
-          "SUPPORTED requires: paired liquid-minus-dense forgetting < 0, liquid lower "
-          "in a majority of seeds, AND liquid still learns B. A NOT-SUPPORTED verdict "
-          "is reported as-is -- the liquid core's continual-learning advantage is a "
-          "Target, not yet an Early-signal, at this scale/protocol."]
+          "Grading: SUPPORTED requires a relative forgetting reduction that clears "
+          "seed variance (SNR>=1, liquid lower in EVERY seed) AND leaves A usable. "
+          "WEAK-TREND = the mean favours the liquid core but the effect is "
+          "noise-dominated and/or both arms still forget A catastrophically -- the "
+          "continual-learning mechanism is BUILT but its effectiveness is a TARGET, "
+          "not yet validated. The verdict is reported as-is regardless of sign."]
     with open(base + ".md", "w") as f:
         f.write("\n".join(L))
 
