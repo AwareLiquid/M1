@@ -94,7 +94,14 @@ from mt_lnn.config import MTLNNConfig
 from mt_lnn.model import MTLNNModel
 from train import evaluate
 
-ARMS = ("dense", "liquid")
+# Arm -> (liquid core on?, EWC anti-forgetting on?). `consolidation` is a DENSE
+# backbone plus EWC, so consolidation-vs-dense cleanly isolates the mechanism.
+ARM_SPEC = {
+    "dense": dict(liquid=False, ewc=False),
+    "liquid": dict(liquid=True, ewc=False),
+    "consolidation": dict(liquid=False, ewc=True),
+}
+ARMS = ("dense", "liquid", "consolidation")
 
 
 # ---------------------------------------------------------------------------
@@ -195,12 +202,77 @@ def n_params(model: torch.nn.Module) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Anti-forgetting mechanism: Elastic Weight Consolidation (EWC)
+# ---------------------------------------------------------------------------
+class EWC:
+    """Elastic Weight Consolidation -- the *real* reconsolidation mechanism.
+
+    Catastrophic forgetting happens because plain SGD on task B is free to move
+    every weight, including the ones that encode task A. EWC (Kirkpatrick et al.
+    2017) makes the weights that mattered for A *stiff* during B:
+
+      1. After training on A, SNAPSHOT the params (the anchor theta_A).
+      2. Estimate the diagonal of the Fisher information F by accumulating the
+         squared gradient of A's log-likelihood (= pure next-token CE) over a few
+         A batches. F_i is large for params whose perturbation hurts A's loss.
+      3. During B, add a quadratic penalty   (lambda/2) * sum_i F_i (theta_i - theta_A_i)^2
+         so SGD pays a price proportional to F_i for drifting away from A's
+         solution -- important-for-A params are anchored, free params adapt to B.
+
+    This is a TRAINING-PROCEDURE mechanism, architecture-agnostic: it wraps the
+    SAME backbone, so `consolidation` vs `dense` is a clean ablation that isolates
+    EWC's contribution exactly the way `liquid` vs `dense` isolates the core.
+
+    Fisher is estimated from out["loss"]; on a dense backbone (no aux terms) that
+    IS the pure cross-entropy, so the importance estimate is uncontaminated."""
+
+    def __init__(self, model: torch.nn.Module, loader: DataLoader, device: str,
+                 n_batches: int, lam: float):
+        self.lam = float(lam)
+        self.anchor = {n: p.detach().clone()
+                       for n, p in model.named_parameters() if p.requires_grad}
+        self.fisher = {n: torch.zeros_like(p) for n, p in self.anchor.items()}
+        was_training = model.training
+        model.eval()  # freeze stochasticity; grads still flow
+        seen = 0
+        for inp, lbl in loader:
+            if seen >= n_batches:
+                break
+            inp, lbl = inp.to(device), lbl.to(device)
+            model.zero_grad(set_to_none=True)
+            loss = model(inp, labels=lbl)["loss"]
+            if not torch.isfinite(loss):
+                continue
+            loss.backward()
+            for n, p in model.named_parameters():
+                if p.grad is not None and n in self.fisher:
+                    self.fisher[n] += p.grad.detach() ** 2
+            seen += 1
+        denom = max(seen, 1)
+        for n in self.fisher:
+            self.fisher[n] /= denom
+        model.zero_grad(set_to_none=True)
+        if was_training:
+            model.train()
+
+    def penalty(self, model: torch.nn.Module) -> torch.Tensor:
+        dev = next(model.parameters()).device
+        loss = torch.zeros((), device=dev)
+        for n, p in model.named_parameters():
+            if n in self.fisher:
+                loss = loss + (self.fisher[n] * (p - self.anchor[n]) ** 2).sum()
+        return 0.5 * self.lam * loss
+
+
+# ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
 def train_phase(model, opt, loader, *, steps: int, warmup: int, lr: float,
-                device: str) -> int:
+                device: str, ewc: "Optional[EWC]" = None) -> int:
     """Train for `steps` optimiser steps on out["loss"] (CE + aux for the liquid
-    arm, pure CE for dense). Linear warmup then constant LR. Returns NaN count."""
+    arm, pure CE for dense). If `ewc` is given, its quadratic anchor penalty is
+    added (active only in phase B). Linear warmup then constant LR. Returns NaN
+    count."""
     model.train()
     nan_count = 0
     step = 0
@@ -214,6 +286,8 @@ def train_phase(model, opt, loader, *, steps: int, warmup: int, lr: float,
                 g["lr"] = cur_lr
             opt.zero_grad(set_to_none=True)
             loss = model(inp, labels=lbl)["loss"]
+            if ewc is not None:
+                loss = loss + ewc.penalty(model)
             if not torch.isfinite(loss):
                 nan_count += 1
                 step += 1
@@ -225,13 +299,16 @@ def train_phase(model, opt, loader, *, steps: int, warmup: int, lr: float,
     return nan_count
 
 
-def run_arm(liquid: bool, seed: int, dom_a: Domain, dom_b: Domain, *,
+def run_arm(arm: str, seed: int, dom_a: Domain, dom_b: Domain, *,
             steps_a: int, steps_b: int, batch: int, seq_len: int, lr: float,
             warmup: int, d_model: int, n_layers: int, n_heads: int,
-            eval_batches: int, device: str) -> Dict:
+            eval_batches: int, device: str, ewc_lambda: float,
+            fisher_batches: int) -> Dict:
+    spec = ARM_SPEC[arm]
     np.random.seed(seed)
-    model = build_model(liquid, dom_a.vocab, d_model=d_model, n_layers=n_layers,
-                        n_heads=n_heads, seq_len=seq_len, device=device, seed=seed)
+    model = build_model(spec["liquid"], dom_a.vocab, d_model=d_model,
+                        n_layers=n_layers, n_heads=n_heads, seq_len=seq_len,
+                        device=device, seed=seed)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95),
                             eps=1e-8, weight_decay=0.01)
     t0 = time.time()
@@ -241,8 +318,14 @@ def run_arm(liquid: bool, seed: int, dom_a: Domain, dom_b: Domain, *,
     a_before = evaluate(model, dl(dom_a.eval, batch, False), device, max_batches=eval_batches)
     b_before = evaluate(model, dl(dom_b.eval, batch, False), device, max_batches=eval_batches)
 
+    # Anti-forgetting: snapshot A's solution + Fisher importance, then anchor B.
+    ewc = None
+    if spec["ewc"] and ewc_lambda > 0:
+        ewc = EWC(model, dl(dom_a.train, batch, True), device,
+                  n_batches=fisher_batches, lam=ewc_lambda)
+
     nan_b = train_phase(model, opt, dl(dom_b.train, batch, True), steps=steps_b,
-                        warmup=warmup, lr=lr, device=device)
+                        warmup=warmup, lr=lr, device=device, ewc=ewc)
     a_after = evaluate(model, dl(dom_a.eval, batch, False), device, max_batches=eval_batches)
     b_after = evaluate(model, dl(dom_b.eval, batch, False), device, max_batches=eval_batches)
 
@@ -265,8 +348,8 @@ def _mean_std(xs: List[float]) -> Dict:
             "vals": [round(v, 4) for v in xs]}
 
 
-def _decide_verdict(paired: Dict, liquid_learns: bool, arms: Dict,
-                    catastrophic_ratio: float = 5.0) -> Dict:
+def _decide_verdict(paired: Dict, treatment_learns: bool, arms: Dict,
+                    treatment: str, catastrophic_ratio: float = 5.0) -> Dict:
     """Honest verdict, robust to seed noise and to absolute catastrophe.
 
     A favourable MEAN direction is necessary but NOT sufficient. We additionally
@@ -274,29 +357,29 @@ def _decide_verdict(paired: Dict, liquid_learns: bool, arms: Dict,
     SNR = |mean_diff| / std_diff >= 1) and to hold in EVERY seed -- because with a
     handful of seeds, a sign-flipping effect whose std exceeds its mean is
     indistinguishable from noise. Separately, we flag whether forgetting is
-    CATASTROPHIC for both arms (A's PPL blows up > catastrophic_ratio x): if so,
-    the liquid core has at best *reduced the damage*, not *enabled continual
-    learning*, so the differentiator claim is not met in absolute terms.
+    CATASTROPHIC for both the control and the treatment (A's PPL blows up >
+    catastrophic_ratio x): if so, the mechanism has at best *reduced the damage*,
+    not *enabled continual learning*, so the claim is not met in absolute terms.
 
-      SUPPORTED      robust relative reduction AND A stays usable for liquid.
-      WEAK-TREND     mean favours liquid but noise-dominated, OR both still
+      SUPPORTED      robust relative reduction AND A stays usable for treatment.
+      WEAK-TREND     mean favours treatment but noise-dominated, OR both still
                      catastrophically forget (mechanism Built, effect a Target).
       NOT-SUPPORTED  no favourable direction.
     """
     md, sd = paired["mean_diff"], paired["std_diff"]
-    n_lower, n_total = (int(x) for x in paired["liquid_lower_in"].split("/"))
+    n_lower, n_total = (int(x) for x in paired["treatment_lower_in"].split("/"))
     snr = abs(md) / (sd + 1e-9)
 
     def catastrophic(arm: str) -> bool:
         a = arms[arm]
         return a["a_after"]["mean"] > catastrophic_ratio * a["a_before"]["mean"]
 
-    both_catastrophic = catastrophic("dense") and catastrophic("liquid")
-    robust = (md < 0) and (snr >= 1.0) and (n_lower == n_total) and liquid_learns
+    both_catastrophic = catastrophic("dense") and catastrophic(treatment)
+    robust = (md < 0) and (snr >= 1.0) and (n_lower == n_total) and treatment_learns
 
     if robust and not both_catastrophic:
         verdict = "SUPPORTED"
-    elif (md < 0) and (n_lower > n_total / 2) and liquid_learns:
+    elif (md < 0) and (n_lower > n_total / 2) and treatment_learns:
         verdict = "WEAK-TREND"
     else:
         verdict = "NOT-SUPPORTED"
@@ -311,6 +394,10 @@ def main(args) -> Dict:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     seq_len = args.seq_len
     seeds = tuple(int(s) for s in str(args.seeds).split(",") if s != "")
+    arms = tuple(a for a in str(args.arms).split(",") if a in ARM_SPEC)
+    treatment = args.treatment if args.treatment in arms else arms[-1]
+    assert "dense" in arms, "dense control arm is required"
+    assert treatment != "dense", "treatment must be a non-control arm"
 
     if args.smoke:
         # Single-corpus disjoint slices: validates the harness, NOT the claim.
@@ -328,15 +415,15 @@ def main(args) -> Dict:
           f"| {args.d_model}d x {args.n_layers}L x {args.n_heads}H", flush=True)
 
     results: Dict[str, Dict] = {}
-    for arm in ARMS:
-        liquid = (arm == "liquid")
+    for arm in arms:
         per_seed = []
         for s in seeds:
-            r = run_arm(liquid, s, dom_a, dom_b, steps_a=args.steps_a,
+            r = run_arm(arm, s, dom_a, dom_b, steps_a=args.steps_a,
                         steps_b=args.steps_b, batch=args.batch, seq_len=seq_len,
                         lr=args.lr, warmup=args.warmup, d_model=args.d_model,
                         n_layers=args.n_layers, n_heads=args.n_heads,
-                        eval_batches=args.eval_batches, device=device)
+                        eval_batches=args.eval_batches, device=device,
+                        ewc_lambda=args.ewc_lambda, fisher_batches=args.fisher_batches)
             per_seed.append(r)
             print(f"[{arm:>6s} s{s}] {r['n_params_M']:.1f}M | "
                   f"A {r['a_before']:.2f}->{r['a_after']:.2f} "
@@ -356,19 +443,26 @@ def main(args) -> Dict:
             "per_seed": per_seed,
         }
 
-    # Paired per-seed forgetting delta: liquid - dense (negative => liquid forgets LESS).
+    # Paired per-seed forgetting delta vs the dense control (negative => the arm
+    # forgets LESS than dense). Computed for every non-control arm; the headline
+    # verdict is decided on the `treatment` arm.
     dense_f = [r["forgetting"] for r in results["dense"]["per_seed"]]
-    liquid_f = [r["forgetting"] for r in results["liquid"]["per_seed"]]
-    diffs = [lq - dn for lq, dn in zip(liquid_f, dense_f)]
-    n_lower = sum(1 for d in diffs if d < 0)
-    paired = {
-        "mean_diff": round(statistics.fmean(diffs), 4),
-        "std_diff": round(statistics.pstdev(diffs) if len(diffs) > 1 else 0.0, 4),
-        "liquid_lower_in": f"{n_lower}/{len(diffs)}",
-        "diffs": [round(d, 4) for d in diffs],
-    }
-    liquid_learns = results["liquid"]["b_learned"]["mean"] > 0
-    verdict_info = _decide_verdict(paired, liquid_learns, results)
+
+    def _paired(arm: str) -> Dict:
+        arm_f = [r["forgetting"] for r in results[arm]["per_seed"]]
+        diffs = [t - dn for t, dn in zip(arm_f, dense_f)]
+        n_lower = sum(1 for d in diffs if d < 0)
+        return {
+            "mean_diff": round(statistics.fmean(diffs), 4),
+            "std_diff": round(statistics.pstdev(diffs) if len(diffs) > 1 else 0.0, 4),
+            "treatment_lower_in": f"{n_lower}/{len(diffs)}",
+            "diffs": [round(d, 4) for d in diffs],
+        }
+
+    paired_all = {arm: _paired(arm) for arm in arms if arm != "dense"}
+    paired = paired_all[treatment]
+    treatment_learns = results[treatment]["b_learned"]["mean"] > 0
+    verdict_info = _decide_verdict(paired, treatment_learns, results, treatment)
 
     report = {
         "config": dict(seeds=list(seeds), steps_a=args.steps_a, steps_b=args.steps_b,
@@ -376,10 +470,14 @@ def main(args) -> Dict:
                        warmup=args.warmup, d_model=args.d_model, n_layers=args.n_layers,
                        n_heads=args.n_heads, eval_batches=args.eval_batches,
                        domain_a=dom_a.name, domain_b=dom_b.name, device=device,
+                       arms=list(arms), treatment=treatment,
+                       ewc_lambda=args.ewc_lambda, fisher_batches=args.fisher_batches,
                        smoke=bool(args.smoke)),
         "arms": results,
-        "paired_forgetting_liquid_minus_dense": paired,
-        "liquid_learns_b": liquid_learns,
+        "treatment": treatment,
+        "paired_forgetting_vs_dense": paired_all,
+        "paired_forgetting_treatment_minus_dense": paired,
+        "treatment_learns_b": treatment_learns,
         **verdict_info,
         "verdict": verdict_info["verdict"],
     }
@@ -394,14 +492,22 @@ def _save(report: Dict, out_prefix: str) -> None:
     with open(base + ".json", "w") as f:
         json.dump(report, f, indent=2)
 
-    c, a, p = report["config"], report["arms"], report["paired_forgetting_liquid_minus_dense"]
-    L = ["# Cross-domain continual learning: does M1's liquid core reduce forgetting?",
+    c, a = report["config"], report["arms"]
+    arms = c.get("arms", list(ARMS))
+    treatment = report["treatment"]
+    p = report["paired_forgetting_treatment_minus_dense"]
+    L = [f"# Cross-domain continual learning: does the `{treatment}` mechanism reduce forgetting?",
          "",
          f"True cross-domain forgetting probe. Train on **A={c['domain_a']}**, then on "
          f"**B={c['domain_b']}**; `forgetting` = A_after_PPL - A_before_PPL (lower = "
          f"better retention), measured on each domain's held-out split with PURE "
          f"next-token cross-entropy. `b_learned` = B_before - B_after must be > 0 or "
          f"the arm failed to learn B.",
+         "",
+         f"Arms: `dense` (no anti-forgetting control), `liquid` (full liquid core), "
+         f"`consolidation` (dense backbone + EWC: Fisher-weighted anchor to A, "
+         f"lambda={c.get('ewc_lambda')}, fisher_batches={c.get('fisher_batches')}). "
+         f"Headline treatment = **{treatment}** (paired vs the dense control).",
          "",
          f"Seeds `{c['seeds']}` | train A {c['steps_a']} + B {c['steps_b']} steps | "
          f"{c['d_model']}d x {c['n_layers']}L x {c['n_heads']}H | seq {c['seq_len']} | "
@@ -411,7 +517,7 @@ def _save(report: Dict, out_prefix: str) -> None:
          "| arm | params | A_before | A_after | forgetting | B_before | B_after | "
          "B_learned | NaN |",
          "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
-    for arm in ARMS:
+    for arm in arms:
         v = a[arm]
         L.append(
             f"| {arm} | {v['n_params_M']:.1f}M | {v['a_before']['mean']:.2f} | "
@@ -420,37 +526,44 @@ def _save(report: Dict, out_prefix: str) -> None:
             f"{v['b_before']['mean']:.2f} | {v['b_after']['mean']:.2f} | "
             f"{v['b_learned']['mean']:+.2f} | {v['nan_total']} |")
     L += ["",
-          f"**Paired (per-seed) forgetting delta, liquid - dense:** "
+          f"**Paired (per-seed) forgetting delta, {treatment} - dense:** "
           f"{p['mean_diff']:+.4f} +/- {p['std_diff']:.4f}  "
-          f"(SNR={report.get('effect_snr')}; liquid forgets less in "
-          f"{p['liquid_lower_in']} seeds; per-seed diffs {p['diffs']})",
-          "",
-          f"**Liquid learns B:** {report['liquid_learns_b']}  |  "
-          f"**Both arms catastrophically forget A:** "
+          f"(SNR={report.get('effect_snr')}; {treatment} forgets less in "
+          f"{p['treatment_lower_in']} seeds; per-seed diffs {p['diffs']})"]
+    other = [arm for arm in arms if arm not in ("dense", treatment)]
+    for arm in other:
+        q = report["paired_forgetting_vs_dense"][arm]
+        L.append(f"**(also) {arm} - dense:** {q['mean_diff']:+.4f} +/- {q['std_diff']:.4f} "
+                 f"({arm} lower in {q['treatment_lower_in']}; diffs {q['diffs']})")
+    L += ["",
+          f"**{treatment} learns B:** {report['treatment_learns_b']}  |  "
+          f"**Both control & treatment catastrophically forget A:** "
           f"{report.get('both_arms_catastrophic')}",
           "",
           f"## Verdict: {report['verdict']}",
           "",
           "Grading: SUPPORTED requires a relative forgetting reduction that clears "
-          "seed variance (SNR>=1, liquid lower in EVERY seed) AND leaves A usable. "
-          "WEAK-TREND = the mean favours the liquid core but the effect is "
+          "seed variance (SNR>=1, treatment lower in EVERY seed) AND leaves A usable. "
+          "WEAK-TREND = the mean favours the treatment but the effect is "
           "noise-dominated and/or both arms still forget A catastrophically -- the "
-          "continual-learning mechanism is BUILT but its effectiveness is a TARGET, "
+          "anti-forgetting mechanism is BUILT but its effectiveness is a TARGET, "
           "not yet validated. The verdict is reported as-is regardless of sign."]
     with open(base + ".md", "w") as f:
         f.write("\n".join(L))
 
 
 def _print(report: Dict) -> None:
-    p = report["paired_forgetting_liquid_minus_dense"]
-    print("\n=== CROSS-DOMAIN CONTINUAL: liquid core vs dense ===")
-    for arm in ARMS:
+    p = report["paired_forgetting_treatment_minus_dense"]
+    treatment = report["treatment"]
+    arms = report["config"].get("arms", list(ARMS))
+    print(f"\n=== CROSS-DOMAIN CONTINUAL: {treatment} vs dense ===")
+    for arm in arms:
         v = report["arms"][arm]
-        print(f"{arm:>6s} ({v['n_params_M']:.1f}M)  forget="
+        print(f"{arm:>14s} ({v['n_params_M']:.1f}M)  forget="
               f"{v['forgetting']['mean']:+.2f}+/-{v['forgetting']['std']:.2f}  "
               f"B_learned={v['b_learned']['mean']:+.2f}  nan={v['nan_total']}")
-    print(f"  paired liquid-dense forgetting: {p['mean_diff']:+.4f} "
-          f"(liquid lower in {p['liquid_lower_in']})")
+    print(f"  paired {treatment}-dense forgetting: {p['mean_diff']:+.4f} "
+          f"({treatment} lower in {p['treatment_lower_in']})")
     print(f"  VERDICT: {report['verdict']}")
 
 
@@ -471,6 +584,14 @@ def _build_argparser() -> argparse.ArgumentParser:
     ap.add_argument("--n_heads", type=int, default=8)
     ap.add_argument("--eval_batches", type=int, default=50)
     ap.add_argument("--seeds", default="0,1,2")
+    ap.add_argument("--arms", default="dense,liquid,consolidation",
+                    help="comma list from {dense,liquid,consolidation}; dense required")
+    ap.add_argument("--treatment", default="consolidation",
+                    help="non-control arm the headline verdict is decided on")
+    ap.add_argument("--ewc_lambda", type=float, default=5000.0,
+                    help="EWC anchor strength for the consolidation arm (0 disables)")
+    ap.add_argument("--fisher_batches", type=int, default=50,
+                    help="number of A batches used to estimate the diagonal Fisher")
     ap.add_argument("--out", default="report_continual_crossdomain_liquid")
     ap.add_argument("--smoke", action="store_true",
                     help="single-corpus disjoint slices + tiny config: harness check only")
@@ -491,4 +612,7 @@ if __name__ == "__main__":
         args.eval_batches = 3
         args.warmup = 2
         args.seeds = "0,1"
+        args.fisher_batches = 3
+        if args.ewc_lambda == 5000.0:
+            args.ewc_lambda = 1000.0
     main(args)

@@ -15,7 +15,9 @@ This kernel:
      tokenisation is a couple of minutes, not half an hour.
   3. Runs experiments/continual_crossdomain_liquid.py:
        train A -> measure A & B held-out PPL -> train B -> re-measure.
-       forgetting = A_after - A_before, for arms {dense, liquid}, multiple seeds.
+       forgetting = A_after - A_before, for arms {dense, liquid, consolidation},
+       multiple seeds. `consolidation` = dense backbone + EWC (Fisher-weighted
+       anchor to A), the real reconsolidation anti-forgetting mechanism.
   4. Copies the JSON + MD report to /kaggle/working so it downloads cleanly.
 
 The verdict (SUPPORTED / NOT-SUPPORTED) is pre-registered in the experiment and
@@ -126,6 +128,12 @@ N_LAYERS = os.environ.get("CC_N_LAYERS", "6")
 N_HEADS = os.environ.get("CC_N_HEADS", "8")
 BATCH = os.environ.get("CC_BATCH", "16")
 SEQ = os.environ.get("CC_SEQ", "256")
+# Arms include `consolidation` = dense backbone + EWC (the real reconsolidation
+# anti-forgetting mechanism). EWC strength / Fisher batches are tunable.
+ARMS = os.environ.get("CC_ARMS", "dense,liquid,consolidation")
+TREATMENT = os.environ.get("CC_TREATMENT", "consolidation")
+EWC_LAMBDA = os.environ.get("CC_EWC_LAMBDA", "5000")
+FISHER_BATCHES = os.environ.get("CC_FISHER_BATCHES", "50")
 
 cmd = [
     sys.executable, "-m", "experiments.continual_crossdomain_liquid",
@@ -135,6 +143,8 @@ cmd = [
     "--d_model", D_MODEL, "--n_layers", N_LAYERS, "--n_heads", N_HEADS,
     "--batch", BATCH, "--seq_len", SEQ, "--eval_batches", "50",
     "--seeds", SEEDS,
+    "--arms", ARMS, "--treatment", TREATMENT,
+    "--ewc_lambda", EWC_LAMBDA, "--fisher_batches", FISHER_BATCHES,
     "--out", "report_continual_crossdomain_liquid",
 ]
 print("\n[run] " + " ".join(cmd) + "\n", flush=True)
