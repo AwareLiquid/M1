@@ -9,6 +9,9 @@ Output:
 Usage:
     python prepare_data.py                            # WikiText-103 default
     python prepare_data.py --dataset wikitext --config wikitext-2-raw-v1
+    # Config-less datasets (e.g. TinyStories) + a per-split token cap:
+    python prepare_data.py --dataset roneneldan/TinyStories --config none \
+        --max_tokens 30000000 --out_dir data_tiny
 """
 
 import argparse
@@ -23,13 +26,21 @@ def main(args):
     from datasets import load_dataset
     from transformers import AutoTokenizer
 
-    print(f"Loading {args.dataset}/{args.config} …")
-    ds = load_dataset(args.dataset, args.config)
+    # Config-less datasets (TinyStories, etc.) pass --config none / "" -> None.
+    cfg = None if args.config in ("", "none", "None", "null") else args.config
+    print(f"Loading {args.dataset}/{cfg} …")
+    ds = load_dataset(args.dataset, cfg)
     tok = AutoTokenizer.from_pretrained(args.tokenizer)
     assert tok.vocab_size < 65535, "Use uint32 if vocab_size > 65535"
 
     os.makedirs(args.out_dir, exist_ok=True)
     meta = {"tokenizer": args.tokenizer, "vocab_size": tok.vocab_size}
+
+    # Per-split token cap (0 = unlimited). Lets a huge corpus (e.g. TinyStories'
+    # ~471M-token train split) be truncated to just what an experiment needs,
+    # turning a ~30 min tokenisation into ~1-2 min. Backward compatible: the
+    # default 0 reproduces the original full-corpus behaviour exactly.
+    max_tokens = max(0, int(args.max_tokens))
 
     for split in ("train", "validation", "test"):
         if split not in ds:
@@ -47,7 +58,10 @@ def main(args):
                 arr = np.asarray(ids, dtype=np.uint16)
                 f.write(arr.tobytes())
                 n_tokens += len(arr)
-        print(f"  → {out_path}: {n_tokens:,} tokens")
+                if max_tokens and n_tokens >= max_tokens:
+                    break
+        print(f"  → {out_path}: {n_tokens:,} tokens"
+              + (f" (capped at {max_tokens:,})" if max_tokens else ""))
         meta[f"n_{split}_tokens"] = n_tokens
 
     with open(os.path.join(args.out_dir, "meta.json"), "w") as f:
@@ -61,4 +75,6 @@ if __name__ == "__main__":
     p.add_argument("--config",   default="wikitext-103-raw-v1")
     p.add_argument("--tokenizer", default="gpt2")
     p.add_argument("--out_dir",  default="data")
+    p.add_argument("--max_tokens", type=int, default=0,
+                   help="per-split token cap (0 = unlimited / full corpus)")
     main(p.parse_args())
