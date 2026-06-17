@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About · AwareLiquid</title>
+<meta name="description" content="AwareLiquid — a liquid time-constant (MT-LNN) language model research project focused on continual learning.">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0d0d0d; --muted:#8e8ea0; --line:#ececf1;
+    --card:#fafafa; --accent:#0d0d0d; --radius:16px; --col:760px;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.7}
+  a{color:#0d0d0d}
+  /* shared header */
+  header{height:60px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--line)}
+  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:.2px;text-decoration:none;color:#0d0d0d}
+  header .brand .dot{width:9px;height:9px;border-radius:50%;background:#0d0d0d}
+  header nav{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;gap:18px;font-size:13px}
+  header nav a{color:var(--muted);text-decoration:none}
+  header nav a:hover,header nav a.active{color:#0d0d0d}
+  /* content */
+  main{max-width:var(--col);margin:0 auto;padding:48px 24px 80px}
+  h1{font-size:30px;font-weight:600;letter-spacing:-.4px;margin:0 0 6px}
+  .lead{color:var(--muted);font-size:16px;margin:0 0 36px}
+  h2{font-size:20px;font-weight:600;margin:38px 0 10px;letter-spacing:-.2px}
+  p{margin:0 0 14px}
+  ul{margin:0 0 14px;padding-left:20px}
+  li{margin:4px 0}
+  strong{font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:0 0 16px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;margin-right:6px;vertical-align:middle}
+  .tag.built{background:#e7f6ef;color:#0a7d55}
+  .tag.target{background:#fdf0e6;color:#b5651d}
+  .note{font-size:13.5px;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:18px 0}
+  footer{border-top:1px solid var(--line);max-width:var(--col);margin:0 auto;padding:22px 24px 40px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:16px}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:#0d0d0d}
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><span class="dot"></span> AwareLiquid</a>
+  <nav><a href="/">Demo</a><a href="/about" class="active">About</a><a href="/research">Research</a></nav>
+</header>
+
+<main>
+  <h1>关于 AwareLiquid</h1>
+  <p class="lead">一个围绕 MT-LNN 液态时序架构的语言模型研究项目，专注于<strong>持续学习</strong>这条正交方向。</p>
+
+  <h2>这是什么</h2>
+  <p>AwareLiquid 是一个<strong>开放研究原型</strong>，不是商业产品。它基于自研的 MT-LNN（液态时序常数网络）架构，在其骨干上叠加一组受神经科学启发的“液核”模块——竞争式全局工作空间、预测性世界模型、Hebbian 可塑性与预测编码——用来探索一个具体问题：</p>
+  <div class="card"><strong>能否让模型在学习新领域时，不灾难性地遗忘旧领域？</strong>这是冻结权重的基础模型（包括各类 LFM / 前沿大模型）在结构上不去解决的方向。</div>
+
+  <h2>我们的定位（与能力对标无关）</h2>
+  <p>AwareLiquid <strong>不</strong>声称在通用对话、推理或基准分数上对标前沿大模型。当前在线的 demo 模型是<strong>从零训练的小模型</strong>，只擅长续写英文短故事，质量是研究 demo 级别。我们竞争的是一条不同的轴：</p>
+  <ul>
+    <li><strong>前沿大模型</strong>：训练后权重冻结，靠上下文/检索适应新信息，本体不再学习；</li>
+    <li><strong>AwareLiquid 研究</strong>：探索权重层面的<strong>持续学习与抗遗忘</strong>机制（如弹性权重巩固 EWC、记忆再巩固）。</li>
+  </ul>
+  <p class="note">与 Liquid AI 的 LFM 同属“液态神经网络”这一学术谱系，但研究重心不同：它走通用高效基础模型，我们走持续学习前沿。</p>
+
+  <h2>当前阶段（如实）</h2>
+  <ul>
+    <li><span class="tag built">已实现</span>MT-LNN 架构、液核模块、原生推理服务（本站即由它驱动）；</li>
+    <li><span class="tag built">已实现</span>持续学习实验框架 + EWC 巩固机制（代码与实验可复现）；</li>
+    <li><span class="tag target">目标</span>更大规模、体验更好的模型，以及持续学习有效性的严格验证——尚未达成，详见 <a href="/research">Research</a>。</li>
+  </ul>
+
+  <h2>链接</h2>
+  <ul>
+    <li><a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub 仓库</a>（代码、实验、可复现脚本）</li>
+    <li><a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a></li>
+    <li><a href="/research">研究与实验结果</a> · <a href="/">在线 Demo</a></li>
+  </ul>
+</main>
+
+<footer>
+  <a href="/">Demo</a>
+  <a href="/about">About</a>
+  <a href="/research">Research</a>
+  <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">Paper</a>
+  <a href="/v1/model" target="_blank">API</a>
+  <a href="/health" target="_blank">Health</a>
+  <span style="margin-left:auto">© 2026 AwareLiquid · research demo</span>
+</footer>
+</body>
+</html>

@@ -151,6 +151,24 @@ def index():
     raise HTTPException(404, "frontend not built")
 
 
+def _static_page(name: str) -> FileResponse:
+    """Serve a standalone static HTML page (about/research) by base name."""
+    path = os.path.join(_STATIC_DIR, f"{name}.html")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="text/html")
+    raise HTTPException(404, f"{name} page not built")
+
+
+@app.get("/about")
+def about():
+    return _static_page("about")
+
+
+@app.get("/research")
+def research():
+    return _static_page("research")
+
+
 @app.on_event("startup")
 def _startup() -> None:
     small = os.environ.get("SMALL", "0") == "1"

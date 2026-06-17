@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research · AwareLiquid</title>
+<meta name="description" content="AwareLiquid research — MT-LNN liquid time-constant architecture and continual-learning (anti-forgetting) experiments. Honest, reproducible status.">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#0d0d0d; --muted:#8e8ea0; --line:#ececf1;
+    --card:#fafafa; --accent:#0d0d0d; --radius:16px; --col:760px;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.7}
+  a{color:#0d0d0d}
+  /* shared header */
+  header{height:60px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--line)}
+  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:.2px;text-decoration:none;color:#0d0d0d}
+  header .brand .dot{width:9px;height:9px;border-radius:50%;background:#0d0d0d}
+  header nav{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;gap:18px;font-size:13px}
+  header nav a{color:var(--muted);text-decoration:none}
+  header nav a:hover,header nav a.active{color:#0d0d0d}
+  /* content */
+  main{max-width:var(--col);margin:0 auto;padding:48px 24px 80px}
+  h1{font-size:30px;font-weight:600;letter-spacing:-.4px;margin:0 0 6px}
+  .lead{color:var(--muted);font-size:16px;margin:0 0 36px}
+  h2{font-size:20px;font-weight:600;margin:38px 0 10px;letter-spacing:-.2px}
+  h3{font-size:15.5px;font-weight:600;margin:20px 0 6px}
+  p{margin:0 0 14px}
+  ul{margin:0 0 14px;padding-left:20px}
+  li{margin:4px 0}
+  strong{font-weight:600}
+  code{font-family:var(--mono);font-size:13px;background:#f3f3f5;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:0 0 16px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;margin-right:6px;vertical-align:middle}
+  .tag.built{background:#e7f6ef;color:#0a7d55}
+  .tag.signal{background:#eaf1fb;color:#1f5fb5}
+  .tag.target{background:#fdf0e6;color:#b5651d}
+  .note{font-size:13.5px;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:18px 0}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 16px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-weight:600;color:var(--muted);font-size:12.5px}
+  td.num{font-family:var(--mono);font-size:12.5px}
+  footer{border-top:1px solid var(--line);max-width:var(--col);margin:0 auto;padding:22px 24px 40px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:16px}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:#0d0d0d}
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/"><span class="dot"></span> AwareLiquid</a>
+  <nav><a href="/">Demo</a><a href="/about">About</a><a href="/research" class="active">Research</a></nav>
+</header>
+
+<main>
+  <h1>研究与实验</h1>
+  <p class="lead">这一页如实记录 AwareLiquid 现在<strong>做到了什么</strong>、<strong>还没做到什么</strong>。每条都标注状态：已实现机制 / 早期信号 / 尚待验证。我们宁可保守，也不夸大。</p>
+
+  <div class="note">
+    状态标签的含义：<span class="tag built">已实现</span>代码已写、可复现地跑起来；
+    <span class="tag signal">早期信号</span>有初步实验迹象，但统计强度不足以下结论；
+    <span class="tag target">目标</span>方向明确但尚未达成。
+  </div>
+
+  <h2>1. 架构：MT-LNN 液态时序网络</h2>
+  <p>骨干是自研的 MT-LNN（液态时序常数网络）——一种连续时间循环架构，其隐状态按可学习的时间常数演化，而非离散逐层堆叠。在骨干之上叠加了一组受神经科学启发的“液核”模块：</p>
+  <ul>
+    <li><strong>竞争式全局工作空间</strong>（competitive GWT-B）；</li>
+    <li><strong>预测性世界模型</strong>（world model）；</li>
+    <li><strong>Hebbian 可塑性</strong>与<strong>预测编码</strong>（predictive coding）；</li>
+    <li>节律调制（rhythm）。</li>
+  </ul>
+  <p><span class="tag built">已实现</span>架构、各液核模块、原生推理服务均已落地，本站在线 demo 即由它驱动。技术细节见 <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a>。</p>
+
+  <h2>2. 在线 Demo 模型</h2>
+  <p>当前对外的 demo 是一个<strong>从零训练的小模型</strong>（约 48M 参数，CPU 推理），训练语料为 TinyStories 量级的英文短故事。它<strong>只</strong>会续写简单英文故事，质量是研究 demo 级别——会出现语法破碎、重复、跑题。</p>
+  <div class="card">
+    <h3 style="margin-top:0">如实指标</h3>
+    <table>
+      <tr><th>项目</th><th>值</th><th>说明</th></tr>
+      <tr><td>参数量</td><td class="num">~48M</td><td>从零预训练</td></tr>
+      <tr><td>验证 PPL</td><td class="num">~136</td><td>最近一次干净 M2 run，5000 步</td></tr>
+      <tr><td>推理</td><td class="num">CPU</td><td>2–4 核，几到十几 tok/s</td></tr>
+    </table>
+    <p style="margin-bottom:0" class="note">PPL 用纯 next-token 交叉熵计算，<strong>不</strong>把辅助损失混进去——避免人为压低数字。</p>
+  </div>
+  <p><span class="tag built">已实现</span>端到端预训练 + 原生服务跑通；<span class="tag target">目标</span>更大规模、体验更好的模型（见 demo 的诚实免责说明）。</p>
+
+  <h2>3. 持续学习 / 抗遗忘（核心研究方向）</h2>
+  <p>这是 AwareLiquid 真正想推进、也是与冻结权重的前沿大模型<strong>正交</strong>的方向：让模型在学新领域时不灾难性遗忘旧领域。我们搭了一套严格的跨领域持续学习实验框架。</p>
+
+  <h3>实验设计</h3>
+  <ul>
+    <li>先在领域 A 上训练并评估，再在领域 B 上继续训练，回头测 A 上是否退化（遗忘）；</li>
+    <li>三条对照臂：<code>dense</code>（普通稠密基线）、<code>liquid</code>（液态骨干）、<code>consolidation</code>（巩固机制）；</li>
+    <li>统计严谨性：按 seed 配对求 delta、信噪比 SNR=|mean|/std、要求<strong>每个 seed 方向一致</strong>、并检查是否“非灾难性”。结论门槛高，避免单 seed 噪声当成效果。</li>
+  </ul>
+
+  <h3>巩固机制：EWC（弹性权重巩固）</h3>
+  <p>在领域 A 训完后快照锚点权重，用纯 CE 梯度估计对角 Fisher 信息，再在领域 B 训练时加二次惩罚项 <code>λ/2 · Σ Fᵢ(θᵢ−θ_Aᵢ)²</code>，约束对 A 重要的权重少动。这是一个架构无关的训练流程机制。</p>
+  <p>
+    <span class="tag built">已实现</span>EWC 机制 + 三臂实验框架，代码可复现（<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>，<code>experiments/continual_crossdomain_liquid.py</code>）。<br>
+    <span class="tag target">尚待验证</span>“巩固机制能稳健、显著地降低遗忘”这一<strong>有效性</strong>结论——更大规模、更多 seed 的严格验证仍在进行中，目前还不能下定论。
+  </p>
+  <div class="note">
+    诚实区分：机制<strong>已实现</strong>（代码跑得通）不等于机制<strong>已被证明有效</strong>（统计上稳健降低遗忘）。后者是我们当前正在验证的目标，结果出来后会更新本页。
+  </div>
+
+  <h2>4. 怎么复现</h2>
+  <ul>
+    <li>代码、实验脚本、可复现配置：<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">github.com/everest-an/M1</a>；</li>
+    <li>架构与预训练细节：<a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a>；</li>
+    <li>在线体验：<a href="/">Demo</a> · 项目定位：<a href="/about">About</a>。</li>
+  </ul>
+</main>
+
+<footer>
+  <a href="/">Demo</a>
+  <a href="/about">About</a>
+  <a href="/research">Research</a>
+  <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">Paper</a>
+  <a href="/v1/model" target="_blank">API</a>
+  <a href="/health" target="_blank">Health</a>
+  <span style="margin-left:auto">© 2026 AwareLiquid · research demo</span>
+</footer>
+</body>
+</html>
