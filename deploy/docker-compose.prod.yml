@@ -45,31 +45,38 @@ services:
       start_period: 40s
       retries: 3
 
-  # Optional comparison BASELINE: a known-good open instruct model (Qwen2.5-0.5B
-  # by default) served through serve/server_hf.py with the SAME REST API + UI.
-  # It is a LABELED baseline, not AwareLiquid's own model -- with no trained
-  # MT-LNN adapter it is just the frozen base model (see server_hf.py honesty
-  # notes). Profile-gated so it never auto-starts; launch it explicitly:
-  #   docker compose -f deploy/docker-compose.prod.yml --profile baseline up -d baseline
-  # Then try it on the box before deciding how to expose it publicly:
+  # The MT-LNN ADAPTER model: a frozen instruct base (TinyLlama-1.1B-Chat) +
+  # AwareLiquid's TRAINED MT-LNN residual adapter + LoRA, served through
+  # serve/server_hf.py with the SAME REST API + UI. This is genuinely MT-LNN-
+  # powered (server_hf.py refuses to claim the MT-LNN identity unless the
+  # checkpoint tensors actually map onto the graph) and is the validated Track-1
+  # asset (-28.5% PPL on TinyLlama-1.1B). The frontend model menu can target it.
+  #
+  # Profile-gated so it never auto-starts (it pulls ~4 GB of base weights and
+  # adds RAM load -- size your box for ~8 GB if running it alongside mtlnn).
+  # Launch explicitly:
+  #   docker compose -f deploy/docker-compose.prod.yml --profile adapter up -d adapter
+  # Try it directly on the box (bound to localhost):
   #   curl -X POST localhost:8001/v1/completions -H 'content-type: application/json' \
-  #        -d '{"prompt":"用中文介绍一下你自己","max_new_tokens":80}'
-  baseline:
-    image: mtlnn:latest                # reuse the already-built image (has transformers)
+  #        -d '{"prompt":"Tell me a short story about a robot.","max_new_tokens":80}'
+  adapter:
+    image: mtlnn:latest                # reuse the already-built image (transformers + peft)
     build:
       context: ..
       dockerfile: Dockerfile
-    container_name: mtlnn_baseline
+    container_name: mtlnn_adapter
     restart: unless-stopped
-    profiles: ["baseline"]
+    profiles: ["adapter"]
     command: ["uvicorn", "serve.server_hf:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
-      - "127.0.0.1:8001:8000"          # bound to localhost only; not public until you wire Caddy
+      - "127.0.0.1:8001:8000"          # localhost only; Caddy routes /adapter/* to it internally
     volumes:
       - ../checkpoints:/app/checkpoints:ro
       - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
     environment:
-      BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
+      BASE_MODEL: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt
+      RECIPE: phase5b                  # MT adapters + LoRA, matching the checkpoint
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
       OMP_NUM_THREADS: "2"
@@ -77,7 +84,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
       interval: 30s
       timeout: 5s
-      start_period: 120s               # first start downloads the base model
+      start_period: 180s               # first start downloads the base model
       retries: 3
 
   caddy:

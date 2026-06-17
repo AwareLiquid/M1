@@ -28,7 +28,7 @@ WORKDIR /app
 COPY serve/requirements-serve.txt /app/serve/requirements-serve.txt
 RUN pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.0.0" \
  && pip install "fastapi>=0.110.0" "uvicorn[standard]>=0.27.0" "pydantic>=2.0.0" \
-        "transformers>=4.40.0" "tokenizers>=0.15.0"
+        "transformers>=4.40.0" "tokenizers>=0.15.0" "peft>=0.10.0"
 
 # App code (mt_lnn package + serve entrypoint).
 COPY mt_lnn /app/mt_lnn

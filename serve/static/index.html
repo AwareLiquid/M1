@@ -36,6 +36,8 @@
   header .status .live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
   header .status .live.ok{background:#10a37f}
   header .status .live.err{background:#ef4444}
+  header .modelsel{position:absolute;left:18px;top:50%;transform:translateY(-50%)}
+  header .modelsel select{font:inherit;font-size:12px;color:#0d0d0d;background:transparent;border:1px solid var(--line);border-radius:8px;padding:4px 26px 4px 9px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e8ea0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
 
   /* Scroll area */
   .scroll{flex:1;overflow-y:auto;overflow-x:hidden}
@@ -105,6 +107,12 @@
 <body>
 
 <header>
+  <div class="modelsel">
+    <select id="modelSel" aria-label="选择模型 / choose model">
+      <option value="">MT-LNN 从零 · 48M</option>
+      <option value="/adapter">MT-LNN Adapter · TinyLlama-1.1B</option>
+    </select>
+  </div>
   <div class="brand"><span class="dot"></span> AwareLiquid</div>
   <div class="status"><span class="live" id="live"></span><span id="statusText">连接中…</span></div>
 </header>
@@ -148,13 +156,28 @@ function refresh(){ input.style.height='auto'; input.style.height=Math.min(input
 }
 input.addEventListener('input',refresh);
 
-// model info
-fetch('/v1/model').then(r=>r.json()).then(m=>{
-  live.className='live ok';
-  const name = (m.base_model||'').split('/').pop() || '';
-  const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
-  statusText.textContent=`${name} · ${size} · ${m.device}`;
-}).catch(()=>{live.className='live err';statusText.textContent='离线';});
+// model menu: API_BASE prefixes every request so the same UI can talk to either
+// backend -- '' = native from-scratch MT-LNN (mtlnn), '/adapter' = the MT-LNN
+// adapter model (server_hf.py behind Caddy's /adapter route).
+let API_BASE = '';
+const modelSel = document.getElementById('modelSel');
+
+function loadModelInfo(){
+  live.className='live'; statusText.textContent='连接中…';
+  fetch(`${API_BASE}/v1/model`).then(r=>r.json()).then(m=>{
+    live.className='live ok';
+    const name = (m.base_model||'').split('/').pop() || 'MT-LNN';
+    const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
+    // Honest tag straight from the server: only "MT-LNN adapter" when the trained
+    // adapter actually loaded; otherwise "baseline" (bare base model).
+    let tag = '';
+    if(m.adapter_loaded) tag=' · MT-LNN adapter';
+    else if(m.is_baseline) tag=' · baseline';
+    statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
+  }).catch(()=>{live.className='live err';statusText.textContent='离线';});
+}
+loadModelInfo();
+modelSel.addEventListener('change',()=>{ API_BASE=modelSel.value; loadModelInfo(); });
 
 // example chips
 document.querySelectorAll('.example').forEach(el=>{
@@ -192,7 +215,7 @@ async function send(){
   abortCtl=new AbortController();
   const t0=performance.now(); let ntok=0, acc='';
   try{
-    const res=await fetch('/v1/completions/stream',{
+    const res=await fetch(`${API_BASE}/v1/completions/stream`,{
       method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
       body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
     });

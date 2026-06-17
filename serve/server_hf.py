@@ -112,6 +112,12 @@ def _startup() -> None:
     adapter_ckpt = os.environ.get("ADAPTER_CKPT", "")
     mt_every = int(os.environ.get("MT_EVERY", "4"))
     mt_proto = int(os.environ.get("MT_PROTO", "13"))
+    # RECIPE controls how the adapter graph is built so it MATCHES the checkpoint:
+    #   phase5b -> MT adapters (every 4th layer) + PEFT LoRA on q/k/v/o
+    #              (this is what train_llama_mt_adapter.py / the validated runs used,
+    #               and what the checkpoints under checkpoints/llama_mt_adapter need)
+    #   mt_only -> MT adapters only, no LoRA (legacy/no-checkpoint baseline path)
+    recipe = os.environ.get("RECIPE", "phase5b" if adapter_ckpt else "mt_only").lower()
     device_str = os.environ.get("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 
     print(f"[serve] loading base model: {base_model}")
@@ -126,26 +132,82 @@ def _startup() -> None:
         device_map=None,
         low_cpu_mem_usage=True,
     )
+    # Set use_cache on the raw base config BEFORE wrapping (PEFT proxies config).
     model.config.use_cache = True
 
-    wrapped = attach_mt_adapters(model, every=mt_every, n_protofilaments=mt_proto, n_time_scales=5)
-    print(f"[serve] attached MT adapters to {wrapped} decoder layers")
+    # Load the checkpoint FIRST so we can rebuild the exact adapter graph it was
+    # trained with. The validated checkpoints are PEFT-wrapped
+    # (base_model.model.model.*.{mt_adapter,lora_*}); those names only reproduce
+    # if we (1) attach MT adapters then (2) wrap with PEFT LoRA using the SAME
+    # hyperparameters -- exactly as train_llama_mt_adapter.py does. Building from
+    # the checkpoint's own saved `args` guarantees the names line up.
+    ck = None
+    cargs: dict = {}
+    if adapter_ckpt and os.path.exists(adapter_ckpt):
+        ck = torch.load(adapter_ckpt, map_location="cpu", weights_only=False)
+        cargs = ck.get("args", {}) or {}
+
+    # (1) MT adapters -- use checkpoint args when present, else env/defaults.
+    wrapped = attach_mt_adapters(
+        model,
+        every=int(cargs.get("mt_every", mt_every)),
+        n_protofilaments=int(cargs.get("mt_proto", mt_proto)),
+        n_time_scales=int(cargs.get("mt_scales", 5)),
+        map_hidden_dim=int(cargs.get("mt_map_hidden", 64)),
+        dropout=float(cargs.get("mt_dropout", 0.0)),
+        init_scale=float(cargs.get("mt_init_scale", 1e-3)),
+        use_scan=not bool(cargs.get("mt_no_scan", False)),
+    )
+    print(f"[serve] attached MT adapters to layers {wrapped}")
+
+    # (2) PEFT LoRA -- only if the checkpoint used it (cargs['lora']) or RECIPE
+    # explicitly asks for phase5b. get_peft_model returns a NEW PeftModel that we
+    # MUST keep (this is the object whose state_dict carries the base_model.model.
+    # prefix the checkpoint expects).
+    want_lora = bool(cargs.get("lora", recipe == "phase5b"))
+    if want_lora:
+        from peft import LoraConfig, get_peft_model
+        targets = cargs.get("lora_targets", "q_proj,k_proj,v_proj,o_proj")
+        if isinstance(targets, str):
+            targets = targets.split(",")
+        lcfg = LoraConfig(
+            r=int(cargs.get("lora_r", 8)),
+            lora_alpha=int(cargs.get("lora_alpha", 16)),
+            lora_dropout=float(cargs.get("lora_dropout", 0.05)),
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=targets,
+        )
+        model = get_peft_model(model, lcfg)
+        print(f"[serve] applied PEFT LoRA (r={lcfg.r}, alpha={lcfg.lora_alpha}, targets={targets})")
+
     trainable = count_trainable_parameters(model)
     total = sum(p.numel() for p in model.parameters())
     print(f"[serve] {trainable:,} adapter params / {total:,} total ({100*trainable/total:.3f}%)")
 
     adapter_loaded = False
-    if adapter_ckpt and os.path.exists(adapter_ckpt):
-        ck = torch.load(adapter_ckpt, map_location="cpu", weights_only=False)
+    if ck is not None:
         sd = ck.get("state_dict", {})
         missing, unexpected = model.load_state_dict(sd, strict=False)
         adapter_keys = [k for k in sd if "mt_adapter" in k or "lora_" in k]
-        adapter_loaded = len(adapter_keys) > 0
-        print(f"[serve] loaded {len(adapter_keys)} adapter tensors from {adapter_ckpt} "
-              f"(step {ck.get('step', '?')}); missing={len(missing)} unexpected={len(unexpected)}")
+        matched = len(sd) - len(unexpected)
+        # HONEST GUARD: only claim the adapter is active if the checkpoint tensors
+        # actually mapped onto the model graph. A recipe/name mismatch shows up as
+        # a non-zero `unexpected` count -> the tensors were silently dropped and we
+        # are really serving the bare base model, so we must NOT claim MT-LNN.
+        adapter_loaded = len(adapter_keys) > 0 and len(unexpected) == 0
+        print(f"[serve] loaded checkpoint (step {ck.get('step', '?')}, base "
+              f"{ck.get('model', '?')}): {matched}/{len(sd)} tensors matched; "
+              f"missing(base)={len(missing)} unexpected={len(unexpected)}")
+        if adapter_loaded:
+            print(f"[serve] adapter ACTIVE: {len(adapter_keys)} MT/LoRA tensors loaded.")
+        else:
+            print(f"[serve] WARNING: {len(unexpected)} checkpoint tensors did NOT map "
+                  f"onto the model graph -- recipe mismatch. Serving the BARE BASE "
+                  f"MODEL as a labeled baseline (NOT claiming MT-LNN identity).")
     else:
-        print("[serve] no ADAPTER_CKPT -- using freshly initialized (identity-like) "
-              "adapters; serving as a labeled BASELINE (frozen base model).")
+        print("[serve] no ADAPTER_CKPT -- serving as a labeled BASELINE "
+              "(frozen base model; identity-like no-op adapters).")
 
     model = model.to(device_str).eval()
     torch.set_grad_enabled(False)
