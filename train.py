@@ -94,6 +94,14 @@ class DummyDataset(Dataset):
 
 @torch.no_grad()
 def evaluate(model, val_loader, device, max_batches=50) -> float:
+    """Held-out perplexity from the PURE next-token cross-entropy.
+
+    Uses ``out["lm_loss"]`` (the unweighted LM CE) rather than ``out["loss"]``,
+    which is the training objective and folds in auxiliary predictive-coding /
+    world-model / Hebbian / ortho terms. Reporting exp() of that contaminated
+    objective overstates or distorts perplexity; PPL must come from CE alone.
+    Falls back to ``out["loss"]`` only if a model build does not expose lm_loss.
+    """
     model.eval()
     total_loss, n = 0.0, 0
     for i, (inp, lbl) in enumerate(val_loader):
@@ -101,7 +109,8 @@ def evaluate(model, val_loader, device, max_batches=50) -> float:
             break
         inp, lbl = inp.to(device, non_blocking=True), lbl.to(device, non_blocking=True)
         out = model(inp, labels=lbl)
-        total_loss += out["loss"].item()
+        ce = out.get("lm_loss", out["loss"])
+        total_loss += ce.item()
         n += 1
     model.train()
     return math.exp(min(total_loss / max(n, 1), 20.0))   # PPL, clipped

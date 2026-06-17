@@ -602,7 +602,13 @@ class MTLNNModel(nn.Module):
                 shift_labels.view(-1),
                 ignore_index=-100,
             )
-            
+            # Expose the PURE next-token cross-entropy separately, BEFORE any
+            # auxiliary (predictive-coding / world-model / Hebbian / ortho) term
+            # is folded into `loss`. This is the honest language-modelling metric:
+            # exp(lm_loss) is the true PPL. `loss` below is the training objective
+            # (CE + aux) and must NOT be used to report perplexity.
+            result["lm_loss"] = loss.detach()
+
             # P3.2: every AUXILIARY term below is finiteness-guarded via
             # _aux_or_skip — a NaN/Inf in one bio-inspired module is dropped for
             # this step (and counted) rather than poisoning `loss`. The primary
