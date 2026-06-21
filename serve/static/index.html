@@ -109,8 +109,8 @@
 <header>
   <div class="modelsel">
     <select id="modelSel" aria-label="选择模型 / choose model">
-      <option value="">MT-LNN 从零 · 48M</option>
       <option value="/adapter">MT-LNN Adapter · TinyLlama-1.1B</option>
+      <option value="">MT-LNN 从零 · 48M</option>
     </select>
   </div>
   <div class="brand"><span class="dot"></span> AwareLiquid</div>
@@ -120,13 +120,8 @@
 <div class="scroll" id="scroll">
   <div class="welcome" id="welcome">
     <h2>AwareLiquid — 研究 Demo</h2>
-    <p>由 MT-LNN 液态时序架构驱动的<strong>研究原型</strong>。当前在线模型是从零训练的小模型，擅长<strong>续写英文短故事</strong>，并非通用助手——它用来验证架构本身，而非对标通用对话能力。试试下面的故事开头：</p>
-    <div class="examples">
-      <div class="example" data-p="Once upon a time, there was a little cat named Lily."><div class="t">Continue a story</div><div class="s">Once upon a time, a little cat…</div></div>
-      <div class="example" data-p="The sun was shining and Tom wanted to play in the garden."><div class="t">Continue a story</div><div class="s">The sun was shining and Tom…</div></div>
-      <div class="example" data-p="One day, a girl found a big red box under the tree."><div class="t">Continue a story</div><div class="s">A girl found a big red box…</div></div>
-      <div class="example" data-p="There was a happy dog who liked to run very fast."><div class="t">Continue a story</div><div class="s">A happy dog who liked to run…</div></div>
-    </div>
+    <p id="welcomeLead">连接中…</p>
+    <div class="examples" id="examples"></div>
   </div>
   <div class="thread" id="thread" style="display:none"></div>
 </div>
@@ -158,31 +153,85 @@ input.addEventListener('input',refresh);
 
 // model menu: API_BASE prefixes every request so the same UI can talk to either
 // backend -- '' = native from-scratch MT-LNN (mtlnn), '/adapter' = the MT-LNN
-// adapter model (server_hf.py behind Caddy's /adapter route).
-let API_BASE = '';
+// adapter model (server_hf.py behind Caddy's /adapter route). The page is
+// OPTIMISTIC: it tries the coherent adapter first so a first-time visitor gets a
+// usable model with zero clicks, and only falls back to the from-scratch model
+// if the adapter service isn't up. Welcome copy + examples swap to match.
+let API_BASE = '/adapter';
 const modelSel = document.getElementById('modelSel');
 
-function loadModelInfo(){
-  live.className='live'; statusText.textContent='连接中…';
-  fetch(`${API_BASE}/v1/model`).then(r=>r.json()).then(m=>{
-    live.className='live ok';
-    const name = (m.base_model||'').split('/').pop() || 'MT-LNN';
-    const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
-    // Honest tag straight from the server: only "MT-LNN adapter" when the trained
-    // adapter actually loaded; otherwise "baseline" (bare base model).
-    let tag = '';
-    if(m.adapter_loaded) tag=' · MT-LNN adapter';
-    else if(m.is_baseline) tag=' · baseline';
-    statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
-  }).catch(()=>{live.className='live err';statusText.textContent='离线';});
-}
-loadModelInfo();
-modelSel.addEventListener('change',()=>{ API_BASE=modelSel.value; loadModelInfo(); });
+// Per-model welcome lead + example prompts: the adapter is a 1.1B instruct chat
+// model (general Q&A), the from-scratch 48M model only continues short stories.
+const CONTENT = {
+  adapter: {
+    lead: '由 <strong>MT-LNN 残差适配器</strong>驱动的 TinyLlama-1.1B 对话模型（已验证资产：WikiText-2 上困惑度 <strong>-28.5%</strong>）。可直接用中英文提问。',
+    examples: [
+      ['用一句话解释什么是液态神经网络。', '解释概念'],
+      ['Write a short poem about the ocean.', 'Creative writing'],
+      ['给我三个适合周末在家放松的点子。', '日常建议'],
+      ['Explain the difference between RAM and disk storage.', 'Tech Q&A'],
+    ],
+  },
+  scratch: {
+    lead: '从零训练的 <strong>48M</strong> MT-LNN 小模型，擅长<strong>续写英文短故事</strong>，用于验证架构本身，<strong>并非通用助手</strong>。试试下面的故事开头：',
+    examples: [
+      ['Once upon a time, there was a little cat named Lily.', 'Continue a story'],
+      ['The sun was shining and Tom wanted to play in the garden.', 'Continue a story'],
+      ['One day, a girl found a big red box under the tree.', 'Continue a story'],
+      ['There was a happy dog who liked to run very fast.', 'Continue a story'],
+    ],
+  },
+};
 
-// example chips
-document.querySelectorAll('.example').forEach(el=>{
-  el.onclick=()=>{ input.value=el.dataset.p; refresh(); input.focus(); send(); };
-});
+function renderWelcome(kind){
+  const c = CONTENT[kind] || CONTENT.scratch;
+  document.getElementById('welcomeLead').innerHTML = c.lead;
+  const box = document.getElementById('examples');
+  box.innerHTML = c.examples.map(([p,t])=>{
+    const safe = p.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const short = p.length>44 ? p.slice(0,44)+'…' : p;
+    return `<div class="example" data-p="${safe}"><div class="t">${t}</div><div class="s">${short}</div></div>`;
+  }).join('');
+  box.querySelectorAll('.example').forEach(el=>{
+    el.onclick=()=>{ input.value=el.dataset.p; refresh(); input.focus(); send(); };
+  });
+}
+
+function applyModel(m, kind){
+  live.className='live ok';
+  const name = (m.base_model||'').split('/').pop() || 'MT-LNN';
+  const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
+  // Honest tag straight from the server: only "MT-LNN adapter" when the trained
+  // adapter actually loaded; otherwise "baseline" (bare base model).
+  let tag = '';
+  if(m.adapter_loaded) tag=' · MT-LNN adapter';
+  else if(m.is_baseline) tag=' · baseline';
+  statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
+  renderWelcome(kind);
+}
+
+async function probe(base){
+  try{ const r = await fetch(`${base}/v1/model`, {cache:'no-store'}); if(!r.ok) return null; return await r.json(); }
+  catch(e){ return null; }
+}
+
+// Switch to a specific backend; returns true if it answered.
+async function selectModel(base){
+  live.className='live'; statusText.textContent='连接中…';
+  const m = await probe(base);
+  if(m){ API_BASE=base; modelSel.value=base; applyModel(m, base==='/adapter'?'adapter':'scratch'); return true; }
+  return false;
+}
+
+// First load: prefer the coherent adapter, fall back to the from-scratch model.
+async function autoSelect(){
+  if(await selectModel('/adapter')) return;
+  if(await selectModel('')) return;
+  live.className='live err'; statusText.textContent='离线';
+  renderWelcome('scratch');
+}
+autoSelect();
+modelSel.addEventListener('change',()=>{ selectModel(modelSel.value); });
 
 function startThread(){ if(welcome.style.display!=='none'){welcome.style.display='none';thread.style.display='flex';} }
 
