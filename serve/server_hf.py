@@ -125,7 +125,17 @@ def _startup() -> None:
     if tok.pad_token is None:
         tok.pad_token = tok.eos_token
 
-    dtype = torch.float16 if device_str == "cuda" else torch.float32
+    # On CPU we load in bfloat16, NOT float32. A 1.1B base in fp32 is ~4.4 GB and
+    # does not fit in the RAM of a small box -- it spills into swap and every
+    # generated token thrashes the disk (CPU idle, tokens crawl). bf16 halves the
+    # footprint to ~2.2 GB so the weights stay RAM-resident, which is the single
+    # biggest latency win on CPU. bf16 keeps fp32's exponent range, so inference
+    # quality is effectively unchanged. CUDA still uses fp16 as before.
+    # CPU_DTYPE env overrides (e.g. CPU_DTYPE=float32 on a large-RAM box).
+    if device_str == "cuda":
+        dtype = torch.float16
+    else:
+        dtype = getattr(torch, os.environ.get("CPU_DTYPE", "bfloat16"))
     model = AutoModelForCausalLM.from_pretrained(
         base_model,
         torch_dtype=dtype,
@@ -223,7 +233,11 @@ def _startup() -> None:
         print("[serve] no ADAPTER_CKPT -- serving as a labeled BASELINE "
               "(frozen base model; identity-like no-op adapters).")
 
-    model = model.to(device_str).eval()
+    # Force a uniform dtype across the whole graph. PEFT can create LoRA tensors
+    # in fp32 even on a bf16 base; loading the fp32 checkpoint above is fine, but
+    # we downcast everything here so all matmuls run in one dtype (and the bf16
+    # memory saving actually applies to the LoRA/MT tensors too).
+    model = model.to(device=device_str, dtype=dtype).eval()
     torch.set_grad_enabled(False)
 
     # Detect instruct / chat mode from the tokenizer's chat_template field.
