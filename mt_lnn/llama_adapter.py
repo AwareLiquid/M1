@@ -28,6 +28,14 @@ class MTAdapterConfig:
     dropout: float = 0.0
     init_scale: float = 1e-3
     use_scan: bool = True
+    # Predictive-coding aux head (the resonance bank's W_pred). It is a
+    # TRAINING-ONLY auxiliary parameter -- at inference the predictive-coding
+    # branch is skipped (see MTLNNLayer.forward: `if self.training`), so it never
+    # affects generation output. It is kept configurable purely so the served
+    # graph can be rebuilt to EXACTLY match a checkpoint that was trained with it
+    # present; otherwise its 6 tensors show up as `unexpected` on load and the
+    # honest load-guard would (correctly) refuse to claim the adapter is active.
+    use_predictive_coding: bool = False
 
 
 class MTResidualAdapter(nn.Module):
@@ -53,8 +61,11 @@ class MTResidualAdapter(nn.Module):
             # Disable features that require model-level loss aggregation.
             # In a standalone adapter there is no outer model.forward() to
             # collect last_pred_error / _hebb_signal, so these params would
-            # never receive gradients — a silent dead-parameter bug.
-            use_predictive_coding=False,
+            # never receive gradients — a silent dead-parameter bug. They are
+            # therefore OFF by default; use_predictive_coding is plumbed through
+            # only so a graph can be rebuilt to match a checkpoint that carries
+            # the (inference-inert) W_pred tensors. See MTAdapterConfig.
+            use_predictive_coding=config.use_predictive_coding,
             use_world_model=False,
             use_hebbian=False,
         )
@@ -155,6 +166,7 @@ def attach_mt_adapters(
     dropout: float = 0.0,
     init_scale: float = 1e-3,
     use_scan: bool = True,
+    use_predictive_coding: bool = False,
 ) -> List[int]:
     """
     Freeze `model` and wrap selected decoder layers with trainable MT adapters.
@@ -185,6 +197,7 @@ def attach_mt_adapters(
             dropout=dropout,
             init_scale=init_scale,
             use_scan=use_scan,
+            use_predictive_coding=use_predictive_coding,
         )
         layers[idx] = DecoderLayerWithMTAdapter(layers[idx], MTResidualAdapter(adapter_cfg).to(getattr(model, 'dtype', torch.float32)))
     return chosen

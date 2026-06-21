@@ -147,6 +147,19 @@ def _startup() -> None:
         ck = torch.load(adapter_ckpt, map_location="cpu", weights_only=False)
         cargs = ck.get("args", {}) or {}
 
+    # The checkpoint's `args` dict does NOT record whether predictive coding was
+    # enabled, but the resonance bank's W_pred tensors are only present in the
+    # state_dict when it was. Detect them directly so we rebuild the SAME graph
+    # the checkpoint was trained with -- otherwise those 6 tensors land in
+    # `unexpected` and the honest guard refuses to claim the adapter is active.
+    # W_pred is inference-inert (MTLNNLayer skips the predictive-coding branch
+    # outside training), so enabling it changes nothing about generation output.
+    ck_sd_preview = (ck or {}).get("state_dict", {}) if ck is not None else {}
+    want_pc = any("W_pred" in k for k in ck_sd_preview)
+    if want_pc:
+        print("[serve] checkpoint carries resonance W_pred -> rebuilding graph "
+              "with predictive coding to match (inference-inert).")
+
     # (1) MT adapters -- use checkpoint args when present, else env/defaults.
     wrapped = attach_mt_adapters(
         model,
@@ -157,6 +170,7 @@ def _startup() -> None:
         dropout=float(cargs.get("mt_dropout", 0.0)),
         init_scale=float(cargs.get("mt_init_scale", 1e-3)),
         use_scan=not bool(cargs.get("mt_no_scan", False)),
+        use_predictive_coding=want_pc,
     )
     print(f"[serve] attached MT adapters to layers {wrapped}")
 

@@ -75,7 +75,11 @@ services:
       - "127.0.0.1:8001:8000"          # localhost only; Caddy routes /adapter/* to it internally
     volumes:
       - ../checkpoints:/app/checkpoints:ro
-      - ../serve/static:/app/serve/static:ro   # same live UI as the native server
+      # Bind-mount the full source (not just static) so server_hf.py AND the
+      # mt_lnn graph code (e.g. the adapter recipe / predictive-coding match)
+      # deploy with a plain `git pull` + `restart adapter` -- no image rebuild.
+      - ../serve:/app/serve:ro
+      - ../mt_lnn:/app/mt_lnn:ro
       - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
     environment:
       BASE_MODEL: TinyLlama/TinyLlama-1.1B-Chat-v1.0
