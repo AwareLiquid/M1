@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>About · AwareLiquid</title>
 <meta name="description" content="AwareLiquid — a liquid time-constant (MT-LNN) language model research project focused on continual learning.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
 <style>
   :root{
     --bg:#ffffff; --fg:#0d0d0d; --muted:#8e8ea0; --line:#ececf1;
@@ -16,8 +17,8 @@
   a{color:#0d0d0d}
   /* shared header */
   header{height:60px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--line)}
-  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:.2px;text-decoration:none;color:#0d0d0d}
-  header .brand .dot{width:9px;height:9px;border-radius:50%;background:#0d0d0d}
+  header .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;letter-spacing:.2px;text-decoration:none;color:#0d0d0d}
+  .logo{width:22px;height:22px;display:block;color:#0d0d0d;flex:none}
   header nav{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;gap:18px;font-size:13px}
   header nav a{color:var(--muted);text-decoration:none}
   header nav a:hover,header nav a.active{color:#0d0d0d}
@@ -42,7 +43,15 @@
 </head>
 <body>
 <header>
-  <a class="brand" href="/"><span class="dot"></span> AwareLiquid</a>
+  <a class="brand" href="/">
+    <svg class="logo" viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+      <path d="M6 11.3 Q14 8.3 22 11.3"/>
+      <path d="M6 14.6 Q14 11.6 22 14.6"/>
+      <path d="M6 17.9 Q14 14.9 22 17.9"/>
+    </svg>
+    AwareLiquid
+  </a>
   <nav><a href="/">Demo</a><a href="/about" class="active">About</a><a href="/research">Research</a></nav>
 </header>
 

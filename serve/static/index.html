@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AwareLiquid</title>
-<meta name="description" content="AwareLiquid — a liquid time-constant (MT-LNN) language model demo.">
+<title>AwareLiquid · MT-LNN</title>
+<meta name="description" content="AwareLiquid — a brain-inspired Microtubule Liquid Neural Network (MT-LNN). Live demo of the trained MT-LNN adapter and the from-scratch model.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
 <style>
   :root{
     --bg:#ffffff;
@@ -30,8 +31,8 @@
     height:60px;display:flex;align-items:center;justify-content:center;position:relative;
     border-bottom:1px solid var(--line);flex:none;
   }
-  header .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:16px;letter-spacing:.2px}
-  header .brand .dot{width:9px;height:9px;border-radius:50%;background:#0d0d0d}
+  header .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;letter-spacing:.2px}
+  .logo{width:22px;height:22px;display:block;color:#0d0d0d;flex:none}
   header .status{position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
   header .status .live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
   header .status .live.ok{background:#10a37f}
@@ -113,7 +114,15 @@
       <option value="">MT-LNN 从零 · 48M</option>
     </select>
   </div>
-  <div class="brand"><span class="dot"></span> AwareLiquid</div>
+  <a class="brand" href="/" style="text-decoration:none;color:#0d0d0d">
+    <svg class="logo" viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+      <path d="M6 11.3 Q14 8.3 22 11.3"/>
+      <path d="M6 14.6 Q14 11.6 22 14.6"/>
+      <path d="M6 17.9 Q14 14.9 22 17.9"/>
+    </svg>
+    AwareLiquid
+  </a>
   <div class="status"><span class="live" id="live"></span><span id="statusText">连接中…</span></div>
 </header>
 
