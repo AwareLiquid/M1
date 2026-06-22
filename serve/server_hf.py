@@ -120,6 +120,18 @@ def _startup() -> None:
     recipe = os.environ.get("RECIPE", "phase5b" if adapter_ckpt else "mt_only").lower()
     device_str = os.environ.get("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 
+    # torch defaults its CPU intra-op thread pool to the DETECTED physical-core
+    # count, which inside a container often comes back as 2 even on a 4-vCPU box
+    # -- so OMP_NUM_THREADS alone does NOT raise it. Set it explicitly so CPU
+    # GEMMs (the decode bottleneck) use every vCPU. THREADS env overrides; else
+    # use OMP_NUM_THREADS, else os.cpu_count().
+    if device_str != "cuda":
+        n_threads = int(os.environ.get("THREADS")
+                        or os.environ.get("OMP_NUM_THREADS")
+                        or (os.cpu_count() or 1))
+        torch.set_num_threads(n_threads)
+        print(f"[serve] torch CPU threads set to {torch.get_num_threads()}")
+
     print(f"[serve] loading base model: {base_model}")
     tok = AutoTokenizer.from_pretrained(base_model, use_fast=True)
     if tok.pad_token is None:
