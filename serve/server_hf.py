@@ -137,6 +137,23 @@ def research():
     return _static_page("research")
 
 
+def _text_file(name: str) -> FileResponse:
+    path = os.path.join(_STATIC_DIR, name)
+    if os.path.exists(path):
+        return FileResponse(path, media_type="text/plain; charset=utf-8")
+    raise HTTPException(404, f"{name} not found")
+
+
+@app.get("/llms.txt")
+def llms_txt():
+    return _text_file("llms.txt")
+
+
+@app.get("/llms-full.txt")
+def llms_full_txt():
+    return _text_file("llms-full.txt")
+
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     path_404 = os.path.join(_STATIC_DIR, "404.html")
@@ -307,17 +324,29 @@ def _startup() -> None:
     torch.set_grad_enabled(False)
 
     # Optional INT8 dynamic quantization (CPU only). Decode on CPU is memory-
-    # bandwidth bound: int8 weights are ~1/4 the bytes of fp32, and AVX2 fbgemm
-    # int8 GEMM is faster than fp32 -- a meaningful speedup on boxes without a
-    # GPU. It quantizes nn.Linear weights only (the resonance einsums stay fp32),
-    # so the MT adapter's dynamics are unchanged; this is an inference-time
-    # optimization like fp16, NOT a change to the trained adapter. Gated by env
-    # so it is trivially reversible (QUANTIZE=0 + restart) if quality regresses.
+    # bandwidth bound: int8 weights are ~1/4 the fp32 bytes and AVX2 fbgemm int8
+    # GEMM beats fp32 -- a meaningful speedup on GPU-less boxes. We scope it to
+    # the MLP projections (gate/up/down) ONLY. Those are plain nn.Linear, are NOT
+    # wrapped by LoRA (which targets q/k/v/o) nor by the MT adapter, and account
+    # for ~70% of the per-token weight bandwidth -- so they carry most of the
+    # speedup. Quantizing the LoRA-wrapped attention projections instead breaks
+    # PEFT, which reads base_layer.weight.dtype (a quantized Linear's .weight is a
+    # method, not a tensor -> 'function' has no attribute 'dtype'). The resonance
+    # einsums stay fp32, so the trained adapter dynamics are unchanged; this is an
+    # inference-time optimization, not a model change. Gated by env so it is
+    # trivially reversible (QUANTIZE=0 + restart) if quality regresses.
     if device_str == "cpu" and os.environ.get("QUANTIZE", "0").lower() in ("1", "true", "yes"):
         import torch.ao.quantization as tq
-        n_lin_before = sum(1 for m in model.modules() if isinstance(m, torch.nn.Linear))
-        model = tq.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
-        print(f"[serve] INT8 dynamic quantization applied to {n_lin_before} Linear layers.")
+        targets = {
+            name for name, m in model.named_modules()
+            if isinstance(m, torch.nn.Linear)
+            and name.split(".")[-1] in ("gate_proj", "up_proj", "down_proj")
+        }
+        if targets:
+            model = tq.quantize_dynamic(model, targets, dtype=torch.qint8)
+            print(f"[serve] INT8 dynamic quantization applied to {len(targets)} MLP Linear layers.")
+        else:
+            print("[serve] QUANTIZE set but no MLP gate/up/down Linear layers found; skipped.")
 
     # Detect instruct / chat mode from the tokenizer's chat_template field.
     use_chat = getattr(tok, "chat_template", None) is not None
