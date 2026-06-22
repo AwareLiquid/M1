@@ -26,14 +26,25 @@ if not os.path.exists(DIR):
 os.chdir(DIR)
 subprocess.check_call(["git", "log", "-1", "--oneline"])
 
-subprocess.check_call([
-    sys.executable, "-m", "pip", "install", "-q",
-    "accelerate", "peft", "datasets", "transformers",
-])
-
+# Import the Kaggle-preinstalled torch FIRST and pin it during the pip install.
+# Without the pin, resolving transformers/accelerate can upgrade torch to a wheel
+# that lacks kernels for the T4 (sm_75) -> "CUDA error: no kernel image is
+# available for execution on the device". Pinning to the exact installed version
+# (local +cuXXX tag satisfies the bare ==X.Y.Z) keeps Kaggle's matched build.
 import torch  # noqa: E402
 
-print("GPU:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
+torch_pin = "torch==" + torch.__version__.split("+")[0]
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q",
+    "accelerate", "peft", "datasets", "transformers", torch_pin,
+])
+
+print("torch:", torch.__version__, "| cuda:", torch.version.cuda)
+if torch.cuda.is_available():
+    print("GPU:", torch.cuda.get_device_name(0),
+          "| capability:", torch.cuda.get_device_capability(0))
+else:
+    print("GPU: CPU")
 
 os.makedirs("/kaggle/working/out", exist_ok=True)
 
