@@ -150,7 +150,17 @@ def build_sft_dataloader(tokenizer, args):
         )
         prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
         full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
-        if not full_ids or full_ids[-1] != eos_id:
+        # End the target exactly at the assistant turn's closing EOS. Chat
+        # templates often append a trailing separator (e.g. "</s>\n") after the
+        # assistant content; without trimming, the last real token is the
+        # newline and a naive `full_ids[-1] != eos` check appends a SECOND EOS,
+        # training the model on a spurious "\n</s>". Truncating at the last EOS
+        # yields a clean single-EOS completion; only synthesise one if the
+        # template emitted none at all.
+        if eos_id in full_ids:
+            last_eos = len(full_ids) - 1 - full_ids[::-1].index(eos_id)
+            full_ids = full_ids[: last_eos + 1]
+        else:
             full_ids = full_ids + [eos_id]
         # Mask the prompt; train only on the completion + EOS.
         labels = [-100] * len(prompt_ids) + full_ids[len(prompt_ids):]
