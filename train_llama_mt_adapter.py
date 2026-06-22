@@ -80,6 +80,89 @@ def build_dataloader(tokenizer, args):
     return DataLoader(lm_ds, batch_size=args.batch, shuffle=True, drop_last=True)
 
 
+def build_sft_dataloader(tokenizer, args):
+    """Supervised fine-tuning loader for instruction data.
+
+    Unlike the plain-LM loader above (which trains next-token prediction on a
+    raw corpus like WikiText), this formats each (instruction, input, output)
+    triple through the tokenizer's CHAT TEMPLATE and masks the loss so only the
+    assistant completion (+EOS) contributes -- i.e. the model is taught to
+    FOLLOW instructions, not just continue text. This is the post-training (SFT)
+    stage the adapter previously skipped, which is why it could continue English
+    facts but could not answer questions, reason, or respond in Chinese.
+
+    --dataset may be a comma-separated list (e.g. an English + a Chinese Alpaca
+    set) which are concatenated for a bilingual mix. All datasets are assumed to
+    share the Alpaca schema (instruction / input / output columns, configurable).
+    """
+    from datasets import concatenate_datasets, load_dataset
+
+    names = [n.strip() for n in args.dataset.split(",") if n.strip()]
+    configs = [c.strip() or None for c in (args.dataset_config or "").split(",")]
+    if len(configs) < len(names):
+        configs += [None] * (len(names) - len(configs))
+
+    parts = []
+    for name, config in zip(names, configs):
+        d = load_dataset(name, config, split=args.split) if config else load_dataset(name, split=args.split)
+        keep = [c for c in (args.instr_column, args.input_column, args.output_column) if c in d.column_names]
+        parts.append(d.select_columns(keep))
+    ds = parts[0] if len(parts) == 1 else concatenate_datasets(parts)
+
+    sys_prompt = args.system_prompt or None
+    seq_len = args.seq_len
+    eos_id = tokenizer.eos_token_id
+
+    def encode(example):
+        instr = (example.get(args.instr_column) or "").strip()
+        extra = (example.get(args.input_column) or "").strip() if args.input_column else ""
+        out = (example.get(args.output_column) or "").strip()
+        if not instr or not out:
+            return {"input_ids": [], "labels": []}
+        user = instr if not extra else f"{instr}\n\n{extra}"
+        msgs = []
+        if sys_prompt:
+            msgs.append({"role": "system", "content": sys_prompt})
+        msgs.append({"role": "user", "content": user})
+        # Prompt-only (with generation prompt) marks the boundary to mask.
+        prompt_ids = tokenizer.apply_chat_template(
+            msgs, add_generation_prompt=True, tokenize=True
+        )
+        full_msgs = msgs + [{"role": "assistant", "content": out}]
+        full_ids = tokenizer.apply_chat_template(
+            full_msgs, add_generation_prompt=False, tokenize=True
+        )
+        if full_ids[-1] != eos_id:
+            full_ids = full_ids + [eos_id]
+        # Mask the prompt; train only on the completion + EOS.
+        labels = [-100] * len(prompt_ids) + full_ids[len(prompt_ids):]
+        full_ids = full_ids[:seq_len]
+        labels = labels[:seq_len]
+        return {"input_ids": full_ids, "labels": labels}
+
+    enc = ds.map(encode, remove_columns=ds.column_names, desc="formatting-sft")
+    enc = enc.filter(lambda e: len(e["input_ids"]) > 0)
+
+    pad_id = tokenizer.pad_token_id
+
+    def collate(batch):
+        maxlen = max(len(b["input_ids"]) for b in batch)
+        input_ids, labels, attn = [], [], []
+        for b in batch:
+            ids, lab = b["input_ids"], b["labels"]
+            pad = maxlen - len(ids)
+            input_ids.append(ids + [pad_id] * pad)
+            labels.append(lab + [-100] * pad)
+            attn.append([1] * len(ids) + [0] * pad)
+        return {
+            "input_ids": torch.tensor(input_ids, dtype=torch.long),
+            "labels": torch.tensor(labels, dtype=torch.long),
+            "attention_mask": torch.tensor(attn, dtype=torch.long),
+        }
+
+    return DataLoader(enc, batch_size=args.batch, shuffle=True, drop_last=True, collate_fn=collate)
+
+
 def save_adapter_checkpoint(model, args, step):
     os.makedirs(args.out_dir, exist_ok=True)
     payload = {
@@ -134,7 +217,13 @@ def train(args):
     print(f"Wrapped decoder layers: {wrapped}")
     print(f"Trainable params: {trainable:,} / {total:,} ({100 * trainable / total:.3f}%)")
 
-    loader = build_dataloader(tokenizer, args)
+    if args.task == "sft":
+        print(f"[train] SFT mode: instruction tuning with chat template + "
+              f"completion-only loss on dataset(s): {args.dataset}")
+        loader = build_sft_dataloader(tokenizer, args)
+    else:
+        print(f"[train] LM mode: plain causal-LM on {args.dataset}/{args.dataset_config}")
+        loader = build_dataloader(tokenizer, args)
     optimizer = torch.optim.AdamW(
         [p for p in model.parameters() if p.requires_grad],
         lr=args.lr,
@@ -192,10 +281,21 @@ def train(args):
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--model", default="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-    p.add_argument("--dataset", default="wikitext")
-    p.add_argument("--dataset_config", default="wikitext-2-raw-v1")
+    p.add_argument("--task", choices=["lm", "sft"], default="lm",
+                   help="lm = plain causal-LM on a corpus; sft = instruction "
+                        "tuning (chat template + completion-only loss)")
+    p.add_argument("--dataset", default="wikitext",
+                   help="dataset name, or comma-separated list for an SFT mix")
+    p.add_argument("--dataset_config", default="wikitext-2-raw-v1",
+                   help="config name(s); comma-separated to match --dataset list")
     p.add_argument("--split", default="train")
     p.add_argument("--text_column", default="text")
+    # SFT (instruction) columns -- Alpaca schema by default.
+    p.add_argument("--instr_column", default="instruction")
+    p.add_argument("--input_column", default="input")
+    p.add_argument("--output_column", default="output")
+    p.add_argument("--system_prompt", default="",
+                   help="optional system prompt prepended to every SFT example")
     p.add_argument("--seq_len", type=int, default=512)
     p.add_argument("--batch", type=int, default=1)
     p.add_argument("--grad_accum", type=int, default=8)
