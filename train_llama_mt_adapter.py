@@ -105,8 +105,19 @@ def build_sft_dataloader(tokenizer, args):
     parts = []
     for name, config in zip(names, configs):
         d = load_dataset(name, config, split=args.split) if config else load_dataset(name, split=args.split)
-        keep = [c for c in (args.instr_column, args.input_column, args.output_column) if c in d.column_names]
-        parts.append(d.select_columns(keep))
+        cols = d.column_names
+
+        def _normalize(ex, _cols=cols):
+            return {
+                "instruction": str(ex.get(args.instr_column, "") or "") if args.instr_column in _cols else "",
+                "input": str(ex.get(args.input_column, "") or "") if args.input_column in _cols else "",
+                "output": str(ex.get(args.output_column, "") or "") if args.output_column in _cols else "",
+            }
+
+        # Normalize every source to a fixed {instruction,input,output} schema so
+        # datasets with different columns (e.g. a ZH set lacking `input`) still
+        # concatenate cleanly.
+        parts.append(d.map(_normalize, remove_columns=cols, desc=f"normalize:{name}"))
     ds = parts[0] if len(parts) == 1 else concatenate_datasets(parts)
 
     sys_prompt = args.system_prompt or None
@@ -114,9 +125,10 @@ def build_sft_dataloader(tokenizer, args):
     eos_id = tokenizer.eos_token_id
 
     def encode(example):
-        instr = (example.get(args.instr_column) or "").strip()
-        extra = (example.get(args.input_column) or "").strip() if args.input_column else ""
-        out = (example.get(args.output_column) or "").strip()
+        # Columns are normalized to fixed keys above.
+        instr = (example.get("instruction") or "").strip()
+        extra = (example.get("input") or "").strip()
+        out = (example.get("output") or "").strip()
         if not instr or not out:
             return {"input_ids": [], "labels": []}
         user = instr if not extra else f"{instr}\n\n{extra}"
