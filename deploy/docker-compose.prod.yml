@@ -89,6 +89,10 @@ services:
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
       OMP_NUM_THREADS: "4"
+      # INT8 dynamic quantization of nn.Linear weights (CPU only). Cuts the
+      # bandwidth-bound decode cost ~3-4x on this AVX2 box. Set to "0" + restart
+      # to revert to fp32 if generation quality regresses.
+      QUANTIZE: "1"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
       interval: 30s
