@@ -40,11 +40,15 @@ from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import re
+
 import torch
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.middleware.base import BaseHTTPMiddleware
 
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "512"))
@@ -72,6 +76,36 @@ _MTLNN_SYSTEM = (
 
 app = FastAPI(title="AwareLiquid HF-Adapter Server", version="1.0")
 _STATE: dict = {}
+
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: https:; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none';"
+)
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = _CSP
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        path = request.url.path
+        if re.search(r'\.(svg|png|jpg|ico|woff2?)$', path):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        elif path.startswith("/v1") or path in ("/health",):
+            response.headers["Cache-Control"] = "no-store"
+        elif path in ("/", "/about", "/research"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+app.add_middleware(_SecurityHeadersMiddleware)
 
 if os.path.isdir(_STATIC_DIR):
     app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
@@ -101,6 +135,15 @@ def about():
 @app.get("/research")
 def research():
     return _static_page("research")
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    path_404 = os.path.join(_STATIC_DIR, "404.html")
+    if os.path.exists(path_404):
+        content = open(path_404, encoding="utf-8").read()
+        return HTMLResponse(content=content, status_code=404)
+    return HTMLResponse("<h1>404 — Not Found</h1>", status_code=404)
 
 
 @app.on_event("startup")
@@ -262,6 +305,19 @@ def _startup() -> None:
     # memory saving actually applies to the LoRA/MT tensors too).
     model = model.to(device=device_str, dtype=dtype).eval()
     torch.set_grad_enabled(False)
+
+    # Optional INT8 dynamic quantization (CPU only). Decode on CPU is memory-
+    # bandwidth bound: int8 weights are ~1/4 the bytes of fp32, and AVX2 fbgemm
+    # int8 GEMM is faster than fp32 -- a meaningful speedup on boxes without a
+    # GPU. It quantizes nn.Linear weights only (the resonance einsums stay fp32),
+    # so the MT adapter's dynamics are unchanged; this is an inference-time
+    # optimization like fp16, NOT a change to the trained adapter. Gated by env
+    # so it is trivially reversible (QUANTIZE=0 + restart) if quality regresses.
+    if device_str == "cpu" and os.environ.get("QUANTIZE", "0").lower() in ("1", "true", "yes"):
+        import torch.ao.quantization as tq
+        n_lin_before = sum(1 for m in model.modules() if isinstance(m, torch.nn.Linear))
+        model = tq.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
+        print(f"[serve] INT8 dynamic quantization applied to {n_lin_before} Linear layers.")
 
     # Detect instruct / chat mode from the tokenizer's chat_template field.
     use_chat = getattr(tok, "chat_template", None) is not None
