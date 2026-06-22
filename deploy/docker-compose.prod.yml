@@ -39,8 +39,9 @@ services:
       TOKENIZER: gpt2
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
-      # Cap intra-op threads to the box's physical cores for steady latency.
-      OMP_NUM_THREADS: "2"
+      # Cap intra-op threads to the box's vCPU count for steady latency
+      # (4 on the upgraded 4 vCPU / 8 GB plan).
+      OMP_NUM_THREADS: "4"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
       interval: 30s
@@ -87,7 +88,7 @@ services:
       RECIPE: phase5b                  # MT adapters + LoRA, matching the checkpoint
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
-      OMP_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "4"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
       interval: 30s
