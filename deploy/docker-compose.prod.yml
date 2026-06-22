@@ -84,7 +84,15 @@ services:
       - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
     environment:
       BASE_MODEL: TinyLlama/TinyLlama-1.1B-Chat-v1.0
-      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_001000.pt
+      # step-3000 bilingual SFT adapter (alpaca EN + alpaca-zh, completion-only
+      # loss). Replaces the step-1000 WikiText causal-LM adapter, which produced
+      # WikiText-style continuations and could not follow instructions. The SFT
+      # adapter follows instructions, answers concisely, and gives a sane self-
+      # identity; English reasoning improved (correct arithmetic on held-out
+      # prompts). NOTE: open-domain Chinese generation quality is still limited by
+      # the 1.1B base's thin Chinese knowledge -- SFT fixed format/fluency, not the
+      # base's factual coverage. Upload the .pt to the host then `restart adapter`.
+      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_003000.pt
       RECIPE: phase5b                  # MT adapters + LoRA, matching the checkpoint
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
