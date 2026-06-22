@@ -136,15 +136,21 @@ def build_sft_dataloader(tokenizer, args):
         if sys_prompt:
             msgs.append({"role": "system", "content": sys_prompt})
         msgs.append({"role": "user", "content": user})
-        # Prompt-only (with generation prompt) marks the boundary to mask.
-        prompt_ids = tokenizer.apply_chat_template(
-            msgs, add_generation_prompt=True, tokenize=True
+        # Render to strings then tokenize -- apply_chat_template(tokenize=True)
+        # can return a BatchEncoding on some transformers versions, so we go via
+        # text to guarantee plain int lists. prompt_text is a prefix of full_text
+        # (same template, assistant turn appended), so the id prefix aligns and
+        # we can mask exactly the prompt span.
+        prompt_text = tokenizer.apply_chat_template(
+            msgs, add_generation_prompt=True, tokenize=False
         )
         full_msgs = msgs + [{"role": "assistant", "content": out}]
-        full_ids = tokenizer.apply_chat_template(
-            full_msgs, add_generation_prompt=False, tokenize=True
+        full_text = tokenizer.apply_chat_template(
+            full_msgs, add_generation_prompt=False, tokenize=False
         )
-        if full_ids[-1] != eos_id:
+        prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+        full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        if not full_ids or full_ids[-1] != eos_id:
             full_ids = full_ids + [eos_id]
         # Mask the prompt; train only on the completion + EOS.
         labels = [-100] * len(prompt_ids) + full_ids[len(prompt_ids):]
