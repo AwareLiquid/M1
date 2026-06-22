@@ -26,18 +26,20 @@ if not os.path.exists(DIR):
 os.chdir(DIR)
 subprocess.check_call(["git", "log", "-1", "--oneline"])
 
-# Import the Kaggle-preinstalled torch FIRST and pin it during the pip install.
-# Without the pin, resolving transformers/accelerate can upgrade torch to a wheel
-# that lacks kernels for the T4 (sm_75) -> "CUDA error: no kernel image is
-# available for execution on the device". Pinning to the exact installed version
-# (local +cuXXX tag satisfies the bare ==X.Y.Z) keeps Kaggle's matched build.
-import torch  # noqa: E402
-
-torch_pin = "torch==" + torch.__version__.split("+")[0]
+# Kaggle's current default torch (2.10+cu128) dropped CUDA kernels for older
+# GPUs such as the P100 (sm_60) that sessions are sometimes assigned, causing
+# "CUDA error: no kernel image is available for execution on the device". Install
+# a torch whose wheels ship sm_60..sm_90 so the job runs on whatever GPU Kaggle
+# hands out (P100 / T4). Install torch LAST so it wins dependency resolution.
 subprocess.check_call([
     sys.executable, "-m", "pip", "install", "-q",
-    "accelerate", "peft", "datasets", "transformers", torch_pin,
+    "accelerate", "peft", "datasets", "transformers",
 ])
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install", "-q", "torch==2.5.1",
+])
+
+import torch  # noqa: E402
 
 print("torch:", torch.__version__, "| cuda:", torch.version.cuda)
 if torch.cuda.is_available():
