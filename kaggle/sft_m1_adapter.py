@@ -36,7 +36,8 @@ subprocess.check_call([
     "accelerate", "peft", "datasets", "transformers",
 ])
 subprocess.check_call([
-    sys.executable, "-m", "pip", "install", "-q", "torch==2.5.1",
+    sys.executable, "-m", "pip", "install", "-q",
+    "torch==2.5.1", "torchvision==0.20.1", "torchaudio==2.5.1",
 ])
 
 import torch  # noqa: E402
