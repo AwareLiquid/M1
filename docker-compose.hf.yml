@@ -6,6 +6,13 @@
 # adapter, and exposes the wired cognitive modules:
 #   - self-thinking decode      (THINKING=1; entropy-routed self-consistency)
 #   - declarative knowledge memory (KB_PATH; SQLite retrieval augmentation)
+#   - episodic conversation memory (CONV_MEMORY=1; "remembers you" -- auto-stores
+#                                the user's own statements and recalls the relevant
+#                                ones on later turns, persisted to SQLite. Uses a
+#                                dedicated bge sentence encoder, NOT the LM hidden
+#                                state, because mean-pooled 0.5B keys cannot
+#                                separate paraphrases. Honest scope: RAG recall,
+#                                not understanding -- see conversation_memory.py)
 #   - causal-consistency check  (CAUSAL_CHECK; OFF by default -- non-discriminative
 #                                on a Transformer base, kept honest, see server_hf.py)
 #
@@ -23,10 +30,13 @@
 # start. The `hf_cache` named volume persists it so restarts are offline/fast.
 # Give the container internet access on first boot.
 #
-# Memory persistence: the `kb` named volume holds knowledge.db (the declarative
-# store). Facts written via /v1/memory/write survive restarts and redeploys --
-# verified by _test_kb_persist.py (write -> drop connection -> reopen file ->
-# data + retrieval intact across the simulated container restart).
+# Memory persistence: the `kb` named volume holds BOTH stores -- knowledge.db
+# (the declarative KB) and conversation.db (the episodic conversation memory).
+# Facts written via /v1/memory/write and the user's own statements both survive
+# restarts and redeploys -- verified by _test_kb_persist.py (write -> drop
+# connection -> reopen file -> data + retrieval intact across the simulated
+# container restart) and _test_server_conv_memory.py (in-process 3-turn recall).
+# First boot also downloads the bge sentence encoder (~130 MB) into hf_cache.
 #
 # Port 8089 avoids the native demo (8088), the awareness-* stack (8000/8001),
 # and ad-hoc verification runs (8080).
@@ -60,6 +70,13 @@ services:
       KB_PATH: /app/kb/knowledge.db
       KB_SCORE_FLOOR: "0.15"
       KB_TOP_K: "3"
+      # Episodic conversation memory ("remembers you"): its own SQLite file on the
+      # same writable volume, encoded by a dedicated bge sentence model. Floor 0.45
+      # sits above bge's high cosine baseline so off-topic turns recall nothing.
+      CONV_MEMORY: "1"
+      CONV_DB_PATH: /app/kb/conversation.db
+      CONV_SCORE_FLOOR: "0.45"
+      CONV_TOP_K: "3"
       # Causal-consistency check stays OFF (honest: non-discriminative on a
       # Transformer base; flip to "1" only after recalibrating on native LNN state).
       CAUSAL_CHECK: "0"

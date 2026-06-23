@@ -445,6 +445,51 @@ def _startup() -> None:
     else:
         print("[serve] declarative memory: off (set KB_PATH to enable)")
 
+    # Optional automatic EPISODIC CONVERSATION memory (mt_lnn.conversation_memory).
+    # The "remembers you" tier: the user's own statements are stored as they are
+    # said and the relevant ones are recalled on later turns (persisted to SQLite,
+    # so it survives restarts). Distinct from the declarative KB above in BOTH
+    # purpose and encoder: this uses a dedicated sentence-embedding model
+    # (mt_lnn.sentence_encoder, bge-small) because the chat model's mean-pooled
+    # hidden state cannot separate first-person paraphrases (_diag_conv_mem.py
+    # showed "I love hiking" always loses to the anisotropic universal nearest
+    # neighbour). Its own store / key_dim, so it does not disturb the KB.
+    #
+    # HONEST SCOPE: this is AUTOMATED RETRIEVAL (RAG) over past user utterances --
+    # it makes the assistant recall what you told it. It adds NO understanding,
+    # reasoning, emotion, or self-awareness; a 0.5B model with episodic recall is
+    # still a 0.5B model. Off by default; set CONV_MEMORY=1 + CONV_DB_PATH.
+    conv_mem = None
+    conv_enabled = os.environ.get("CONV_MEMORY", "0").lower() in ("1", "true", "yes")
+    conv_db = os.environ.get("CONV_DB_PATH", "").strip()
+    conv_floor = float(os.environ.get("CONV_SCORE_FLOOR", "0.45"))
+    conv_top_k = int(os.environ.get("CONV_TOP_K", "3"))
+    if conv_enabled and conv_db:
+        from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
+        from mt_lnn.conversation_memory import EpisodicConversationMemory
+        from mt_lnn.sentence_encoder import SentenceEncoder
+        conv_model_id = os.environ.get("CONV_MODEL", "BAAI/bge-small-en-v1.5")
+        conv_enc = SentenceEncoder(model_id=conv_model_id, device="cpu")
+        conv_max = os.environ.get("CONV_MAX_ENTRIES")
+        conv_store = PersistentKnowledgeMemory(
+            key_dim=conv_enc.dim, db_path=conv_db,
+            max_entries=int(conv_max) if conv_max else None,
+        )
+        # bge is isotropic -> no centering; asymmetric query encoder (instruction
+        # on the query side only) widens the relevant/off-topic gap.
+        conv_mem = EpisodicConversationMemory(
+            conv_store, conv_enc.as_fn(is_query=False),
+            score_floor=conv_floor, center=False,
+            query_encode_fn=conv_enc.as_fn(is_query=True),
+        )
+        print(f"[serve] conversation memory: ON (db={conv_db} "
+              f"model={conv_model_id} key_dim={conv_enc.dim} "
+              f"entries={len(conv_store)} floor={conv_floor} top_k={conv_top_k})")
+    elif conv_enabled and not conv_db:
+        print("[serve] conversation memory: requested but CONV_DB_PATH unset -> off")
+    else:
+        print("[serve] conversation memory: off (set CONV_MEMORY=1 + CONV_DB_PATH)")
+
     _STATE.update(
         model=model, tok=tok, device=device_str,
         base_model=base_model,
@@ -468,6 +513,10 @@ def _startup() -> None:
         kb_path=kb_path or None,
         kb_score_floor=kb_score_floor,
         kb_top_k=kb_top_k,
+        conv_mem=conv_mem,
+        conv_db=conv_db or None,
+        conv_score_floor=conv_floor,
+        conv_top_k=conv_top_k,
         ready=True,
     )
     print(f"[serve] ready | {total/1e9:.2f}B params | device={device_str}")
@@ -526,6 +575,9 @@ def model_info():
         "causal_check": _STATE.get("causal_check", False),
         "memory_enabled": _STATE.get("kb") is not None,
         "memory_entries": len(_STATE["kb"]) if _STATE.get("kb") is not None else 0,
+        "conv_memory_enabled": _STATE.get("conv_mem") is not None,
+        "conv_memory_entries": (
+            len(_STATE["conv_mem"]) if _STATE.get("conv_mem") is not None else 0),
         "multimodal": False,
         "vision_tower": None,
         "multimodal_error": None,
@@ -691,6 +743,33 @@ def completions(req: CompletionRequest):
                 f"{req.prompt}"
             )
 
+    # Episodic conversation memory (mt_lnn.conversation_memory): recall the
+    # user's own earlier statements relevant to THIS turn, then store the current
+    # turn for future ones. Recall happens on the PAST store and is strictly
+    # additive (empty/irrelevant store -> prompt untouched, no fabrication); the
+    # current utterance is observed AFTER recall so the user never "recalls" the
+    # thing they just said. Persisted, so it carries across sessions.
+    conv_used = False
+    conv_hits: List[dict] = []
+    conv_mem = _STATE.get("conv_mem")
+    want_conv = req.use_memory if req.use_memory is not None else (conv_mem is not None)
+    if want_conv and conv_mem is not None and req.prompt.strip():
+        recalled = conv_mem.recall(req.prompt, top_k=_STATE.get("conv_top_k", 3))
+        if recalled:
+            conv_used = True
+            conv_hits = [{"content": c, "score": round(s, 3)} for c, s in recalled]
+            lines = "\n".join(f"- {c}" for c, _ in recalled)
+            aug_prompt = (
+                "The user told you earlier:\n" + lines +
+                "\nUse this to stay consistent and personal if relevant.\n\n"
+                f"{aug_prompt}"
+            )
+        # Store the current user turn (skips trivial / near-duplicate internally).
+        try:
+            conv_mem.observe(req.prompt)
+        except Exception as exc:  # never let memory writes break a completion
+            print(f"[serve] conv-memory observe failed: {exc}")
+
     ids = _build_input_ids(aug_prompt)
     t0 = time.time()
 
@@ -732,6 +811,8 @@ def completions(req: CompletionRequest):
             "thinking": trace.summary(),
             "memory_used": memory_used,
             "memory_hits": memory_hits,
+            "conv_memory_used": conv_used,
+            "conv_memory_hits": conv_hits,
         }
 
     out = model.generate(
@@ -755,6 +836,8 @@ def completions(req: CompletionRequest):
         "tok_per_s": round(len(new_ids) / dt, 2) if dt > 0 else None,
         "memory_used": memory_used,
         "memory_hits": memory_hits,
+        "conv_memory_used": conv_used,
+        "conv_memory_hits": conv_hits,
     }
 
 
