@@ -149,12 +149,34 @@ SMALL=1 uvicorn serve.server:app --host 0.0.0.0 --port 8000
 uvicorn serve.server_hf:app --host 0.0.0.0 --port 8000
 ```
 
-Container packaging is provided for the native server:
+Both servers ship as containers off one CPU image (`command:` picks the surface):
 
 ```bash
-docker build -t mtlnn .                                  # CPU image
+docker build -t mtlnn .                                  # CPU image (build once)
 docker run --rm -p 8000:8000 -e SMALL=1 mtlnn            # smoke (no checkpoint)
-docker compose -f docker-compose.demo.yml up -d          # persistent demo on :8088
+
+# A) Native MT-LNN decoder, persistent demo on :8088
+docker compose -f docker-compose.demo.yml up -d
+
+# B) HF base + MT adapter + cognitive modules, on :8089
+docker compose -f docker-compose.hf.yml up -d
+```
+
+Surface **B** (`docker-compose.hf.yml`) runs `server_hf` with the wired
+cognitive modules: self-thinking decode (`THINKING=1`), declarative
+knowledge memory (`KB_PATH` on a writable `kb` volume), and the
+causal-consistency check (`CAUSAL_CHECK=0` by default -- honest: it is
+non-discriminative on a Transformer base, see `serve/server_hf.py`). The `kb`
+named volume persists `/v1/memory/write` facts across restarts and redeploys
+(verified by `_test_kb_persist.py`); an `hf_cache` volume downloads
+Qwen2.5-0.5B once, so first boot needs internet but restarts are offline.
+
+```bash
+# write a fact, then query it (memory is a strict no-op on an empty store)
+curl -s localhost:8089/v1/memory/write -H 'content-type: application/json' \
+     -d '{"content":"The 2026 launch codename is Project Halcyon."}'
+curl -s localhost:8089/v1/completions  -H 'content-type: application/json' \
+     -d '{"prompt":"What is the 2026 launch codename?","use_memory":true}'
 ```
 
 `scripts/docker_autoverify.sh` builds + boots + verifies the image; the HTTP
