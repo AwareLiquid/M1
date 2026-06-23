@@ -48,6 +48,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
+from .causality import CausalConsistencyChecker
 from .deliberation import (
     DeliberationRouter,
     Route,
@@ -87,6 +88,9 @@ class StepTrace:
                    when no critique ran).
     revised      : True if self-critique changed the emitted token relative
                    to the plain top-p draw.
+    causal_consistency : CausalConsistencyChecker score in [0, 1] for this
+                   step (None when the causal-consistency check is disabled).
+                   < RouterThresholds.consistency_floor forces SELF_CRITIQUE.
     """
 
     index: int
@@ -98,6 +102,7 @@ class StepTrace:
     n_resamples: int = 0
     sem_entropy: Optional[float] = None
     revised: bool = False
+    causal_consistency: Optional[float] = None
 
 
 @dataclass
@@ -133,9 +138,24 @@ class ThinkingTrace:
     def n_revised(self) -> int:
         return sum(1 for s in self.steps if s.revised)
 
+    @property
+    def n_causal_breaks(self) -> int:
+        """Steps the router re-routed to SELF_CRITIQUE because the recurrent /
+        hidden-state trajectory broke (low consistency), regardless of token
+        entropy. 0 when the causal-consistency check is disabled."""
+        return sum(1 for s in self.steps if s.reason == "causal_break")
+
+    @property
+    def min_consistency(self) -> Optional[float]:
+        """Lowest causal-consistency score seen across the generation (None
+        when the check was disabled / never populated)."""
+        scores = [s.causal_consistency for s in self.steps
+                  if s.causal_consistency is not None]
+        return round(min(scores), 3) if scores else None
+
     def summary(self) -> Dict[str, object]:
         """Compact dict suitable for logging or a UI header."""
-        return {
+        out: Dict[str, object] = {
             "n_tokens": len(self.steps),
             "route_counts": self.route_counts,
             "mean_entropy": round(self.mean_entropy, 3),
@@ -143,6 +163,12 @@ class ThinkingTrace:
             "n_cloud_flagged": self.n_cloud_flagged,
             "n_revised": self.n_revised,
         }
+        # Only surface the causal-consistency view when it was actually running,
+        # so a plain self-thinking trace stays clean.
+        if self.min_consistency is not None:
+            out["n_causal_breaks"] = self.n_causal_breaks
+            out["min_consistency"] = self.min_consistency
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +271,9 @@ def generate_with_thinking(
     device: Optional[str] = None,
     input_ids: Optional[torch.Tensor] = None,
     use_cache: bool = True,
+    consistency_check: bool = False,
+    consistency_method: str = "subspace",
+    consistency_window: int = 8,
 ) -> Tuple[str, ThinkingTrace]:
     """Generate text while routing each token through the self-thinking policy.
 
@@ -265,11 +294,41 @@ def generate_with_thinking(
     The function is model-agnostic: ``model(input_ids=...)`` must return an
     object exposing ``.logits`` of shape ``(B, T, V)`` (the HF convention).
 
+    Causal-consistency check (``consistency_check=True``)
+    -----------------------------------------------------
+    Complements the entropy router with a trajectory monitor
+    (:class:`~mt_lnn.causality.CausalConsistencyChecker`). Each step's final
+    hidden state is fed to the checker; when the state makes an abrupt jump
+    (consistency < ``RouterThresholds.consistency_floor``) the router forces
+    SELF_CRITIQUE *even if the token entropy looks low* — catching the
+    "confidently wrong" / hallucination-boundary pattern that pure entropy
+    gating misses. Requires the model to support ``output_hidden_states=True``
+    (every HF causal LM does). Off by default so the plain self-thinking path
+    is unchanged.
+
+    HONEST SCOPE: this check was designed for the *native MT-LNN recurrent
+    state* (continuous LTC/ODE dynamics, where a trajectory jump is a genuine
+    semantic break). On a frozen HF Transformer the hidden state is recomputed
+    fresh each token, so per-step novelty is high regardless of meaning; a local
+    calibration found NO consistency floor that separates a coherent prompt from
+    a deliberate topic-switch on a Qwen/TinyLlama base (both methods). Treat
+    ``consistency_check=True`` on a Transformer base as experimental — it RUNS
+    and the trace is correct, but it is not a validated hallucination detector
+    there. It is meaningful on the recurrent MT-LNN path it was built for.
+
     Returns ``(generated_text, ThinkingTrace)``.
     """
     device = device or (next(model.parameters()).device.type
                          if hasattr(model, "parameters") else "cpu")
     router = router or DeliberationRouter(thresholds=thresholds)
+    # Trajectory monitor (optional). "subspace" is the anisotropy-robust
+    # detector recommended for real hidden states; it cancels the shared
+    # dominant direction so only genuinely new directions register as breaks.
+    checker = (
+        CausalConsistencyChecker(window=consistency_window,
+                                 method=consistency_method)
+        if consistency_check else None
+    )
 
     # Caller may pass pre-built input_ids (e.g. already run through a chat
     # template); otherwise tokenize the raw prompt here. Passing input_ids
@@ -294,18 +353,28 @@ def generate_with_thinking(
     for step in range(int(max_new_tokens)):
         if use_cache:
             out = model(input_ids=cur_input, past_key_values=past,
-                        use_cache=True)
+                        use_cache=True, output_hidden_states=checker is not None)
             past = getattr(out, "past_key_values", None)
         else:
-            out = model(input_ids=ids)
+            out = model(input_ids=ids, output_hidden_states=checker is not None)
         raw_logits = out.logits[:, -1, :]              # (1, V), unscaled
         scaled = raw_logits / max(float(temperature), 1e-6)
+
+        # --- trajectory monitor: feed this step's hidden state -------------
+        # out.hidden_states is a tuple (embeddings, layer_1, ..., layer_N);
+        # the last entry is the final contextual state. Take the newest
+        # position's d_model vector and update the consistency score.
+        consistency_signal: Optional[float] = None
+        if checker is not None and getattr(out, "hidden_states", None):
+            h_last = out.hidden_states[-1][:, -1, :]    # (1, d_model)
+            consistency_signal = checker.update(h_last)
 
         # --- policy: what kind of step is this? ---------------------------
         decision = router.decide(
             scaled,
             query=prompt,
             evidence_log=[],          # public demo has no capsule/evidence
+            consistency_signal=consistency_signal,
         )
         route = decision.route
         reason = decision.reason
@@ -331,6 +400,7 @@ def generate_with_thinking(
                 index=step, token_id=-1, token_text="",
                 entropy=decision.entropy, route=Route.CLOUD.value,
                 reason="cloud_inject", n_resamples=0,
+                causal_consistency=consistency_signal,
             ))
             continue
 
@@ -364,6 +434,7 @@ def generate_with_thinking(
             n_resamples=n_resamples,
             sem_entropy=sem_h,
             revised=revised,
+            causal_consistency=consistency_signal,
         ))
 
         next_tok = torch.tensor([[next_id]], device=device)

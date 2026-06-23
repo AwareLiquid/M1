@@ -382,6 +382,32 @@ def _startup() -> None:
     print(f"[serve] self-thinking decode: {'ON' if thinking_enabled else 'off'} "
           f"(low={think_low} high={think_high} samples={think_samples})")
 
+    # Optional causal-consistency check (mt_lnn.causality.CausalConsistencyChecker).
+    # Feeds the per-step hidden state to a TRAJECTORY monitor; a broken trajectory
+    # (consistency < floor) forces SELF_CRITIQUE even on low-entropy tokens. The
+    # wiring is mechanically correct and gated on its own env (applied inside the
+    # THINKING path, since it feeds the same router).
+    #
+    # HONEST CALIBRATION NOTE -- OFF by default, and NOT enabled in M1 prod.
+    # This detector was designed for the NATIVE MT-LNN recurrent state (continuous
+    # LTC/ODE dynamics, where a trajectory jump is a real semantic break). A frozen
+    # HF Transformer (TinyLlama/Qwen) recomputes its hidden state fresh every token,
+    # so per-step novelty is high regardless of meaning. A local calibration
+    # (_calib_causal.py) measured the score distribution on a coherent prompt vs a
+    # deliberate topic-switch prompt for BOTH methods: cosine saturates (no
+    # separation), and subspace gives ~0.1 for BOTH coherent and switch text (the
+    # switch is not less consistent) -> there is NO floor that discriminates on this
+    # base, and floor=0.3 just fires on ~every token (noise, not signal). So on the
+    # M1 HF-adapter stack this is provided for experimentation / the native O1 path
+    # it was built for, and we do NOT claim it catches hallucinations here. Enable
+    # only with CAUSAL_CHECK=1 if you have re-calibrated for your model.
+    causal_check = os.environ.get("CAUSAL_CHECK", "0").lower() in ("1", "true", "yes")
+    causal_method = os.environ.get("CAUSAL_METHOD", "subspace")
+    causal_floor = float(os.environ.get("CAUSAL_FLOOR", "0.3"))
+    causal_window = int(os.environ.get("CAUSAL_WINDOW", "8"))
+    print(f"[serve] causal-consistency check: {'ON' if causal_check else 'off'} "
+          f"(method={causal_method} floor={causal_floor} window={causal_window})")
+
     _STATE.update(
         model=model, tok=tok, device=device_str,
         base_model=base_model,
@@ -396,6 +422,10 @@ def _startup() -> None:
         think_low=think_low,
         think_high=think_high,
         think_samples=think_samples,
+        causal_check=causal_check,
+        causal_method=causal_method,
+        causal_floor=causal_floor,
+        causal_window=causal_window,
         ready=True,
     )
     print(f"[serve] ready | {total/1e9:.2f}B params | device={device_str}")
@@ -447,6 +477,7 @@ def model_info():
         "is_baseline": _STATE.get("is_baseline", True),
         "adapter_loaded": _STATE.get("adapter_loaded", False),
         "thinking_enabled": _STATE.get("thinking_enabled", False),
+        "causal_check": _STATE.get("causal_check", False),
         "multimodal": False,
         "vision_tower": None,
         "multimodal_error": None,
@@ -517,6 +548,7 @@ def completions(req: CompletionRequest):
         router = DeliberationRouter(thresholds=RouterThresholds(
             low=_STATE.get("think_low", 3.0),
             high=_STATE.get("think_high", 5.0),
+            consistency_floor=_STATE.get("causal_floor", 0.3),
         ))
         text, trace = generate_with_thinking(
             model, tok, req.prompt,
@@ -528,6 +560,9 @@ def completions(req: CompletionRequest):
             n_critique_samples=_STATE.get("think_samples", 5),
             router=router,
             device=_STATE["device"],
+            consistency_check=_STATE.get("causal_check", False),
+            consistency_method=_STATE.get("causal_method", "subspace"),
+            consistency_window=_STATE.get("causal_window", 8),
         )
         dt = time.time() - t0
         n_new = len(trace.steps)
