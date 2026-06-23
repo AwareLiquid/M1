@@ -75,9 +75,17 @@ class EpisodicConversationMemory:
         dedup_threshold: float = 0.97,
         score_floor: float = 0.15,
         center: bool = True,
+        query_encode_fn: Optional[Callable[[str], torch.Tensor]] = None,
     ):
         self.store = store
         self.encode_fn = encode_fn
+        # Asymmetric retrieval: some sentence models (bge-*-en-v1.5) embed a short
+        # QUERY better with a task instruction prefix while storing the statement
+        # plain. When a separate query encoder is supplied, recall uses it and the
+        # write/dedup side keeps encode_fn; otherwise the same encoder is used for
+        # both (symmetric). Measured to widen the relevant/off-topic gap from
+        # +0.085 to +0.109 on the diagnostic set (_diag_bge_asym.py).
+        self.query_encode_fn = query_encode_fn or encode_fn
         self.min_chars = int(min_chars)
         self.dedup_threshold = float(dedup_threshold)
         self.score_floor = float(score_floor)
@@ -117,7 +125,7 @@ class EpisodicConversationMemory:
         if not query_text or not query_text.strip() or len(self.store) == 0:
             return []
         hits = self.store.query(
-            self.encode_fn(query_text), top_k=top_k, center=self.center)
+            self.query_encode_fn(query_text), top_k=top_k, center=self.center)
         return [(str(c), float(s)) for c, s, _ in hits if s >= self.score_floor]
 
     def recall_context(self, query_text: str, top_k: int = 3) -> str:

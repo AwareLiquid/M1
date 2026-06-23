@@ -21,34 +21,21 @@ Run:  PYTHONUTF8=1 python _test_conversation_memory.py
 import json
 import sys
 
-import torch
-import torch.nn.functional as F
-from transformers import AutoModel, AutoTokenizer
-
 from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
 from mt_lnn.conversation_memory import EpisodicConversationMemory
+from mt_lnn.sentence_encoder import SentenceEncoder
 
-MID = "BAAI/bge-small-en-v1.5"
-tok = AutoTokenizer.from_pretrained(MID)
-model = AutoModel.from_pretrained(MID).eval()
-
-
-@torch.no_grad()
-def encode(text: str) -> torch.Tensor:
-    ids = tok(text or " ", return_tensors="pt", truncation=True,
-              max_length=128, padding=True)
-    out = model(**ids)
-    cls = out.last_hidden_state[:, 0]                     # CLS pooling (bge recipe)
-    return F.normalize(cls, dim=-1)[0].float()            # (d,)
-
-
-probe = encode("dimension probe")
-store = PersistentKnowledgeMemory(key_dim=probe.numel(), db_path=":memory:")
-# bge is isotropic -> no centering. Its raw cosine has a high baseline (~0.45
-# even for unrelated text), so the honest floor must sit above that baseline:
-# real hits here score 0.54-0.74, an off-topic query tops out at ~0.46. A floor
-# of 0.5 cleanly separates "relevant" from "spurious".
-mem = EpisodicConversationMemory(store, encode, score_floor=0.5, center=False)
+# Dedicated sentence embedder; statements encoded plain, queries with bge's
+# retrieval instruction (asymmetric) -- widens the relevant/off-topic gap.
+enc = SentenceEncoder()
+store = PersistentKnowledgeMemory(key_dim=enc.dim, db_path=":memory:")
+# bge is isotropic -> no centering. Raw cosine has a high baseline (~0.4 even
+# for unrelated text); with the asymmetric query prompt real hits score ~0.50-
+# 0.74 and an off-topic query tops out at ~0.39, so a 0.45 floor cleanly
+# separates "relevant" from "spurious".
+mem = EpisodicConversationMemory(
+    store, enc.as_fn(is_query=False), score_floor=0.45, center=False,
+    query_encode_fn=enc.as_fn(is_query=True))
 
 R = {}
 
