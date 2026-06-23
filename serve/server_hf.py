@@ -408,6 +408,43 @@ def _startup() -> None:
     print(f"[serve] causal-consistency check: {'ON' if causal_check else 'off'} "
           f"(method={causal_method} floor={causal_floor} window={causal_window})")
 
+    # Optional persistent declarative memory (mt_lnn.knowledge_memory).
+    # A local, content-addressable long-term KNOWLEDGE store (SQLite) that is
+    # queried by similarity and pulled in on demand -- the complement to the
+    # model's procedural weights and the live recurrent/working state. Text is
+    # encoded to a key by mean-pooling the model's final hidden state; retrieval
+    # uses the store's anisotropy-robust CENTERED cosine (plain cosine on
+    # LM-pooled keys collapses to a near-universal nearest neighbour -- verified
+    # 3/6 wrong vs 4/4 correct after centering, see _sweep_encoder.py). Enabled by
+    # setting KB_PATH to a db file (":memory:" for ephemeral). When unset, all the
+    # memory endpoints report disabled and completions are unaffected.
+    #
+    # HONEST SCOPE: this is a real retrieval-augmentation tier, but it only helps
+    # when the store actually CONTAINS relevant facts -- an EMPTY store is a strict
+    # no-op (we never fabricate a "fact"). The mean-pooled-hidden-state key is a
+    # lightweight semantic index, not a dedicated sentence-embedding model; swap in
+    # a real embedder for large/precision-critical bases.
+    kb = None
+    kb_key_dim = None
+    kb_path = os.environ.get("KB_PATH", "").strip()
+    kb_score_floor = float(os.environ.get("KB_SCORE_FLOOR", "0.15"))
+    kb_top_k = int(os.environ.get("KB_TOP_K", "3"))
+    if kb_path:
+        from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
+        kb_max = os.environ.get("KB_MAX_ENTRIES")
+        # Probe-encode to learn the key dimension from THIS model/graph (robust to
+        # PEFT/quantization wrapping, which can hide config.hidden_size).
+        probe = _encode_key_with("dimension probe", model, tok, device_str)
+        kb_key_dim = int(probe.numel())
+        kb = PersistentKnowledgeMemory(
+            key_dim=kb_key_dim, db_path=kb_path,
+            max_entries=int(kb_max) if kb_max else None,
+        )
+        print(f"[serve] declarative memory: ON (db={kb_path} key_dim={kb_key_dim} "
+              f"entries={len(kb)} score_floor={kb_score_floor} top_k={kb_top_k})")
+    else:
+        print("[serve] declarative memory: off (set KB_PATH to enable)")
+
     _STATE.update(
         model=model, tok=tok, device=device_str,
         base_model=base_model,
@@ -426,6 +463,11 @@ def _startup() -> None:
         causal_method=causal_method,
         causal_floor=causal_floor,
         causal_window=causal_window,
+        kb=kb,
+        kb_key_dim=kb_key_dim,
+        kb_path=kb_path or None,
+        kb_score_floor=kb_score_floor,
+        kb_top_k=kb_top_k,
         ready=True,
     )
     print(f"[serve] ready | {total/1e9:.2f}B params | device={device_str}")
@@ -446,6 +488,10 @@ class CompletionRequest(BaseModel):
     # Per-request override for self-thinking decode. None -> use the server
     # default (THINKING env). True/False -> force on/off for this request.
     think: Optional[bool] = None
+    # Per-request toggle for declarative-memory retrieval augmentation. None ->
+    # on whenever a store is loaded; True/False -> force. A no-op when no store is
+    # loaded or the store has no hit above the score floor (never fabricates).
+    use_memory: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
@@ -478,10 +524,73 @@ def model_info():
         "adapter_loaded": _STATE.get("adapter_loaded", False),
         "thinking_enabled": _STATE.get("thinking_enabled", False),
         "causal_check": _STATE.get("causal_check", False),
+        "memory_enabled": _STATE.get("kb") is not None,
+        "memory_entries": len(_STATE["kb"]) if _STATE.get("kb") is not None else 0,
         "multimodal": False,
         "vision_tower": None,
         "multimodal_error": None,
     }
+
+
+class MemoryWriteRequest(BaseModel):
+    content: str                       # the fact / knowledge text to store
+    key: Optional[str] = None          # text to index by (defaults to content)
+    meta: Optional[dict] = None        # optional picklable metadata
+
+
+class MemoryQueryRequest(BaseModel):
+    query: str
+    top_k: int = Field(5, ge=1)
+
+
+@app.get("/v1/memory/stats")
+def memory_stats():
+    """Declarative-memory store status. Honest about being disabled when no
+    KB_PATH is configured (rather than pretending an empty store exists)."""
+    if not _STATE.get("ready"):
+        raise HTTPException(503, "model not ready")
+    kb = _STATE.get("kb")
+    if kb is None:
+        return {"enabled": False, "reason": "KB_PATH not set"}
+    return {
+        "enabled": True,
+        "entries": len(kb),
+        "key_dim": _STATE.get("kb_key_dim"),
+        "db_path": _STATE.get("kb_path"),
+        "score_floor": _STATE.get("kb_score_floor"),
+        "top_k": _STATE.get("kb_top_k"),
+    }
+
+
+@app.post("/v1/memory/write")
+def memory_write(req: MemoryWriteRequest):
+    """Store a fact, indexed by its (model-encoded) key. Returns the row id."""
+    if not _STATE.get("ready"):
+        raise HTTPException(503, "model not ready")
+    kb = _STATE.get("kb")
+    if kb is None:
+        raise HTTPException(400, "declarative memory disabled (set KB_PATH)")
+    if not req.content.strip():
+        raise HTTPException(400, "content must be non-empty")
+    key_text = req.key if (req.key and req.key.strip()) else req.content
+    row_id = kb.write(_encode_key(key_text), req.content, meta=req.meta)
+    return {"id": row_id, "entries": len(kb)}
+
+
+@app.post("/v1/memory/query")
+def memory_query(req: MemoryQueryRequest):
+    """Retrieve the top-k stored facts most similar to the query (centered,
+    anisotropy-robust scoring). Empty list when the store is empty."""
+    if not _STATE.get("ready"):
+        raise HTTPException(503, "model not ready")
+    kb = _STATE.get("kb")
+    if kb is None:
+        raise HTTPException(400, "declarative memory disabled (set KB_PATH)")
+    if len(kb) == 0:
+        return {"hits": []}
+    hits = kb.query(_encode_key(req.query), top_k=req.top_k, center=True)
+    return {"hits": [{"content": str(c), "score": round(float(s), 3),
+                      "meta": mt} for c, s, mt in hits]}
 
 
 def _sample_next_token(logits: torch.Tensor, req: "CompletionRequest") -> int:
@@ -506,6 +615,27 @@ def _sample_next_token(logits: torch.Tensor, req: "CompletionRequest") -> int:
         sorted_lg = sorted_lg.masked_fill(remove, float("-inf"))
         lg = lg.scatter(1, sorted_idx, sorted_lg)
     return int(torch.multinomial(torch.softmax(lg, -1), 1).item())
+
+
+@torch.no_grad()
+def _encode_key_with(text: str, model, tok, device: str) -> torch.Tensor:
+    """Encode *text* to a fixed-length key vector by mean-pooling the model's
+    final hidden state over the (truncated) token sequence.
+
+    Used both for the startup dimension probe and for memory write/query. Runs a
+    single no-cache forward with output_hidden_states; cheap for the short fact /
+    query strings a declarative store holds. Returns a CPU float32 (d_model,)
+    tensor -- PersistentKnowledgeMemory L2-normalises it on write/query.
+    """
+    ids = tok(text or " ", return_tensors="pt", truncation=True,
+              max_length=256).input_ids.to(device)
+    out = model(input_ids=ids, output_hidden_states=True, use_cache=False)
+    return out.hidden_states[-1][0].mean(dim=0).float().cpu()   # (d_model,)
+
+
+def _encode_key(text: str) -> torch.Tensor:
+    """State-reading wrapper around :func:`_encode_key_with` for the endpoints."""
+    return _encode_key_with(text, _STATE["model"], _STATE["tok"], _STATE["device"])
 
 
 def _build_input_ids(prompt: str) -> torch.Tensor:
@@ -534,7 +664,34 @@ def completions(req: CompletionRequest):
     if req.max_new_tokens > MAX_NEW_CAP:
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
-    ids = _build_input_ids(req.prompt)
+
+    # Declarative-memory retrieval augmentation (mt_lnn.knowledge_memory).
+    # When a store is loaded and holds a hit above the score floor, prepend the
+    # recalled fact(s) as grounding context. Strictly additive and honest: an
+    # absent store, an empty store, or no hit above the floor leaves the prompt
+    # untouched (no fabricated facts). Uses the anisotropy-robust centered query.
+    memory_used = False
+    memory_hits: List[dict] = []
+    kb = _STATE.get("kb")
+    want_mem = req.use_memory if req.use_memory is not None else (kb is not None)
+    aug_prompt = req.prompt
+    if want_mem and kb is not None and len(kb) > 0 and req.prompt.strip():
+        floor = _STATE.get("kb_score_floor", 0.15)
+        hits = kb.query(_encode_key(req.prompt),
+                        top_k=_STATE.get("kb_top_k", 3), center=True)
+        kept = [(c, s) for c, s, _ in hits if s >= floor]
+        if kept:
+            memory_used = True
+            memory_hits = [{"content": str(c), "score": round(float(s), 3)}
+                           for c, s in kept]
+            facts = "\n".join(f"- {c}" for c, _ in kept)
+            aug_prompt = (
+                "Use the following retrieved facts if relevant to answer the "
+                f"question. If they are not relevant, ignore them.\n{facts}\n\n"
+                f"{req.prompt}"
+            )
+
+    ids = _build_input_ids(aug_prompt)
     t0 = time.time()
 
     # Self-thinking decode path (mt_lnn.thinking) -- per-request `think`
@@ -573,6 +730,8 @@ def completions(req: CompletionRequest):
             "elapsed_s": round(dt, 4),
             "tok_per_s": round(n_new / dt, 2) if dt > 0 else None,
             "thinking": trace.summary(),
+            "memory_used": memory_used,
+            "memory_hits": memory_hits,
         }
 
     out = model.generate(
@@ -594,6 +753,8 @@ def completions(req: CompletionRequest):
         "n_new_tokens": len(new_ids),
         "elapsed_s": round(dt, 4),
         "tok_per_s": round(len(new_ids) / dt, 2) if dt > 0 else None,
+        "memory_used": memory_used,
+        "memory_hits": memory_hits,
     }
 
 

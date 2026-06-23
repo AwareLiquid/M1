@@ -201,6 +201,7 @@ class PersistentKnowledgeMemory:
         key: torch.Tensor,
         top_k: int = 5,
         touch: bool = True,
+        center: bool = False,
     ) -> List[Tuple[Any, float, Optional[Any]]]:
         """Return the *top_k* records most similar to *key* by cosine similarity.
 
@@ -213,6 +214,17 @@ class PersistentKnowledgeMemory:
             When True (default), the matched records' ``accessed_at`` is bumped so
             the LRU eviction policy treats recalled knowledge as "fresh". Pass
             False for a read-only peek that does not influence eviction.
+        center:
+            Anisotropy-robust scoring. Keys produced by mean-pooling a language
+            model's hidden states share a dominant direction, which inflates and
+            compresses every cosine score into a narrow high band -- so plain
+            cosine makes one record a near-universal nearest neighbour and barely
+            discriminates queries. When True, subtract the corpus mean of the
+            stored keys from both the stored keys and the query before scoring
+            (the "all-but-the-top" post-processing of Mu & Viswanath 2018), then
+            renormalise. This cancels the shared direction so scores spread out
+            and rank by genuine semantic content. Default False preserves the
+            plain-cosine behaviour. Recommended True for LM-encoded keys.
         """
         if top_k <= 0:
             raise ValueError(f"top_k must be positive, got {top_k}")
@@ -230,6 +242,14 @@ class PersistentKnowledgeMemory:
         keys = torch.stack(
             [_bytes_to_key(r[1], self.key_dim) for r in rows], dim=0
         )                                                   # (N, key_dim), already unit-norm
+        if center and keys.shape[0] >= 2:
+            # Remove the shared dominant direction (corpus mean) from keys AND
+            # query, then renormalise so the scores are cosines on the residual
+            # (semantic) component. Computed from the stored keys only, so the
+            # query is projected against the same offset.
+            mu = keys.mean(dim=0, keepdim=True)             # (1, key_dim)
+            keys = F.normalize(keys - mu, dim=-1)
+            q = F.normalize(q - mu.squeeze(0), dim=0)
         scores = keys @ q                                   # (N,) cosine sims
 
         k = min(top_k, scores.shape[0])
@@ -260,10 +280,12 @@ class PersistentKnowledgeMemory:
 
         return hits
 
-    def recall(self, key: torch.Tensor, touch: bool = True) -> Optional[Any]:
+    def recall(
+        self, key: torch.Tensor, touch: bool = True, center: bool = False
+    ) -> Optional[Any]:
         """Convenience: the content of the single best match, or ``None`` if the
-        store is empty."""
-        hits = self.query(key, top_k=1, touch=touch)
+        store is empty. See :meth:`query` for the ``center`` flag."""
+        hits = self.query(key, top_k=1, touch=touch, center=center)
         return hits[0][0] if hits else None
 
     # ------------------------------------------------------------------
