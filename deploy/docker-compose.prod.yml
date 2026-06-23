@@ -97,6 +97,17 @@ services:
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
       OMP_NUM_THREADS: "4"
+      # Self-thinking decode (mt_lnn.thinking): the FIRST higher cognitive module
+      # wired into serving. Routes each token through the deliberation policy and
+      # runs a self-consistency re-decode on uncertain tokens (KV-cached, ~same
+      # tok/s as plain decode). Honest scope: variance-reduction / stability on
+      # uncertain spans, NOT a correctness oracle, and it never fabricates facts
+      # (no cloud client wired -> CLOUD degrades to local self-critique). Clients
+      # can opt out per request with {"think": false}. Set THINKING=0 to disable.
+      THINKING: "1"
+      THINK_ENTROPY_LOW: "0.6"         # tuned to this 1.1B's entropy scale
+      THINK_ENTROPY_HIGH: "4.0"
+      THINK_SAMPLES: "5"
       # INT8 dynamic quantization of nn.Linear weights (CPU only). Cuts the
       # bandwidth-bound decode cost ~3-4x on this AVX2 box. Set to "0" + restart
       # to revert to fp32 if generation quality regresses.

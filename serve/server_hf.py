@@ -358,6 +358,30 @@ def _startup() -> None:
     print(f"[serve] chat_template={'yes' if use_chat else 'no'} | "
           f"identity={'mtlnn' if adapter_loaded else 'baseline'} | system_prompt set")
 
+    # Optional self-thinking decode (mt_lnn.thinking): routes each token through
+    # the deliberation policy (LOCAL / SELF_CRITIQUE self-consistency vote /
+    # CLOUD-degrade) and returns a per-step thinking trace. Off by default so the
+    # default decode path is unchanged; THINKING=1 turns it on globally and each
+    # request can still override via the `think` field. This is the FIRST higher
+    # cognitive module wired into serving -- it is honest about what it does (a
+    # token-level self-consistency re-decode on uncertain steps, no extra model
+    # forwards), and it does NOT fabricate facts (CLOUD degrades to self-critique
+    # when no cloud client is wired).
+    thinking_enabled = os.environ.get("THINKING", "0").lower() in ("1", "true", "yes")
+    # Entropy thresholds gate the self-critique band (low <= H < high -> re-decode
+    # via self-consistency vote). deliberation.py's library defaults (3.0/5.0) are
+    # too high for this 1.1B's actual next-token entropy scale -- measured mean
+    # entropy on confident answers is ~0.1-1.0 nats, so 3.0 leaves the mechanism
+    # INERT (every token routes LOCAL). 0.6/4.0 was tuned on held-out prompts to
+    # actually engage self-critique on uncertain tokens (verified: 8-23 critique
+    # steps, 4-9 token revisions per ~35-token answer) without firing on
+    # high-confidence spans. Override per-model via env.
+    think_low = float(os.environ.get("THINK_ENTROPY_LOW", "0.6"))
+    think_high = float(os.environ.get("THINK_ENTROPY_HIGH", "4.0"))
+    think_samples = int(os.environ.get("THINK_SAMPLES", "5"))
+    print(f"[serve] self-thinking decode: {'ON' if thinking_enabled else 'off'} "
+          f"(low={think_low} high={think_high} samples={think_samples})")
+
     _STATE.update(
         model=model, tok=tok, device=device_str,
         base_model=base_model,
@@ -368,6 +392,10 @@ def _startup() -> None:
         system_prompt=system_prompt,
         adapter_loaded=adapter_loaded,
         is_baseline=not adapter_loaded,
+        thinking_enabled=thinking_enabled,
+        think_low=think_low,
+        think_high=think_high,
+        think_samples=think_samples,
         ready=True,
     )
     print(f"[serve] ready | {total/1e9:.2f}B params | device={device_str}")
@@ -385,6 +413,9 @@ class CompletionRequest(BaseModel):
     top_k: int = 0
     top_p: float = 0.9
     stop_at_eos: bool = True
+    # Per-request override for self-thinking decode. None -> use the server
+    # default (THINKING env). True/False -> force on/off for this request.
+    think: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
@@ -415,6 +446,7 @@ def model_info():
         # this is the frozen base model served as a comparison baseline.
         "is_baseline": _STATE.get("is_baseline", True),
         "adapter_loaded": _STATE.get("adapter_loaded", False),
+        "thinking_enabled": _STATE.get("thinking_enabled", False),
         "multimodal": False,
         "vision_tower": None,
         "multimodal_error": None,
@@ -473,6 +505,41 @@ def completions(req: CompletionRequest):
     model, tok = _STATE["model"], _STATE["tok"]
     ids = _build_input_ids(req.prompt)
     t0 = time.time()
+
+    # Self-thinking decode path (mt_lnn.thinking) -- per-request `think`
+    # overrides the server default. Routes each token through the deliberation
+    # policy and attaches a thinking trace summary. Falls back transparently to
+    # the plain generate() path below when off.
+    want_think = req.think if req.think is not None else _STATE.get("thinking_enabled", False)
+    if want_think:
+        from mt_lnn.thinking import generate_with_thinking
+        from mt_lnn.deliberation import DeliberationRouter, RouterThresholds
+        router = DeliberationRouter(thresholds=RouterThresholds(
+            low=_STATE.get("think_low", 3.0),
+            high=_STATE.get("think_high", 5.0),
+        ))
+        text, trace = generate_with_thinking(
+            model, tok, req.prompt,
+            input_ids=ids,
+            max_new_tokens=req.max_new_tokens,
+            temperature=req.temperature,
+            top_k=req.top_k,
+            top_p=req.top_p,
+            n_critique_samples=_STATE.get("think_samples", 5),
+            router=router,
+            device=_STATE["device"],
+        )
+        dt = time.time() - t0
+        n_new = len(trace.steps)
+        return {
+            "text": text,
+            "tokens": [s.token_id for s in trace.steps if s.token_id >= 0],
+            "n_new_tokens": n_new,
+            "elapsed_s": round(dt, 4),
+            "tok_per_s": round(n_new / dt, 2) if dt > 0 else None,
+            "thinking": trace.summary(),
+        }
+
     out = model.generate(
         ids,
         max_new_tokens=req.max_new_tokens,

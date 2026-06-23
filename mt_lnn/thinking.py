@@ -243,6 +243,8 @@ def generate_with_thinking(
     thresholds: Optional[RouterThresholds] = None,
     cloud_fn: Optional[Callable[[str], str]] = None,
     device: Optional[str] = None,
+    input_ids: Optional[torch.Tensor] = None,
+    use_cache: bool = True,
 ) -> Tuple[str, ThinkingTrace]:
     """Generate text while routing each token through the self-thinking policy.
 
@@ -269,14 +271,33 @@ def generate_with_thinking(
                          if hasattr(model, "parameters") else "cpu")
     router = router or DeliberationRouter(thresholds=thresholds)
 
-    ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+    # Caller may pass pre-built input_ids (e.g. already run through a chat
+    # template); otherwise tokenize the raw prompt here. Passing input_ids
+    # avoids double-applying special tokens for instruct models.
+    if input_ids is not None:
+        ids = input_ids.to(device)
+    else:
+        ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
     prompt_len = ids.shape[1]
     eos_id = tokenizer.eos_token_id
     trace = ThinkingTrace()
     cloud_used = False
 
+    # KV cache: feed the full prompt once, then only the newest token each
+    # step. Numerically identical to re-running the whole sequence (HF caches
+    # the same keys/values) but turns the decode from O(n^2) into O(n), which
+    # is what makes this usable for serving on CPU. A cloud inject (rare; only
+    # when cloud_fn is wired) resets the cache to re-prime on the new context.
+    past = None
+    cur_input = ids
+
     for step in range(int(max_new_tokens)):
-        out = model(input_ids=ids)
+        if use_cache:
+            out = model(input_ids=cur_input, past_key_values=past,
+                        use_cache=True)
+            past = getattr(out, "past_key_values", None)
+        else:
+            out = model(input_ids=ids)
         raw_logits = out.logits[:, -1, :]              # (1, V), unscaled
         scaled = raw_logits / max(float(temperature), 1e-6)
 
@@ -301,6 +322,10 @@ def generate_with_thinking(
             ).input_ids.to(device)
             ids = torch.cat([ids, inject], dim=1)
             cloud_used = True
+            # Injected tokens are not in the KV cache -> reset so the next
+            # step re-primes on the full (prompt + inject) context.
+            past = None
+            cur_input = ids
             # Record the inject as a zero-token annotation and move on.
             trace.steps.append(StepTrace(
                 index=step, token_id=-1, token_text="",
@@ -341,9 +366,9 @@ def generate_with_thinking(
             revised=revised,
         ))
 
-        ids = torch.cat(
-            [ids, torch.tensor([[next_id]], device=device)], dim=1
-        )
+        next_tok = torch.tensor([[next_id]], device=device)
+        ids = torch.cat([ids, next_tok], dim=1)
+        cur_input = next_tok          # KV cache: only feed the new token next
         if eos_id is not None and next_id == eos_id:
             break
 
