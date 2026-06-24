@@ -202,14 +202,21 @@ class PersistentKnowledgeMemory:
         top_k: int = 5,
         touch: bool = True,
         center: bool = False,
-    ) -> List[Tuple[Any, float, Optional[Any]]]:
+        return_ids: bool = False,
+    ) -> List[Tuple]:
         """Return the *top_k* records most similar to *key* by cosine similarity.
 
         Each hit is ``(content, score, meta)`` with ``score`` in [-1, 1], sorted
-        descending. Returns an empty list when the store is empty.
+        descending (or ``(id, content, score, meta)`` when ``return_ids=True``).
+        Returns an empty list when the store is empty.
 
         Parameters
         ----------
+        return_ids:
+            When True, each hit is prefixed with the record's integer row id
+            ``(id, content, score, meta)`` so a caller (e.g. a graph layer) can
+            map a recalled record back to a stable node id. Default False
+            preserves the 3-tuple ``(content, score, meta)`` contract.
         touch:
             When True (default), the matched records' ``accessed_at`` is bumped so
             the LRU eviction policy treats recalled knowledge as "fresh". Pass
@@ -261,8 +268,12 @@ class PersistentKnowledgeMemory:
             row = rows[idx]
             content = _bytes_to_obj(row[2])
             meta = _bytes_to_obj(row[3]) if row[3] is not None else None
-            hits.append((content, float(score), meta))
-            touched_ids.append(int(row[0]))
+            rid = int(row[0])
+            if return_ids:
+                hits.append((rid, content, float(score), meta))
+            else:
+                hits.append((content, float(score), meta))
+            touched_ids.append(rid)
 
         if touch and touched_ids:
             now = datetime.now(timezone.utc).isoformat()
