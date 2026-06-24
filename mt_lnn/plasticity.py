@@ -39,12 +39,21 @@ For each MTLNNLayer in the model:
 
   2. HebbianRegularizer.compute_loss(model) collects all _hebb_signal values.
 
-  3. α is modulated by the mean LAVI across all blocks:
-       α = hebbian_lr × sigmoid(global_lavi_mean)   [if hebbian_lavi_gate=True]
-       α = hebbian_lr                               [if hebbian_lavi_gate=False]
+  3. α is modulated by a self-contained consolidation gate:
+       α = hebbian_lr × sigmoid(temp × coactivation_mag)  [hebbian_lavi_gate=True]
+       α = hebbian_lr                                      [hebbian_lavi_gate=False]
 
-     High LAVI (persistent mode) → strong consolidation (reinforce stable state).
-     Low LAVI (transient mode) → weak consolidation (don't fix transient patterns).
+     coactivation_mag = mean(|_hebb_signal|) across blocks (detached), i.e. the
+     gate is driven by Hebbian's OWN co-activation magnitude. Strong, consistent
+     co-activation → stronger consolidation; weak co-activation → weaker.
+
+     DECOUPLING (v2.2): the gate was previously driven by the rhythm module's
+     resonance.last_lavi_mean, which meant `lavi_temperature` only received a
+     gradient when use_rhythm was ALSO enabled — a hidden cross-module coupling
+     that made Hebbian un-trainable in isolation. The gate is now self-contained,
+     so every mechanism (Hebbian / predictive-coding / world-model / GWT / rhythm)
+     is independently switchable and ablatable. The parameter keeps the name
+     `lavi_temperature` for checkpoint / diagnostics back-compat.
 
   4. L_hebb = -α × mean(all _hebb_signals)
      Negative sign: minimising total_loss → maximises co-activation → Hebb rule.
@@ -94,7 +103,9 @@ class HebbianRegularizer(nn.Module):
     base_lr : float
         Base Hebbian learning rate α (pre-LAVI gate).
     lavi_gate : bool
-        If True, α is multiplied by sigmoid(global_lavi_mean).
+        If True, α is multiplied by sigmoid(lavi_temperature × coactivation_mag),
+        where coactivation_mag is Hebbian's own detached co-activation magnitude
+        (NOT rhythm output — see DECOUPLING note in the module docstring).
         If False, α is constant.
     """
 
@@ -119,30 +130,32 @@ class HebbianRegularizer(nn.Module):
         model : MTLNNModel whose blocks may carry _hebb_signal attributes.
         """
         signals = []
-        lavi_vals = []
 
         for block in model.blocks:
             sig = getattr(block.lnn, "_hebb_signal", None)
             if sig is not None:
                 signals.append(sig)
-                # Collect LAVI for gate
-                lavi_buf = getattr(block.lnn.resonance, "last_lavi_mean", None)
-                if lavi_buf is not None:
-                    lavi_vals.append(lavi_buf.item())
 
         if not signals:
             return None
 
-        hebb_mean = torch.stack(signals).mean()
+        hebb_stack = torch.stack(signals)
+        hebb_mean = hebb_stack.mean()
 
-        # LAVI-gated α
+        # Decoupled consolidation gate (see class docstring).
+        # The gate driver is Hebbian's OWN co-activation magnitude, NOT the
+        # rhythm module's resonance.last_lavi_mean. Consequence: lavi_temperature
+        # is trainable whenever use_hebbian is on, with ZERO dependency on
+        # use_rhythm -- every mechanism stays independently switchable/ablatable
+        # and there is no hidden "must enable rhythm to train Hebbian" coupling.
         alpha = self.base_lr
-        if self.lavi_gate and lavi_vals:
-            global_lavi = sum(lavi_vals) / len(lavi_vals)
-            # Temperature-scaled sigmoid: sharper with lower temperature
-            gate = torch.sigmoid(
-                self.lavi_temperature * torch.tensor(global_lavi, dtype=torch.float32)
-            )
+        if self.lavi_gate:
+            # Detach the driver so the gate is a pure multiplicative modulator
+            # (mirrors the original detached-LAVI buffer); gradient still flows
+            # to lavi_temperature through the sigmoid as long as co-activation
+            # magnitude is non-zero.
+            coact = hebb_stack.detach().abs().mean()
+            gate = torch.sigmoid(self.lavi_temperature * coact)
             alpha = self.base_lr * gate
 
         # Negative sign: minimise total loss → maximise co-activation (Hebb rule)

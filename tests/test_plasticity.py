@@ -349,15 +349,26 @@ def test_lavi_temperature_is_learnable_parameter():
 
 
 def test_lavi_temperature_receives_gradient():
-    cfg = hebb_config(use_hebb=True, lavi_gate=True)
+    """DECOUPLING regression (v2.2): with the gate driven by Hebbian's own
+    co-activation magnitude (not rhythm output), lavi_temperature MUST receive a
+    real, non-zero gradient even though hebb_config sets use_rhythm=False. Before
+    decoupling this gradient was exactly 0 (dead parameter) unless use_rhythm was
+    also enabled -- the hidden coupling this fix removes."""
+    cfg = hebb_config(use_hebb=True, hebb_lr=1.0, lavi_gate=True)
+    assert cfg.use_rhythm is False  # the whole point: no rhythm dependency
     model = MTLNNModel(cfg)
     model.train()
     ids = torch.randint(0, cfg.vocab_size, (1, 6))
     labels = torch.randint(0, cfg.vocab_size, (1, 6))
     out = model(ids, labels=labels)
     out["loss"].backward()
-    # lavi_temperature might not receive gradient if LAVI buffers are all 0
-    # (detached). We just verify no error and finite params.
+    g = model.hebbian_reg.lavi_temperature.grad
+    assert g is not None, "lavi_temperature got no gradient -- still dead/coupled"
+    assert torch.isfinite(g)
+    assert float(g.abs()) > 0.0, (
+        "lavi_temperature gradient is exactly 0 with rhythm OFF -- decoupling "
+        "failed; gate is still bound to the rhythm module"
+    )
     assert torch.isfinite(model.hebbian_reg.lavi_temperature)
 
 
