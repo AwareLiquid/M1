@@ -298,6 +298,39 @@ class MTLNNModel(nn.Module):
                 torch.tensor(float(getattr(config, "top_down_gwtb_gate_init", 0.0)))
             )
 
+        # Synaptic memory -> GWT docking entry (Gap 1, 2026-06-25): close the
+        # "spatial position code -> Hebbian/associative synaptic memory -> global
+        # workspace" chain by letting a content-addressed FastWeightMemory recall
+        # stream bid for the workspace, jointly trained end-to-end with the main CE.
+        # Reuses the SAME zero-gated residual-bid machinery as the world model (no
+        # new bid mechanism) and the FastWeightMemory primitive built for the served
+        # adapter (mt_lnn.llama_adapter.FastWeightMemory -- one associative-memory
+        # implementation, shared across the M1 adapter and the O1 native model, NOT
+        # duplicated). FastWeightMemory already projects its read back to d_model, so
+        # the bid is simply:
+        #     mem_bid = x + memory_bid_gate * fast_weight_recall(x)
+        # gate init 0 -> bid == x at init -> competition unchanged (zero regression);
+        # the recall projection is nonzero so the gate keeps a live gradient and the
+        # workspace can LEARN how much to trust the memory. Active only when the
+        # competitive workspace accepts external bids (same precondition as the
+        # world-model / top-down bids); default OFF.
+        self._memory_gwtb_bid = (
+            getattr(config, "gwtb_memory_bid", False)
+            and self.gwtb is not None
+            and getattr(self.gwtb, "accept_external_bids", False)
+        )
+        if self._memory_gwtb_bid:
+            from .llama_adapter import FastWeightMemory
+            self.memory_fast_weight = FastWeightMemory(
+                d_model=config.d_model,
+                d_mem=int(getattr(config, "gwtb_memory_bid_dim", 64)),
+                n_heads=int(getattr(config, "gwtb_memory_bid_heads", 1)),
+                init_decay=float(getattr(config, "gwtb_memory_bid_decay", 0.95)),
+            )
+            self.memory_bid_gate = nn.Parameter(
+                torch.tensor(float(getattr(config, "gwtb_memory_bid_gate_init", 0.0)))
+            )
+
         # P3.2 graceful degradation: finiteness guards on auxiliary v2 module
         # contributions. _degradation_counts tracks how often each module was
         # skipped over the whole run (a monitoring "eye"); it is process state,
@@ -520,6 +553,19 @@ class MTLNNModel(nn.Module):
                     )
                     td_bid = x
                 _bids.append(td_bid)
+            # Synaptic memory bid (Gap 1): the content-addressed FastWeightMemory
+            # recalls the value associated with the current state and offers it to
+            # the workspace competition. Zero-gated at init (recall * 0 -> bid == x),
+            # so it joins as an equal competitor without perturbing the init output.
+            if getattr(self, "_memory_gwtb_bid", False):
+                mem_recall, _ = self.memory_fast_weight(x)
+                mem_bid = x + self.memory_bid_gate * mem_recall
+                if self.use_graceful_degradation and not torch.isfinite(mem_bid).all():
+                    self._degradation_counts["memory_bid"] = (
+                        self._degradation_counts.get("memory_bid", 0) + 1
+                    )
+                    mem_bid = x
+                _bids.append(mem_bid)
             if _bids:
                 external_bids = _bids
             if external_bids is not None:
@@ -794,6 +840,8 @@ class MTLNNModel(nn.Module):
                 diag["gwtb_external_bid_weight"] = self.gwtb.last_external_weight.item()
                 if getattr(self, "_world_gwtb_bid", False):
                     diag["gwtb_world_bid_gate"] = self.world_bid_gate.item()
+                if getattr(self, "_memory_gwtb_bid", False):
+                    diag["gwtb_memory_bid_gate"] = self.memory_bid_gate.item()
         else:
             # Per-block GWTB — report mean / spread across blocks
             gates = [b.gwtb.broadcast_gate.item() for b in self.blocks if b.has_gwtb]

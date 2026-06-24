@@ -139,6 +139,25 @@ class MTLNNConfig:
     top_down_to_gwtb: bool = False
     top_down_gwtb_gate_init: float = 0.0      # GWT-bid gate init (0 → ~identity)
 
+    # Synaptic-memory -> GWT docking (Gap 1 closed-loop, 2026-06-25): complete the
+    # "spatial/Hebbian associative memory -> global workspace" chain end-to-end by
+    # letting a content-addressed FastWeightMemory recall stream submit its own bid
+    # into the top-level workspace competition, jointly trained with the main CE.
+    # This reuses (no duplication): the FastWeightMemory primitive built for the
+    # served adapter (mt_lnn.llama_adapter.FastWeightMemory) AND the same zero-init-
+    # gated residual-bid machinery as the world model:
+    #     mem_bid = x + gate * fast_weight_recall(x)
+    # Needs a CompetitiveGWTBLayer that accepts external bids, i.e.
+    # use_competitive_gwtb=True AND gwtb_external_bids=True (same precondition as the
+    # world-model / top-down bids). gate init 0 -> bid == x -> competition unchanged
+    # at init (zero regression); the recall projection is nonzero so the gate keeps a
+    # live gradient and the workspace can LEARN to trust the memory. Default OFF.
+    gwtb_memory_bid: bool = False
+    gwtb_memory_bid_dim: int = 64             # per-head fast-weight key/value width
+    gwtb_memory_bid_heads: int = 1
+    gwtb_memory_bid_decay: float = 0.95       # initial association half-life in (0,1)
+    gwtb_memory_bid_gate_init: float = 0.0    # residual bid gate init (0 → identity)
+
     # P3.2 graceful degradation (2026-06-07): wrap the AUXILIARY v2 module
     # contributions (world-model loss, GWTB orthogonality penalty, Hebbian loss,
     # the world-model workspace bid, and the LAVI surprise signal) in finiteness
