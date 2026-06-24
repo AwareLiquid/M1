@@ -8,13 +8,23 @@ noise (a trivial "ok") and a repeat mixed in, then checks that:
   - later queries recall the RIGHT earlier statement (name/job vs hobby)
   - an off-topic query recalls nothing above the floor (honest, no fabrication)
 
-Uses a dedicated sentence-embedding model (BAAI/bge-small-en-v1.5, CLS-pooled +
-L2-normalized) as the encoder. The earlier mean-pooled Qwen-0.5B encoder could
-NOT separate first-person paraphrases ("I love hiking" lost to "marine
-biologist", the universal nearest neighbour) -- see _diag_conv_mem.py. bge is
-isotropic enough to rank by genuine content, so centering is OFF here. This
+Uses the project default sentence embedder (intfloat/multilingual-e5-small,
+masked-mean + "query:"/"passage:" prefixes). The earlier mean-pooled Qwen-0.5B
+encoder could NOT separate first-person paraphrases ("I love hiking" lost to
+"marine biologist", the universal nearest neighbour) -- see _diag_conv_mem.py.
+e5 ranks English paraphrases by genuine content, so centering is OFF here. This
 proves the buildable slice of a "Her-like" experience -- continuity / recall --
 NOT understanding or AGI.
+
+FLOOR NOTE (honest, e5-specific): e5's cosines sit in a high, compressed band
+(~0.69-0.82 even for unrelated English here), so the bge-era 0.45 floor no longer
+separates relevant from off-topic. The e5-calibrated floor for THESE English
+cases is ~0.75 (relevant tops 0.758-0.819, off-topic tops <=0.749) -- a working
+but TIGHT margin. This English off-topic guarantee does NOT generalize to
+Chinese, where same-language "magnet" sentences make off-topic queries score
+ABOVE cross-lingual relevant ones (no absolute floor separates them); the typed-
+card layer fixes recall RANKING there, not off-topic relevance gating. See
+_test_memory_cards.py and _diag_typed_recall.py.
 
 Run:  PYTHONUTF8=1 python _test_conversation_memory.py
 """
@@ -29,12 +39,12 @@ from mt_lnn.sentence_encoder import SentenceEncoder
 # retrieval instruction (asymmetric) -- widens the relevant/off-topic gap.
 enc = SentenceEncoder()
 store = PersistentKnowledgeMemory(key_dim=enc.dim, db_path=":memory:")
-# bge is isotropic -> no centering. Raw cosine has a high baseline (~0.4 even
-# for unrelated text); with the asymmetric query prompt real hits score ~0.50-
-# 0.74 and an off-topic query tops out at ~0.39, so a 0.45 floor cleanly
-# separates "relevant" from "spurious".
+# e5 is isotropic enough for English -> no centering. Its cosines live in a high
+# compressed band, so the floor is 0.75 (not bge's 0.45): real English hits score
+# ~0.758-0.819 and an off-topic English query tops out at ~0.749, so 0.75
+# separates "relevant" from "spurious" for these cases (a tight but real margin).
 mem = EpisodicConversationMemory(
-    store, enc.as_fn(is_query=False), score_floor=0.45, center=False,
+    store, enc.as_fn(is_query=False), score_floor=0.75, center=False,
     query_encode_fn=enc.as_fn(is_query=True))
 
 R = {}

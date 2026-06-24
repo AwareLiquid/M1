@@ -450,41 +450,71 @@ def _startup() -> None:
     # said and the relevant ones are recalled on later turns (persisted to SQLite,
     # so it survives restarts). Distinct from the declarative KB above in BOTH
     # purpose and encoder: this uses a dedicated sentence-embedding model
-    # (mt_lnn.sentence_encoder, bge-small) because the chat model's mean-pooled
-    # hidden state cannot separate first-person paraphrases (_diag_conv_mem.py
-    # showed "I love hiking" always loses to the anisotropic universal nearest
-    # neighbour). Its own store / key_dim, so it does not disturb the KB.
+    # (mt_lnn.sentence_encoder, multilingual-e5-small by default) because the chat
+    # model's mean-pooled hidden state cannot separate first-person paraphrases
+    # (_diag_conv_mem.py showed "I love hiking" always loses to the anisotropic
+    # universal nearest neighbour). Its own store / key_dim, so it does not disturb
+    # the KB.
+    #
+    # TYPED CARDS (mt_lnn.memory_cards, borrowed from the Awareness-Market design):
+    # when enabled, each stored statement is tagged with a card_type (identity /
+    # preference / emotion / plan / relationship / health / detail) and recall
+    # boosts a hit whose type matches the query's classified type. This is what
+    # rescues bilingual recall RANKING: under e5, several same-language statements
+    # create "magnet" sentences that win raw cosine regardless of meaning (a
+    # Chinese allergy question would otherwise recall the emotion sentence); the
+    # type boost promotes the correct-type memory back to the top (verified 0/3 ->
+    # 3/3 in _test_memory_cards.py). HONEST BOUND: the typing fixes ranking, NOT
+    # off-topic relevance gating -- e5's compressed high-cosine band means no
+    # absolute score_floor cleanly rejects an off-topic Chinese query, and off-
+    # topic queries are themselves confidently mis-typed. Floor is e5-calibrated
+    # (~0.75 for English; weaker for Chinese -- documented, not over-claimed).
     #
     # HONEST SCOPE: this is AUTOMATED RETRIEVAL (RAG) over past user utterances --
-    # it makes the assistant recall what you told it. It adds NO understanding,
-    # reasoning, emotion, or self-awareness; a 0.5B model with episodic recall is
-    # still a 0.5B model. Off by default; set CONV_MEMORY=1 + CONV_DB_PATH.
+    # it makes the assistant recall what you told it, and the card_type is a
+    # lightweight semantic TAG (it embeds near emotional/health/... phrasings), NOT
+    # affect or intent understanding. It adds NO reasoning, emotion, or self-
+    # awareness; a 0.5B model with typed episodic recall is still a 0.5B model.
+    # Off by default; set CONV_MEMORY=1 + CONV_DB_PATH.
     conv_mem = None
     conv_enabled = os.environ.get("CONV_MEMORY", "0").lower() in ("1", "true", "yes")
     conv_db = os.environ.get("CONV_DB_PATH", "").strip()
-    conv_floor = float(os.environ.get("CONV_SCORE_FLOOR", "0.45"))
+    conv_floor = float(os.environ.get("CONV_SCORE_FLOOR", "0.75"))
     conv_top_k = int(os.environ.get("CONV_TOP_K", "3"))
+    # Typed cards on by default when memory is on (the "情感等类型" feature); set
+    # CONV_TYPED=0 to fall back to the untyped (purely-similarity) behaviour.
+    conv_typed = os.environ.get("CONV_TYPED", "1").lower() in ("1", "true", "yes")
+    conv_type_boost = float(os.environ.get("CONV_TYPE_BOOST", "0.15"))
     if conv_enabled and conv_db:
         from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
         from mt_lnn.conversation_memory import EpisodicConversationMemory
         from mt_lnn.sentence_encoder import SentenceEncoder
-        conv_model_id = os.environ.get("CONV_MODEL", "BAAI/bge-small-en-v1.5")
+        conv_model_id = os.environ.get("CONV_MODEL", "intfloat/multilingual-e5-small")
         conv_enc = SentenceEncoder(model_id=conv_model_id, device="cpu")
         conv_max = os.environ.get("CONV_MAX_ENTRIES")
         conv_store = PersistentKnowledgeMemory(
             key_dim=conv_enc.dim, db_path=conv_db,
             max_entries=int(conv_max) if conv_max else None,
         )
-        # bge is isotropic -> no centering; asymmetric query encoder (instruction
-        # on the query side only) widens the relevant/off-topic gap.
+        # Optional typed-card classifier (same shared encoder, asymmetric).
+        conv_clf = None
+        if conv_typed:
+            from mt_lnn.memory_cards import MemoryCardClassifier
+            conv_clf = MemoryCardClassifier(
+                conv_enc.as_fn(is_query=False),
+                query_encode_fn=conv_enc.as_fn(is_query=True))
+        # e5 is isotropic enough for English -> no centering; asymmetric query
+        # encoder (prefix on the query side) widens the relevant/off-topic gap.
         conv_mem = EpisodicConversationMemory(
             conv_store, conv_enc.as_fn(is_query=False),
             score_floor=conv_floor, center=False,
             query_encode_fn=conv_enc.as_fn(is_query=True),
+            classifier=conv_clf, type_boost=conv_type_boost,
         )
         print(f"[serve] conversation memory: ON (db={conv_db} "
               f"model={conv_model_id} key_dim={conv_enc.dim} "
-              f"entries={len(conv_store)} floor={conv_floor} top_k={conv_top_k})")
+              f"entries={len(conv_store)} floor={conv_floor} top_k={conv_top_k} "
+              f"typed={'on' if conv_typed else 'off'} boost={conv_type_boost})")
     elif conv_enabled and not conv_db:
         print("[serve] conversation memory: requested but CONV_DB_PATH unset -> off")
     else:

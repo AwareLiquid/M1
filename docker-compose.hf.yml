@@ -71,12 +71,21 @@ services:
       KB_SCORE_FLOOR: "0.15"
       KB_TOP_K: "3"
       # Episodic conversation memory ("remembers you"): its own SQLite file on the
-      # same writable volume, encoded by a dedicated bge sentence model. Floor 0.45
-      # sits above bge's high cosine baseline so off-topic turns recall nothing.
+      # same writable volume, encoded by the multilingual-e5-small sentence model
+      # (bilingual EN+ZH). Floor 0.75 is e5-calibrated (its cosines sit in a high
+      # ~0.7-0.9 band): English off-topic turns recall nothing; for Chinese the
+      # off-topic guarantee is softer (documented in _diag_typed_recall.py).
+      # CONV_TYPED on = typed cards (identity/preference/emotion/plan/relationship/
+      # health/detail) with cardTypeBoost; this fixes bilingual recall RANKING
+      # (raw 0/3 -> typed 3/3 on Chinese, see _test_memory_cards.py). It tags
+      # recall, not affect/intent understanding.
       CONV_MEMORY: "1"
       CONV_DB_PATH: /app/kb/conversation.db
-      CONV_SCORE_FLOOR: "0.45"
+      CONV_MODEL: intfloat/multilingual-e5-small
+      CONV_SCORE_FLOOR: "0.75"
       CONV_TOP_K: "3"
+      CONV_TYPED: "1"
+      CONV_TYPE_BOOST: "0.15"
       # Causal-consistency check stays OFF (honest: non-discriminative on a
       # Transformer base; flip to "1" only after recalibrating on native LNN state).
       CAUSAL_CHECK: "0"

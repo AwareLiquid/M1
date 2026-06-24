@@ -76,6 +76,8 @@ class EpisodicConversationMemory:
         score_floor: float = 0.15,
         center: bool = True,
         query_encode_fn: Optional[Callable[[str], torch.Tensor]] = None,
+        classifier=None,
+        type_boost: float = 0.05,
     ):
         self.store = store
         self.encode_fn = encode_fn
@@ -90,6 +92,14 @@ class EpisodicConversationMemory:
         self.dedup_threshold = float(dedup_threshold)
         self.score_floor = float(score_floor)
         self.center = bool(center)
+        # Optional typed-card layer (mt_lnn.memory_cards): when a classifier is
+        # supplied, every stored statement is tagged with a card_type (identity /
+        # preference / emotion / plan / relationship / health / detail) and recall
+        # adds `type_boost` to a hit whose type matches the query's classified
+        # type, so e.g. an emotion question prefers an emotion memory over an
+        # equally-similar preference one. None -> the untyped behaviour is intact.
+        self.classifier = classifier
+        self.type_boost = float(type_boost)
 
     # -- write side -------------------------------------------------------
     def _worth_remembering(self, text: str) -> bool:
@@ -113,6 +123,12 @@ class EpisodicConversationMemory:
 
         Returns the new record id, or None if the turn was skipped (trivial or a
         duplicate of something already stored).
+
+        When a classifier is configured, the statement is tagged with its
+        ``card_type`` + ``type_confidence`` in meta so recall can prefer a memory
+        whose type matches the query's type (the cardTypeBoost idea). The tag is
+        only metadata -- it never changes WHAT is stored, just how it is ranked
+        later, so the untyped behaviour is byte-identical when classifier is None.
         """
         if not self._worth_remembering(user_text):
             return None
@@ -123,28 +139,78 @@ class EpisodicConversationMemory:
             top = self.store.query(key, top_k=1, touch=False, center=self.center)
             if top and top[0][1] >= self.dedup_threshold:
                 return None
-        return self.store.write(key, user_text.strip(), meta=meta or {})
+        full_meta = dict(meta or {})
+        if self.classifier is not None:
+            ctype, conf = self.classifier.classify_statement(user_text)
+            # Caller-supplied card_type wins (explicit override); otherwise tag.
+            full_meta.setdefault("card_type", ctype)
+            full_meta.setdefault("type_confidence", round(float(conf), 4))
+        return self.store.write(key, user_text.strip(), meta=full_meta)
 
     # -- read side --------------------------------------------------------
+    def recall_cards(self, query_text: str, top_k: int = 3) -> List[dict]:
+        """Return up to *top_k* relevant past statements as rich dicts
+        ``{content, score, card_type}`` (the typed form). ``card_type`` is the
+        stored tag, or ``None`` when the memory was written untyped.
+
+        Ranking: base score is the encoder's centered/plain cosine; when a
+        classifier is configured, a hit whose stored ``card_type`` equals the
+        query's classified type gets ``+type_boost`` BEFORE the floor + sort, so
+        e.g. an emotion question prefers an emotion memory over an equally similar
+        preference one. The boost is small and additive -- it re-orders near-ties,
+        it does not manufacture relevance (an off-topic hit below the floor stays
+        below it; the floor is checked on the boosted score, which can only help a
+        genuine type match, never invent a hit out of noise since the raw cosine
+        still has to be within ``type_boost`` of the floor)."""
+        if not query_text or not query_text.strip() or len(self.store) == 0:
+            return []
+        # Pull a GENEROUS candidate pool, not just top_k, so the boost can
+        # promote a matching-type memory that the raw cosine buried far down.
+        # This matters because e5's same-language "magnet" effect can push the
+        # correct memory well outside top_k (e.g. an allergy statement ranked
+        # below the emotion magnet); a pool of only top_k*k would never see it.
+        # The store caps at its own size, so over-asking is free at edge scale.
+        pool = max(top_k * 5, 25) if self.classifier is not None else top_k
+        raw = self.store.query(
+            self.query_encode_fn(query_text), top_k=pool, center=self.center)
+        q_type = None
+        if self.classifier is not None:
+            q_type, _ = self.classifier.classify_query(query_text)
+        scored = []
+        for content, score, meta in raw:
+            ctype = (meta or {}).get("card_type")
+            boosted = float(score)
+            if q_type is not None and ctype == q_type:
+                boosted += self.type_boost
+            if boosted >= self.score_floor:
+                scored.append({"content": str(content), "score": boosted,
+                               "card_type": ctype})
+        scored.sort(key=lambda h: h["score"], reverse=True)
+        return scored[:top_k]
+
     def recall(self, query_text: str, top_k: int = 3) -> List[Tuple[str, float]]:
         """Return up to *top_k* past user statements relevant to *query_text*,
         as (content, score) above the honest score floor. Empty when the store
-        is empty or nothing is relevant (never fabricates)."""
-        if not query_text or not query_text.strip() or len(self.store) == 0:
-            return []
-        hits = self.store.query(
-            self.query_encode_fn(query_text), top_k=top_k, center=self.center)
-        return [(str(c), float(s)) for c, s, _ in hits if s >= self.score_floor]
+        is empty or nothing is relevant (never fabricates). Thin (content, score)
+        view over :meth:`recall_cards` for callers that don't need the type."""
+        return [(h["content"], h["score"])
+                for h in self.recall_cards(query_text, top_k=top_k)]
 
     def recall_context(self, query_text: str, top_k: int = 3) -> str:
         """Format recalled statements as a grounding block for the prompt, or an
         empty string when nothing is recalled. The caller decides whether/how to
-        prepend it -- this never mutates the prompt itself."""
-        hits = self.recall(query_text, top_k=top_k)
+        prepend it -- this never mutates the prompt itself. When a memory carries
+        a card_type, it is surfaced as a ``[type]`` tag so the model knows a
+        recalled line is e.g. emotional rather than a bare fact."""
+        hits = self.recall_cards(query_text, top_k=top_k)
         if not hits:
             return ""
-        lines = "\n".join(f"- {c}" for c, _ in hits)
-        return ("The user told you earlier:\n" + lines +
+        lines = []
+        for h in hits:
+            ctype = h.get("card_type")
+            tag = f"[{ctype}] " if ctype and ctype != "detail" else ""
+            lines.append(f"- {tag}{h['content']}")
+        return ("The user told you earlier:\n" + "\n".join(lines) +
                 "\nUse this to stay consistent and personal if relevant.")
 
     def __len__(self) -> int:
