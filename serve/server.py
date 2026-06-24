@@ -38,6 +38,12 @@ Environment
                 recurrent memory across separate HTTP requests / processes.
                 Unset (default) → the server is fully stateless, exactly as
                 before. Backed by mt_lnn.memory.SessionMemory (demo/single-node).
+    KNOWLEDGE_DB  path to the SQLite file for the long-term content-addressable
+                knowledge store that POST /v1/sleep consolidates sessions into
+                (Gap 4, NREM sleep). Defaults to a sibling of SESSION_DB
+                (``<SESSION_DB>.knowledge.db``). Only used by /v1/sleep; requires
+                SESSION_DB to be set. Backed by
+                mt_lnn.knowledge_memory.PersistentKnowledgeMemory.
     ENABLE_MULTIMODAL   "1" → load a CLIP vision tower and expose
                         POST /v1/multimodal/completions (needs transformers,
                         Pillow, and a one-time CLIP weight download)
@@ -254,10 +260,17 @@ def _startup() -> None:
     # the server stays stateless and bit-identical to before unless SESSION_DB is
     # explicitly provided AND a request carries a session_id.
     session_db = os.environ.get("SESSION_DB", "").strip()
+    # Long-term knowledge store for the NREM sleep bridge (POST /v1/sleep).
+    # Defaults to a sibling of SESSION_DB so a single SESSION_DB is enough to get
+    # working+long-term memory; only read by /v1/sleep.
+    knowledge_db = os.environ.get("KNOWLEDGE_DB", "").strip()
+    if not knowledge_db and session_db:
+        knowledge_db = session_db + ".knowledge.db"
     _STATE.update(
         model=model, tok=tok, device=device, small=small,
         n_params=sum(p.numel() for p in model.parameters()),
         session_db=session_db,
+        knowledge_db=knowledge_db,
         ready=True,
     )
     print(f"[serve] ready | {_STATE['n_params']/1e6:.1f}M params | device={device}"
@@ -509,6 +522,35 @@ def delete_session(session_id: str):
     if not deleted:
         raise HTTPException(404, f"session {session_id!r} not found")
     return {"deleted": True, "session_id": session_id}
+
+
+@app.post("/v1/sleep")
+def sleep_consolidate(consolidate_fraction: float = 1.0, seed: int = 0):
+    """Run one NREM sleep pass: replay persisted sessions and consolidate the
+    salient ones, BY CONTENT, into the long-term knowledge store.
+
+    This is the fast->slow (working->long-term) transfer: after a pass a
+    session's pooled recurrent signature becomes a content-addressable key in
+    the durable PersistentKnowledgeMemory, so a past session can be recalled by
+    similarity. Reuses the EXISTING SleepWakeConsolidator.nrem_replay policy
+    unchanged (see mt_lnn.session_consolidation). Idempotent-safe: a no-op
+    all-zero summary when there is nothing consolidatable.
+
+    Requires SESSION_DB (404 otherwise). Returns the consolidation summary
+    {replayed, consolidated, knowledge_entries, key_dim}.
+    """
+    db = _STATE.get("session_db")
+    if not db:
+        raise HTTPException(404, "session persistence disabled (set SESSION_DB)")
+    if not (0.0 <= consolidate_fraction <= 1.0):
+        raise HTTPException(400, "consolidate_fraction must be in [0, 1]")
+    from mt_lnn.session_consolidation import consolidate_sessions
+    summary = consolidate_sessions(
+        db, _STATE["knowledge_db"],
+        consolidate_fraction=consolidate_fraction,
+        seed=seed, device=_STATE["device"],
+    )
+    return {"knowledge_db": _STATE["knowledge_db"], **summary}
 
 
 @app.post("/v1/completions")

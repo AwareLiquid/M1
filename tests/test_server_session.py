@@ -41,18 +41,20 @@ from serve.server import app  # noqa: E402
 def client():
     # Start clean: remove any stale db from a previous run.
     db = os.environ["SESSION_DB"]
-    for suffix in ("", "-wal", "-shm"):
-        try:
-            os.remove(db + suffix)
-        except FileNotFoundError:
-            pass
+    # Clean both the session db and the sibling knowledge db (SESSION_DB +
+    # ".knowledge.db") the /v1/sleep bridge consolidates into, with WAL sidecars.
+    bases = (db, db + ".knowledge.db")
+    def _wipe():
+        for base in bases:
+            for suffix in ("", "-wal", "-shm"):
+                try:
+                    os.remove(base + suffix)
+                except FileNotFoundError:
+                    pass
+    _wipe()
     with TestClient(app) as c:   # triggers startup (reads SESSION_DB)
         yield c
-    for suffix in ("", "-wal", "-shm"):
-        try:
-            os.remove(db + suffix)
-        except FileNotFoundError:
-            pass
+    _wipe()
 
 
 def _complete(client, **body):
@@ -112,6 +114,33 @@ def test_no_session_id_is_stateless(client):
     # And nothing was persisted under an empty/None key.
     listed = client.get("/v1/sessions").json()["sessions"]
     assert all(s["session_id"] for s in listed)  # no blank-key rows
+
+
+def test_sleep_consolidates_sessions_into_knowledge_store(client):
+    """POST /v1/sleep replays the persisted sessions and consolidates them into
+    the long-term knowledge store (Gap 4 NREM). After a turn under a fresh
+    session_id, a sleep pass reports >=1 replayed/consolidated and a non-empty
+    knowledge store keyed on a positive-dim signature -- the working->long-term
+    transfer actually ran end-to-end through the HTTP surface."""
+    _complete(client, prompt="remember me", session_id="sleep_src")
+    r = client.post("/v1/sleep")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["replayed"] >= 1
+    assert body["consolidated"] >= 1
+    assert body["knowledge_entries"] >= 1
+    assert body["key_dim"] > 0
+    # Idempotent-safe: a second pass still succeeds (re-consolidates, no crash).
+    assert client.post("/v1/sleep").status_code == 200
+
+
+def test_sleep_requires_session_persistence(client, monkeypatch):
+    """Without SESSION_DB the sleep bridge has nothing to consolidate and must
+    404 rather than silently creating an empty knowledge store. monkeypatch
+    restores the live session_db after the test, leaving the client usable."""
+    import serve.server as srv
+    monkeypatch.setitem(srv._STATE, "session_db", "")
+    assert client.post("/v1/sleep").status_code == 404
 
 
 def test_stream_supports_session(client):
