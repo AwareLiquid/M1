@@ -132,6 +132,27 @@ def test_sleep_consolidates_sessions_into_knowledge_store(client):
     assert body["key_dim"] > 0
     # Idempotent-safe: a second pass still succeeds (re-consolidates, no crash).
     assert client.post("/v1/sleep").status_code == 200
+    # Default pass runs NREM only -- no SHY downscaling block.
+    assert "downscale" not in body
+
+
+def test_sleep_shy_downscaling_is_optin_and_noop_without_adapters(client):
+    """downscale_factor < 1.0 runs the SHY stage; the served small model has no
+    MT adapters, so it must be a safe all-zero no-op block (proves the stage is
+    wired without mutating a from-scratch model's weights), while < 0 or > 1 is
+    rejected and the default (1.0) omits the stage entirely."""
+    _complete(client, prompt="sleep tight", session_id="shy_src")
+    r = client.post("/v1/sleep", params={"downscale_factor": 0.5})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "downscale" in body
+    # from-scratch served model has no MTResidualAdapter -> nothing rescaled.
+    assert body["downscale"]["n_adapters"] == 0
+    assert body["downscale"]["n_tensors"] == 0
+    assert body["downscale"]["factor"] == 0.5
+    # Validation: factor must be in (0, 1].
+    assert client.post("/v1/sleep", params={"downscale_factor": 0.0}).status_code == 400
+    assert client.post("/v1/sleep", params={"downscale_factor": 1.5}).status_code == 400
 
 
 def test_sleep_requires_session_persistence(client, monkeypatch):

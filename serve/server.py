@@ -525,32 +525,61 @@ def delete_session(session_id: str):
 
 
 @app.post("/v1/sleep")
-def sleep_consolidate(consolidate_fraction: float = 1.0, seed: int = 0):
-    """Run one NREM sleep pass: replay persisted sessions and consolidate the
-    salient ones, BY CONTENT, into the long-term knowledge store.
+def sleep_consolidate(
+    consolidate_fraction: float = 1.0,
+    seed: int = 0,
+    downscale_factor: float = 1.0,
+):
+    """Run one sleep pass: NREM consolidation, then optional SHY downscaling.
 
-    This is the fast->slow (working->long-term) transfer: after a pass a
-    session's pooled recurrent signature becomes a content-addressable key in
-    the durable PersistentKnowledgeMemory, so a past session can be recalled by
-    similarity. Reuses the EXISTING SleepWakeConsolidator.nrem_replay policy
-    unchanged (see mt_lnn.session_consolidation). Idempotent-safe: a no-op
-    all-zero summary when there is nothing consolidatable.
+    Stage 1 (NREM, always) -- replay persisted sessions and consolidate the
+    salient ones, BY CONTENT, into the long-term knowledge store. This is the
+    fast->slow (working->long-term) transfer: after a pass a session's pooled
+    recurrent signature becomes a content-addressable key in the durable
+    PersistentKnowledgeMemory, so a past session can be recalled by similarity.
+    Reuses the EXISTING SleepWakeConsolidator.nrem_replay policy unchanged (see
+    mt_lnn.session_consolidation). Idempotent-safe: a no-op all-zero summary when
+    there is nothing consolidatable.
 
-    Requires SESSION_DB (404 otherwise). Returns the consolidation summary
-    {replayed, consolidated, knowledge_entries, key_dim}.
+    Stage 2 (SHY, opt-in) -- when ``downscale_factor`` < 1.0, multiplicatively
+    renormalise the served model's TRAINABLE MT-adapter weights downward
+    (Synaptic Homeostasis Hypothesis), preserving the relative weight pattern
+    while shrinking total synaptic weight. The frozen base is never touched. This
+    MUTATES the live served weights in place, so it is OFF by default
+    (downscale_factor == 1.0 is a no-op). Acts only on the M1 adapter route; on a
+    from-scratch model with no MT adapters it is a safe all-zero no-op.
+
+    Requires SESSION_DB (404 otherwise). Returns the NREM summary plus, when SHY
+    ran, a ``downscale`` block {n_adapters, factor, n_tensors, pre_norm, post_norm}.
     """
     db = _STATE.get("session_db")
     if not db:
         raise HTTPException(404, "session persistence disabled (set SESSION_DB)")
     if not (0.0 <= consolidate_fraction <= 1.0):
         raise HTTPException(400, "consolidate_fraction must be in [0, 1]")
+    if not (0.0 < downscale_factor <= 1.0):
+        raise HTTPException(400, "downscale_factor must be in (0, 1]")
+
     from mt_lnn.session_consolidation import consolidate_sessions
     summary = consolidate_sessions(
         db, _STATE["knowledge_db"],
         consolidate_fraction=consolidate_fraction,
         seed=seed, device=_STATE["device"],
     )
-    return {"knowledge_db": _STATE["knowledge_db"], **summary}
+    result = {"knowledge_db": _STATE["knowledge_db"], **summary}
+
+    # Stage 2: synaptic homeostasis on the adapter route (opt-in, mutates weights).
+    if downscale_factor < 1.0:
+        from mt_lnn.adapter_homeostasis import downscale_adapters
+        report = downscale_adapters(_STATE["model"], factor=downscale_factor)
+        result["downscale"] = {
+            "n_adapters": report.n_adapters,
+            "factor": report.factor,
+            "n_tensors": report.n_tensors,
+            "pre_norm": report.pre_norm,
+            "post_norm": report.post_norm,
+        }
+    return result
 
 
 @app.post("/v1/completions")
