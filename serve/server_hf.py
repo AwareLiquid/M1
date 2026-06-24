@@ -36,7 +36,7 @@ import json
 import os
 import sys
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -709,6 +709,68 @@ def _build_input_ids(prompt: str) -> torch.Tensor:
     return ids.to(device)
 
 
+def _augment_with_memory(req: "CompletionRequest") -> Tuple[str, dict]:
+    """Build the memory-augmented prompt for *req* and the per-request memory
+    metadata, shared by the buffered and streaming completion endpoints so both
+    surfaces behave identically.
+
+    Two strictly-additive, honest tiers:
+      1. Declarative KB (mt_lnn.knowledge_memory) -- prepends recalled facts above
+         the score floor (anisotropy-robust centered query). Absent/empty store or
+         no hit -> prompt untouched (never fabricates).
+      2. Episodic conversation memory (mt_lnn.conversation_memory) -- recalls the
+         user's own earlier statements relevant to THIS turn, then observes the
+         current turn for future ones. Recall runs on the PAST store; observe
+         happens AFTER recall so the user never "recalls" what they just said.
+         observe() is wrapped so a memory write can never break a completion.
+
+    Returns ``(aug_prompt, meta)`` where meta carries memory_used / memory_hits /
+    conv_memory_used / conv_memory_hits for the response body.
+    """
+    aug_prompt = req.prompt
+    meta = {"memory_used": False, "memory_hits": [],
+            "conv_memory_used": False, "conv_memory_hits": []}
+
+    kb = _STATE.get("kb")
+    want_mem = req.use_memory if req.use_memory is not None else (kb is not None)
+    if want_mem and kb is not None and len(kb) > 0 and req.prompt.strip():
+        floor = _STATE.get("kb_score_floor", 0.15)
+        hits = kb.query(_encode_key(req.prompt),
+                        top_k=_STATE.get("kb_top_k", 3), center=True)
+        kept = [(c, s) for c, s, _ in hits if s >= floor]
+        if kept:
+            meta["memory_used"] = True
+            meta["memory_hits"] = [{"content": str(c), "score": round(float(s), 3)}
+                                   for c, s in kept]
+            facts = "\n".join(f"- {c}" for c, _ in kept)
+            aug_prompt = (
+                "Use the following retrieved facts if relevant to answer the "
+                f"question. If they are not relevant, ignore them.\n{facts}\n\n"
+                f"{req.prompt}"
+            )
+
+    conv_mem = _STATE.get("conv_mem")
+    want_conv = req.use_memory if req.use_memory is not None else (conv_mem is not None)
+    if want_conv and conv_mem is not None and req.prompt.strip():
+        recalled = conv_mem.recall(req.prompt, top_k=_STATE.get("conv_top_k", 3))
+        if recalled:
+            meta["conv_memory_used"] = True
+            meta["conv_memory_hits"] = [{"content": c, "score": round(s, 3)}
+                                        for c, s in recalled]
+            lines = "\n".join(f"- {c}" for c, _ in recalled)
+            aug_prompt = (
+                "The user told you earlier:\n" + lines +
+                "\nUse this to stay consistent and personal if relevant.\n\n"
+                f"{aug_prompt}"
+            )
+        try:
+            conv_mem.observe(req.prompt)
+        except Exception as exc:  # never let memory writes break a completion
+            print(f"[serve] conv-memory observe failed: {exc}")
+
+    return aug_prompt, meta
+
+
 @app.post("/v1/completions")
 def completions(req: CompletionRequest):
     if not _STATE.get("ready"):
@@ -717,58 +779,11 @@ def completions(req: CompletionRequest):
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
 
-    # Declarative-memory retrieval augmentation (mt_lnn.knowledge_memory).
-    # When a store is loaded and holds a hit above the score floor, prepend the
-    # recalled fact(s) as grounding context. Strictly additive and honest: an
-    # absent store, an empty store, or no hit above the floor leaves the prompt
-    # untouched (no fabricated facts). Uses the anisotropy-robust centered query.
-    memory_used = False
-    memory_hits: List[dict] = []
-    kb = _STATE.get("kb")
-    want_mem = req.use_memory if req.use_memory is not None else (kb is not None)
-    aug_prompt = req.prompt
-    if want_mem and kb is not None and len(kb) > 0 and req.prompt.strip():
-        floor = _STATE.get("kb_score_floor", 0.15)
-        hits = kb.query(_encode_key(req.prompt),
-                        top_k=_STATE.get("kb_top_k", 3), center=True)
-        kept = [(c, s) for c, s, _ in hits if s >= floor]
-        if kept:
-            memory_used = True
-            memory_hits = [{"content": str(c), "score": round(float(s), 3)}
-                           for c, s in kept]
-            facts = "\n".join(f"- {c}" for c, _ in kept)
-            aug_prompt = (
-                "Use the following retrieved facts if relevant to answer the "
-                f"question. If they are not relevant, ignore them.\n{facts}\n\n"
-                f"{req.prompt}"
-            )
-
-    # Episodic conversation memory (mt_lnn.conversation_memory): recall the
-    # user's own earlier statements relevant to THIS turn, then store the current
-    # turn for future ones. Recall happens on the PAST store and is strictly
-    # additive (empty/irrelevant store -> prompt untouched, no fabrication); the
-    # current utterance is observed AFTER recall so the user never "recalls" the
-    # thing they just said. Persisted, so it carries across sessions.
-    conv_used = False
-    conv_hits: List[dict] = []
-    conv_mem = _STATE.get("conv_mem")
-    want_conv = req.use_memory if req.use_memory is not None else (conv_mem is not None)
-    if want_conv and conv_mem is not None and req.prompt.strip():
-        recalled = conv_mem.recall(req.prompt, top_k=_STATE.get("conv_top_k", 3))
-        if recalled:
-            conv_used = True
-            conv_hits = [{"content": c, "score": round(s, 3)} for c, s in recalled]
-            lines = "\n".join(f"- {c}" for c, _ in recalled)
-            aug_prompt = (
-                "The user told you earlier:\n" + lines +
-                "\nUse this to stay consistent and personal if relevant.\n\n"
-                f"{aug_prompt}"
-            )
-        # Store the current user turn (skips trivial / near-duplicate internally).
-        try:
-            conv_mem.observe(req.prompt)
-        except Exception as exc:  # never let memory writes break a completion
-            print(f"[serve] conv-memory observe failed: {exc}")
+    aug_prompt, mem_meta = _augment_with_memory(req)
+    memory_used = mem_meta["memory_used"]
+    memory_hits = mem_meta["memory_hits"]
+    conv_used = mem_meta["conv_memory_used"]
+    conv_hits = mem_meta["conv_memory_hits"]
 
     ids = _build_input_ids(aug_prompt)
     t0 = time.time()
@@ -848,10 +863,19 @@ def completions_stream(req: CompletionRequest):
     if req.max_new_tokens > MAX_NEW_CAP:
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
-    ids = _build_input_ids(req.prompt)
+    # Same memory augmentation as the buffered endpoint, so streaming "remembers
+    # you" too. The recall/observe must run before the stream opens (observe is
+    # one write, recall one query -- both cheap), then the augmented prompt drives
+    # generation. The recalled metadata is emitted as the FIRST SSE event so a
+    # client can show "recalled: ..." before any token arrives; it carries an
+    # explicit "event":"memory" marker to distinguish it from token events (which
+    # have token/text), keeping older token-only clients compatible.
+    aug_prompt, mem_meta = _augment_with_memory(req)
+    ids = _build_input_ids(aug_prompt)
     eos_id = tok.eos_token_id if req.stop_at_eos else None
 
     def _gen():
+        yield f"data: {json.dumps({'event': 'memory', **mem_meta})}\n\n"
         past = None
         cur_ids = ids
         for _ in range(req.max_new_tokens):

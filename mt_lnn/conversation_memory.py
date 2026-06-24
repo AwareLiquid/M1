@@ -98,6 +98,14 @@ class EpisodicConversationMemory:
             return False
         if t.lower().rstrip("!.") in _TRIVIAL:
             return False
+        # Skip questions: a turn ending in a question mark is a REQUEST, not a
+        # statement the assistant should remember about the user. Storing "what is
+        # my name?" would pollute the store and let a later recall surface a past
+        # question instead of the fact that answers it. Trailing "?" / full-width
+        # "?" is a strong, language-agnostic interrogative signal (CJK included);
+        # this is deliberately a noise cut, not a full salience/intent classifier.
+        if t.endswith("?") or t.endswith("？"):
+            return False
         return True
 
     def observe(self, user_text: str, meta: Optional[dict] = None) -> Optional[int]:
