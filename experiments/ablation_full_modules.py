@@ -64,7 +64,11 @@ from mt_lnn.config import MTLNNConfig
 from mt_lnn.model import MTLNNModel
 from train import BinDataset, evaluate  # faithful reuse of the real reader + eval
 
-DATA_DIR = os.path.join(_ROOT, "kaggle_out", "tiny", "data")
+# Tokenised gpt2 bin corpus. Overridable via env so the Kaggle kernel can point
+# this at /kaggle/working/data (real WikiText-103) without editing the script.
+DATA_DIR = os.environ.get(
+    "MTLNN_ABLATION_DATA", os.path.join(_ROOT, "kaggle_out", "tiny", "data")
+)
 
 # Which aux-loss keys each arm is expected to emit (used only for the sanity
 # "did the term actually fire" report, not for scoring).
@@ -290,5 +294,29 @@ def _print(report: Dict) -> None:
               f"NaN={v['nan_total']}")
 
 
+def _env_main() -> Dict:
+    """Entry point that pulls knobs from env vars (AB_*), so a Kaggle kernel can
+    scale the run up without editing this file. Falls back to the small CPU-smoke
+    defaults when an env var is unset."""
+    def _i(name: str, default: int) -> int:
+        return int(os.environ.get(name, default))
+
+    def _f(name: str, default: float) -> float:
+        return float(os.environ.get(name, default))
+
+    seeds = tuple(int(x) for x in os.environ.get("AB_SEEDS", "0,1").split(",") if x != "")
+    return main(
+        seeds=seeds,
+        steps=_i("AB_STEPS", 200),
+        batch=_i("AB_BATCH", 8),
+        seq_len=_i("AB_SEQ_LEN", 64),
+        lr=_f("AB_LR", 3e-4),
+        d_model=_i("AB_D_MODEL", 128),
+        n_layers=_i("AB_N_LAYERS", 2),
+        n_heads=_i("AB_N_HEADS", 8),
+        eval_batches=_i("AB_EVAL_BATCHES", 30),
+    )
+
+
 if __name__ == "__main__":
-    main()
+    _env_main()
