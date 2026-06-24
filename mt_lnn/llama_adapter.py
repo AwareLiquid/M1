@@ -36,6 +36,12 @@ class MTAdapterConfig:
     # present; otherwise its 6 tensors show up as `unexpected` on load and the
     # honest load-guard would (correctly) refuse to claim the adapter is active.
     use_predictive_coding: bool = False
+    # Hebbian co-activation signal. When True, MTLNNLayer.forward writes a
+    # centered-covariance scalar (_hebb_signal) per adapter; an OUTER training
+    # loop must call collect_adapter_aux_losses() to fold it into the objective,
+    # otherwise the Hebbian path produces a live signal that earns no gradient.
+    # OFF by default so the served generation graph stays untouched.
+    use_hebbian: bool = False
 
 
 class MTResidualAdapter(nn.Module):
@@ -67,7 +73,13 @@ class MTResidualAdapter(nn.Module):
             # the (inference-inert) W_pred tensors. See MTAdapterConfig.
             use_predictive_coding=config.use_predictive_coding,
             use_world_model=False,
-            use_hebbian=False,
+            # Hebbian is now plumbed through: when enabled the layer emits a
+            # _hebb_signal that collect_adapter_aux_losses() turns into a real
+            # gradient-bearing loss term (see that fn). world_model stays off:
+            # it needs a model-level next-state target the adapter has no access
+            # to, so wiring it here would still be a dead parameter -- it remains
+            # an O1 / from-scratch MTLNNModel feature on purpose.
+            use_hebbian=config.use_hebbian,
         )
         self.mt_layer = MTLNNLayer(mt_config)
         self.scale = nn.Parameter(torch.tensor(float(config.init_scale)))
@@ -167,11 +179,16 @@ def attach_mt_adapters(
     init_scale: float = 1e-3,
     use_scan: bool = True,
     use_predictive_coding: bool = False,
+    use_hebbian: bool = False,
 ) -> List[int]:
     """
     Freeze `model` and wrap selected decoder layers with trainable MT adapters.
 
     Returns the layer indices that were wrapped.
+
+    Set use_predictive_coding / use_hebbian to expose the corresponding
+    auxiliary signals; an outer training loop must then call
+    collect_adapter_aux_losses(model) to fold them into the objective.
     """
     freeze_module(model)
     layers = find_decoder_layers(model)
@@ -198,6 +215,7 @@ def attach_mt_adapters(
             init_scale=init_scale,
             use_scan=use_scan,
             use_predictive_coding=use_predictive_coding,
+            use_hebbian=use_hebbian,
         )
         layers[idx] = DecoderLayerWithMTAdapter(layers[idx], MTResidualAdapter(adapter_cfg).to(getattr(model, 'dtype', torch.float32)))
     return chosen
@@ -211,6 +229,69 @@ def iter_mt_adapter_parameters(model: nn.Module):
 
 def count_trainable_parameters(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+def collect_adapter_aux_losses(
+    model: nn.Module,
+    predictive_weight: float = 0.1,
+    hebbian_lr: float = 1e-4,
+) -> dict:
+    """Aggregate the bio-inspired auxiliary signals emitted by MT adapters.
+
+    This is the adapter-route analogue of MTLNNModel.forward's aux-loss block:
+    a standalone residual adapter has no outer model.forward() to collect the
+    predictive-coding / Hebbian signals, so without this function those modules
+    run but earn no gradient (they would be silent dead parameters -- the exact
+    reason they used to be hard-disabled in the adapter). Call this AFTER a
+    training forward pass and add the returned ``aux_loss`` to the task loss.
+
+    Semantics match the from-scratch model:
+      - predictive coding: sum of each adapter resonance bank's last_pred_error,
+        scaled by ``predictive_weight`` (cf. model.py predictive_loss_weight).
+      - Hebbian: ``-hebbian_lr * mean(co-activation)`` so MINIMISING the loss
+        MAXIMISES co-activation (Hebb's rule), matching HebbianRegularizer.
+
+    Returns a dict possibly containing ``pred_loss``, ``hebbian_loss`` and the
+    combined ``aux_loss``. Returns ``{}`` when no signals are present (e.g. both
+    flags off, or called outside a forward pass).
+
+    HONEST NOTE: wiring these in makes the modules trainable and TESTABLE on the
+    adapter route; it does NOT by itself make them EFFECTIVE. Experiment 5 found
+    Hebbian inert at this scale and predictive coding is not yet fully evaluated.
+    """
+    import torch
+
+    pred_terms: List[torch.Tensor] = []
+    hebb_terms: List[torch.Tensor] = []
+    for module in model.modules():
+        if not isinstance(module, MTResidualAdapter):
+            continue
+        # Gate on the adapter's own config flags: the resonance bank always
+        # carries a last_pred_error buffer (0 when predictive coding is off), so
+        # reading it unconditionally would fold a phantom zero term into a served
+        # graph that requested neither module. Only collect what was enabled.
+        if module.config.use_predictive_coding:
+            pe = getattr(module.mt_layer.resonance, "last_pred_error", None)
+            if torch.is_tensor(pe):
+                pred_terms.append(pe.reshape(()))
+        if module.config.use_hebbian:
+            hs = getattr(module.mt_layer, "_hebb_signal", None)
+            if torch.is_tensor(hs):
+                hebb_terms.append(hs.reshape(()))
+
+    out: dict = {}
+    total: Optional[torch.Tensor] = None
+    if pred_terms:
+        pred_loss = predictive_weight * torch.stack(pred_terms).sum()
+        out["pred_loss"] = pred_loss
+        total = pred_loss if total is None else total + pred_loss
+    if hebb_terms:
+        hebb_loss = -hebbian_lr * torch.stack(hebb_terms).mean()
+        out["hebbian_loss"] = hebb_loss
+        total = hebb_loss if total is None else total + hebb_loss
+    if total is not None:
+        out["aux_loss"] = total
+    return out
 
 
 def attach_adapters_from_checkpoint(model: nn.Module, checkpoint: dict) -> List[int]:
