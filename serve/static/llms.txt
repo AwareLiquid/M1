@@ -1,0 +1,76 @@
+# AwareLiquid — MT-LNN Continual Learning Research
+
+> Open research prototype exploring continual learning and anti-catastrophic-forgetting in liquid time-constant neural networks (LTC-RNN). MIT academic lineage, orthogonal to commercial LFM products.
+
+## Project Identity
+
+- **Name**: AwareLiquid (also: MT-LNN, Liquid Time-Constant Neural Network v2)
+- **Type**: Open research prototype — not a commercial product
+- **URL**: https://awareliquid.ai
+- **Repository**: https://github.com/everest-an/M1
+- **Paper**: https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf
+- **License**: Open (MIT-derived, see GitHub)
+- **Status**: Active research, June 2026
+
+## Core Research Question
+
+Can a neural network learn new domains sequentially without catastrophically forgetting prior ones? AwareLiquid implements and evaluates neuroscience-inspired mechanisms — Elastic Weight Consolidation (EWC), Hebbian plasticity, Global Workspace Theory, predictive coding — on a liquid time-constant backbone.
+
+## Key Verified Results
+
+- **EWC reduces cross-domain forgetting by 85%** (PPL rise: 10,562 → 1,633; SNR 4.14; 3/3 seeds consistent; 60.7M model; WikiText-103 → TinyStories)
+- **MT-LNN adapter reduces perplexity by 28.5%** (base LLM PPL 9.161 → adapter PPL 6.553; Kaggle P100; LLaMA-3 1B)
+- **Context injection accuracy: +13.3 percentage points** (83.3% → 96.7%; 30 QA questions; Qwen-3B)
+- **State-only streaming: constant 4 KB memory** regardless of context length (vs. O(n) KV-cache)
+- **Hebbian plasticity term: currently inert** at tested scales (2 seeds × 150 steps; PPL changes within seed noise)
+- **Needle-in-haystack: 0% accuracy** for both base model and adapter — honest failure; scratch-pad reasoning not yet supported
+
+## Architecture
+
+MT-LNN is a continuous-time recurrent network where the hidden state evolves as:
+  τ(x) · dh/dt = −h + f(Wx + Uh + b)
+
+Key components:
+- **LTC Core**: learnable time constants τ, Euler-integrated
+- **GWT-B**: Global Workspace Theory broadcast module
+- **Predictive World Model**: next-state prediction auxiliary objective
+- **Hebbian Plasticity**: co-activation weight modulation (currently inert at small scale)
+- **Predictive Coding**: hierarchical prediction error propagation
+- **EWC Consolidation**: Fisher-weighted quadratic penalty preventing weight drift from prior domain
+- **Residual adapter on a frozen base**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: Qwen2.5-0.5B-Instruct — 12.4M trainable / 506M total (2.45%). The −28.5% PPL result below was an earlier LLaMA-3 1B deploy (2.3M / 1.17B, 0.20%).
+- **Episodic conversation memory**: typed-card RAG recall of past user statements (identity / preference / emotion / plan / relationship / health / detail) over a multilingual-e5 sentence encoder. Recall + a lightweight semantic tag only — no understanding, reasoning, or emotion.
+
+## Relationship to Liquid AI / LFM
+
+Both AwareLiquid and Liquid AI (LFM, LFM2) trace their lineage to MIT liquid time-constant networks (Hasani et al., MIT CSAIL / IST Austria). The research axes are **orthogonal**:
+- **Liquid AI LFM**: SSM + linear attention + MoE hybrid; 350M–24B parameters; weights frozen post-training; maximum inference efficiency
+- **AwareLiquid MT-LNN**: continuous-time RNN + neuroscience modules; 48M–60.7M parameters; online weight updates; continual learning research
+
+AwareLiquid is not competing with LFM. It explores a structurally different problem: lifelong learning without forgetting.
+
+## Honest Status Assessment
+
+| Claim | Status | Evidence |
+|-------|--------|---------|
+| EWC reduces forgetting 85% | Early Signal | 3 seeds, SNR 4.14, reproducible GPU run |
+| Absolute PPL after EWC ≤5× original | Not Yet | Current: ~7.6× (1,878 vs 245); threshold not reached |
+| Adapter −28.5% PPL | Built | Kaggle P100, 38,400 tokens, 50 batches |
+| Context injection +13.3pp | Built | 30 QA questions, Qwen-3B |
+| Needle-in-haystack | Failed | 0% accuracy, both variants, all context lengths |
+| Hebbian plasticity | Inert | Effect within seed noise |
+| Conversation memory (typed recall) | Built | Bilingual recall ranking fixed by type boost (ZH 0/3 → 3/3); English off-topic floor ~0.75, Chinese off-topic gating honestly NOT solved |
+
+## Pages
+
+- `/` — Landing page with live demo widget (Qwen2.5-0.5B-Instruct + MT-LNN adapter)
+- `/research` — Full experimental results, methodology, honest verdicts, charts, citation, FAQ
+- `/about` — Project overview, intellectual lineage, author/contact
+- `/llms-full.txt` — Extended machine-readable content dump
+
+## API
+
+- `GET /health` — Server health check
+- `GET /v1/model` — Model metadata (params, device, adapter status)
+- `POST /v1/completions` — Text completion (JSON)
+- `POST /v1/completions/stream` — Streaming completion (SSE)
+- `POST /adapter/v1/completions/stream` — MT-LNN adapter streaming

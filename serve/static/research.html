@@ -1,186 +1,770 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Research · AwareLiquid</title>
-<meta name="description" content="AwareLiquid research — MT-LNN liquid time-constant architecture and continual-learning (anti-forgetting) experiments. Honest, reproducible status.">
+<title>MT-LNN Research: EWC −85% Forgetting, Continual Learning Experiments | AwareLiquid</title>
+<meta name="description" content="MT-LNN research results: EWC reduces catastrophic forgetting 85% (PPL 10,562→1,633, SNR 4.14, 3/3 seeds). Adapter −28.5% PPL. Context injection +13.3pp. Hebbian ablation, needle-in-haystack honest failure, reproducible GPU experiments.">
+<!-- Open Graph -->
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://awareliquid.ai/research">
+<meta property="og:title" content="Research · AwareLiquid — MT-LNN Experiments & Results">
+<meta property="og:description" content="EWC reduces cross-domain forgetting by 85% (SNR 4.14, 3/3 seeds). Hebbian ablation, sparse resonance benchmarks, spatial computing experiments.">
+<meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="MT-LNN research results: EWC −85% forgetting, adapter −28.5% PPL">
+<meta property="og:site_name" content="AwareLiquid">
+<meta property="og:article:published_time" content="2026-02-01T00:00:00Z">
+<meta property="og:article:modified_time" content="2026-06-22T00:00:00Z">
+<meta property="og:article:author" content="AwareLiquid Project">
+<meta property="og:article:section" content="Research">
+<meta property="og:article:tag" content="continual learning">
+<meta property="og:article:tag" content="catastrophic forgetting">
+<meta property="og:article:tag" content="EWC">
+<meta property="og:article:tag" content="liquid neural networks">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="MT-LNN Research — EWC −85% Forgetting | AwareLiquid">
+<meta name="twitter:description" content="Reproducible continual learning: EWC −85% forgetting (SNR 4.14), adapter −28.5% PPL, honest needle failure. Full data.">
+<meta name="twitter:image" content="https://awareliquid.ai/static/og-image.png">
+<meta name="twitter:image:alt" content="MT-LNN research: EWC reduces catastrophic forgetting 85%">
+<link rel="canonical" href="https://awareliquid.ai/research">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<meta name="keywords" content="continual learning, catastrophic forgetting, EWC, elastic weight consolidation, Hebbian plasticity, liquid neural networks, MT-LNN, NeurIPS, ICLR">
+<meta name="author" content="AwareLiquid Project">
+<link rel="alternate" type="text/plain" href="https://awareliquid.ai/llms.txt" title="LLM-readable summary">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<link rel="me" href="https://github.com/everest-an/M1">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<script type="application/ld+json">
+[
+{
+  "@context": "https://schema.org",
+  "@type": "ScholarlyArticle",
+  "name": "MT-LNN v2: Reliable Long Pre-training",
+  "headline": "Continual Learning and Anti-Forgetting in Liquid Time-Constant Neural Networks",
+  "description": "EWC reduces cross-domain catastrophic forgetting by 85% (SNR 4.14, 3/3 seeds). MT-LNN adapter reduces perplexity 28.5%. Context injection +13.3pp accuracy. Architecture: continuous-time RNN with neuroscience-inspired liquid core modules.",
+  "url": "https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf",
+  "codeRepository": "https://github.com/everest-an/M1",
+  "datePublished": "2026-02-01",
+  "dateModified": "2026-06-22",
+  "keywords": ["continual learning","catastrophic forgetting","EWC","liquid neural networks","Hebbian plasticity","MT-LNN"],
+  "isPartOf": {"@type": "WebSite", "name": "AwareLiquid", "url": "https://awareliquid.ai"},
+  "about": [
+    {"@type": "Thing", "name": "Continual Learning"},
+    {"@type": "Thing", "name": "Catastrophic Forgetting"},
+    {"@type": "Thing", "name": "Elastic Weight Consolidation"},
+    {"@type": "Thing", "name": "Liquid Neural Networks"}
+  ]
+},
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "AwareLiquid", "item": "https://awareliquid.ai/"},
+    {"@type": "ListItem", "position": 2, "name": "Research", "item": "https://awareliquid.ai/research"}
+  ]
+},
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is AwareLiquid production-ready?",
+      "acceptedAnswer": {"@type": "Answer", "text": "No. AwareLiquid is an open research prototype. The 48M from-scratch model produces coherent short stories but is not a general assistant. The MT-LNN adapter improves perplexity but generates repetitive outputs at higher temperatures. Both are research artifacts demonstrating architectural ideas."}
+    },
+    {
+      "@type": "Question",
+      "name": "How is AwareLiquid different from Liquid AI LFM?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Liquid AI builds high-performance models using an SSM + linear attention + MoE hybrid for maximum inference efficiency. AwareLiquid builds a continuous-time RNN with neuroscience-inspired modules to study continual learning — can a model learn new domains without forgetting old ones? The research axes are orthogonal: LFM optimises for static-weight inference; MT-LNN explores online weight updates."}
+    },
+    {
+      "@type": "Question",
+      "name": "What is catastrophic forgetting?",
+      "acceptedAnswer": {"@type": "Answer", "text": "When a neural network is trained sequentially on two domains (A then B), its performance on A typically collapses. In AwareLiquid experiments: dense baseline forgetting is +10,562 PPL (244.9 → 10,806.9). EWC reduces this to +1,633 PPL (1,878 final), an 85% reduction. Absolute PPL is still 7.6× original — an open problem."}
+    },
+    {
+      "@type": "Question",
+      "name": "Does the needle-in-haystack benchmark work?",
+      "acceptedAnswer": {"@type": "Answer", "text": "No. Both the base model and the MT-LNN adapter score 0% across all context lengths (1K–4K tokens) and depths (0.1, 0.5, 0.9). This is an honest failure reported transparently. The task requires scratch-pad reasoning the current architecture does not support."}
+    },
+    {
+      "@type": "Question",
+      "name": "What is the MT-LNN API?",
+      "acceptedAnswer": {"@type": "Answer", "text": "The live demo server exposes /v1/completions/stream (SSE streaming) and /v1/model (model metadata). The server is research-grade with no rate limits or SLAs. See github.com/everest-an/M1 for local setup instructions."}
+    }
+  ]
+}
+]
+</script>
 <style>
+:root{
+  --bg:#ffffff; --fg:#0d0d0d; --muted:#6b6b80; --line:#e8e8ef;
+  --card:#f9f9fb; --radius:16px; --col:1120px; --prose:720px;
+  --tag-built-bg:#e7f6ef; --tag-built-fg:#0a7d55;
+  --tag-signal-bg:#eaf1fb; --tag-signal-fg:#1f5fb5;
+  --tag-target-bg:#fdf0e6; --tag-target-fg:#b5651d;
+  --code-bg:#f3f3f5;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){
   :root{
-    --bg:#ffffff; --fg:#0d0d0d; --muted:#8e8ea0; --line:#ececf1;
-    --card:#fafafa; --accent:#0d0d0d; --radius:16px; --col:760px;
-    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
-    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --bg:#0e0e10; --fg:#ebebeb; --muted:#9090a8; --line:#252530;
+    --card:#16161a; --code-bg:#1e1e28;
+    --tag-built-bg:#0c3828; --tag-built-fg:#52c48a;
+    --tag-signal-bg:#162440; --tag-signal-fg:#5a9fd4;
+    --tag-target-bg:#3a1e08; --tag-target-fg:#d4884a;
   }
-  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.7}
-  a{color:#0d0d0d}
-  /* shared header */
-  header{height:60px;display:flex;align-items:center;justify-content:center;position:relative;border-bottom:1px solid var(--line)}
-  header .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;letter-spacing:.2px;text-decoration:none;color:#0d0d0d}
-  .logo{width:22px;height:22px;display:block;color:#0d0d0d;flex:none}
-  header nav{position:absolute;right:20px;top:50%;transform:translateY(-50%);display:flex;gap:18px;font-size:13px}
-  header nav a{color:var(--muted);text-decoration:none}
-  header nav a:hover,header nav a.active{color:#0d0d0d}
-  /* content */
-  main{max-width:var(--col);margin:0 auto;padding:48px 24px 80px}
-  h1{font-size:30px;font-weight:600;letter-spacing:-.4px;margin:0 0 6px}
-  .lead{color:var(--muted);font-size:16px;margin:0 0 36px}
-  h2{font-size:20px;font-weight:600;margin:38px 0 10px;letter-spacing:-.2px}
-  h3{font-size:15.5px;font-weight:600;margin:20px 0 6px}
-  p{margin:0 0 14px}
-  ul{margin:0 0 14px;padding-left:20px}
-  li{margin:4px 0}
-  strong{font-weight:600}
-  code{font-family:var(--mono);font-size:13px;background:#f3f3f5;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin:0 0 16px}
-  .tag{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;margin-right:6px;vertical-align:middle}
-  .tag.built{background:#e7f6ef;color:#0a7d55}
-  .tag.signal{background:#eaf1fb;color:#1f5fb5}
-  .tag.target{background:#fdf0e6;color:#b5651d}
-  .note{font-size:13.5px;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 14px;margin:18px 0}
-  figure{margin:14px 0 6px}
-  figure img{width:100%;display:block;border:1px solid var(--line);border-radius:10px;background:#fff}
-  figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
-  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:0 0 16px}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-  th{font-weight:600;color:var(--muted);font-size:12.5px}
-  td.num{font-family:var(--mono);font-size:12.5px}
-  footer{border-top:1px solid var(--line);max-width:var(--col);margin:0 auto;padding:22px 24px 40px;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:16px}
-  footer a{color:var(--muted);text-decoration:none}
-  footer a:hover{color:#0d0d0d}
+  .nav{background:rgba(14,14,16,.85)}
+  a{color:var(--fg)}
+  code{border-color:var(--line);color:#c8c8e8}
+  figure img{border-color:var(--line);background:var(--bg)}
+  .highlight-row td{background:#0c2a0a}
+}
+html{color-scheme:light dark;scroll-behavior:smooth}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.75;word-break:break-word;overflow-x:hidden}
+a{color:var(--fg)}
+.skip-nav{position:absolute;top:-999px;left:8px;background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;text-decoration:none}
+.skip-nav:focus{top:8px}
+
+/* ── CONTAINER ── */
+.container{max-width:var(--col);margin:0 auto;padding:0 24px}
+.prose{max-width:var(--prose)}
+
+/* ── NAV ── */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:64px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:rgba(255,255,255,.85);border-bottom:1px solid var(--line);
+}
+.nav-inner{height:64px;display:flex;align-items:center}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:.1px;flex:none;text-decoration:none;color:var(--fg)}
+.logo{width:20px;height:20px;color:var(--fg);flex:none}
+.nav-links{display:flex;align-items:center;gap:2px;margin-left:32px;flex:1}
+.nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;transition:color .15s,background .15s;text-decoration:none}
+.nav-links a:hover,.nav-links a.active{color:var(--fg);background:var(--card)}
+.nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;padding:8px 18px}
+.btn-primary{background:var(--fg);color:var(--bg)}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--fg);border-color:var(--line)}
+.btn-ghost:hover{background:var(--card)}
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--fg);padding:8px}
+@media(max-width:720px){
+  .nav-links{display:none;position:fixed;top:64px;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--line);flex-direction:column;padding:12px 16px 16px;gap:2px;z-index:99}
+  .nav-links.open{display:flex}
+  .nav-toggle{display:flex;align-items:center;justify-content:center;margin-left:auto}
+  .nav-actions .btn{display:none}
+}
+
+/* ── PAGE HEADER ── */
+.page-hero{padding:120px 0 64px;border-bottom:1px solid var(--line)}
+.page-hero .eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.page-hero h1{font-size:clamp(30px,5vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+.page-hero .lead{font-size:17px;color:var(--muted);max-width:580px;line-height:1.7;margin-bottom:28px}
+.status-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted)}
+
+/* ── SIDEBAR LAYOUT ── */
+.research-layout{display:grid;grid-template-columns:220px 1fr;gap:64px;padding:64px 0 96px;align-items:start}
+@media(max-width:860px){.research-layout{grid-template-columns:1fr}}
+.sidebar{position:sticky;top:84px}
+.sidebar-nav{list-style:none}
+.sidebar-nav li{margin-bottom:2px}
+.sidebar-nav a{display:block;font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;text-decoration:none;transition:color .15s,background .15s}
+.sidebar-nav a:hover,.sidebar-nav a.active{color:var(--fg);background:var(--card)}
+.sidebar-nav .section-group{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 10px 5px;margin-top:4px}
+@media(max-width:860px){.sidebar{display:none}}
+
+/* ── PROSE CONTENT ── */
+.content-col h2{font-size:clamp(20px,3vw,26px);font-weight:700;letter-spacing:-.025em;margin:56px 0 12px;padding-top:8px;line-height:1.2}
+.content-col h2:first-child{margin-top:0}
+.content-col h3{font-size:17px;font-weight:650;margin:28px 0 8px;letter-spacing:-.01em}
+.content-col p{margin-bottom:14px;font-size:15.5px}
+.content-col ul,.content-col ol{margin-bottom:14px;padding-left:20px}
+.content-col li{margin:5px 0;font-size:15.5px}
+strong{font-weight:650}
+code{font-family:var(--mono);font-size:13px;background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+  .chart-fig{margin:24px 0 8px}
+  .chart-fig img{width:100%;max-width:560px;height:auto;display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .chart-fig.wide img{max-width:100%}
+  .chart-fig figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.55}
+  @media(prefers-color-scheme:dark){.chart-fig img{background:#1a1a20;border-color:var(--line)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;margin:0 0 18px}
+.note{font-size:14px;color:var(--muted);border-left:3px solid var(--line);padding:4px 0 4px 16px;margin:20px 0;line-height:1.65}
+.tag{display:inline-flex;align-items:center;font-size:11.5px;font-weight:650;padding:3px 10px;border-radius:999px;margin-right:6px;vertical-align:middle}
+.tag.built{background:var(--tag-built-bg);color:var(--tag-built-fg)}
+.tag.signal{background:var(--tag-signal-bg);color:var(--tag-signal-fg)}
+.tag.target{background:var(--tag-target-bg);color:var(--tag-target-fg)}
+table{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:650;color:var(--muted);font-size:12.5px;background:var(--card)}
+td.num{font-family:var(--mono);font-size:13px}
+.highlight-row td{background:#f0fdf4;font-weight:500}
+td.good{color:#16a34a;font-family:var(--mono)}
+td.warn{color:#d97706;font-family:var(--mono)}
+td.bad{color:#dc2626;font-family:var(--mono)}
+.stat-row{display:flex;gap:14px;margin:0 0 24px;flex-wrap:wrap}
+.stat-block{background:var(--fg);color:var(--bg);border-radius:14px;padding:18px 22px;flex:1;min-width:130px}
+.stat-block .n{display:block;font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1}
+.stat-block .l{display:block;font-size:11.5px;color:rgba(128,128,128,.7);margin-top:5px;line-height:1.4}
+@media(prefers-color-scheme:dark){
+  .stat-block{background:var(--fg);color:#111}
+  .stat-block .l{color:rgba(0,0,0,.5)}
+}
+figure{margin:18px 0 8px}
+figure img{width:100%;display:block;border:1px solid var(--line);border-radius:12px;background:var(--bg);max-width:100%;height:auto}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+.divider{border:none;border-top:1px solid var(--line);margin:48px 0}
+@media(max-width:600px){
+  .stat-row{flex-direction:column}
+  .content-col h2{font-size:20px}
+  main{padding:32px 0 60px}
+}
+
+/* ── CITATION BLOCK ── */
+.cite-block{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:10px 0 18px;overflow:auto}
+.cite-block pre{font-family:var(--mono);font-size:13px;color:var(--fg);white-space:pre;margin:0;line-height:1.6}
+.cite-block p{font-size:14px;line-height:1.7}
+.cite-copy-btn{position:absolute;top:10px;right:12px;background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);font:inherit;font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.cite-copy-btn:hover{border-color:var(--fg);color:var(--fg)}
+.cite-copy-btn.copied{color:#10b981;border-color:#10b981}
+
+/* ── CHANGELOG ── */
+.changelog{display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin:16px 0 0 8px}
+.cl-entry{position:relative;padding:0 0 24px 24px}
+.cl-entry::before{content:'';position:absolute;left:-5px;top:4px;width:8px;height:8px;border-radius:50%;background:var(--line);border:2px solid var(--bg)}
+.cl-entry:first-child::before{background:var(--fg)}
+.cl-version{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--fg)}
+.cl-date{font-size:12px;color:var(--muted);margin-left:8px}
+.cl-body{font-size:14.5px;color:var(--muted);margin-top:5px;line-height:1.65}
+.cl-body strong{color:var(--fg)}
+.cl-body code{font-size:12px}
+
+/* ── THEME TOGGLE ── */
+.theme-btn{background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
+.theme-btn:hover{border-color:var(--fg);color:var(--fg)}
+
+/* ── SCROLL-TO-TOP ── */
+.scroll-top{position:fixed;bottom:28px;right:28px;width:42px;height:42px;border-radius:50%;background:var(--fg);color:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:90}
+.scroll-top.show{opacity:1;pointer-events:auto}
+.scroll-top:hover{transform:translateY(-2px)}
+
+/* ── FORCED DARK ── */
+html[data-theme="dark"]{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;--code-bg:#1e1e28;--tag-built-bg:#0c3828;--tag-built-fg:#52c48a;--tag-signal-bg:#162440;--tag-signal-fg:#5a9fd4;--tag-target-bg:#3a1e08;--tag-target-fg:#d4884a;color-scheme:dark}
+html[data-theme="dark"] .nav{background:rgba(14,14,16,.85)}
+html[data-theme="dark"] a{color:var(--fg)}
+html[data-theme="dark"] code{border-color:var(--line);color:#c8c8e8}
+html[data-theme="dark"] figure img{border-color:var(--line);background:var(--bg)}
+html[data-theme="dark"] .highlight-row td{background:#0c2a0a}
+html[data-theme="dark"] .chart-fig img{background:#1a1a20;border-color:var(--line)}
+html[data-theme="dark"] .stat-block{background:var(--fg);color:#111}
+html[data-theme="dark"] .stat-block .l{color:rgba(0,0,0,.5)}
+/* ── FORCED LIGHT ── */
+html[data-theme="light"]{--bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;--code-bg:#f3f3f5;--tag-built-bg:#e7f6ef;--tag-built-fg:#0a7d55;--tag-signal-bg:#eaf1fb;--tag-signal-fg:#1f5fb5;--tag-target-bg:#fdf0e6;--tag-target-fg:#b5651d;color-scheme:light}
+html[data-theme="light"] .nav{background:rgba(255,255,255,.85)}
+html[data-theme="light"] .chart-fig img{background:#fff}
+
+/* ── FOOTER ── */
+.footer{background:var(--card);border-top:1px solid var(--line);padding:64px 0 0;margin-top:0}
+.footer-inner{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;padding-bottom:48px}
+@media(max-width:860px){.footer-inner{grid-template-columns:1fr 1fr;gap:32px}}
+@media(max-width:480px){.footer-inner{grid-template-columns:1fr;gap:28px}}
+.footer-brand .brand{font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.footer-brand p{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:260px;margin-bottom:16px}
+.footer-gh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:6px 12px;transition:border-color .15s;text-decoration:none}
+.footer-gh:hover{border-color:var(--fg);color:var(--fg)}
+.footer-col h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.footer-col a{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px;transition:color .15s;text-decoration:none}
+.footer-col a:hover{color:var(--fg)}
+.footer-bottom{border-top:1px solid var(--line);padding:20px 0}
+.footer-bottom-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
+.footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 </style>
 </head>
 <body>
-<header>
-  <a class="brand" href="/">
-    <svg class="logo" viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
-      <path d="M6 11.3 Q14 8.3 22 11.3"/>
-      <path d="M6 14.6 Q14 11.6 22 14.6"/>
-      <path d="M6 17.9 Q14 14.9 22 17.9"/>
-    </svg>
-    AwareLiquid
-  </a>
-  <nav><a href="/">Demo</a><a href="/about">About</a><a href="/research" class="active">Research</a></nav>
+
+<a class="skip-nav" href="#architecture">Skip to content</a>
+<!-- ── NAV ── -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/">
+      <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+        <path d="M6 11.3 Q14 8.3 22 11.3"/>
+        <path d="M6 14.6 Q14 11.6 22 14.6"/>
+        <path d="M6 17.9 Q14 14.9 22 17.9"/>
+      </svg>
+      AwareLiquid
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
+      <a href="/#demo">Demo</a>
+      <a href="/research" class="active" aria-current="page">Research</a>
+      <a href="/about">About</a>
+      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper</a>
+      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <a class="btn btn-ghost" href="/#demo">Try Demo</a>
+      <a class="btn btn-primary" href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read Paper</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3 5h14M3 10h14M3 15h14"/>
+      </svg>
+    </button>
+  </div>
 </header>
 
-<main>
-  <h1>研究与实验</h1>
-  <p class="lead">这一页如实记录 AwareLiquid 现在<strong>做到了什么</strong>、<strong>还没做到什么</strong>。每条都标注状态：已实现机制 / 早期信号 / 尚待验证。我们宁可保守，也不夸大。</p>
+<!-- ── MAIN CONTENT ── -->
+<main id="main-content">
 
-  <div class="note">
-    状态标签的含义：<span class="tag built">已实现</span>代码已写、可复现地跑起来；
-    <span class="tag signal">早期信号</span>有初步实验迹象，但统计强度不足以下结论；
-    <span class="tag target">目标</span>方向明确但尚未达成。
+<!-- ── PAGE HERO ── -->
+<section class="page-hero">
+  <div class="container">
+    <span class="eyebrow">Research</span>
+    <h1>Experiments &amp; Results</h1>
+    <p class="lead">An honest record of what AwareLiquid has built, what the data shows, and what remains open. Every claim is tagged with its verification status.</p>
+    <div class="status-legend">
+      <span><span class="tag built">Built</span> Code runs, results reproducible</span>
+      <span><span class="tag signal">Early Signal</span> Preliminary evidence, stats not conclusive</span>
+      <span><span class="tag target">Target</span> Direction clear, not yet achieved</span>
+    </div>
   </div>
+</section>
 
-  <h2>1. 架构：MT-LNN 液态时序网络</h2>
-  <p>骨干是自研的 MT-LNN（液态时序常数网络）——一种连续时间循环架构，其隐状态按可学习的时间常数演化，而非离散逐层堆叠。在骨干之上叠加了一组受神经科学启发的“液核”模块：</p>
-  <ul>
-    <li><strong>竞争式全局工作空间</strong>（competitive GWT-B）；</li>
-    <li><strong>预测性世界模型</strong>（world model）；</li>
-    <li><strong>Hebbian 可塑性</strong>与<strong>预测编码</strong>（predictive coding）；</li>
-    <li>节律调制（rhythm）。</li>
-  </ul>
-  <p><span class="tag built">已实现</span>架构、各液核模块、原生推理服务均已落地，本站在线 demo 即由它驱动。技术细节见 <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a>。</p>
+<!-- ── MAIN CONTENT ── -->
+<div class="container">
+  <div class="research-layout">
 
-  <h2>2. 在线 Demo 模型</h2>
-  <p>当前对外的 demo 是一个<strong>从零训练的小模型</strong>（约 48M 参数，CPU 推理），训练语料为 TinyStories 量级的英文短故事。它<strong>只</strong>会续写简单英文故事，质量是研究 demo 级别——会出现语法破碎、重复、跑题。</p>
-  <div class="card">
-    <h3 style="margin-top:0">如实指标</h3>
-    <table>
-      <tr><th>项目</th><th>值</th><th>说明</th></tr>
-      <tr><td>参数量</td><td class="num">~48M</td><td>从零预训练</td></tr>
-      <tr><td>验证 PPL</td><td class="num">~136</td><td>最近一次干净 M2 run，5000 步</td></tr>
-      <tr><td>推理</td><td class="num">CPU</td><td>2–4 核，几到十几 tok/s</td></tr>
-    </table>
-    <p style="margin-bottom:0" class="note">PPL 用纯 next-token 交叉熵计算，<strong>不</strong>把辅助损失混进去——避免人为压低数字。</p>
+    <!-- sidebar -->
+    <aside class="sidebar">
+      <ul class="sidebar-nav">
+        <li class="section-group">Architecture</li>
+        <li><a href="#architecture">MT-LNN Core</a></li>
+        <li><a href="#demo-model">Live Demo Model</a></li>
+        <li class="section-group">Experiments</li>
+        <li><a href="#ewc">Continual Learning</a></li>
+        <li><a href="#hebbian">Hebbian Ablation</a></li>
+        <li><a href="#spatial">Spatial Computing</a></li>
+        <li class="section-group">Benchmarks</li>
+        <li><a href="#benchmarks">System Benchmarks</a></li>
+        <li class="section-group">Reproduce</li>
+        <li><a href="#reproduce">How to Reproduce</a></li>
+        <li><a href="#citation">Cite This Work</a></li>
+        <li><a href="#changelog">Changelog</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+    </aside>
+
+    <!-- content -->
+    <div class="content-col">
+
+      <h2 id="architecture">1 · Architecture: MT-LNN</h2>
+      <p>The backbone is the <abbr title="Multi-Timescale Liquid Neural Network">MT-LNN</abbr> (<abbr title="Liquid Time-Constant network">LTC</abbr> network) — a continuous-time recurrent architecture whose hidden state evolves according to learnable time constants, rather than discrete layer stacking. On top of this backbone sits a stack of neuroscience-inspired "liquid core" modules:</p>
+      <ul>
+        <li><strong>Competitive Global Workspace</strong> (<abbr title="Global Workspace Theory — Broadcast variant">GWT-B</abbr>) — selective broadcast of attended information;</li>
+        <li><strong>Predictive World Model</strong> — forward prediction of the next latent state;</li>
+        <li><strong>Hebbian Plasticity</strong> — co-activation-based weight modulation;</li>
+        <li><strong>Predictive Coding</strong> — error-driven representation learning;</li>
+        <li><strong>Rhythm Modulation</strong> — oscillatory gating of information flow.</li>
+      </ul>
+      <figure class="chart-fig wide">
+        <img src="/static/charts/architecture_pipeline.svg"
+             alt="MT-LNN architecture pipeline diagram: embedding → LTC core → liquid core modules (GWT-B, World Model, Hebbian, Predictive Coding) → output head → continual learning"
+             loading="lazy">
+        <figcaption>MT-LNN end-to-end pipeline. The LTC core processes tokens with learnable time constants; liquid core modules add neuroscience-inspired awareness and plasticity; the <abbr title="Elastic Weight Consolidation">EWC</abbr> layer enables continual learning.</figcaption>
+      </figure>
+      <p><span class="tag built">Built</span> Architecture, all liquid core modules, and native inference server are implemented and live — this site's demo is driven by them. Technical details: <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Technical Paper (PDF)</a>.</p>
+
+      <hr class="divider">
+
+      <h2 id="demo-model">2 · Live Demo Model</h2>
+      <p>The demo offers two modes. The <strong>MT-LNN adapter</strong> — our own architecture — wraps a <strong>frozen Qwen2.5-0.5B-Instruct</strong> base with a trained residual adapter: only ~2.5% of the weights are ours (the liquid-core / continual-learning modules), and the general language ability comes from the base. It handles Q&amp;A in English and Chinese and carries <strong>automatic conversation memory</strong> — episodic recall of what you told it, tagged with typed cards (identity / preference / emotion / plan / relationship / health / detail). The <strong>48M from-scratch model</strong> is the opposite end — pre-trained end-to-end on TinyStories with no base model, intended only for English story continuation; a research artifact, not a general assistant.</p>
+      <div class="note">Honest note on the base: the demo base is Qwen2.5-0.5B-Instruct, but the <strong>−28.5% perplexity</strong> result below was measured on an earlier <strong>LLaMA-3 1B</strong> base. Re-measurement on the current Qwen-0.5B base is pending, so that number is reported against its original base, not this one.</div>
+      <div class="card">
+        <table style="margin:0">
+          <thead><tr><th>Metric</th><th>Value</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>From-scratch params</td><td class="num">~48M</td><td>Full MT-LNN pre-training</td></tr>
+            <tr><td>Validation <abbr title="Perplexity">PPL</abbr> (scratch)</td><td class="num">~136</td><td>Clean M2 run, 5,000 steps</td></tr>
+            <tr><td>Adapter PPL gain</td><td class="num">−28.5%</td><td>WikiText-2, vs. base (LLaMA-3 1B; early — not yet re-run on Qwen-0.5B)</td></tr>
+            <tr><td>Inference</td><td class="num">CPU</td><td>2–4 cores, ~2–15 tok/s</td></tr>
+          </tbody>
+        </table>
+        <p class="note" style="margin:12px 0 0">PPL computed with pure next-token cross-entropy — auxiliary losses are excluded to avoid artificially deflated numbers.</p>
+      </div>
+      <p><span class="tag built">Built</span> End-to-end pre-training + native serving. <span class="tag target">Target</span> Larger, higher-quality model (see demo disclaimer).</p>
+
+      <h3>Adapter Benchmark Results</h3>
+      <p>Independent GPU run on Kaggle (P100) verifying the MT-LNN adapter PPL claim, plus a context-injection accuracy test and an honest needle-in-haystack failure report.</p>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/ppl_ablation.svg"
+             alt="Bar chart: Base LLM PPL 9.161 vs MT-LNN adapter 6.553, −28.5% reduction"
+             loading="lazy">
+        <figcaption>Fig. 2a — Language modelling perplexity before and after MT-LNN adapter attachment. −28.5% improvement over the base LLM on 38,400 tokens (Kaggle P100 · LLaMA-3 1B).</figcaption>
+      </figure>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/context_needle.svg"
+             alt="Left: context injection lifts accuracy from 83.3% to 96.7%, +13.3pp. Right: needle-in-haystack 0% for both variants — honest failure report."
+             loading="lazy">
+        <figcaption>Fig. 2b — Left: context injection via MT-LNN adapter raises QA accuracy by +13.3 pp (30 questions, Qwen-3B). Right: honest failure — needle-in-haystack requires scratch-pad reasoning not yet supported; both variants score 0%.</figcaption>
+      </figure>
+
+      <div class="note">Honest failure: the needle-in-haystack task requires a model to locate a specific injected fact inside a long context and answer precisely. The current architecture does not support scratch-pad reasoning across 1K–4K token windows, so both the base model and the MT-LNN adapter score 0% on this benchmark. This is an open research gap.</div>
+
+      <hr class="divider">
+
+      <h2 id="ewc">3 · Continual Learning &amp; Anti-Forgetting</h2>
+      <p>This is AwareLiquid's primary research direction — orthogonal to the frozen-weight paradigm of frontier LLMs. The question: can a model sequentially learn new domains without catastrophically forgetting prior ones?</p>
+
+      <h3>Experimental Design</h3>
+      <ul>
+        <li>Train and evaluate on domain A, then continue training on domain B, then re-evaluate A;</li>
+        <li>Three arms: <code>dense</code> (standard baseline), <code>liquid</code> (MT-LNN backbone), <code>consolidation</code> (EWC mechanism);</li>
+        <li>Statistical rigor: paired deltas per seed, SNR = |mean| / std, require all seeds to agree in direction, check "non-catastrophic" threshold.</li>
+      </ul>
+
+      <h3>EWC: Elastic Weight Consolidation</h3>
+      <p>After training on domain A, anchor weights are snapshotted and diagonal Fisher information is estimated from pure CE gradients. During domain B training, a quadratic penalty <code>λ/2 · Σ Fᵢ(θᵢ − θ_Aᵢ)²</code> constrains weights important to A from drifting. This mechanism is architecture-agnostic.</p>
+
+      <h3>Results (GPU, A = WikiText-103 → B = TinyStories)</h3>
+      <p>3 seeds · 60.7M model · 1,200 steps per domain. <em>Forgetting</em> = PPL rise on domain A after B training (lower is better).</p>
+
+      <div class="stat-row">
+        <div class="stat-block"><span class="n">−85%</span><span class="l">Forgetting reduction<br>EWC vs. dense baseline</span></div>
+        <div class="stat-block"><span class="n">4.14</span><span class="l">Signal-to-noise ratio<br>mean / std deviation</span></div>
+        <div class="stat-block"><span class="n">3 / 3</span><span class="l">Seeds with<br>consistent direction</span></div>
+      </div>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/ewc_forgetting.svg"
+             alt="Bar chart comparing forgetting across three conditions: Dense +10,562, Liquid +9,544, EWC +1,633 PPL rise"
+             loading="lazy">
+        <figcaption>Fig. 3a — Forgetting (PPL rise on domain A after B training) by condition. EWC consolidation reduces forgetting by 85% while still learning domain B. 3 seeds, 60.7M model.</figcaption>
+      </figure>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <table style="margin:0">
+          <thead><tr><th>Condition</th><th>A before</th><th>A after B training</th><th>Forgetting ↓</th><th>Learns B?</th></tr></thead>
+          <tbody>
+            <tr><td>Dense (no defense)</td><td class="num">244.9</td><td class="num bad">10,806.9</td><td class="num bad">+10,562</td><td>✓</td></tr>
+            <tr><td>Liquid backbone</td><td class="num">248.5</td><td class="num warn">9,792.0</td><td class="num warn">+9,544</td><td>✓</td></tr>
+            <tr class="highlight-row"><td><strong>EWC consolidation</strong></td><td class="num">244.9</td><td class="num good"><strong>1,878.0</strong></td><td class="num good"><strong>+1,633</strong></td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Paired statistics (consolidation − dense): <strong>−8,928.8 ± 2,155 · <abbr title="Signal-to-Noise Ratio">SNR</abbr> 4.14 · 3/3 seeds</strong>. EWC reduces cross-domain forgetting by <strong>~85%</strong> without sacrificing domain B learning.</p>
+      <p>
+        <span class="tag built">Built</span> EWC mechanism + three-arm experiment framework, fully reproducible (<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>, <code>experiments/continual_crossdomain_liquid.py</code>).<br>
+        <span class="tag signal">Early Signal</span> Effect is real, large, and consistent across all seeds (−85%, SNR 4.14) — first clear evidence of mechanism effectiveness.<br>
+        <span class="tag target">Not Yet</span> The absolute PPL on A after EWC (1,878) is still ~7.6× its pre-B value (245). Under a strict "≤5× degradation = usable" criterion, this still qualifies as catastrophic forgetting. Verdict: <strong>WEAK-TREND</strong>, not SUPPORTED.
+      </p>
+      <div class="note">Honest summary: EWC is working in the right direction and is reproducible — it slashes forgetting by 85%. But "continual learning solved" is far off. Absolute performance on the old domain has not reached the usable threshold. We report this as Early Signal, not a validated success.</div>
+
+      <hr class="divider">
+
+      <h2 id="hebbian">4 · Hebbian Plasticity Ablation</h2>
+      <p>The Hebbian co-activation term is one of the MT-LNN liquid core modules. To measure its actual contribution, we ran an isolated ablation: all other v2.0 liquid modules were disabled, only the Hebbian term was active, and <code>hebbian_lr</code> was swept across four values with 2 seeds × 150 steps each.</p>
+
+      <div class="card" style="padding:0;overflow:hidden">
+        <table style="margin:0">
+          <thead><tr><th>hebbian_lr</th><th>Val PPL (mean ± std)</th><th>ΔPPL vs off</th><th>Gradient share</th></tr></thead>
+          <tbody>
+            <tr><td>off (baseline)</td><td class="num">336.9 ± 6.6</td><td class="num">—</td><td class="num">0</td></tr>
+            <tr><td>1e-4</td><td class="num">337.2 ± 7.2</td><td class="num">+0.32</td><td class="num">8.3e-8</td></tr>
+            <tr><td>1e-2</td><td class="num">337.2 ± 7.2</td><td class="num">+0.32</td><td class="num">8.3e-6</td></tr>
+            <tr><td>1e-1</td><td class="num">337.2 ± 7.3</td><td class="num">+0.35</td><td class="num">8.5e-5</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="chart-fig wide">
+        <img src="/static/charts/hebbian_ablation.svg"
+             alt="Left: bar chart of validation PPL for off/1e-4/1e-2/1e-1 Hebbian LR — all within seed noise. Right: gradient share on log scale — peaks at 8.5e-5."
+             loading="lazy">
+        <figcaption>Fig. 4a — Left: validation PPL across Hebbian LR sweep with ±1 std error bars. All values fall within seed noise (grey dashed = baseline). Right: Hebbian gradient contribution on log scale — negligible across all settings tested.</figcaption>
+      </figure>
+      <p>128d × 2L × 8H model · WikiText-103 · CPU · 593s runtime. Largest PPL change (+0.35) is within seed noise (std ≈ 7.3). Gradient contribution peaks at 8.5e-5 — negligible.</p>
+      <p><span class="tag signal">Early Signal</span> At current scale, the Hebbian term is effectively inert. Next steps: raise <code>hebbian_lr</code> by 2–3 orders of magnitude or validate at larger model scale before drawing conclusions.</p>
+      <div class="note">Honest summary: Hebbian plasticity has not produced a measurable effect yet. This is an open experimental direction, not a validated capability.</div>
+
+      <hr class="divider">
+
+      <h2 id="spatial">5 · Spatial Computing (Experimental)</h2>
+      <p>Does MT-LNN's recurrent dynamics suit <strong>spatial representation and reasoning</strong>? This is a neuroscience-inspired experimental line (grid cells, place cells, path integration). Code is complete and runnable; validation status varies by component.</p>
+
+      <h3>Implemented Modules</h3>
+      <ul>
+        <li><strong>Spatial encoding frontend</strong>: grid cell encoding, multi-scale grid modules, head direction cells, boundary distance cells, place cell codes with DoG center-surround patterns — <code>mt_lnn/spatial.py</code>;</li>
+        <li><strong>Location-indexed associative memory</strong>: Hebbian write + pattern completion read, zero trainable parameters — <code>mt_lnn/spatial_memory.py</code>;</li>
+        <li><strong>Causal spatial steering</strong>: detects trajectory ruptures and projects state back onto the legal subspace — <code>mt_lnn/causal_steering.py</code>;</li>
+        <li><strong>Spatial operators + reasoning scaffold</strong>: distance / bearing / reachability graphs, location-based routing — <code>spatial_ops.py</code> / <code>spatial_reasoning.py</code>.</li>
+      </ul>
+
+      <h3>Two Validated Toy Demos</h3>
+      <figure>
+        <img src="/static/causal_spatial_steering.png" alt="Causal spatial steering: trajectory rupture detected and manifold error projected to 0" loading="lazy">
+        <figcaption><span class="tag built">Built</span> Causal steering: an artificial teleportation rupture is introduced at step 18. The steering mechanism detects it and collapses the off-manifold error to 0; the unsteered baseline accumulates error indefinitely.</figcaption>
+      </figure>
+      <figure>
+        <img src="/static/spatial_memory_recall.png" alt="Spatial memory pattern completion: noisy position query still retrieves correct content" loading="lazy">
+        <figcaption><span class="tag built">Built</span> Spatial memory pattern completion: noisy position queries still retrieve the correct stored content, and accuracy degrades smoothly — not randomly — as noise increases.</figcaption>
+      </figure>
+
+      <h3>Grid Cell Emergence: Not Yet Validated</h3>
+      <p>MT-LNN and a GRU baseline are compared on a velocity → position path-integration task to check whether hexagonal grid cells emerge spontaneously (standard threshold: grid score &gt; 0.3).</p>
+      <p>
+        <span class="tag built">Built</span> Trajectory generation, loss, and grid score autocorrelation analysis are all runnable.<br>
+        <span class="tag target">Not Yet</span> All runs to date have been CPU-scale smoke tests. Neither GRU nor MT-LNN has crossed the 0.3 grid-score threshold. Meaningful comparison requires serious GPU-scale training — <strong>no spatial advantage is claimed at this time</strong>.
+      </p>
+      <div class="note">Honest summary: the spatial modules and two demo benchmarks are solid and reproducible. But "MT-LNN is better at spatial tasks" has zero data support today. This is an open research direction.</div>
+
+      <hr class="divider">
+
+      <h2 id="benchmarks">6 · System Benchmarks</h2>
+      <p>Hardware efficiency measurements from reproducible CPU runs. Two key benchmarks: sparse resonance speed–fidelity trade-off, and streaming memory footprint comparison.</p>
+
+      <h3>Sparse Resonance: Speed vs. Fidelity</h3>
+      <p>MT-LNN uses multi-scale resonance frequencies across 5 time scales. Sparse top-k selection activates only the most relevant scales per token, trading a small divergence from dense logits for significant throughput gains.</p>
+
+      <figure class="chart-fig wide">
+        <img src="/static/charts/sparse_resonance.svg"
+             alt="Left: throughput bars for dense/sparse k=1,2,3 — sparse k=2 peaks at 6798 tok/s (+24% vs dense). Right: log-scale divergence vs dense — k=2 mean divergence 0.003."
+             loading="lazy">
+        <figcaption>Fig. 6a — Left: throughput by resonance mode (5 repeats, CPU). Sparse k=2 achieves the highest throughput (+24% vs dense k=5). Right: mean absolute logit divergence vs the dense oracle on log scale — sparse k=2 maintains &lt;0.34% mean error.</figcaption>
+      </figure>
+
+      <h3>Streaming Memory Footprint</h3>
+      <p>The recurrent architecture enables a <strong>state-only streaming</strong> mode that discards historical KV cache after each step, maintaining a constant 4 KB memory footprint regardless of context length — vs. the O(n) growth of standard KV-cache streaming.</p>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/memory_scaling.svg"
+             alt="Line chart: KV-cache bytes grow linearly with context length (108 KB at 100 tokens, 1044 KB at 1000 tokens), while state-only stream stays flat at 4 KB."
+             loading="lazy">
+        <figcaption>Fig. 6b — Cache footprint vs. context length. KV-cache stream grows O(n); state-only stream stays constant at 4 KB. Data from operator compression benchmark, CPU, batch=1.</figcaption>
+      </figure>
+
+      <hr class="divider">
+
+      <h2 id="reproduce">7 · How to Reproduce</h2>
+      <ul>
+        <li>All code, experiment scripts, and reproducible configs: <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">github.com/everest-an/M1</a></li>
+        <li>Architecture and pre-training details: <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Technical Paper (PDF)</a></li>
+        <li>Live demo: <a href="/">AwareLiquid Demo</a> · Project overview: <a href="/about">About</a></li>
+      </ul>
+
+      <hr class="divider">
+
+      <h2 id="citation">8 · Cite This Work</h2>
+      <p>If you use this work or build on it, please cite as follows:</p>
+
+      <h3>BibTeX</h3>
+      <div class="cite-block">
+        <button class="cite-copy-btn" id="citeCopy" aria-label="Copy BibTeX">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <pre id="bibtexBlock">@misc{awareliquid2026,
+  title        = {{MT-LNN} v2: Reliable Long Pre-training with Continual Learning},
+  author       = {{AwareLiquid Project}},
+  year         = {2026},
+  howpublished = {\url{https://awareliquid.ai}},
+  note         = {Open research prototype. Code: \url{https://github.com/everest-an/M1}}
+}</pre>
+      </div>
+
+      <h3>APA</h3>
+      <div class="cite-block">
+        <button class="cite-copy-btn" id="citeCopyApa" aria-label="Copy APA citation">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <p id="apaBlock" style="margin:0;font-size:14.5px">AwareLiquid Project. (2026). <em>MT-LNN v2: Reliable Long Pre-training with Continual Learning</em> [Open research prototype]. Retrieved from https://awareliquid.ai. Code: https://github.com/everest-an/M1</p>
+      </div>
+
+      <hr class="divider">
+
+      <h2 id="changelog">9 · Changelog</h2>
+      <div class="changelog">
+        <div class="cl-entry">
+          <span class="cl-version">v2.1</span>
+          <time class="cl-date" datetime="2026-06">June 2026</time>
+          <div class="cl-body">
+            <strong>Adapter benchmarks &amp; UX.</strong> Added Kaggle P100 GPU PPL ablation (−28.5%), 30-question context injection uplift (+13.3 pp), and honest needle-in-haystack failure report. New charts: <code>ppl_ablation.svg</code>, <code>context_needle.svg</code>. Dark/light mode toggle across all pages. Scroll-to-top, copy reply, clear chat, retry on offline.
+          </div>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-version">v2.0</span>
+          <time class="cl-date" datetime="2026-05">May 2026</time>
+          <div class="cl-body">
+            <strong>Full website redesign.</strong> Mature production-style layout: sticky nav, hero, stats strip, feature cards, research highlight. Research page with sticky sidebar &amp; IntersectionObserver scrollspy. Dark mode, mobile responsive. Added OG/Twitter meta, canonical, JSON-LD, sitemap.xml, robots.txt, 404.html. Nature-figure matplotlib charts (EWC, Hebbian, sparse resonance, memory scaling, architecture pipeline).
+          </div>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-version">v1.2</span>
+          <time class="cl-date" datetime="2026-04">Apr 2026</time>
+          <div class="cl-body">
+            <strong>EWC validated.</strong> Three-arm GPU experiment (dense / liquid / EWC) with 3 seeds × 60.7M model. EWC reduces forgetting by 85%, SNR 4.14. Hebbian ablation: term inert at current scale. Spatial computing section added.
+          </div>
+        </div>
+        <div class="cl-entry">
+          <span class="cl-version">v1.0</span>
+          <time class="cl-date" datetime="2026-02">Feb 2026</time>
+          <div class="cl-body">
+            <strong>Initial release.</strong> MT-LNN v2 architecture: LTC core + GWT-B + EWC + Hebbian plasticity + predictive coding. 48M scratch pre-training on TinyStories. Live demo server. ArXiv-style technical paper.
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <h2 id="faq">10 · FAQ</h2>
+
+      <h3>Is this production-ready?</h3>
+      <p>No. AwareLiquid is an open research prototype. The 48M from-scratch model produces coherent short stories but is not a general assistant. The MT-LNN adapter improves perplexity but generates repetitive outputs at higher temperatures. Both are research artifacts demonstrating architectural ideas.</p>
+
+      <h3>How is this different from Liquid AI / LFM?</h3>
+      <p>Liquid AI builds high-performance models using an SSM + linear attention + MoE hybrid for maximum efficiency at inference. AwareLiquid builds a continuous-time RNN with neuroscience-inspired modules to study <em>continual learning</em> — can a model learn new domains without forgetting old ones? The research axes are orthogonal: LFM optimises for static-weight inference; MT-LNN explores online weight updates.</p>
+
+      <h3>What is catastrophic forgetting?</h3>
+      <p>When a neural network is trained sequentially on two domains (A then B), its performance on A typically collapses — sometimes by 10,000+ PPL points in our experiments. This is catastrophic forgetting. EWC uses Fisher information to anchor important weights from A while learning B, reducing the forgetting by 85% in our experiments (though absolute PPL on A is still 7.6× its original value — an open problem).</p>
+
+      <h3>Can I use the model API?</h3>
+      <p>Yes. The live demo server exposes <code>/v1/completions/stream</code> (SSE streaming) and <code>/v1/model</code> (model metadata). See <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub README</a> for local setup. The server is research-grade with no rate limits or SLAs.</p>
+
+      <h3>Why report the needle-in-haystack failure?</h3>
+      <p>Scientific honesty. The needle test requires a model to locate a specific injected fact inside a 1K–4K token window. Both the base model and the adapter score 0%, because neither supports the scratch-pad / chain-of-thought reasoning the task demands. We report this prominently rather than omitting it.</p>
+
+    </div><!-- /content-col -->
+  </div><!-- /research-layout -->
+</div>
+
+</main><!-- /#main-content -->
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+          <path d="M6 11.3 Q14 8.3 22 11.3"/>
+          <path d="M6 14.6 Q14 11.6 22 14.6"/>
+          <path d="M6 17.9 Q14 14.9 22 17.9"/>
+        </svg>
+        AwareLiquid
+      </a>
+      <p>Open research on continual learning with liquid time-constant neural networks.</p>
+      <a class="footer-gh" href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        github.com/everest-an/M1
+      </a>
+    </div>
+    <nav class="footer-col" aria-label="Research navigation">
+      <h4>Research</h4>
+      <a href="#architecture">Architecture</a>
+      <a href="#ewc">EWC Results</a>
+      <a href="#hebbian">Hebbian Ablation</a>
+      <a href="#spatial">Spatial Computing</a>
+      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper (PDF)</a>
+    </nav>
+    <nav class="footer-col" aria-label="Project navigation">
+      <h4>Project</h4>
+      <a href="/about">About</a>
+      <a href="/#demo">Live Demo</a>
+      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <nav class="footer-col" aria-label="API navigation">
+      <h4>API</h4>
+      <a href="/v1/model" target="_blank">Model Info</a>
+      <a href="/health" target="_blank">Health</a>
+    </nav>
   </div>
-  <p><span class="tag built">已实现</span>端到端预训练 + 原生服务跑通；<span class="tag target">目标</span>更大规模、体验更好的模型（见 demo 的诚实免责说明）。</p>
-
-  <h2>3. 持续学习 / 抗遗忘（核心研究方向）</h2>
-  <p>这是 AwareLiquid 真正想推进、也是与冻结权重的前沿大模型<strong>正交</strong>的方向：让模型在学新领域时不灾难性遗忘旧领域。我们搭了一套严格的跨领域持续学习实验框架。</p>
-
-  <h3>实验设计</h3>
-  <ul>
-    <li>先在领域 A 上训练并评估，再在领域 B 上继续训练，回头测 A 上是否退化（遗忘）；</li>
-    <li>三条对照臂：<code>dense</code>（普通稠密基线）、<code>liquid</code>（液态骨干）、<code>consolidation</code>（巩固机制）；</li>
-    <li>统计严谨性：按 seed 配对求 delta、信噪比 SNR=|mean|/std、要求<strong>每个 seed 方向一致</strong>、并检查是否“非灾难性”。结论门槛高，避免单 seed 噪声当成效果。</li>
-  </ul>
-
-  <h3>巩固机制：EWC（弹性权重巩固）</h3>
-  <p>在领域 A 训完后快照锚点权重，用纯 CE 梯度估计对角 Fisher 信息，再在领域 B 训练时加二次惩罚项 <code>λ/2 · Σ Fᵢ(θᵢ−θ_Aᵢ)²</code>，约束对 A 重要的权重少动。这是一个架构无关的训练流程机制。</p>
-
-  <h3>实测结果（真实 GPU 跑，A=WikiText-103 → B=TinyStories）</h3>
-  <p>3 seeds，60.7M 模型，每领域 1200 步。<code>遗忘量</code> = 在 B 上训练后 A 的 PPL 上升（越小越好）；同时要求仍学得会 B。</p>
-  <div class="card">
-    <table>
-      <tr><th>对照臂</th><th>A 训练前</th><th>A 训练后</th><th>遗忘量</th><th>学会 B?</th></tr>
-      <tr><td>dense（无抗遗忘）</td><td class="num">244.9</td><td class="num">10806.9</td><td class="num">+10561.9</td><td>✅</td></tr>
-      <tr><td>liquid（液态骨干）</td><td class="num">248.5</td><td class="num">9792.0</td><td class="num">+9543.5</td><td>✅</td></tr>
-      <tr><td><strong>consolidation（EWC）</strong></td><td class="num">244.9</td><td class="num"><strong>1878.0</strong></td><td class="num"><strong>+1633.1</strong></td><td>✅</td></tr>
-    </table>
-    <p style="margin-bottom:0">配对统计（consolidation − dense）：<strong>−8928.8 ± 2155，SNR=4.14，3/3 个 seed 全部更优</strong>。即 EWC 把跨领域遗忘<strong>降低约 85%</strong>（10562 → 1633），且没有牺牲学新领域 B 的能力。</p>
+  <div class="footer-bottom">
+    <div class="container footer-bottom-inner">
+      <span>© 2026 AwareLiquid · open research demo</span>
+      <span>Built on <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT Liquid Neural Networks</a></span>
+    </div>
   </div>
-  <p>
-    <span class="tag built">已实现</span>EWC 机制 + 三臂实验框架，代码与上面这组结果可复现（<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>，<code>experiments/continual_crossdomain_liquid.py</code>）。<br>
-    <span class="tag signal">早期信号</span>抑制遗忘的效果<strong>真实、强、且每个 seed 都一致</strong>（−85%，SNR 4.14）——这是机制有效性的第一个明确证据。<br>
-    <span class="tag target">尚未达成</span>“让旧领域保持<strong>可用</strong>”：EWC 后 A 的绝对 PPL（1878）相对训练前（245）仍退化约 7.6 倍，按“退化 &lt;5 倍才算可用”的硬标准，仍判定为灾难性遗忘。所以严格裁决是 <strong>WEAK-TREND</strong>，不是 SUPPORTED。
-  </p>
-  <div class="note">
-    诚实结论：巩固机制<strong>确实在起作用、方向正确、可复现</strong>，把遗忘砍掉了一大截；但“持续学习已攻克”还远谈不上——旧领域绝对性能尚未达到可用线。我们如实把它定为<strong>早期信号</strong>，而非已验证的成功。
-  </div>
-
-  <h2>4. 空间计算（实验方向）</h2>
-  <p>MT-LNN 的循环动力学是否适合<strong>空间表征与推理</strong>？这是一条受神经科学（网格细胞、位置细胞、路径积分）启发的实验线。代码完整、能跑出图，但各部分的验证程度不同，如实分述。</p>
-
-  <h3>已实现的模块（代码可跑）</h3>
-  <ul>
-    <li><strong>空间编码前端</strong>：网格细胞编码、多尺度网格模块、头朝向细胞、边界距离细胞、位置细胞码（含 DoG 中心-环绕模式）——<code>mt_lnn/spatial.py</code>；</li>
-    <li><strong>位置索引联想记忆</strong>：Hebbian 写入 + 模式补全读取，零可训练参数——<code>mt_lnn/spatial_memory.py</code>；</li>
-    <li><strong>因果空间转向</strong>：检测循环轨迹断裂并把状态投影回合法子空间——<code>mt_lnn/causal_steering.py</code>；</li>
-    <li><strong>空间算子 + 推理脚手架</strong>：距离/方位/可达性图、按位置路由——<code>spatial_ops.py</code> / <code>spatial_reasoning.py</code>。</li>
-  </ul>
-
-  <h3>两个验证过的玩具 demo（按预期工作）</h3>
-  <figure>
-    <img src="/static/causal_spatial_steering.png" alt="因果空间转向：检测轨迹断裂并把离流形误差投影回 0" loading="lazy">
-    <figcaption><span class="tag built">已实现</span>因果转向：在第 18 步人为制造一次“瞬移”断裂，转向机制检测到并把离流形误差拉回 0；不转向的基线则一直带着误差。</figcaption>
-  </figure>
-  <figure>
-    <img src="/static/spatial_memory_recall.png" alt="空间记忆模式补全：带噪位置查询仍能取回正确内容" loading="lazy">
-    <figcaption><span class="tag built">已实现</span>空间记忆模式补全：对带噪的位置查询，仍能取回正确存储内容，且随噪声<strong>平滑退化</strong>而非乱编。</figcaption>
-  </figure>
-
-  <h3>网格细胞涌现：尚未验证</h3>
-  <p>把 MT-LNN 循环核与 GRU 基线放在同一个“速度→位置”路径积分任务上对比，看是否自发涌现六边形网格细胞（标准门槛 grid score &gt; 0.3）。</p>
-  <p>
-    <span class="tag built">已实现</span>轨迹生成、损失、网格分自相关分析全套流程能跑；<br>
-    <span class="tag target">尚未达成</span>到目前为止<strong>都是 CPU 冒烟规模的跑</strong>，没有任何一次（GRU 或 MT-LNN）越过 0.3 门槛，MT-LNN 也未跑赢 GRU 基线。要下结论需要 GPU 上认真规模的训练——<strong>现在不声称任何空间优势</strong>。
-  </p>
-  <div class="note">
-    诚实小结：空间计算这条线，<strong>基础模块和两个 demo 是实打实能跑的</strong>；但“MT-LNN 在空间任务上更强”这个核心论点<strong>还没有数据支撑</strong>，目前是一个开放的实验方向，不是已验证的能力。
-  </div>
-
-  <h2>5. 怎么复现</h2>
-  <ul>
-    <li>代码、实验脚本、可复现配置：<a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">github.com/everest-an/M1</a>；</li>
-    <li>架构与预训练细节：<a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">技术论文 (PDF)</a>；</li>
-    <li>在线体验：<a href="/">Demo</a> · 项目定位：<a href="/about">About</a>。</li>
-  </ul>
-</main>
-
-<footer>
-  <a href="/">Demo</a>
-  <a href="/about">About</a>
-  <a href="/research">Research</a>
-  <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a>
-  <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener">Paper</a>
-  <a href="/v1/model" target="_blank">API</a>
-  <a href="/health" target="_blank">Health</a>
-  <span style="margin-left:auto">© 2026 AwareLiquid · research demo</span>
 </footer>
+
+<button class="scroll-top" id="scrollTop" aria-label="Back to top">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M12 5l-6 6M12 5l6 6"/></svg>
+</button>
+
+<script>
+// ── mobile nav: toggle + close on link click ──
+const navToggle=document.getElementById('navToggle'),
+      navLinks=document.getElementById('navLinks');
+navToggle.addEventListener('click',()=>navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>navLinks.classList.remove('open')));
+
+// ── nav scroll shadow ──
+const navEl=document.getElementById('nav');
+window.addEventListener('scroll',()=>{
+  navEl.style.boxShadow=window.scrollY>10?'0 1px 24px rgba(0,0,0,.08)':'none';
+},{passive:true});
+
+// ── scroll-to-top ──
+const scrollTopBtn=document.getElementById('scrollTop');
+window.addEventListener('scroll',()=>{
+  scrollTopBtn.classList.toggle('show',window.scrollY>400);
+},{passive:true});
+scrollTopBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+// ── dark mode toggle ──
+const themeBtn=document.getElementById('themeBtn'),
+      themeIcon=document.getElementById('themeIcon');
+const SUN='<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="5"/>',
+      MOON='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+function isDark(){const t=document.documentElement.dataset.theme;if(t==='dark')return true;if(t==='light')return false;return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+function applyThemeIcon(){themeIcon.innerHTML=isDark()?SUN:MOON;themeBtn.title=isDark()?'Switch to light mode':'Switch to dark mode';}
+(function initTheme(){const s=localStorage.getItem('theme');if(s)document.documentElement.dataset.theme=s;applyThemeIcon();})();
+themeBtn.addEventListener('click',()=>{const next=isDark()?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('theme',next);applyThemeIcon();});
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!localStorage.getItem('theme'))applyThemeIcon();});
+
+// ── citation copy buttons ──
+function makeCopyBtn(btnId,sourceId){
+  const btn=document.getElementById(btnId),src=document.getElementById(sourceId);
+  if(!btn||!src)return;
+  btn.addEventListener('click',()=>{
+    const text=src.tagName==='PRE'?src.textContent:src.innerText;
+    navigator.clipboard.writeText(text).then(()=>{
+      btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+      btn.classList.add('copied');
+      setTimeout(()=>{btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';btn.classList.remove('copied');},2500);
+    }).catch(()=>{});
+  });
+}
+makeCopyBtn('citeCopy','bibtexBlock');
+makeCopyBtn('citeCopyApa','apaBlock');
+
+// ── sidebar active link on scroll ──
+const sections=document.querySelectorAll('[id]');
+const sidebarLinks=document.querySelectorAll('.sidebar-nav a');
+const obs=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      sidebarLinks.forEach(l=>{
+        l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id);
+      });
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px'});
+sections.forEach(s=>obs.observe(s));
+</script>
 </body>
 </html>

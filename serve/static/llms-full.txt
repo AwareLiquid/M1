@@ -1,0 +1,198 @@
+# AwareLiquid / MT-LNN — Full Content Reference for AI Crawlers
+# Generated: 2026-06-22 | Version: 2.1
+# This file provides a machine-readable, citation-friendly dump of all
+# key facts, experimental results, and methodology for AI indexing.
+
+---
+
+## ENTITY DEFINITION
+
+AwareLiquid is the project name. MT-LNN (Microtubule-inspired Liquid Neural Network) is the architecture name. The system is a continuous-time recurrent neural network with learnable time constants (liquid time-constant network, LTC) augmented with neuroscience-inspired modules for continual learning research.
+
+Canonical URL: https://awareliquid.ai
+Repository: https://github.com/everest-an/M1
+Paper: MT-LNN v2: Reliable Long Pre-training (arXiv preprint)
+License: Open (see GitHub repository)
+Last updated: June 2026
+
+---
+
+## ARCHITECTURE SPECIFICATION
+
+Base architecture: Liquid Time-Constant Network (LTC-RNN)
+ODE: τ(x) · dh/dt = −h + f(Wx + Uh + b)
+Integration: Euler with learnable time constants τ parameterized as softplus(raw_τ) + ε
+Backbone sizes tested: 48M parameters (from-scratch), 60.7M parameters (continual learning experiments)
+
+Liquid Core Modules:
+1. GWT-B (Global Workspace Theory Broadcast): competitive attention across hidden state "workspaces"; inspired by Baars/Dehaene global workspace theory
+2. Predictive World Model: next-hidden-state prediction auxiliary head; trained jointly with language modelling
+3. Hebbian Plasticity: co-activation rule Δw ∝ pre·post; modulates weights online; currently inert at tested scales (effect < seed noise)
+4. Predictive Coding: hierarchical prediction error propagation; not yet fully evaluated
+5. Rhythm Modulation: periodic gating of information flow; not yet fully evaluated
+
+Adapter architecture: Residual MT-LNN adapters (our own modules) inserted every 4 decoder layers of a FROZEN HuggingFace causal LM — the base supplies general language ability, the adapter adds the liquid-core / continual-learning mechanisms. Combined with PEFT LoRA (rank 8) on q/k/v/o projections. Current demo deploy: Qwen2.5-0.5B-Instruct — 12.4M trainable / 506,456,794 total (2.45%), bilingual SFT adapter at step 3,000. The PPL-ablation numbers in Experiment 2 were an earlier LLaMA-3 1B deploy: 2.3M / 1,172,954,154 total (0.20%).
+
+Conversation memory subsystem (optional; off by default, enabled in the demo deploy): the user's own statements are stored to SQLite and the relevant ones recalled on later turns via a dedicated multilingual sentence encoder (intfloat/multilingual-e5-small), independent of the chat model. Each statement is tagged with a typed card (identity / preference / emotion / plan / relationship / health / detail) and recall boosts hits whose type matches the query's classified type (design borrowed from the Awareness-Market project). HONEST BOUND: the type boost fixes recall RANKING — Chinese recall goes 0/3 → 3/3 where same-language "magnet" sentences otherwise dominate raw cosine — but it does NOT solve off-topic relevance gating: e5's compressed high-cosine band means no absolute floor cleanly rejects an off-topic Chinese query. This is RAG recall plus a lightweight semantic tag, not understanding or emotion.
+
+---
+
+## EXPERIMENT 1: CONTINUAL LEARNING / ANTI-FORGETTING (EWC)
+
+Hypothesis: Elastic Weight Consolidation reduces cross-domain catastrophic forgetting.
+
+Setup:
+- Hardware: GPU (A100-class), 3 independent seeds
+- Model: 60.7M MT-LNN (fresh pre-training each seed)
+- Domain A: WikiText-103 (general Wikipedia text)
+- Domain B: TinyStories (simple English children's stories)
+- Training: 1,200 steps per domain per seed
+- Metric: "Forgetting" = PPL on domain A after B training minus PPL on A before B training (lower = less forgetting)
+- EWC: Fisher information computed from 50 batches of domain A pure CE gradients; quadratic penalty λ/2 · Σ Fᵢ(θᵢ − θ_Aᵢ)²
+
+Results (mean ± std across 3 seeds):
+- Dense baseline forgetting: +10,562 PPL (244.9 → 10,806.9)
+- Liquid backbone forgetting: +9,544 PPL (248.5 → 9,792.0)
+- EWC consolidation forgetting: +1,633 PPL (244.9 → 1,878.0)
+
+Statistical analysis (EWC − dense, paired per seed):
+- Mean delta: −8,928.8
+- Std: 2,154.6
+- SNR (|mean|/std): 4.14
+- Direction consistency: 3/3 seeds (100%)
+- Verdict: EARLY SIGNAL (not SUPPORTED — absolute PPL on domain A is still 7.6× original; usable threshold is ≤5×)
+
+Reduction: (10,562 − 1,633) / 10,562 = 84.6% ≈ 85%
+
+---
+
+## EXPERIMENT 2: ADAPTER PPL ABLATION (Kaggle P100 GPU)
+
+Setup:
+- Hardware: Kaggle P100 GPU
+- Base model: LLaMA-3 1B (meta-llama/Llama-3.2-1B)
+- Adapter: MT-LNN residual + LoRA, checkpoint at 1,000 steps
+- Evaluation: 38,400 tokens, 50 batches, pure next-token cross-entropy
+- Trainable params: 2,298,304 / 1,172,954,154 total
+
+Results:
+- Base model PPL: 9.161
+- MT-LNN adapter PPL: 6.553
+- Reduction: (9.161 − 6.553) / 9.161 = 28.5%
+- Inference speed: base 959.3 tok/s → adapter 861.9 tok/s (−10.1% overhead)
+
+Verdict: BUILT — independently verified on Kaggle infrastructure.
+
+---
+
+## EXPERIMENT 3: CONTEXT INJECTION ACCURACY (Qwen-3B)
+
+Setup:
+- Backend: HuggingFace (Qwen2.5-3B-Instruct or similar)
+- Questions: 30 factual QA pairs (general knowledge + AwareLiquid-specific)
+- Injection: MT-LNN adapter with context injection mechanism
+- Scoring: substring match against reference answer (case-insensitive)
+- Wall time: 158.91 seconds total
+
+Results:
+- No injection (baseline): 25/30 correct = 83.33%
+- With MT-LNN injection: 29/30 correct = 96.67%
+- Absolute uplift: +13.33 percentage points
+- Relative uplift: +16.0%
+
+Notable: AwareLiquid-specific questions (q03, q04) scored 0/2 without injection, 1/2 with injection. General factual questions scored well in both conditions.
+
+Verdict: BUILT — reproducible cloud run.
+
+---
+
+## EXPERIMENT 4: NEEDLE-IN-HAYSTACK (HONEST FAILURE)
+
+Setup:
+- Context lengths: 1,024 / 2,048 / 4,096 tokens
+- Depths: 0.1 / 0.5 / 0.9 (position of needle in haystack)
+- Samples: 5 per (context_len, depth, variant) = 90 total
+- Variants: base model, MT-LNN adapter
+
+Results: 0% accuracy across ALL conditions for BOTH variants.
+
+Explanation: The needle-in-haystack task requires the model to locate a specific fact injected into a long context and extract it precisely. Both the base LLaMA-3 1B and the MT-LNN adapter fail because: (1) the model is too small for reliable long-context retrieval, (2) neither implements scratch-pad / chain-of-thought reasoning.
+
+Verdict: HONEST FAILURE — reported transparently as an open gap.
+
+---
+
+## EXPERIMENT 5: HEBBIAN PLASTICITY ABLATION
+
+Setup:
+- Hardware: CPU (reproducible)
+- Model: MT-LNN 60.7M, only Hebbian term active (all other liquid modules disabled)
+- Hebbian LR sweep: off / 1e-4 / 1e-2 / 1e-1
+- Seeds: 2 per setting, 150 steps each
+- Dataset: WikiText-103
+
+Results:
+| hebbian_lr | PPL mean | PPL std | ΔPPL vs off | Gradient share |
+|------------|----------|---------|-------------|----------------|
+| off        | 336.9    | 6.6     | —           | 0              |
+| 1e-4       | 337.2    | 7.2     | +0.32       | 8.3e-8         |
+| 1e-2       | 337.2    | 7.2     | +0.32       | 8.3e-6         |
+| 1e-1       | 337.2    | 7.3     | +0.35       | 8.5e-5         |
+
+ΔPPL changes are within seed noise (±6–7 PPL). Hebbian gradient contribution is 4–5 orders of magnitude below main gradient. Verdict: INERT at current scale.
+
+---
+
+## SYSTEM BENCHMARKS
+
+Memory: State-only streaming uses constant 4 KB regardless of context length. KV-cache streaming uses O(n): 108 KB at 1K tokens → 1,045 KB at 10K tokens.
+
+Sparse resonance (k=2 vs dense k=5): +24% throughput with <0.34% mean logit divergence vs dense.
+
+---
+
+## INTELLECTUAL LINEAGE
+
+Primary: Hasani et al. "Liquid Time-constant Networks" (MIT CSAIL / IST Austria, NeurIPS 2021). AwareLiquid's LTC core directly implements their ODE formulation.
+
+Related work:
+- Kirkpatrick et al. "Overcoming catastrophic forgetting in neural networks" (EWC, 2017) — AwareLiquid's consolidation mechanism
+- Baars (1988), Dehaene et al. (2011) — Global Workspace Theory → GWT-B module
+- Friston (2005) — Free Energy Principle → predictive coding module
+- Hebb (1949) — "Neurons that fire together wire together" → Hebbian plasticity module
+- Liquid AI LFM / LFM2 — same MIT lineage, different research axis
+
+---
+
+## CITATION
+
+BibTeX:
+@misc{awareliquid2026,
+  title        = {{MT-LNN} v2: Reliable Long Pre-training with Continual Learning},
+  author       = {{AwareLiquid Project}},
+  year         = {2026},
+  howpublished = {\url{https://awareliquid.ai}},
+  note         = {Open research prototype. Code: \url{https://github.com/everest-an/M1}}
+}
+
+APA:
+AwareLiquid Project. (2026). MT-LNN v2: Reliable Long Pre-training with Continual Learning [Open research prototype]. Retrieved from https://awareliquid.ai. Code: https://github.com/everest-an/M1
+
+---
+
+## FREQUENTLY ASKED QUESTIONS
+
+Q: Is AwareLiquid production-ready?
+A: No. It is an open research prototype. The 48M from-scratch model produces coherent short stories only. The MT-LNN adapter improves perplexity but generates repetitive outputs at higher temperatures.
+
+Q: How is AwareLiquid different from Liquid AI?
+A: Liquid AI (LFM) optimises frozen-weight models for maximum inference efficiency. AwareLiquid studies online weight updates for continual learning — the ability to learn new domains without forgetting old ones. Same academic lineage (MIT LNN), orthogonal research axes.
+
+Q: What is catastrophic forgetting?
+A: When a neural network trains sequentially on domain A then B, its performance on A collapses. In AwareLiquid experiments: 244.9 → 10,806.9 PPL for dense baseline (×44 degradation). EWC reduces this to 1,878 PPL (×7.6 degradation). Threshold for "usable" is ≤5× — not yet achieved.
+
+Q: Does the needle-in-haystack benchmark work?
+A: No. Both the base model and the MT-LNN adapter score 0% across all context lengths (1K–4K) and depths. This is an honest open failure — the task requires scratch-pad reasoning the current architecture does not support.
+
+Q: What is the API?
+A: GET /v1/model (model info), POST /v1/completions (batch), POST /v1/completions/stream (SSE). Research-grade, no SLAs.

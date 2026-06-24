@@ -1,218 +1,861 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AwareLiquid · MT-LNN</title>
-<meta name="description" content="AwareLiquid — a brain-inspired Microtubule Liquid Neural Network (MT-LNN). Live demo of the trained MT-LNN adapter and the from-scratch model.">
+<title>AwareLiquid — Continual Learning for Liquid Neural Networks | MT-LNN Open Research</title>
+<meta name="description" content="AwareLiquid (MT-LNN) is an open research prototype for continual learning in liquid neural networks. EWC reduces catastrophic forgetting by 85% (SNR 4.14, 3 seeds). MT-LNN adapter cuts perplexity 28.5%. Live demo, open code.">
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://awareliquid.ai/">
+<meta property="og:title" content="AwareLiquid — Continual Learning for Liquid Neural Networks">
+<meta property="og:description" content="MT-LNN explores continual learning in liquid time-constant neural networks. EWC reduces catastrophic forgetting by 85%. Open research, reproducible experiments.">
+<meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="AwareLiquid MT-LNN — EWC −85% forgetting, −28.5% PPL, 48M parameters">
+<meta property="og:site_name" content="AwareLiquid">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AwareLiquid — MT-LNN Continual Learning">
+<meta name="twitter:description" content="EWC reduces catastrophic forgetting by 85%. Open research on liquid neural networks.">
+<meta name="twitter:image" content="https://awareliquid.ai/static/og-image.png">
+<meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — EWC −85% forgetting reduction">
+<!-- Canonical & crawl -->
+<link rel="canonical" href="https://awareliquid.ai/">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
+<meta name="keywords" content="continual learning, liquid neural networks, MT-LNN, anti-forgetting, EWC, elastic weight consolidation, AI research">
+<meta name="author" content="AwareLiquid Project">
+<!-- LLM / AI crawler discovery -->
+<link rel="alternate" type="text/plain" href="https://awareliquid.ai/llms.txt" title="LLM-readable summary">
+<link rel="alternate" type="text/plain" href="https://awareliquid.ai/llms-full.txt" title="LLM-readable full content">
+<!-- Performance -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<!-- Identity & mobile -->
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<link rel="me" href="https://github.com/everest-an/M1">
+<!-- Favicon -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<!-- JSON-LD structured data -->
+<script type="application/ld+json">
+[
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "AwareLiquid",
+  "alternateName": "MT-LNN",
+  "description": "AwareLiquid (MT-LNN) is an open research prototype exploring continual learning in liquid time-constant neural networks. EWC reduces catastrophic forgetting by 85% (SNR 4.14, 3/3 seeds). Perplexity reduced 28.5% with MT-LNN adapter.",
+  "url": "https://awareliquid.ai",
+  "codeRepository": "https://github.com/everest-an/M1",
+  "applicationCategory": "AIApplication",
+  "operatingSystem": "Any",
+  "keywords": ["continual learning","liquid neural networks","MT-LNN","EWC","anti-forgetting","catastrophic forgetting"],
+  "license": "https://github.com/everest-an/M1/blob/main/LICENSE",
+  "isAccessibleForFree": true,
+  "datePublished": "2026-02-01",
+  "dateModified": "2026-06-22",
+  "subjectOf": {
+    "@type": "ScholarlyArticle",
+    "name": "MT-LNN v2: Reliable Long Pre-training",
+    "url": "https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf"
+  }
+},
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://awareliquid.ai/#organization",
+  "name": "AwareLiquid",
+  "alternateName": "MT-LNN Project",
+  "url": "https://awareliquid.ai",
+  "logo": "https://awareliquid.ai/static/og-image.png",
+  "sameAs": ["https://github.com/everest-an/M1"],
+  "description": "Open research project on continual learning and anti-catastrophic-forgetting in liquid neural networks."
+},
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "AwareLiquid",
+  "url": "https://awareliquid.ai",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://awareliquid.ai/research",
+    "query-input": "required name=search_term_string"
+  }
+}
+]
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script>
+// ── marked.js offline fallback ────────────────────────────────────────────
+// Activates only if the CDN load fails. Supports bold, italic, inline code,
+// code blocks, and paragraph splitting — sufficient for the demo's outputs.
+window.addEventListener('load', function(){
+  if(typeof marked !== 'undefined') return; // CDN succeeded
+  window.marked = {
+    parse: function(text){
+      if(!text) return '';
+      var e = function(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
+      // Code blocks
+      text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, function(_,c){ return '<pre><code>'+e(c.trim())+'</code></pre>'; });
+      // Paragraphs
+      var paras = text.split(/\n{2,}/);
+      return paras.map(function(p){
+        p = p.trim(); if(!p) return '';
+        if(p.startsWith('<pre>')) return p;
+        p = p.replace(/`([^`]+)`/g, function(_,c){ return '<code>'+e(c)+'</code>'; });
+        p = p.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        p = p.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        p = p.replace(/\n/g, '<br>');
+        return '<p>'+p+'</p>';
+      }).join('');
+    }
+  };
+  console.warn('[demo] marked.js CDN unavailable — using inline fallback');
+});
+</script>
 <style>
+:root{
+  --bg:#ffffff; --fg:#0d0d0d; --muted:#6b6b80; --line:#e8e8ef;
+  --card:#f9f9fb; --radius:16px; --col:1120px;
+  --send-bg:#0d0d0d; --send-icon:#ffffff;
+  --tag-built-bg:#e7f6ef; --tag-built-fg:#0a7d55;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){
   :root{
-    --bg:#ffffff;
-    --fg:#0d0d0d;
-    --muted:#8e8ea0;
-    --line:#ececf1;
-    --user-bubble:#f4f4f5;
-    --accent:#0d0d0d;
-    --shadow:0 2px 18px rgba(0,0,0,.06);
-    --radius:24px;
-    --col:768px;
-    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif;
+    --bg:#0e0e10; --fg:#ebebeb; --muted:#9090a8; --line:#252530;
+    --card:#16161a; --send-bg:#ebebeb; --send-icon:#111;
+    --tag-built-bg:#0c3828; --tag-built-fg:#52c48a;
   }
-  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-  html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);
-    display:flex;flex-direction:column;height:100dvh;overflow:hidden;font-size:16px;line-height:1.65;
-  }
+  .nav{background:rgba(14,14,16,.85)}
+  .feat-card,.vs-card,.demo-widget{background:var(--card);border-color:var(--line)}
+  .rh-table table{background:var(--card)}
+  .stats-strip{border-color:var(--line)}
+  .highlight-row td{background:#0c2a0a}
+  .feat-icon{background:var(--line)}
+  select{background:var(--card);color:var(--fg)}
+  .demo-bar{background:var(--card);border-color:var(--line)}
+  .demo-composer{background:var(--bg);border-color:var(--line)}
+  textarea{color:var(--fg)}
+  .example{background:var(--card)}
+  .example:hover{background:#1e1e28;border-color:#3a3a4a}
+  .scroll::-webkit-scrollbar-thumb{background:#2c2c3c}
+}
+html{color-scheme:light dark;scroll-behavior:smooth}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.7;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+.skip-nav{position:absolute;top:-999px;left:8px;background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;text-decoration:none}
+.skip-nav:focus{top:8px}
 
-  /* Top bar — minimal, centered brand */
-  header{
-    height:60px;display:flex;align-items:center;justify-content:center;position:relative;
-    border-bottom:1px solid var(--line);flex:none;
-  }
-  header .brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px;letter-spacing:.2px}
-  .logo{width:22px;height:22px;display:block;color:#0d0d0d;flex:none}
-  header .status{position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
-  header .status .live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
-  header .status .live.ok{background:#10a37f}
-  header .status .live.err{background:#ef4444}
-  header .modelsel{position:absolute;left:18px;top:50%;transform:translateY(-50%)}
-  header .modelsel select{font:inherit;font-size:12px;color:#0d0d0d;background:transparent;border:1px solid var(--line);border-radius:8px;padding:4px 26px 4px 9px;cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e8ea0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
+/* ── CONTAINER ── */
+.container{max-width:var(--col);margin:0 auto;padding:0 24px}
 
-  /* Scroll area */
-  .scroll{flex:1;overflow-y:auto;overflow-x:hidden}
-  .scroll::-webkit-scrollbar{width:8px}
-  .scroll::-webkit-scrollbar-thumb{background:#e3e3e8;border-radius:4px}
+/* ── NAV ── */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:64px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  background:rgba(255,255,255,.85);border-bottom:1px solid var(--line);
+}
+.nav-inner{height:64px;display:flex;align-items:center;gap:0}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:.1px;flex:none}
+.logo{width:20px;height:20px;color:var(--fg);flex:none}
+.nav-links{display:flex;align-items:center;gap:2px;margin-left:32px;flex:1}
+.nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;transition:color .15s,background .15s}
+.nav-links a:hover{color:var(--fg);background:var(--card)}
+.nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;letter-spacing:.1px}
+.btn-primary{background:var(--fg);color:var(--bg);padding:8px 18px}
+.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--fg);border-color:var(--line);padding:8px 18px}
+.btn-ghost:hover{background:var(--card)}
+.btn-lg{font-size:15px;padding:12px 24px;border-radius:12px}
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--fg);padding:8px}
 
-  /* Empty / welcome state */
-  .welcome{
-    min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:40px 24px;text-align:center;
-  }
-  .welcome h2{font-size:28px;font-weight:600;margin:0 0 10px;letter-spacing:-.3px}
-  .welcome p{color:var(--muted);font-size:15px;max-width:460px;margin:0 0 34px;line-height:1.7}
-  .examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:100%;max-width:560px}
-  .example{
-    border:1px solid var(--line);border-radius:16px;padding:16px 18px;text-align:left;cursor:pointer;
-    background:#fff;transition:background .15s,border-color .15s,transform .08s;
-  }
-  .example:hover{background:#fafafa;border-color:#dcdce3}
-  .example:active{transform:scale(.985)}
-  .example .t{font-size:14px;font-weight:550}
-  .example .s{font-size:12px;color:var(--muted);margin-top:3px}
+/* ── HERO ── */
+.hero{padding:148px 0 96px;text-align:center}
+.pill{
+  display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 10px;
+  margin-bottom:28px;color:var(--muted);transition:border-color .15s;
+}
+.pill:hover{border-color:var(--fg)}
+.pill-dot{width:7px;height:7px;border-radius:50%;background:#10b981;flex:none}
+.pill strong{color:var(--fg)}
+.pill-arrow{color:var(--fg);font-size:12px}
+.hero-title{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:20px}
+.hero-title .accent{color:var(--muted)}
+.hero-sub{font-size:17px;color:var(--muted);max-width:560px;margin:0 auto 36px;line-height:1.7}
+.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
 
-  /* Conversation column */
-  .thread{max-width:var(--col);margin:0 auto;padding:28px 24px 40px;display:flex;flex-direction:column;gap:26px}
-  .turn{display:flex;flex-direction:column;gap:6px}
-  .turn.user{align-items:flex-end}
-  .turn.assistant{align-items:flex-start}
-  .bubble{
-    max-width:90%;border-radius:var(--radius);font-size:16px;line-height:1.7;
-    white-space:pre-wrap;word-wrap:break-word;
-  }
-  .turn.user .bubble{background:var(--user-bubble);padding:12px 18px;border-bottom-right-radius:8px}
-  .turn.assistant .bubble{padding:2px 0;max-width:100%}
-  .turn.assistant .who{font-size:13px;font-weight:600;color:#0d0d0d;display:flex;align-items:center;gap:7px;margin-bottom:2px}
-  .turn.assistant .who .av{width:20px;height:20px;border-radius:50%;background:#0d0d0d;display:inline-flex;align-items:center;justify-content:center}
-  .turn.assistant .who .av i{width:7px;height:7px;border-radius:50%;background:#fff;display:block}
-  .bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
-  @keyframes blink{50%{opacity:0}}
-  .meta{font-size:11.5px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+/* ── STATS STRIP ── */
+.stats-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:48px 0}
+.stats-inner{display:flex;align-items:center;justify-content:space-around;gap:24px;flex-wrap:wrap}
+.stat-item{text-align:center;flex:1;min-width:120px}
+.stat-n{display:block;font-size:38px;font-weight:700;letter-spacing:-.04em;line-height:1}
+.stat-l{display:block;font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+.stat-div{width:1px;height:48px;background:var(--line);flex:none}
+@media(max-width:640px){.stat-div{display:none}.stats-inner{gap:32px}}
 
-  /* Composer */
-  .composer-wrap{flex:none;padding:0 24px 22px;background:linear-gradient(to top,var(--bg) 70%,transparent)}
-  .composer{
-    max-width:var(--col);margin:0 auto;border:1px solid var(--line);border-radius:28px;
-    box-shadow:var(--shadow);background:#fff;padding:8px 8px 8px 20px;display:flex;align-items:flex-end;gap:8px;
-    transition:border-color .15s,box-shadow .15s;
-  }
-  .composer:focus-within{border-color:#d0d0d8;box-shadow:0 4px 26px rgba(0,0,0,.09)}
-  textarea{
-    flex:1;border:none;outline:none;resize:none;background:transparent;font-family:inherit;font-size:16px;
-    line-height:1.5;padding:11px 0;max-height:180px;color:var(--fg);
-  }
-  textarea::placeholder{color:#b4b4c0}
-  .send{
-    width:38px;height:38px;border:none;border-radius:50%;background:#0d0d0d;color:#fff;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;flex:none;transition:opacity .15s,background .15s;
-  }
-  .send:disabled{background:#e3e3e8;color:#fff;cursor:not-allowed}
-  .send svg{width:18px;height:18px;display:block}
-  .send.stop{background:#0d0d0d}
-  .send.stop .sq{width:11px;height:11px;background:#fff;border-radius:3px}
-  .disclaimer{max-width:var(--col);margin:10px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
-  .disclaimer a{color:var(--muted)}
+/* ── SECTION COMMON ── */
+.section{padding:96px 0}
+.section-header{text-align:center;max-width:640px;margin:0 auto 56px}
+.eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.section-header h2{font-size:clamp(26px,4vw,38px);font-weight:700;letter-spacing:-.03em;line-height:1.15;margin-bottom:14px}
+.section-lead{font-size:16px;color:var(--muted);line-height:1.7}
+
+/* ── FEATURES ── */
+.features-section{background:var(--card)}
+.card-grid.cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:860px){.card-grid.cols-3{grid-template-columns:1fr}}
+.feat-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.feat-icon{width:42px;height:42px;border-radius:12px;background:#f0f0f5;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.feat-card h3{font-size:17px;font-weight:650;margin-bottom:8px;letter-spacing:-.01em}
+.feat-card p{font-size:14.5px;color:var(--muted);line-height:1.7}
+
+/* ── RESEARCH HIGHLIGHT ── */
+.rh-section{background:var(--bg)}
+.rh-inner{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+@media(max-width:860px){.rh-inner{grid-template-columns:1fr;gap:40px}}
+.rh-text{text-align:left}
+.rh-text .eyebrow{text-align:left;display:block}
+.rh-text h2{font-size:clamp(24px,3vw,34px);font-weight:700;letter-spacing:-.025em;line-height:1.2;margin-bottom:14px}
+.rh-text p{font-size:15px;color:var(--muted);margin-bottom:24px;line-height:1.7}
+.rh-metrics{display:flex;gap:24px;margin-bottom:28px;flex-wrap:wrap}
+.metric{flex:1;min-width:100px}
+.metric-n{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.metric-l{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+.rh-table table{width:100%;border-collapse:collapse;font-size:13.5px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.rh-table th,.rh-table td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+.rh-table th{font-weight:600;font-size:12px;color:var(--muted);background:var(--card)}
+.rh-table tr:last-child td{border-bottom:none}
+.highlight-row td{background:#f0fdf4;font-weight:500}
+td.bad{color:#dc2626;font-family:var(--mono);font-size:12.5px}
+td.warn{color:#d97706;font-family:var(--mono);font-size:12.5px}
+td.good{color:#16a34a;font-family:var(--mono);font-size:12.5px}
+.table-note{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+
+/* ── DEMO SECTION ── */
+.demo-section{background:var(--card)}
+.demo-widget{
+  border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  display:flex;flex-direction:column;height:560px;max-width:760px;margin:0 auto;
+  background:var(--bg);box-shadow:0 4px 32px rgba(0,0,0,.06);
+}
+.demo-bar{
+  height:50px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;border-bottom:1px solid var(--line);flex:none;background:var(--card);
+}
+.demo-bar .modelsel select{
+  font:inherit;font-size:12px;color:var(--fg);background:transparent;
+  border:1px solid var(--line);border-radius:8px;padding:4px 26px 4px 9px;
+  cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e8ea0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;
+}
+.demo-bar .status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
+.live.ok{background:#10a37f}
+.live.err{background:#ef4444}
+.demo-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.demo-scroll::-webkit-scrollbar{width:6px}
+.demo-scroll::-webkit-scrollbar-thumb{background:#e3e3e8;border-radius:3px}
+.welcome{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;text-align:center}
+.welcome p{font-size:14px;color:var(--muted);max-width:400px;margin:0 0 20px;line-height:1.65}
+.examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:480px}
+.example{border:1px solid var(--line);border-radius:12px;padding:13px 15px;text-align:left;cursor:pointer;background:var(--bg);transition:background .15s,border-color .15s}
+.example:hover{background:var(--card);border-color:#d0d0d8}
+.example .t{font-size:13px;font-weight:600}
+.example .s{font-size:12px;color:var(--muted);margin-top:2px}
+.thread{padding:20px 20px 28px;display:flex;flex-direction:column;gap:20px}
+.turn{display:flex;flex-direction:column;gap:5px}
+.turn.user{align-items:flex-end}
+.turn.assistant{align-items:flex-start}
+.bubble{max-width:88%;border-radius:18px;font-size:15px;line-height:1.65;white-space:pre-wrap;word-wrap:break-word}
+.turn.user .bubble{background:#f4f4f5;padding:10px 16px;border-bottom-right-radius:5px}
+.turn.assistant .bubble{padding:2px 0;max-width:100%}
+.turn.assistant .who{font-size:12.5px;font-weight:600;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.turn.assistant .who .av{width:18px;height:18px;border-radius:50%;background:var(--fg);display:inline-flex;align-items:center;justify-content:center;flex:none}
+.turn.assistant .who .av i{width:6px;height:6px;border-radius:50%;background:var(--bg);display:block}
+.bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
+@keyframes blink{50%{opacity:0}}
+.meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.bubble.md p{margin:0 0 8px}
+.bubble.md p:last-child{margin-bottom:0}
+.bubble.md code{font-family:var(--mono);font-size:12.5px;background:#f3f3f5;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.bubble.md pre{background:#f3f3f5;border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;margin:6px 0}
+.bubble.md pre code{background:none;border:none;padding:0}
+.bubble.md ul,.bubble.md ol{margin:0 0 8px;padding-left:18px}
+.bubble.md li{margin:2px 0}
+.bubble.md strong{font-weight:650}
+@media(prefers-color-scheme:dark){.bubble.md code,.bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}}
+@media(prefers-color-scheme:dark){.turn.user .bubble{background:#1e1e28}}
+.demo-composer{
+  flex:none;padding:10px 12px;border-top:1px solid var(--line);
+  display:flex;align-items:flex-end;gap:8px;background:var(--bg);
+}
+textarea{
+  flex:1;border:none;outline:none;resize:none;background:transparent;
+  font-family:inherit;font-size:15px;line-height:1.5;padding:6px 0;
+  max-height:120px;color:var(--fg);
+}
+textarea::placeholder{color:#b4b4c0}
+.send{
+  width:36px;height:36px;border:none;border-radius:50%;background:var(--send-bg);
+  color:var(--send-icon);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;flex:none;transition:opacity .15s;
+}
+.send:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+.send svg{width:16px;height:16px}
+.send.stop{background:var(--send-bg)}
+.send.stop .sq{width:10px;height:10px;background:var(--send-icon);border-radius:2px}
+.arch-figure{margin:0 0 40px;text-align:center}
+.arch-figure img{width:100%;max-width:760px;height:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.arch-figure figcaption{font-size:12px;color:var(--muted);margin-top:8px}
+@media(prefers-color-scheme:dark){.arch-figure img,.chart-fig img{background:#1a1a20;border-color:var(--line)}}
+.chart-fig{margin:24px 0 0;text-align:center}
+.chart-fig img{width:100%;max-width:520px;height:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+.chart-fig figcaption{font-size:12px;color:var(--muted);margin-top:8px}
+.demo-note{text-align:center;font-size:12.5px;color:var(--muted);margin-top:14px}
+.demo-note a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+
+/* ── VS SECTION ── */
+.vs-section{background:var(--bg)}
+.vs-grid{display:grid;grid-template-columns:1fr 48px 1fr;align-items:center;gap:16px;max-width:800px;margin:0 auto}
+@media(max-width:700px){.vs-grid{grid-template-columns:1fr;gap:20px}.vs-center{display:none}}
+.vs-card{border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.vs-label{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.vs-title{font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.25;margin-bottom:16px}
+.vs-card ul{list-style:none;padding:0}
+.vs-card li{font-size:14px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--line);line-height:1.5}
+.vs-card li:last-child{border-bottom:none}
+.vs-card li::before{content:'·  ';color:var(--fg)}
+.vs-us{border-color:var(--fg)}
+.vs-center{text-align:center;font-size:14px;font-weight:600;color:var(--muted)}
+
+/* ── FOOTER ── */
+.footer{background:var(--card);border-top:1px solid var(--line);padding:64px 0 0}
+.footer-inner{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;padding-bottom:48px}
+@media(max-width:860px){.footer-inner{grid-template-columns:1fr 1fr;gap:32px}}
+@media(max-width:480px){.footer-inner{grid-template-columns:1fr;gap:28px}}
+.footer-brand .brand{font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.footer-brand p{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:260px;margin-bottom:16px}
+.footer-gh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:6px 12px;transition:border-color .15s}
+.footer-gh:hover{border-color:var(--fg);color:var(--fg)}
+.footer-col h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.footer-col a{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px;transition:color .15s}
+.footer-col a:hover{color:var(--fg)}
+.footer-bottom{border-top:1px solid var(--line);padding:20px 0}
+.footer-bottom-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
+.footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+
+/* ── MOBILE NAV ── */
+@media(max-width:720px){
+  .nav-links{display:none;position:fixed;top:64px;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--line);flex-direction:column;padding:12px 16px 16px;gap:2px;z-index:99}
+  .nav-links.open{display:flex}
+  .nav-toggle{display:flex;align-items:center;justify-content:center;margin-left:auto}
+  .nav-actions .btn{display:none}
+}
+
+/* ── THEME TOGGLE BUTTON ── */
+.theme-btn{background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
+.theme-btn:hover{border-color:var(--fg);color:var(--fg)}
+@media(max-width:720px){.theme-btn{margin-left:6px}}
+
+/* ── DEMO BAR EXTRAS ── */
+.clear-btn{background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);font:inherit;font-size:12px;padding:4px 10px;transition:all .15s;display:none;align-items:center;gap:4px;line-height:1}
+.clear-btn.visible{display:inline-flex}
+.clear-btn:hover{border-color:var(--fg);color:var(--fg)}
+
+/* ── COPY REPLY BUTTON ── */
+.copy-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:3px;border-radius:5px;display:flex;align-items:center;opacity:0;transition:opacity .15s,color .15s;margin-left:6px}
+.turn.assistant:hover .copy-btn,.copy-btn.copied{opacity:1}
+.copy-btn.copied{color:#10b981}
+.copy-btn svg{pointer-events:none}
+
+/* ── RETRY BUTTON ── */
+.retry-btn{display:inline-flex;align-items:center;gap:6px;margin-top:14px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;padding:8px 16px;transition:all .15s}
+.retry-btn:hover{border-color:var(--fg);color:var(--fg)}
+.retry-wrap{display:flex;flex-direction:column;align-items:center}
+
+/* ── SCROLL-TO-TOP ── */
+.scroll-top{position:fixed;bottom:28px;right:28px;width:42px;height:42px;border-radius:50%;background:var(--fg);color:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:90}
+.scroll-top.show{opacity:1;pointer-events:auto}
+.scroll-top:hover{transform:translateY(-2px)}
+
+/* ── FORCED DARK MODE (manual override) ── */
+html[data-theme="dark"]{
+  --bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;
+  --card:#16161a;--send-bg:#ebebeb;--send-icon:#111;
+  --tag-built-bg:#0c3828;--tag-built-fg:#52c48a;
+  color-scheme:dark
+}
+html[data-theme="dark"] .nav{background:rgba(14,14,16,.85)}
+html[data-theme="dark"] .feat-card,
+html[data-theme="dark"] .vs-card,
+html[data-theme="dark"] .demo-widget{background:var(--card);border-color:var(--line)}
+html[data-theme="dark"] .rh-table table{background:var(--card)}
+html[data-theme="dark"] .stats-strip{border-color:var(--line)}
+html[data-theme="dark"] .highlight-row td{background:#0c2a0a}
+html[data-theme="dark"] .feat-icon{background:var(--line)}
+html[data-theme="dark"] select{background:var(--card);color:var(--fg)}
+html[data-theme="dark"] .demo-bar{background:var(--card);border-color:var(--line)}
+html[data-theme="dark"] .demo-composer{background:var(--bg);border-color:var(--line)}
+html[data-theme="dark"] textarea{color:var(--fg)}
+html[data-theme="dark"] .example{background:var(--card)}
+html[data-theme="dark"] .example:hover{background:#1e1e28;border-color:#3a3a4a}
+html[data-theme="dark"] .demo-scroll::-webkit-scrollbar-thumb{background:#2c2c3c}
+html[data-theme="dark"] .bubble.md code,
+html[data-theme="dark"] .bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}
+html[data-theme="dark"] .turn.user .bubble{background:#1e1e28}
+html[data-theme="dark"] .arch-figure img,
+html[data-theme="dark"] .chart-fig img{background:#1a1a20;border-color:var(--line)}
+
+/* ── FORCED LIGHT MODE (overrides system dark) ── */
+html[data-theme="light"]{
+  --bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;
+  --card:#f9f9fb;--send-bg:#0d0d0d;--send-icon:#ffffff;
+  --tag-built-bg:#e7f6ef;--tag-built-fg:#0a7d55;
+  color-scheme:light
+}
+html[data-theme="light"] .nav{background:rgba(255,255,255,.85)}
+html[data-theme="light"] .feat-card,
+html[data-theme="light"] .vs-card,
+html[data-theme="light"] .demo-widget{background:var(--bg);border-color:var(--line)}
+html[data-theme="light"] .rh-table table{background:var(--bg)}
+html[data-theme="light"] .highlight-row td{background:#f0fdf4}
+html[data-theme="light"] .feat-icon{background:#f0f0f5}
+html[data-theme="light"] select{background:transparent;color:var(--fg)}
+html[data-theme="light"] .demo-bar{background:var(--card);border-color:var(--line)}
+html[data-theme="light"] .demo-composer{background:var(--bg);border-color:var(--line)}
+html[data-theme="light"] .example{background:var(--bg)}
+html[data-theme="light"] .example:hover{background:var(--card);border-color:#d0d0d8}
+html[data-theme="light"] .bubble.md code,
+html[data-theme="light"] .bubble.md pre{background:#f3f3f5;border-color:var(--line);color:var(--fg)}
+html[data-theme="light"] .turn.user .bubble{background:#f4f4f5}
+html[data-theme="light"] .arch-figure img,
+html[data-theme="light"] .chart-fig img{background:#fff}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="modelsel">
-    <select id="modelSel" aria-label="选择模型 / choose model">
-      <option value="/adapter">MT-LNN Adapter · TinyLlama-1.1B</option>
-      <option value="">MT-LNN 从零 · 48M</option>
-    </select>
-  </div>
-  <a class="brand" href="/" style="text-decoration:none;color:#0d0d0d">
-    <svg class="logo" viewBox="0 0 28 28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
-      <path d="M6 11.3 Q14 8.3 22 11.3"/>
-      <path d="M6 14.6 Q14 11.6 22 14.6"/>
-      <path d="M6 17.9 Q14 14.9 22 17.9"/>
-    </svg>
-    AwareLiquid
-  </a>
-  <div class="status"><span class="live" id="live"></span><span id="statusText">连接中…</span></div>
-</header>
-
-<div class="scroll" id="scroll">
-  <div class="welcome" id="welcome">
-    <h2>AwareLiquid — 研究 Demo</h2>
-    <p id="welcomeLead">连接中…</p>
-    <div class="examples" id="examples"></div>
-  </div>
-  <div class="thread" id="thread" style="display:none"></div>
-</div>
-
-<div class="composer-wrap">
-  <div class="composer">
-    <textarea id="input" rows="1" placeholder="用中文或英文提问 / Ask in any language…"></textarea>
-    <button class="send" id="send" disabled aria-label="发送">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<a class="skip-nav" href="#demo">Skip to demo</a>
+<!-- ── NAV ── -->
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/">
+      <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+        <path d="M6 11.3 Q14 8.3 22 11.3"/>
+        <path d="M6 14.6 Q14 11.6 22 14.6"/>
+        <path d="M6 17.9 Q14 14.9 22 17.9"/>
+      </svg>
+      AwareLiquid
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
+      <a href="#demo" aria-current="page">Demo</a>
+      <a href="/research">Research</a>
+      <a href="/about">About</a>
+      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper</a>
+      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <a class="btn btn-ghost" href="/research">Research</a>
+      <a class="btn btn-primary" href="#demo">Try Demo</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3 5h14M3 10h14M3 15h14"/>
+      </svg>
     </button>
   </div>
-  <div class="disclaimer">AwareLiquid · MT-LNN 研究 demo — <a href="/about">About</a> · <a href="/research">Research</a> · <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener">GitHub</a> · <a href="/v1/model" target="_blank">model</a> · <a href="/health" target="_blank">health</a></div>
-</div>
+</header>
+
+<!-- ── MAIN CONTENT ── -->
+<main id="main-content">
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="container">
+    <a class="pill" href="/research">
+      <span class="pill-dot"></span>
+      New result &nbsp;·&nbsp; EWC reduces catastrophic forgetting by <strong>&nbsp;85%</strong>
+      <span class="pill-arrow">→</span>
+    </a>
+    <h1 class="hero-title">A Liquid Neural Network<br><span class="accent">That Never Forgets</span></h1>
+    <p class="hero-sub">MT-LNN extends continuous-time liquid neural networks with neuroscience-inspired modules — an open research prototype for continual learning and anti-catastrophic-forgetting.</p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary btn-lg" href="#demo">Try Live Demo</a>
+      <a class="btn btn-ghost btn-lg" href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read the Paper →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS STRIP ── -->
+<section class="stats-strip">
+  <div class="container stats-inner">
+    <div class="stat-item">
+      <span class="stat-n">−85%</span>
+      <span class="stat-l">Cross-domain forgetting<br>EWC vs. dense baseline</span>
+    </div>
+    <div class="stat-div"></div>
+    <div class="stat-item">
+      <span class="stat-n">4.14</span>
+      <span class="stat-l">Signal-to-noise ratio<br>3 / 3 seeds consistent</span>
+    </div>
+    <div class="stat-div"></div>
+    <div class="stat-item">
+      <span class="stat-n">−28.5%</span>
+      <span class="stat-l">WikiText-2 perplexity<br>MT-LNN adapter</span>
+    </div>
+    <div class="stat-div"></div>
+    <div class="stat-item">
+      <span class="stat-n">48M</span>
+      <span class="stat-l">From-scratch parameters<br>live browser inference</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── ARCHITECTURE ── -->
+<section class="section features-section">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Architecture</span>
+      <h2>Brain-Inspired Neural Foundation</h2>
+      <p class="section-lead">MT-LNN is a continuous-time recurrent architecture extended with a stack of neuroscience-inspired "liquid core" modules for awareness, memory, and plasticity.</p>
+    </div>
+    <figure class="arch-figure">
+      <img src="/static/charts/architecture_pipeline.svg" alt="MT-LNN architecture pipeline: embedding → LTC core → liquid core modules → output → continual learning" loading="lazy">
+      <figcaption>MT-LNN end-to-end pipeline — continuous-time LTC core + neuroscience liquid modules + EWC continual learning</figcaption>
+    </figure>
+    <div class="card-grid cols-3">
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 4v4M12 16v4M4 12h4M16 12h4"/></svg>
+        </div>
+        <h3>Liquid Time-Constant Core</h3>
+        <p>Hidden state evolves according to learnable time constants — not discrete layer stacking. Continuous-time dynamics enable richer temporal representation at every scale.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2"/><path d="M8 12h8M12 8v8"/></svg>
+        </div>
+        <h3>Neuroscience Modules</h3>
+        <p>Competitive Global Workspace (GWT-B), predictive world model, Hebbian plasticity, predictive coding, and rhythm modulation — inspired by mammalian cortical circuits.</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="4"/></svg>
+        </div>
+        <h3>Elastic Weight Consolidation</h3>
+        <p>Fisher-weighted quadratic penalty anchors weights critical to prior domains, enabling the model to sequentially learn new tasks without overwriting old knowledge.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── RESEARCH HIGHLIGHT ── -->
+<section class="section rh-section">
+  <div class="container rh-inner">
+    <div class="rh-text">
+      <span class="eyebrow">Latest Result</span>
+      <h2>EWC Cuts Cross-Domain Forgetting by 85%</h2>
+      <p>3 seeds · 60.7M model · WikiText-103 → TinyStories. The forgetting metric (PPL rise on domain A after training on B) drops from 10,562 to 1,633 — while the model still fully learns domain B.</p>
+      <div class="rh-metrics">
+        <div class="metric">
+          <span class="metric-n">SNR 4.14</span>
+          <span class="metric-l">Mean effect / std deviation</span>
+        </div>
+        <div class="metric">
+          <span class="metric-n">3 / 3</span>
+          <span class="metric-l">Seeds in consistent direction</span>
+        </div>
+      </div>
+      <a class="btn btn-ghost" href="/research">Full methodology & results →</a>
+    </div>
+    <figure class="chart-fig">
+      <img src="/static/charts/ewc_forgetting.svg"
+           alt="Bar chart: EWC reduces forgetting from 10,562 to 1,633 PPL rise — an 85% reduction vs dense baseline"
+           loading="lazy">
+      <figcaption>Forgetting (PPL rise on domain A after B training) by condition. Lower is better. Real GPU run · 3 seeds · 60.7M model.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ── DEMO ── -->
+<section class="section demo-section" id="demo">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Live Demo</span>
+      <h2>Try MT-LNN in Your Browser</h2>
+      <p class="section-lead">The MT-LNN adapter — our own architecture — runs on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base, so general language comes from the base while the adapter adds the liquid-core / continual-learning mechanisms. Ask anything in English or Chinese. Switch to the 48M from-scratch model to see the native architecture with no base model.</p>
+    </div>
+    <div class="demo-widget">
+      <div class="demo-bar">
+        <div class="modelsel">
+          <select id="modelSel" aria-label="Select model">
+            <option value="/adapter">MT-LNN Adapter · Qwen2.5-0.5B</option>
+            <option value="">MT-LNN Scratch · 48M</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="clear-btn" id="clearBtn" aria-label="Clear conversation">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            Clear
+          </button>
+          <div class="status"><span class="live" id="live"></span><span id="statusText">Connecting…</span></div>
+        </div>
+      </div>
+      <div class="demo-scroll" id="scroll">
+        <div class="welcome" id="welcome">
+          <p id="welcomeLead">Connecting…</p>
+          <div class="examples" id="examples"></div>
+        </div>
+        <div class="thread" id="thread" style="display:none;flex-direction:column;gap:20px"></div>
+      </div>
+      <div class="demo-composer">
+        <textarea id="input" rows="1" placeholder="Ask in English or Chinese…"></textarea>
+        <button class="send" id="send" disabled aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <p class="demo-note">Research-grade demo — quality is experimental. <a href="/research">What to expect →</a></p>
+  </div>
+</section>
+
+<!-- ── VS SECTION ── -->
+<section class="section vs-section">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Positioning</span>
+      <h2>Orthogonal to LFM</h2>
+      <p class="section-lead">Both AwareLiquid and Liquid AI build on MIT liquid neural networks. The research axes are entirely distinct — not competing, but complementary.</p>
+    </div>
+    <div class="vs-grid">
+      <div class="vs-card vs-other">
+        <div class="vs-label">Liquid AI · LFM2</div>
+        <div class="vs-title">Maximum Intelligence,<br>Minimum Compute</div>
+        <ul>
+          <li>SSM + linear attention + MoE hybrid architecture</li>
+          <li>350M – 24B, commercial deployment at scale</li>
+          <li>Weights frozen after training; adapts via context</li>
+          <li>CPU / GPU / NPU edge-device focus</li>
+        </ul>
+      </div>
+      <div class="vs-center">vs</div>
+      <div class="vs-card vs-us">
+        <div class="vs-label">AwareLiquid · MT-LNN</div>
+        <div class="vs-title">Continual Learning<br>at the Frontier</div>
+        <ul>
+          <li>Continuous-time RNN + neuroscience-inspired modules</li>
+          <li>48M – 60.7M, open research prototype</li>
+          <li>Online weight updates via EWC &amp; Hebbian rules</li>
+          <li>Anti-forgetting &amp; lifelong learning research</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main><!-- /#main-content -->
+
+<!-- ── FOOTER ── -->
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+          <path d="M6 11.3 Q14 8.3 22 11.3"/>
+          <path d="M6 14.6 Q14 11.6 22 14.6"/>
+          <path d="M6 17.9 Q14 14.9 22 17.9"/>
+        </svg>
+        AwareLiquid
+      </a>
+      <p>Open research on continual learning with liquid time-constant neural networks. Based on MIT LNN foundations.</p>
+      <a class="footer-gh" href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        github.com/everest-an/M1
+      </a>
+    </div>
+    <nav class="footer-col" aria-label="Research navigation">
+      <h4>Research</h4>
+      <a href="/research#architecture">Architecture</a>
+      <a href="/research#ewc">EWC Results</a>
+      <a href="/research#hebbian">Hebbian Ablation</a>
+      <a href="/research#spatial">Spatial Computing</a>
+      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper (PDF)</a>
+    </nav>
+    <nav class="footer-col" aria-label="Project navigation">
+      <h4>Project</h4>
+      <a href="/about">About</a>
+      <a href="#demo">Live Demo</a>
+      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <nav class="footer-col" aria-label="API navigation">
+      <h4>API</h4>
+      <a href="/v1/model" target="_blank">Model Info</a>
+      <a href="/health" target="_blank">Health</a>
+    </nav>
+  </div>
+  <div class="footer-bottom">
+    <div class="container footer-bottom-inner">
+      <span>© 2026 AwareLiquid · open research demo</span>
+      <span>Built on <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT Liquid Neural Networks</a></span>
+    </div>
+  </div>
+</footer>
+
+<button class="scroll-top" id="scrollTop" aria-label="Back to top">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M12 5l-6 6M12 5l6 6"/></svg>
+</button>
 
 <script>
-const scroll=document.getElementById('scroll'),thread=document.getElementById('thread'),
-      welcome=document.getElementById('welcome'),input=document.getElementById('input'),
-      sendBtn=document.getElementById('send'),live=document.getElementById('live'),
-      statusText=document.getElementById('statusText');
+// ── mobile nav: toggle + close on link click ──
+const navToggle=document.getElementById('navToggle'),
+      navLinks=document.getElementById('navLinks');
+navToggle.addEventListener('click',()=>navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>navLinks.classList.remove('open')));
 
-const TEMP=0.8, MAXTOK=128, TOPP=0.9;
-let generating=false, abortCtl=null;
+// ── nav scroll shadow ──
+const navEl=document.getElementById('nav');
+window.addEventListener('scroll',()=>{
+  navEl.style.boxShadow=window.scrollY>10?'0 1px 24px rgba(0,0,0,.08)':'none';
+},{passive:true});
 
-// textarea autosize + enable send
-function refresh(){ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,180)+'px';
-  sendBtn.disabled = generating ? false : input.value.trim()==='';
+// ── scroll-to-top ──
+const scrollTopBtn=document.getElementById('scrollTop');
+window.addEventListener('scroll',()=>{
+  scrollTopBtn.classList.toggle('show',window.scrollY>400);
+},{passive:true});
+scrollTopBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+
+// ── dark mode toggle ──
+const themeBtn=document.getElementById('themeBtn'),
+      themeIcon=document.getElementById('themeIcon');
+const SUN='<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="5"/>',
+      MOON='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+function isDark(){
+  const t=document.documentElement.dataset.theme;
+  if(t==='dark')return true;
+  if(t==='light')return false;
+  return window.matchMedia('(prefers-color-scheme:dark)').matches;
+}
+function applyThemeIcon(){
+  themeIcon.innerHTML=isDark()?SUN:MOON;
+  themeBtn.title=isDark()?'Switch to light mode':'Switch to dark mode';
+}
+function initTheme(){
+  const saved=localStorage.getItem('theme');
+  if(saved)document.documentElement.dataset.theme=saved;
+  applyThemeIcon();
+}
+themeBtn.addEventListener('click',()=>{
+  const next=isDark()?'light':'dark';
+  document.documentElement.dataset.theme=next;
+  localStorage.setItem('theme',next);
+  applyThemeIcon();
+});
+initTheme();
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
+  if(!localStorage.getItem('theme'))applyThemeIcon();
+});
+
+// ── stats count-up animation ──
+const STAT_RE=/^([^0-9\-]*)([0-9]+(?:\.[0-9]+)?)(%|[A-Z]*)(.*)$/;
+function animateCount(el){
+  const orig=el.textContent.trim();
+  const m=orig.match(/([−\-]?)(\d+(?:\.\d+)?)(.*)/);
+  if(!m)return;
+  const sign=m[1],num=parseFloat(m[2]),suffix=m[3],isFloat=m[2].includes('.');
+  const dur=900,steps=40,dt=dur/steps;
+  let i=0;
+  const iv=setInterval(()=>{
+    i++;const v=num*(i/steps);
+    el.textContent=sign+(isFloat?v.toFixed(1):Math.round(v))+suffix;
+    if(i>=steps){el.textContent=orig;clearInterval(iv);}
+  },dt);
+}
+const statObs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){animateCount(e.target);statObs.unobserve(e.target);}});
+},{threshold:0.5});
+document.querySelectorAll('.stat-n').forEach(el=>statObs.observe(el));
+
+// ── chat demo ──
+const scroll=document.getElementById('scroll'),
+      thread=document.getElementById('thread'),
+      welcome=document.getElementById('welcome'),
+      input=document.getElementById('input'),
+      sendBtn=document.getElementById('send'),
+      live=document.getElementById('live'),
+      statusText=document.getElementById('statusText'),
+      clearBtn=document.getElementById('clearBtn');
+
+const TEMP=0.8,MAXTOK=128,TOPP=0.9;
+let generating=false,abortCtl=null;
+
+function refresh(){
+  input.style.height='auto';
+  input.style.height=Math.min(input.scrollHeight,120)+'px';
+  sendBtn.disabled=generating?false:input.value.trim()==='';
 }
 input.addEventListener('input',refresh);
 
-// model menu: API_BASE prefixes every request so the same UI can talk to either
-// backend -- '' = native from-scratch MT-LNN (mtlnn), '/adapter' = the MT-LNN
-// adapter model (server_hf.py behind Caddy's /adapter route). The page is
-// OPTIMISTIC: it tries the coherent adapter first so a first-time visitor gets a
-// usable model with zero clicks, and only falls back to the from-scratch model
-// if the adapter service isn't up. Welcome copy + examples swap to match.
-let API_BASE = '/adapter';
-const modelSel = document.getElementById('modelSel');
+let API_BASE='/adapter';
+const modelSel=document.getElementById('modelSel');
 
-// Per-model welcome lead + example prompts: the adapter is a 1.1B instruct chat
-// model (general Q&A), the from-scratch 48M model only continues short stories.
-const CONTENT = {
-  adapter: {
-    lead: '由 <strong>MT-LNN 残差适配器</strong>驱动的 TinyLlama-1.1B 对话模型（已验证资产：WikiText-2 上困惑度 <strong>-28.5%</strong>）。可直接用中英文提问。',
-    examples: [
-      ['用一句话解释什么是液态神经网络。', '解释概念'],
-      ['Write a short poem about the ocean.', 'Creative writing'],
-      ['给我三个适合周末在家放松的点子。', '日常建议'],
-      ['Explain the difference between RAM and disk storage.', 'Tech Q&A'],
+const CONTENT={
+  adapter:{
+    lead:'Powered by our <strong>MT-LNN residual adapter</strong> on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base. The adapter is our architecture; general language ability comes from the base. Ask anything in English or Chinese.',
+    examples:[
+      ['Explain liquid neural networks in one sentence.','Concept'],
+      ['Write a short poem about the ocean.','Creative'],
+      ['What is catastrophic forgetting in AI?','Research Q&A'],
+      ['Explain the difference between RAM and SSD.','Tech Q&A'],
     ],
   },
-  scratch: {
-    lead: '从零训练的 <strong>48M</strong> MT-LNN 小模型，擅长<strong>续写英文短故事</strong>，用于验证架构本身，<strong>并非通用助手</strong>。试试下面的故事开头：',
-    examples: [
-      ['Once upon a time, there was a little cat named Lily.', 'Continue a story'],
-      ['The sun was shining and Tom wanted to play in the garden.', 'Continue a story'],
-      ['One day, a girl found a big red box under the tree.', 'Continue a story'],
-      ['There was a happy dog who liked to run very fast.', 'Continue a story'],
+  scratch:{
+    lead:'The raw <strong>48M MT-LNN</strong> trained from scratch on TinyStories. It <strong>continues short English stories only</strong> — not a general assistant. Try a story opening:',
+    examples:[
+      ['Once upon a time, there was a little cat named Lily.','Continue story'],
+      ['The sun was shining and Tom wanted to play outside.','Continue story'],
+      ['One day, a girl found a big red box under the tree.','Continue story'],
+      ['There was a happy dog who liked to run very fast.','Continue story'],
     ],
   },
 };
 
 function renderWelcome(kind){
-  const c = CONTENT[kind] || CONTENT.scratch;
-  document.getElementById('welcomeLead').innerHTML = c.lead;
-  const box = document.getElementById('examples');
-  box.innerHTML = c.examples.map(([p,t])=>{
-    const safe = p.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-    const short = p.length>44 ? p.slice(0,44)+'…' : p;
+  const c=CONTENT[kind]||CONTENT.scratch;
+  document.getElementById('welcomeLead').innerHTML=c.lead;
+  const box=document.getElementById('examples');
+  box.innerHTML=c.examples.map(([p,t])=>{
+    const safe=p.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const short=p.length>44?p.slice(0,44)+'…':p;
     return `<div class="example" data-p="${safe}"><div class="t">${t}</div><div class="s">${short}</div></div>`;
   }).join('');
   box.querySelectorAll('.example').forEach(el=>{
-    el.onclick=()=>{ input.value=el.dataset.p; refresh(); input.focus(); send(); };
+    el.onclick=()=>{input.value=el.dataset.p;refresh();input.focus();send();};
   });
 }
 
-function applyModel(m, kind){
+function applyModel(m,kind){
   live.className='live ok';
-  const name = (m.base_model||'').split('/').pop() || 'MT-LNN';
-  const size = m.n_params >= 1e9 ? `${(m.n_params/1e9).toFixed(1)}B` : `${(m.n_params/1e6).toFixed(0)}M`;
-  // Honest tag straight from the server: only "MT-LNN adapter" when the trained
-  // adapter actually loaded; otherwise "baseline" (bare base model).
-  let tag = '';
+  const name=(m.base_model||'').split('/').pop()||'MT-LNN';
+  const size=m.n_params>=1e9?`${(m.n_params/1e9).toFixed(1)}B`:`${(m.n_params/1e6).toFixed(0)}M`;
+  let tag='';
   if(m.adapter_loaded) tag=' · MT-LNN adapter';
   else if(m.is_baseline) tag=' · baseline';
   statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
@@ -220,92 +863,137 @@ function applyModel(m, kind){
 }
 
 async function probe(base){
-  try{ const r = await fetch(`${base}/v1/model`, {cache:'no-store'}); if(!r.ok) return null; return await r.json(); }
-  catch(e){ return null; }
+  try{const r=await fetch(`${base}/v1/model`,{cache:'no-store'});if(!r.ok)return null;return await r.json();}
+  catch(e){return null;}
 }
-
-// Switch to a specific backend; returns true if it answered.
 async function selectModel(base){
-  live.className='live'; statusText.textContent='连接中…';
-  const m = await probe(base);
-  if(m){ API_BASE=base; modelSel.value=base; applyModel(m, base==='/adapter'?'adapter':'scratch'); return true; }
+  live.className='live';statusText.textContent='Connecting…';
+  const m=await probe(base);
+  if(m){API_BASE=base;modelSel.value=base;applyModel(m,base==='/adapter'?'adapter':'scratch');return true;}
   return false;
 }
-
-// First load: prefer the coherent adapter, fall back to the from-scratch model.
 async function autoSelect(){
-  if(await selectModel('/adapter')) return;
-  if(await selectModel('')) return;
-  live.className='live err'; statusText.textContent='离线';
+  if(await selectModel('/adapter'))return;
+  if(await selectModel(''))return;
+  live.className='live err';statusText.textContent='Offline';
   renderWelcome('scratch');
+  // show retry button
+  const retryWrap=document.createElement('div');retryWrap.className='retry-wrap';
+  const rb=document.createElement('button');rb.className='retry-btn';
+  rb.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.61"/></svg> Retry connection';
+  rb.onclick=()=>{retryWrap.remove();autoSelect();};
+  retryWrap.appendChild(rb);
+  document.getElementById('welcome').appendChild(retryWrap);
 }
 autoSelect();
-modelSel.addEventListener('change',()=>{ selectModel(modelSel.value); });
+modelSel.addEventListener('change',()=>{selectModel(modelSel.value);});
 
-function startThread(){ if(welcome.style.display!=='none'){welcome.style.display='none';thread.style.display='flex';} }
+function startThread(){
+  if(welcome.style.display!=='none'){
+    welcome.style.display='none';thread.style.display='flex';
+    clearBtn.classList.add('visible');
+  }
+}
+
+// ── clear chat ──
+clearBtn.addEventListener('click',()=>{
+  thread.innerHTML='';
+  thread.style.display='none';
+  welcome.style.display='';
+  clearBtn.classList.remove('visible');
+  input.value='';refresh();
+});
 
 function addUser(text){
   startThread();
-  const t=document.createElement('div'); t.className='turn user';
-  const b=document.createElement('div'); b.className='bubble'; b.textContent=text;
-  t.appendChild(b); thread.appendChild(t); scroll.scrollTop=scroll.scrollHeight;
+  const t=document.createElement('div');t.className='turn user';
+  const b=document.createElement('div');b.className='bubble';b.textContent=text;
+  t.appendChild(b);thread.appendChild(t);scroll.scrollTop=scroll.scrollHeight;
 }
 function addAssistant(){
-  const t=document.createElement('div'); t.className='turn assistant';
-  const who=document.createElement('div'); who.className='who';
+  const t=document.createElement('div');t.className='turn assistant';
+  const who=document.createElement('div');who.className='who';
+  // copy button (enabled after generation)
+  const cpBtn=document.createElement('button');cpBtn.className='copy-btn';cpBtn.disabled=true;cpBtn.setAttribute('aria-label','Copy reply');
+  cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   who.innerHTML='<span class="av"><i></i></span> AwareLiquid';
-  const b=document.createElement('div'); b.className='bubble empty';
-  t.appendChild(who); t.appendChild(b); thread.appendChild(t);
-  scroll.scrollTop=scroll.scrollHeight; return b;
+  who.appendChild(cpBtn);
+  const b=document.createElement('div');b.className='bubble empty';
+  t.appendChild(who);t.appendChild(b);thread.appendChild(t);
+  scroll.scrollTop=scroll.scrollHeight;
+  // wire copy after generation via returned refs
+  b._copyBtn=cpBtn;
+  return b;
 }
 function setSendIcon(stop){
-  if(stop){ sendBtn.classList.add('stop'); sendBtn.innerHTML='<span class="sq"></span>'; }
-  else{ sendBtn.classList.remove('stop'); sendBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+  if(stop){sendBtn.classList.add('stop');sendBtn.innerHTML='<span class="sq"></span>';}
+  else{sendBtn.classList.remove('stop');sendBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';}
 }
 
 async function send(){
-  if(generating){ if(abortCtl) abortCtl.abort(); return; }
-  const prompt=input.value.trim(); if(!prompt) return;
-  addUser(prompt);
-  input.value=''; refresh();
+  if(generating){if(abortCtl)abortCtl.abort();return;}
+  const prompt=input.value.trim();if(!prompt)return;
+  addUser(prompt);input.value='';refresh();
   const bot=addAssistant();
-  generating=true; setSendIcon(true); sendBtn.disabled=false;
+  generating=true;setSendIcon(true);sendBtn.disabled=false;
   abortCtl=new AbortController();
-  const t0=performance.now(); let ntok=0, acc='';
+  const t0=performance.now();let ntok=0,acc='';
   try{
     const res=await fetch(`${API_BASE}/v1/completions/stream`,{
       method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
       body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
     });
-    if(!res.ok){ bot.classList.remove('empty'); bot.textContent='[error '+res.status+'] '+await res.text(); return; }
-    const reader=res.body.getReader(), dec=new TextDecoder(); let buf='';
+    if(!res.ok){bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
+    const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
     while(true){
-      const {value,done}=await reader.read(); if(done) break;
-      buf+=dec.decode(value,{stream:true}); let idx;
+      const{value,done}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});let idx;
       while((idx=buf.indexOf('\n\n'))>=0){
-        const line=buf.slice(0,idx).trim(); buf=buf.slice(idx+2);
-        if(!line.startsWith('data:')) continue;
+        const line=buf.slice(0,idx).trim();buf=buf.slice(idx+2);
+        if(!line.startsWith('data:'))continue;
         const payload=line.slice(5).trim();
-        if(payload==='[DONE]') continue;
-        try{ const ev=JSON.parse(payload); if(ev.text!=null){acc+=ev.text;ntok++;bot.classList.remove('empty');bot.textContent=acc;
-          if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<120) scroll.scrollTop=scroll.scrollHeight;} }catch(e){}
+        if(payload==='[DONE]')continue;
+        try{
+          const ev=JSON.parse(payload);
+          if(ev.text!=null){
+            acc+=ev.text;ntok++;
+            bot.classList.remove('empty');bot.classList.add('md');
+            bot.innerHTML=typeof marked!=='undefined'?marked.parse(acc):acc.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<120)scroll.scrollTop=scroll.scrollHeight;
+          }
+        }catch(e){}
       }
     }
   }catch(e){
-    if(e.name!=='AbortError'){ bot.classList.remove('empty'); bot.textContent=acc+' [连接中断]'; }
+    if(e.name!=='AbortError'){bot.classList.remove('empty');bot.textContent=acc+' [connection lost]';}
   }finally{
-    bot.classList.remove('empty'); if(!acc) bot.textContent='[无输出]';
+    bot.classList.remove('empty');
+    if(!acc){bot.classList.remove('md');bot.textContent='[no output]';}
     const dt=(performance.now()-t0)/1000;
-    const meta=document.createElement('div'); meta.className='meta';
+    const meta=document.createElement('div');meta.className='meta';
     meta.textContent=`${ntok} tokens · ${dt.toFixed(1)}s · ${(ntok/dt||0).toFixed(1)} tok/s`;
     bot.parentElement.appendChild(meta);
-    generating=false; setSendIcon(false); refresh(); abortCtl=null;
+    // enable copy button
+    if(bot._copyBtn&&acc){
+      const cpBtn=bot._copyBtn;cpBtn.disabled=false;
+      cpBtn.onclick=()=>{
+        navigator.clipboard.writeText(acc).then(()=>{
+          cpBtn.classList.add('copied');
+          cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          setTimeout(()=>{
+            cpBtn.classList.remove('copied');
+            cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          },2000);
+        }).catch(()=>{});
+      };
+    }
+    generating=false;setSendIcon(false);refresh();abortCtl=null;
     scroll.scrollTop=scroll.scrollHeight;
   }
 }
 
 sendBtn.onclick=send;
-input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
 refresh();
 </script>
 </body>
