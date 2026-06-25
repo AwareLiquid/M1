@@ -130,6 +130,7 @@ a{color:var(--fg)}
 /* ── THEME TOGGLE ── */
 .theme-btn{background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
 .theme-btn:hover{border-color:var(--fg);color:var(--fg)}
+.lang-toggle{width:auto;padding:0 10px;font-size:11.5px;font-weight:700;letter-spacing:.03em}
 /* ── SCROLL-TO-TOP ── */
 .scroll-top{position:fixed;bottom:28px;right:28px;width:42px;height:42px;border-radius:50%;background:var(--fg);color:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:90}
 .scroll-top.show{opacity:1;pointer-events:auto}
@@ -250,6 +251,7 @@ a.text-link:hover{text-decoration-color:var(--fg)}
       <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
     <div class="nav-actions">
+      <button class="theme-btn lang-toggle" id="langBtn" title="切换语言 / Switch language">中文</button>
       <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode">
         <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -513,6 +515,20 @@ function isDark(){const t=document.documentElement.dataset.theme;if(t==='dark')r
 function applyThemeIcon(){themeIcon.innerHTML=isDark()?SUN:MOON;themeBtn.title=isDark()?'Switch to light mode':'Switch to dark mode';}
 (function(){const s=localStorage.getItem('theme');if(s)document.documentElement.dataset.theme=s;applyThemeIcon();})();
 themeBtn.addEventListener('click',()=>{const n=isDark()?'light':'dark';document.documentElement.dataset.theme=n;localStorage.setItem('theme',n);applyThemeIcon();});
+
+// ── lang toggle ──
+(function(){
+  const lb=document.getElementById('langBtn');if(!lb)return;
+  const l=localStorage.getItem('lang')||'en';
+  lb.textContent=l==='zh'?'EN':'中文';
+  if(l==='zh')document.documentElement.lang='zh-CN';
+  lb.addEventListener('click',()=>{
+    const nl=lb.textContent==='中文'?'zh':'en';
+    localStorage.setItem('lang',nl);
+    lb.textContent=nl==='zh'?'EN':'中文';
+    document.documentElement.lang=nl==='zh'?'zh-CN':'en';
+  });
+})();
 </script>
 </body>
 </html>

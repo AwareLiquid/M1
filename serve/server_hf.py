@@ -147,6 +147,11 @@ def terms():
     return _static_page("terms")
 
 
+@app.get("/demo")
+def demo():
+    return _static_page("demo")
+
+
 def _text_file(name: str) -> FileResponse:
     path = os.path.join(_STATIC_DIR, name)
     if os.path.exists(path):
