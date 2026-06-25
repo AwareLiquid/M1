@@ -35,7 +35,7 @@ from typing import Any, Dict, List, Optional
 import torch
 
 from .knowledge_memory import PersistentKnowledgeMemory
-from .graph_memory import GraphKnowledgeMemory
+from .graph_memory import GraphKnowledgeMemory, calibrate_threshold_from_keys
 from .memory import SessionMemory
 from .sleep_consolidation import ReplayConsolidationResult, SleepWakeConsolidator
 
@@ -234,6 +234,7 @@ def consolidate_sessions_to_graph(
     consolidate_fraction: float = 1.0,
     seed: int = 0,
     link_threshold: float = 0.55,
+    link_quantile: Optional[float] = None,
     link_top_k: int = 5,
     link_center: bool = True,
     max_entries: Optional[int] = None,
@@ -244,23 +245,41 @@ def consolidate_sessions_to_graph(
     Identical replay/salience policy to :func:`consolidate_sessions`, but the
     long-term target is a :class:`mt_lnn.graph_memory.GraphKnowledgeMemory`: each
     consolidated session becomes a node AND is auto-linked (by recurrent-signature
-    cosine >= ``link_threshold``, edge weight = similarity) to the sessions
+    cosine >= the link threshold, edge weight = similarity) to the sessions
     already consolidated. So sleep does not just store sessions by content -- it
     sediments the RELATIONS between them, giving M1 a graph it can later traverse
     by spreading activation.
 
+    Linking cut -- absolute vs adaptive:
+      * ``link_quantile`` (when given, in [0, 1]) makes the cut ADAPTIVE: the
+        threshold is the ``link_quantile``-th percentile of the buffer's own
+        pairwise-cosine distribution, so it tracks each corpus/encoder's cosine
+        band instead of a hand-tuned absolute (``link_quantile=0.9`` keeps the top
+        ~10% strongest relations). The chosen value is returned as
+        ``link_threshold`` in the summary.
+      * Otherwise the fixed ``link_threshold`` is used.
+
     ``link_center=True`` by default: pooled recurrent signatures share a dominant
     direction (anisotropy), so linking on the centered residual avoids connecting
     everything to everything. Returns a summary: replayed / consolidated counts,
-    resulting node and edge counts, and the key dimensionality. A no-op all-zero
-    summary when there are no consolidatable sessions.
+    resulting node and edge counts, the key dimensionality, and the effective
+    ``link_threshold``. A no-op all-zero summary when there are no consolidatable
+    sessions.
     """
     with SessionMemory(session_db) as mem:
         buffer = SessionReplayBuffer.from_session_memory(mem, device=device, seed=seed)
 
     if len(buffer) == 0:
         return {"replayed": 0, "consolidated": 0,
-                "nodes": 0, "edges": 0, "key_dim": 0}
+                "nodes": 0, "edges": 0, "key_dim": 0,
+                "link_threshold": link_threshold}
+
+    # Adaptive cut: derive the threshold from the corpus's own cosine band.
+    if link_quantile is not None:
+        link_threshold = calibrate_threshold_from_keys(
+            buffer.keys, quantile=link_quantile,
+            center=link_center, seed=seed,
+        )
 
     graph = GraphKnowledgeMemory(
         key_dim=buffer.key_dim, db_path=graph_db, max_entries=max_entries,
@@ -288,4 +307,5 @@ def consolidate_sessions_to_graph(
         "nodes": nodes,
         "edges": edges,
         "key_dim": buffer.key_dim,
+        "link_threshold": float(link_threshold),
     }

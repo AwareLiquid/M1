@@ -56,7 +56,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 
 from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
-from mt_lnn.graph_memory import GraphKnowledgeMemory
+from mt_lnn.graph_memory import GraphKnowledgeMemory, calibrate_threshold_from_keys
 from mt_lnn.sentence_encoder import SentenceEncoder
 
 
@@ -357,8 +357,27 @@ def main() -> int:
               f"{s['lift']:+.2f}")
     g = max(sweep, key=lambda s: (s["lift"], -s["direct_target_shortcut"]))
     print()
-    print(f"   best operating point: threshold={g['link_threshold']:.2f} "
+    print(f"   best HAND-TUNED point: threshold={g['link_threshold']:.2f} "
           f"({g['edges']} edges, shortcut={g['direct_target_shortcut']:.2f})")
+
+    # Adaptive cut: derive the threshold from the corpus's OWN cosine band (a
+    # quantile), so it transfers without retuning. Show it lands near the tuned
+    # optimum above -- the whole point of removing the hand-tuned knob.
+    all_keys = torch.stack(
+        [enc.encode(ch[r], is_query=False)
+         for ch in RELAY_CHAINS for r in ("direct", "bridge", "target")],
+        dim=0)
+    auto_thr = calibrate_threshold_from_keys(all_keys, quantile=0.90, center=False)
+    a = run_graph_reach_probe(
+        enc, dim, link_threshold=auto_thr, link_center=False,
+        seeds=3, hops=2, decay=0.6, top_k=5)
+    print(f"   ADAPTIVE point (quantile=0.90 of corpus cosines): "
+          f"threshold={auto_thr:.2f}")
+    print(f"     -> {a['edges']} edges, shortcut={a['direct_target_shortcut']:.2f}, "
+          f"flat={a['flat_target_reach']:.2f}, spread={a['spread_target_reach']:.2f}, "
+          f"lift={a['lift']:+.2f}")
+    print(f"   (adaptive removes the hand-tuned knob: it auto-picks a cut in the "
+          f"corpus's own cosine band)")
     print(f"     2-hop target reach -- flat Top-K (hops=0)     : "
           f"{g['flat_target_reach']:.2f}")
     print(f"     2-hop target reach -- spreading act. (hops=2) : "

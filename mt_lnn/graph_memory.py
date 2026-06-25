@@ -45,10 +45,75 @@ import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
+import torch.nn.functional as F
 
-from .knowledge_memory import PersistentKnowledgeMemory, _bytes_to_obj
+from .knowledge_memory import (
+    PersistentKnowledgeMemory,
+    _bytes_to_key,
+    _bytes_to_obj,
+)
 
-__all__ = ["GraphKnowledgeMemory"]
+__all__ = ["GraphKnowledgeMemory", "calibrate_threshold_from_keys"]
+
+
+# ---------------------------------------------------------------------------
+# Adaptive link threshold (anisotropy-robust, encoder-independent)
+# ---------------------------------------------------------------------------
+
+def calibrate_threshold_from_keys(
+    keys: torch.Tensor,
+    *,
+    quantile: float = 0.9,
+    max_pairs: int = 4000,
+    center: bool = False,
+    seed: int = 0,
+) -> float:
+    """Pick a semantic-link threshold from a corpus's OWN cosine distribution.
+
+    The problem this solves: a fixed ``link_threshold`` is encoder- and
+    corpus-specific. Sentence encoders (e5, bge, ...) are anisotropic -- their
+    cosines pile into a high, narrow band, so the "right" absolute cut differs
+    per model and per corpus and has to be hand-tuned. A *quantile of the actual
+    pairwise-cosine distribution* is scale-free: ``quantile=0.9`` means "link only
+    the top ~10% strongest relations", which transfers across encoders without
+    retuning.
+
+    Samples up to ``max_pairs`` distinct off-diagonal key pairs (all pairs when
+    the corpus is small), computes their cosines, and returns the ``quantile``-th
+    percentile. ``keys`` is ``(N, d)``; it is L2-normalised here so the dot
+    products are cosines. ``center=True`` first removes the corpus mean direction
+    (the Mu & Viswanath anisotropy fix) so the distribution reflects semantic
+    residual similarity, matching a centered query. Fewer than 2 keys -> returns
+    ``1.0`` (nothing can link), so the caller degrades safely.
+    """
+    if not (0.0 <= quantile <= 1.0):
+        raise ValueError(f"quantile must be in [0, 1], got {quantile}")
+    if keys.ndim != 2:
+        raise ValueError(f"keys must be 2-D (N, d), got shape {tuple(keys.shape)}")
+    n = keys.shape[0]
+    if n < 2:
+        return 1.0
+
+    k = F.normalize(keys.detach().to(torch.float32), dim=-1)
+    if center:
+        k = F.normalize(k - k.mean(dim=0, keepdim=True), dim=-1)
+
+    gen = torch.Generator(device="cpu").manual_seed(int(seed))
+    total_pairs = n * (n - 1) // 2
+    if total_pairs <= max_pairs:
+        iu = torch.triu_indices(n, n, offset=1)         # all unique pairs
+        cos = (k[iu[0]] * k[iu[1]]).sum(dim=-1)
+    else:
+        # Sample distinct unordered pairs (i < j) without materialising O(N^2).
+        i = torch.randint(0, n, (max_pairs,), generator=gen)
+        j = torch.randint(0, n, (max_pairs,), generator=gen)
+        keep = i != j
+        i, j = i[keep], j[keep]
+        cos = (k[i] * k[j]).sum(dim=-1)
+
+    if cos.numel() == 0:
+        return 1.0
+    return float(torch.quantile(cos, quantile))
 
 
 _EDGE_SCHEMA = """
@@ -275,6 +340,34 @@ class GraphKnowledgeMemory:
                 etype=etype, bidirectional=bidirectional,
             )
         return len(links)
+
+    def calibrate_link_threshold(
+        self,
+        *,
+        quantile: float = 0.9,
+        max_pairs: int = 4000,
+        center: Optional[bool] = None,
+        seed: int = 0,
+    ) -> float:
+        """Adaptive link threshold from THIS store's own key distribution.
+
+        Reads every stored node key and returns the ``quantile``-th percentile of
+        their pairwise cosines (see :func:`calibrate_threshold_from_keys`), so the
+        linker connects only the top ``1-quantile`` fraction of relations -- no
+        per-encoder hand-tuning. ``center`` defaults to the instance's
+        ``link_center``. Returns ``1.0`` when there are fewer than 2 nodes.
+        """
+        center = self.link_center if center is None else center
+        rows = self._conn.execute("SELECT key_vec FROM knowledge").fetchall()
+        if len(rows) < 2:
+            return 1.0
+        keys = torch.stack(
+            [_bytes_to_key(r[0], self.key_dim) for r in rows], dim=0
+        )
+        return calibrate_threshold_from_keys(
+            keys, quantile=quantile, max_pairs=max_pairs,
+            center=center, seed=seed,
+        )
 
     # ------------------------------------------------------------------
     # Spreading-activation recall (the associative step)

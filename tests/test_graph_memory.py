@@ -24,7 +24,10 @@ import os
 
 import torch
 
-from mt_lnn.graph_memory import GraphKnowledgeMemory
+from mt_lnn.graph_memory import (
+    GraphKnowledgeMemory,
+    calibrate_threshold_from_keys,
+)
 
 
 def _e(dim, i, scale=1.0):
@@ -165,6 +168,72 @@ def test_spread_on_empty_graph_is_empty():
     try:
         with GraphKnowledgeMemory(key_dim=4, db_path=db) as g:
             assert g.spread_activation(_e(4, 0), seeds=3, hops=2) == []
+    finally:
+        _cleanup(db)
+
+
+# ---------------------------------------------------------------------------
+# Adaptive (quantile-based) link threshold -- removes the hand-tuned knob
+# ---------------------------------------------------------------------------
+
+def test_calibrate_threshold_is_a_quantile_of_pairwise_cosines():
+    # Two tight clusters (axes 0 and 1). Within-cluster cosines ~1, cross-cluster
+    # ~0, so the distribution is bimodal. A high quantile sits in the high mode
+    # (links only the strong within-cluster relations); a low quantile drops into
+    # the low mode (would link across clusters too).
+    torch.manual_seed(0)
+    dim = 16
+    cluster0 = [_e(dim, 0) + 0.02 * torch.randn(dim) for _ in range(6)]
+    cluster1 = [_e(dim, 1) + 0.02 * torch.randn(dim) for _ in range(6)]
+    keys = torch.stack(cluster0 + cluster1, dim=0)
+
+    hi = calibrate_threshold_from_keys(keys, quantile=0.90)
+    lo = calibrate_threshold_from_keys(keys, quantile=0.10)
+    assert hi > lo, "higher quantile must give a stricter (higher) threshold"
+    assert hi > 0.8, f"top-decile cosine should land in the within-cluster mode, got {hi}"
+    assert lo < 0.5, f"bottom-decile cosine should land in the cross-cluster mode, got {lo}"
+
+
+def test_calibrate_threshold_degrades_safely_below_two_keys():
+    assert calibrate_threshold_from_keys(torch.zeros(0, 8), quantile=0.9) == 1.0
+    assert calibrate_threshold_from_keys(_e(8, 0).unsqueeze(0), quantile=0.9) == 1.0
+
+
+def test_adaptive_threshold_links_only_strong_relations():
+    # The data-derived threshold, used to build edges, should connect near nodes
+    # but not an orthogonal outlier -- the knob now comes from the corpus.
+    import math
+    db = _db("_graph_adaptive.db")
+    _cleanup(db)
+    try:
+        dim = 16
+        # A fan of 8 keys spread evenly over the e0->e1 quarter-arc, so pairwise
+        # cosines = cos(angle gap) span a smooth UNIMODAL range from ~1 (adjacent)
+        # down to ~0 (the ends). A quantile then lands at a real intermediate
+        # cosine, not stuck against a degenerate all-~1 cluster.
+        n = 8
+        fan = []
+        for i in range(n):
+            theta = i * (math.pi / 2) / (n - 1)
+            fan.append(math.cos(theta) * _e(dim, 0) + math.sin(theta) * _e(dim, 1))
+        keys = torch.stack(fan, dim=0)
+
+        thr = calibrate_threshold_from_keys(keys, quantile=0.50)
+        assert 0.0 < thr < 1.0, f"adaptive threshold should be a mid cosine, got {thr}"
+
+        with GraphKnowledgeMemory(
+            key_dim=dim, db_path=db,
+            auto_link=True, link_threshold=thr, link_top_k=n,
+        ) as g:
+            for i, k in enumerate(fan):
+                g.write(k, f"fan{i}")
+            outlier_id = g.write(_e(dim, 9), "outlier")  # orthogonal to the fan
+
+            assert g.n_edges() > 0, \
+                "calibrated threshold formed no edges among genuinely-near nodes"
+            # The orthogonal outlier (cosine ~0 << thr) links to nothing.
+            assert g._neighbours(outlier_id) == [], \
+                "an orthogonal outlier should not be linked under the adaptive cut"
     finally:
         _cleanup(db)
 

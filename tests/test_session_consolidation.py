@@ -267,8 +267,40 @@ def test_consolidate_to_graph_is_noop_on_empty_store():
             pass
         summary = consolidate_sessions_to_graph(sess_db, graph_db)
         assert summary == {
-            "replayed": 0, "consolidated": 0, "nodes": 0, "edges": 0, "key_dim": 0
+            "replayed": 0, "consolidated": 0, "nodes": 0, "edges": 0,
+            "key_dim": 0, "link_threshold": 0.55,
         }
+    finally:
+        _cleanup(sess_db, graph_db)
+
+
+def test_consolidate_to_graph_adaptive_quantile_threshold():
+    """link_quantile makes the cut ADAPTIVE: instead of a hand-tuned absolute
+    cosine, the threshold is read off the corpus's own pairwise-cosine band. Two
+    near-identical sessions plus a distinct one still link the similar pair, and
+    the summary reports the data-derived threshold actually used (in (0, 1))."""
+    sess_db = os.path.join(os.path.dirname(__file__), "_consol_graph_adapt_s.db")
+    graph_db = os.path.join(os.path.dirname(__file__), "_consol_graph_adapt_g.db")
+    _cleanup(sess_db, graph_db)
+    try:
+        d = 24
+        torch.manual_seed(13)
+        shared = torch.randn(1, 3, d)
+        with SessionMemory(sess_db) as mem:
+            mem.save("A", _fake_cache([shared.clone()]), token_count=10)
+            mem.save("B", _fake_cache([shared + 1e-3 * torch.randn(1, 3, d)]),
+                     token_count=20)
+            mem.save("C", _fake_cache([torch.randn(1, 3, d) + 50.0]),
+                     token_count=30)
+
+        # No absolute link_threshold tuning -- derive it from the data.
+        summary = consolidate_sessions_to_graph(
+            sess_db, graph_db, link_quantile=0.50, link_center=False, seed=13
+        )
+        assert summary["nodes"] == 3
+        assert summary["edges"] >= 2, "adaptive threshold failed to link the similar pair"
+        # The reported threshold is the data-derived one, a genuine cosine in (0, 1).
+        assert 0.0 < summary["link_threshold"] < 1.0
     finally:
         _cleanup(sess_db, graph_db)
 

@@ -225,6 +225,16 @@ def research():
     return _static_page("research")
 
 
+@app.get("/privacy")
+def privacy():
+    return _static_page("privacy")
+
+
+@app.get("/terms")
+def terms():
+    return _static_page("terms")
+
+
 def _text_file(name: str, media_type: str = "text/plain") -> FileResponse:
     path = os.path.join(_STATIC_DIR, name)
     if os.path.exists(path):
@@ -541,6 +551,7 @@ def sleep_consolidate(
     downscale_factor: float = 1.0,
     build_graph: bool = False,
     link_threshold: float = 0.55,
+    link_quantile: Optional[float] = None,
 ):
     """Run one sleep pass: NREM consolidation, then optional SHY downscaling.
 
@@ -556,10 +567,16 @@ def sleep_consolidate(
     Stage 1b (GRAPH, opt-in) -- when ``build_graph`` is true, additionally
     sediment the same sessions into a relational graph store (GRAPH_DB): each
     session is a node, auto-linked to already-consolidated sessions whose
-    recurrent signature is within ``link_threshold`` cosine (edge weight = the
-    similarity). Sleep then leaves behind not just isolated memories but the
-    relations between them, traversable later by spreading activation. Reuses the
-    same nrem_replay policy; reported under a ``graph`` block.
+    recurrent signature is within the link cut (edge weight = the similarity).
+    The cut is either the fixed ``link_threshold`` cosine, or -- when
+    ``link_quantile`` is given (in [0, 1]) -- ADAPTIVE: the threshold is the
+    ``link_quantile``-th percentile of the sessions' own pairwise-cosine band, so
+    it tracks the corpus/encoder instead of a hand-tuned absolute (e.g.
+    ``link_quantile=0.9`` keeps the top ~10% strongest relations). The cut used is
+    echoed back as ``graph.link_threshold``. Sleep then leaves behind not just
+    isolated memories but the relations between them, traversable later by
+    spreading activation. Reuses the same nrem_replay policy; reported under a
+    ``graph`` block.
 
     Stage 2 (SHY, opt-in) -- when ``downscale_factor`` < 1.0, multiplicatively
     renormalise the served model's TRAINABLE MT-adapter weights downward
@@ -592,11 +609,14 @@ def sleep_consolidate(
     if build_graph:
         if not (0.0 <= link_threshold <= 1.0):
             raise HTTPException(400, "link_threshold must be in [0, 1]")
+        if link_quantile is not None and not (0.0 <= link_quantile <= 1.0):
+            raise HTTPException(400, "link_quantile must be in [0, 1]")
         from mt_lnn.session_consolidation import consolidate_sessions_to_graph
         graph_summary = consolidate_sessions_to_graph(
             db, _STATE["graph_db"],
             consolidate_fraction=consolidate_fraction,
-            seed=seed, link_threshold=link_threshold, device=_STATE["device"],
+            seed=seed, link_threshold=link_threshold,
+            link_quantile=link_quantile, device=_STATE["device"],
         )
         result["graph"] = {"graph_db": _STATE["graph_db"], **graph_summary}
 

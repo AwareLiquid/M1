@@ -159,6 +159,26 @@ def test_sleep_build_graph_sediments_relational_store(client):
     assert bad.status_code == 400
 
 
+def test_sleep_build_graph_adaptive_link_quantile(client):
+    """link_quantile makes the graph link cut ADAPTIVE -- derived from the
+    sessions' own cosine band instead of a hand-tuned absolute. The response
+    echoes the data-derived threshold actually used (a real cosine in [0, 1]),
+    and an out-of-range quantile is rejected."""
+    _complete(client, prompt="adaptive one", session_id="aq_one")
+    _complete(client, prompt="adaptive two", session_id="aq_two")
+
+    r = client.post("/v1/sleep", params={"build_graph": "true", "link_quantile": "0.5"})
+    assert r.status_code == 200, r.text
+    g = r.json()["graph"]
+    assert g["nodes"] >= 2
+    # The cut is a real cosine derived from the data -> range [-1, 1] (centered
+    # signatures of a tiny corpus can be anti-correlated, so it may be negative).
+    assert -1.0 <= g["link_threshold"] <= 1.0
+    # Validation: quantile must be in [0, 1].
+    bad = client.post("/v1/sleep", params={"build_graph": "true", "link_quantile": "1.5"})
+    assert bad.status_code == 400
+
+
 def test_sleep_shy_downscaling_is_optin_and_noop_without_adapters(client):
     """downscale_factor < 1.0 runs the SHY stage; the served small model has no
     MT adapters, so it must be a safe all-zero no-op block (proves the stage is
