@@ -135,8 +135,27 @@ writes specifically so it downloads over a flaky proxy and drops straight in her
 |---|---|
 | Tail logs | `docker compose -f deploy/docker-compose.prod.yml logs -f` |
 | Reload new checkpoint | `docker compose -f deploy/docker-compose.prod.yml restart mtlnn` |
-| Update code | `git pull && docker compose -f deploy/docker-compose.prod.yml up -d --build` |
+| Update **frontend only** (HTML/CSS/JS/SVG) | `git pull` |
+| Update **mtlnn Python** (`server.py` / `mt_lnn` / deps) | `git pull && docker compose -f deploy/docker-compose.prod.yml up -d --build` |
+| Update **adapter Python** (`server_hf.py` / `mt_lnn`) | `git pull && docker compose -f deploy/docker-compose.prod.yml restart adapter` |
 | Stop everything | `docker compose -f deploy/docker-compose.prod.yml down` |
+
+> **Pick the lightest update path -- and mind what is mounted vs baked.** The
+> `mtlnn` service mounts ONLY `../serve/static:/app/serve/static:ro`; everything
+> else it runs (`serve/server.py` and the `mt_lnn` package) is COPYed into the
+> image at build time, NOT mounted.
+>
+> - **Frontend-only** (a new page, edited HTML, an added chart SVG): `StaticFiles`
+>   reads from the bind-mounted dir per request, so the change goes live the
+>   instant `git pull` updates the working tree -- **no restart, no rebuild**. A
+>   bare `restart mtlnn` would NOT help here, and would NOT pick up a `server.py`
+>   change either (the old image is reused).
+> - **mtlnn Python or deps** (`server.py`, anything under `mt_lnn`,
+>   `requirements-serve.txt`, the `Dockerfile`): the code is baked into the image,
+>   so you must **`up -d --build`** -- a plain `restart` reruns the same old image.
+> - **adapter service** is different: it bind-mounts all of `../serve` + `../mt_lnn`,
+>   so `restart adapter` is enough even for `server_hf.py` / `mt_lnn` edits (no
+>   rebuild). It is profile-gated, so it only matters if you launched it.
 
 **Sanity check from your laptop:**
 
