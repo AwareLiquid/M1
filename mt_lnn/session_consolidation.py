@@ -35,6 +35,7 @@ from typing import Any, Dict, List, Optional
 import torch
 
 from .knowledge_memory import PersistentKnowledgeMemory
+from .graph_memory import GraphKnowledgeMemory
 from .memory import SessionMemory
 from .sleep_consolidation import ReplayConsolidationResult, SleepWakeConsolidator
 
@@ -42,6 +43,7 @@ __all__ = [
     "pool_session_key",
     "SessionReplayBuffer",
     "consolidate_sessions",
+    "consolidate_sessions_to_graph",
 ]
 
 
@@ -221,5 +223,69 @@ def consolidate_sessions(
         "replayed": result.replayed,
         "consolidated": result.consolidated,
         "knowledge_entries": entries,
+        "key_dim": buffer.key_dim,
+    }
+
+
+def consolidate_sessions_to_graph(
+    session_db: str,
+    graph_db: str,
+    *,
+    consolidate_fraction: float = 1.0,
+    seed: int = 0,
+    link_threshold: float = 0.55,
+    link_top_k: int = 5,
+    link_center: bool = True,
+    max_entries: Optional[int] = None,
+    device: str = "cpu",
+) -> Dict[str, Any]:
+    """Run one NREM pass that consolidates sessions into a relational GRAPH.
+
+    Identical replay/salience policy to :func:`consolidate_sessions`, but the
+    long-term target is a :class:`mt_lnn.graph_memory.GraphKnowledgeMemory`: each
+    consolidated session becomes a node AND is auto-linked (by recurrent-signature
+    cosine >= ``link_threshold``, edge weight = similarity) to the sessions
+    already consolidated. So sleep does not just store sessions by content -- it
+    sediments the RELATIONS between them, giving M1 a graph it can later traverse
+    by spreading activation.
+
+    ``link_center=True`` by default: pooled recurrent signatures share a dominant
+    direction (anisotropy), so linking on the centered residual avoids connecting
+    everything to everything. Returns a summary: replayed / consolidated counts,
+    resulting node and edge counts, and the key dimensionality. A no-op all-zero
+    summary when there are no consolidatable sessions.
+    """
+    with SessionMemory(session_db) as mem:
+        buffer = SessionReplayBuffer.from_session_memory(mem, device=device, seed=seed)
+
+    if len(buffer) == 0:
+        return {"replayed": 0, "consolidated": 0,
+                "nodes": 0, "edges": 0, "key_dim": 0}
+
+    graph = GraphKnowledgeMemory(
+        key_dim=buffer.key_dim, db_path=graph_db, max_entries=max_entries,
+        auto_link=True, link_threshold=link_threshold,
+        link_top_k=link_top_k, link_center=link_center,
+    )
+    try:
+        consolidator = SleepWakeConsolidator(seed=seed)
+        result: ReplayConsolidationResult = consolidator.nrem_replay(
+            buffer, graph,
+            key_field=SessionReplayBuffer.KEY_FIELD,
+            content_field=SessionReplayBuffer.CONTENT_FIELD,
+            meta_field=SessionReplayBuffer.META_FIELD,
+            salience_field=SessionReplayBuffer.SALIENCE_FIELD,
+            consolidate_fraction=consolidate_fraction,
+        )
+        nodes = graph.n_nodes()
+        edges = graph.n_edges()
+    finally:
+        graph.close()
+
+    return {
+        "replayed": result.replayed,
+        "consolidated": result.consolidated,
+        "nodes": nodes,
+        "edges": edges,
         "key_dim": buffer.key_dim,
     }

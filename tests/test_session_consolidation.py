@@ -39,6 +39,7 @@ from mt_lnn.session_consolidation import (
     pool_session_key,
     SessionReplayBuffer,
     consolidate_sessions,
+    consolidate_sessions_to_graph,
 )
 
 
@@ -209,6 +210,67 @@ def test_recall_accuracy_before_vs_after_consolidation():
             f"each session should self-recall after consolidation, got {after_acc:.2f}"
     finally:
         _cleanup(sess_db, know_db)
+
+
+def test_consolidate_to_graph_sediments_links_between_similar_sessions():
+    """Sleep into a GRAPH does not just store sessions -- it links the related
+    ones. Two sessions with near-identical recurrent signatures get connected;
+    a distinct one does not pull a spurious edge. The result is a graph M1 can
+    later traverse by spreading activation, not a flat list."""
+    sess_db = os.path.join(os.path.dirname(__file__), "_consol_graph_sess.db")
+    graph_db = os.path.join(os.path.dirname(__file__), "_consol_graph.db")
+    _cleanup(sess_db, graph_db)
+    try:
+        d = 24
+        torch.manual_seed(11)
+        shared = torch.randn(1, 3, d)              # the signature A and B share
+        with SessionMemory(sess_db) as mem:
+            # A and B are near-identical (cosine ~1); C is distinct.
+            mem.save("A", _fake_cache([shared.clone()]), token_count=10)
+            mem.save("B", _fake_cache([shared + 1e-3 * torch.randn(1, 3, d)]),
+                     token_count=20)
+            mem.save("C", _fake_cache([torch.randn(1, 3, d) + 50.0]),
+                     token_count=30)
+
+        summary = consolidate_sessions_to_graph(
+            sess_db, graph_db, link_threshold=0.55, link_center=False, seed=11
+        )
+        assert summary["replayed"] == 3
+        assert summary["consolidated"] == 3
+        assert summary["nodes"] == 3
+        assert summary["edges"] >= 2, \
+            "similar sessions were not linked during graph consolidation"
+        assert summary["key_dim"] == d
+
+        # The sedimented graph is traversable: from A's signature, spreading
+        # activation reaches B through the cosine-linked edge.
+        from mt_lnn.graph_memory import GraphKnowledgeMemory
+        from mt_lnn.session_consolidation import pool_session_key
+        g = GraphKnowledgeMemory(key_dim=d, db_path=graph_db)
+        try:
+            key_a = pool_session_key([shared.clone()])
+            hits = g.spread_activation(key_a, seeds=1, hops=1, top_k=3)
+            assert "B" in {c for (c, _a, _m) in hits}
+        finally:
+            g.close()
+    finally:
+        _cleanup(sess_db, graph_db)
+
+
+def test_consolidate_to_graph_is_noop_on_empty_store():
+    """Graph consolidation with nothing consolidatable is a safe all-zero no-op."""
+    sess_db = os.path.join(os.path.dirname(__file__), "_consol_graph_empty.db")
+    graph_db = os.path.join(os.path.dirname(__file__), "_consol_graph_empty_g.db")
+    _cleanup(sess_db, graph_db)
+    try:
+        with SessionMemory(sess_db):
+            pass
+        summary = consolidate_sessions_to_graph(sess_db, graph_db)
+        assert summary == {
+            "replayed": 0, "consolidated": 0, "nodes": 0, "edges": 0, "key_dim": 0
+        }
+    finally:
+        _cleanup(sess_db, graph_db)
 
 
 def test_consolidate_sessions_is_noop_on_empty_store():

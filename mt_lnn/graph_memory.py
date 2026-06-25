@@ -86,12 +86,24 @@ class GraphKnowledgeMemory:
         key_dim: int,
         db_path: str = ".mt_lnn_graph.db",
         max_entries: Optional[int] = None,
+        *,
+        auto_link: bool = False,
+        link_threshold: float = 0.55,
+        link_top_k: int = 5,
+        link_center: bool = False,
     ) -> None:
         self.nodes = PersistentKnowledgeMemory(
             key_dim=key_dim, db_path=db_path, max_entries=max_entries
         )
         self.key_dim = self.nodes.key_dim
         self.db_path = str(db_path)
+        # Default auto-link policy used by the duck-typed write() so a
+        # GraphKnowledgeMemory can be a drop-in consolidation target that builds
+        # the graph as it ingests.
+        self.auto_link = bool(auto_link)
+        self.link_threshold = float(link_threshold)
+        self.link_top_k = int(link_top_k)
+        self.link_center = bool(link_center)
         # A second connection to the same file for the edges table. SQLite
         # serialises access; both connections use WAL.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -139,6 +151,23 @@ class GraphKnowledgeMemory:
         for nid, score in neighbours:
             self.link(node_id, nid, weight=score, etype="semantic")
         return node_id
+
+    def write(self, key: torch.Tensor, content: Any, meta: Optional[Any] = None) -> int:
+        """Duck-typed knowledge-store write (mirrors PersistentKnowledgeMemory).
+
+        Lets a GraphKnowledgeMemory stand in as the ``knowledge_memory`` target of
+        :meth:`mt_lnn.sleep_consolidation.SleepWakeConsolidator.nrem_replay`, so a
+        sleep pass that consolidates sessions ALSO builds the relational graph.
+        Honors the instance's auto-link policy (set at construction), so similar
+        nodes are connected as they are written. Returns the new node id.
+        """
+        return self.add_node(
+            key, content, meta,
+            auto_link=self.auto_link,
+            link_threshold=self.link_threshold,
+            link_top_k=self.link_top_k,
+            link_center=self.link_center,
+        )
 
     # ------------------------------------------------------------------
     # Edges

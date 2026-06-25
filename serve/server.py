@@ -44,6 +44,11 @@ Environment
                 (``<SESSION_DB>.knowledge.db``). Only used by /v1/sleep; requires
                 SESSION_DB to be set. Backed by
                 mt_lnn.knowledge_memory.PersistentKnowledgeMemory.
+    GRAPH_DB    path to the SQLite file for the relational GRAPH memory that
+                POST /v1/sleep?build_graph=true sediments sessions into (nodes +
+                cosine-linked edges, traversable by spreading activation).
+                Defaults to a sibling of SESSION_DB (``<SESSION_DB>.graph.db``).
+                Backed by mt_lnn.graph_memory.GraphKnowledgeMemory.
     ENABLE_MULTIMODAL   "1" → load a CLIP vision tower and expose
                         POST /v1/multimodal/completions (needs transformers,
                         Pillow, and a one-time CLIP weight download)
@@ -266,11 +271,16 @@ def _startup() -> None:
     knowledge_db = os.environ.get("KNOWLEDGE_DB", "").strip()
     if not knowledge_db and session_db:
         knowledge_db = session_db + ".knowledge.db"
+    # Relational graph store for POST /v1/sleep?build_graph=true.
+    graph_db = os.environ.get("GRAPH_DB", "").strip()
+    if not graph_db and session_db:
+        graph_db = session_db + ".graph.db"
     _STATE.update(
         model=model, tok=tok, device=device, small=small,
         n_params=sum(p.numel() for p in model.parameters()),
         session_db=session_db,
         knowledge_db=knowledge_db,
+        graph_db=graph_db,
         ready=True,
     )
     print(f"[serve] ready | {_STATE['n_params']/1e6:.1f}M params | device={device}"
@@ -529,6 +539,8 @@ def sleep_consolidate(
     consolidate_fraction: float = 1.0,
     seed: int = 0,
     downscale_factor: float = 1.0,
+    build_graph: bool = False,
+    link_threshold: float = 0.55,
 ):
     """Run one sleep pass: NREM consolidation, then optional SHY downscaling.
 
@@ -540,6 +552,14 @@ def sleep_consolidate(
     Reuses the EXISTING SleepWakeConsolidator.nrem_replay policy unchanged (see
     mt_lnn.session_consolidation). Idempotent-safe: a no-op all-zero summary when
     there is nothing consolidatable.
+
+    Stage 1b (GRAPH, opt-in) -- when ``build_graph`` is true, additionally
+    sediment the same sessions into a relational graph store (GRAPH_DB): each
+    session is a node, auto-linked to already-consolidated sessions whose
+    recurrent signature is within ``link_threshold`` cosine (edge weight = the
+    similarity). Sleep then leaves behind not just isolated memories but the
+    relations between them, traversable later by spreading activation. Reuses the
+    same nrem_replay policy; reported under a ``graph`` block.
 
     Stage 2 (SHY, opt-in) -- when ``downscale_factor`` < 1.0, multiplicatively
     renormalise the served model's TRAINABLE MT-adapter weights downward
@@ -567,6 +587,18 @@ def sleep_consolidate(
         seed=seed, device=_STATE["device"],
     )
     result = {"knowledge_db": _STATE["knowledge_db"], **summary}
+
+    # Stage 1b: relational graph sedimentation (opt-in).
+    if build_graph:
+        if not (0.0 <= link_threshold <= 1.0):
+            raise HTTPException(400, "link_threshold must be in [0, 1]")
+        from mt_lnn.session_consolidation import consolidate_sessions_to_graph
+        graph_summary = consolidate_sessions_to_graph(
+            db, _STATE["graph_db"],
+            consolidate_fraction=consolidate_fraction,
+            seed=seed, link_threshold=link_threshold, device=_STATE["device"],
+        )
+        result["graph"] = {"graph_db": _STATE["graph_db"], **graph_summary}
 
     # Stage 2: synaptic homeostasis on the adapter route (opt-in, mutates weights).
     if downscale_factor < 1.0:

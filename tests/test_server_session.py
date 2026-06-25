@@ -43,7 +43,7 @@ def client():
     db = os.environ["SESSION_DB"]
     # Clean both the session db and the sibling knowledge db (SESSION_DB +
     # ".knowledge.db") the /v1/sleep bridge consolidates into, with WAL sidecars.
-    bases = (db, db + ".knowledge.db")
+    bases = (db, db + ".knowledge.db", db + ".graph.db")
     def _wipe():
         for base in bases:
             for suffix in ("", "-wal", "-shm"):
@@ -134,6 +134,29 @@ def test_sleep_consolidates_sessions_into_knowledge_store(client):
     assert client.post("/v1/sleep").status_code == 200
     # Default pass runs NREM only -- no SHY downscaling block.
     assert "downscale" not in body
+
+
+def test_sleep_build_graph_sediments_relational_store(client):
+    """POST /v1/sleep?build_graph=true additionally sediments sessions into the
+    relational graph store. A couple of persisted sessions become nodes; the
+    response carries a 'graph' block with the node count and a graph_db path.
+    Default (build_graph omitted) leaves no graph block -- zero regression."""
+    _complete(client, prompt="graph one", session_id="g_one")
+    _complete(client, prompt="graph two", session_id="g_two")
+
+    plain = client.post("/v1/sleep").json()
+    assert "graph" not in plain
+
+    r = client.post("/v1/sleep", params={"build_graph": "true"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "graph" in body
+    assert body["graph"]["nodes"] >= 2
+    assert body["graph"]["consolidated"] >= 2
+    assert body["graph"]["graph_db"].endswith(".graph.db")
+    # link_threshold validation.
+    bad = client.post("/v1/sleep", params={"build_graph": "true", "link_threshold": "1.5"})
+    assert bad.status_code == 400
 
 
 def test_sleep_shy_downscaling_is_optin_and_noop_without_adapters(client):
