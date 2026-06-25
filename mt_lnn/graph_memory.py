@@ -204,6 +204,49 @@ class GraphKnowledgeMemory:
                 n_linked += 1
         return n_linked
 
+    def link_by_reference(
+        self,
+        src_id: int,
+        text: str,
+        *,
+        title_of: str = "title",
+        etype: str = "reference",
+        bidirectional: bool = False,
+    ) -> int:
+        """Link ``src_id`` to every node it explicitly *mentions* in ``text``.
+
+        Scans ``text`` for code-identifier references (backtick / file-path /
+        PascalCase) and matches them against other nodes' titles, creating typed
+        ``reference`` edges whose weight is the Awareness-SDK match confidence
+        (exact path 1.0, backtick 0.8, PascalCase 0.7, basename 0.6). This is the
+        content-driven complement to :meth:`auto_link_semantic`: cosine linking
+        connects embedding-similar nodes, reference linking connects a note to the
+        entities it names.
+
+        A node's title is read from ``meta[title_of]`` (default key ``"title"``);
+        nodes without that key are simply not matchable as targets. References are
+        directional by default (the note points at what it mentions). Returns the
+        number of edges created.
+        """
+        from .graph_linking import extract_references, match_references
+
+        refs = extract_references(text)
+        if not refs:
+            return 0
+        nodes = [
+            {"id": nid, "title": title}
+            for (nid, title) in self._titled_nodes(title_of)
+            if nid != src_id
+        ]
+        links = match_references(refs, nodes)
+        for link in links:
+            self.link(
+                src_id, int(link["target_id"]),
+                weight=float(link["confidence"]),
+                etype=etype, bidirectional=bidirectional,
+            )
+        return len(links)
+
     # ------------------------------------------------------------------
     # Spreading-activation recall (the associative step)
     # ------------------------------------------------------------------
@@ -301,6 +344,21 @@ class GraphKnowledgeMemory:
             (int(src_id),),
         ).fetchall()
         return [(int(r[0]), float(r[1])) for r in rows]
+
+    def _titled_nodes(self, title_of: str) -> List[Tuple[int, str]]:
+        """All (id, title) pairs whose meta carries a string title under
+        ``title_of`` -- the matchable targets for reference linking."""
+        rows = self._conn.execute("SELECT id, meta FROM knowledge").fetchall()
+        out: List[Tuple[int, str]] = []
+        for nid, meta_blob in rows:
+            if meta_blob is None:
+                continue
+            meta = _bytes_to_obj(meta_blob)
+            if isinstance(meta, dict):
+                title = meta.get(title_of)
+                if isinstance(title, str) and title:
+                    out.append((int(nid), title))
+        return out
 
     def _get_node(self, node_id: int) -> Optional[Tuple[Any, Optional[Any]]]:
         row = self._conn.execute(
