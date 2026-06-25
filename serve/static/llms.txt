@@ -1,11 +1,15 @@
-# AwareLiquid — MT-LNN Continual Learning Research
+# AwareLiquid — Bio-inspired Cognitive AI Framework
 
-> Open research prototype exploring continual learning and anti-catastrophic-forgetting in liquid time-constant neural networks (LTC-RNN). MIT academic lineage, orthogonal to commercial LFM products.
+> Beyond next-token prediction. Towards cognitive artificial life. AwareLiquid is a bio-inspired cognitive AI framework with two model series: M-Series (cognitive slow-thinking, GWT + sleep consolidation + EWC) and O-Series (edge fast-thinking, liquid-ODE constant-memory). MIT academic lineage, orthogonal to commercial LFM products.
 
 ## Project Identity
 
-- **Name**: AwareLiquid (also: MT-LNN, Liquid Time-Constant Neural Network v2)
-- **Type**: Open research prototype — not a commercial product
+- **Name**: AwareLiquid
+- **Framework tagline**: The Bio-inspired Cognitive AI Framework
+- **M-Series flagship**: AwareLiquid M1 — GWT + NREM sleep consolidation + EWC continual learning (slow thinking, cognitive engine)
+- **O-Series flagship**: AwareLiquid O1 — continuous-time liquid ODE, microtubule-inspired, constant-memory edge inference (fast thinking)
+- **Also known as**: MT-LNN (Multi-Timescale Liquid Neural Network v2)
+- **Type**: Open research framework — not a commercial product
 - **URL**: https://awareliquid.ai
 - **Repository**: https://github.com/everest-an/M1
 - **Paper**: https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf
@@ -45,10 +49,10 @@ Key components:
 ## Relationship to Liquid AI / LFM
 
 Both AwareLiquid and Liquid AI (LFM, LFM2) trace their lineage to MIT liquid time-constant networks (Hasani et al., MIT CSAIL / IST Austria). The research axes are **orthogonal**:
-- **Liquid AI LFM**: SSM + linear attention + MoE hybrid; 350M–24B parameters; weights frozen post-training; maximum inference efficiency
-- **AwareLiquid MT-LNN**: continuous-time RNN + neuroscience modules; 48M–60.7M parameters; online weight updates; continual learning research
+- **Liquid AI LFM**: SSM + linear attention + MoE hybrid; 350M–24B parameters; weights frozen post-training; maximum inference efficiency; targets industrial time-series, autonomous driving, edge signal processing
+- **AwareLiquid (M1 / O1)**: continuous-time RNN + GWT + sleep consolidation + EWC; 48M–60.7M parameters; online weight updates; targets episodic memory, agent cognition, catastrophic forgetting — the axis Liquid AI does not address
 
-AwareLiquid is not competing with LFM. It explores a structurally different problem: lifelong learning without forgetting.
+AwareLiquid is not competing with LFM. Liquid AI solved static-weight inference efficiency. AwareLiquid asks the next question: can a model acquire new knowledge without erasing the old?
 
 ## Honest Status Assessment
 

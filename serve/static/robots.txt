@@ -1,0 +1,24 @@
+User-agent: *
+Allow: /
+
+# AI / LLM crawlers — full content available
+User-agent: GPTBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: anthropic-ai
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Googlebot
+Allow: /
+
+Sitemap: https://awareliquid.ai/sitemap.xml
+
+# Machine-readable content for LLM indexers
+# Summary: https://awareliquid.ai/llms.txt
+# Full:    https://awareliquid.ai/llms-full.txt

@@ -25,7 +25,7 @@
 <meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — EWC −85% forgetting reduction">
 <link rel="canonical" href="https://awareliquid.ai/about">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
-<meta name="keywords" content="AwareLiquid, MT-LNN, liquid neural networks, continual learning, open research, AI safety, lifelong learning">
+<meta name="keywords" content="AwareLiquid, M1, O1, M-Series, O-Series, MT-LNN, liquid neural networks, continual learning, GWT, global workspace theory, sleep consolidation, EWC, cognitive AI, bio-inspired AI, open research, lifelong learning, catastrophic forgetting">
 <meta name="author" content="AwareLiquid Project">
 <link rel="alternate" type="text/plain" href="https://awareliquid.ai/llms.txt" title="LLM-readable summary">
 <!-- Performance -->
@@ -43,13 +43,14 @@
   "@context": "https://schema.org",
   "@type": "ResearchProject",
   "name": "AwareLiquid",
-  "alternateName": "MT-LNN",
-  "description": "AwareLiquid is an open research prototype exploring continual learning in liquid time-constant neural networks. Key result: EWC reduces catastrophic forgetting by 85%. MT-LNN adapter reduces perplexity 28.5%. Orthogonal to commercial Liquid AI LFM.",
+  "alternateName": ["MT-LNN","M1","O1"],
+  "description": "AwareLiquid is an open research framework building bio-inspired cognitive AI. M-Series (M1): GWT global workspace broadcast + NREM sleep consolidation + EWC continual learning. O-Series (O1): liquid ODE constant-memory edge inference. Key result: EWC reduces catastrophic forgetting by 85% (SNR 4.14). Not affiliated with Liquid AI, Inc.",
   "url": "https://awareliquid.ai",
   "sameAs": ["https://github.com/everest-an/M1"],
-  "keywords": ["continual learning","liquid neural networks","MT-LNN","lifelong learning","open science","EWC","catastrophic forgetting"],
+  "founder": {"@id": "https://awareliquid.ai/#author"},
+  "keywords": ["continual learning","liquid neural networks","M1","O1","M-Series","O-Series","GWT","global workspace theory","NREM sleep consolidation","EWC","catastrophic forgetting","bio-inspired AI","cognitive AI"],
   "dateCreated": "2026-02-01",
-  "dateModified": "2026-06-22"
+  "dateModified": "2026-06-25"
 },
 {
   "@context": "https://schema.org",
@@ -69,6 +70,16 @@
     {"@type": "ListItem", "position": 1, "name": "AwareLiquid", "item": "https://awareliquid.ai/"},
     {"@type": "ListItem", "position": 2, "name": "About", "item": "https://awareliquid.ai/about"}
   ]
+},
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "@id": "https://awareliquid.ai/#author",
+  "name": "Everest An",
+  "url": "https://github.com/everest-an",
+  "sameAs": ["https://github.com/everest-an"],
+  "worksFor": {"@id": "https://awareliquid.ai/#organization"},
+  "knowsAbout": ["Liquid Neural Networks","Continual Learning","Catastrophic Forgetting","Global Workspace Theory","Elastic Weight Consolidation","Bio-inspired AI"]
 }
 ]
 </script>
@@ -263,7 +274,7 @@ a.text-link:hover{text-decoration-color:var(--fg)}
   <div class="container">
     <span class="eyebrow">About</span>
     <h1>About AwareLiquid</h1>
-    <p class="lead">An open research prototype exploring whether artificial neural networks can learn continuously — acquiring new knowledge without erasing what they already know.</p>
+    <p class="lead">A bio-inspired cognitive AI framework — M-Series for slow, GWT-driven thinking; O-Series for fast, liquid-ODE edge inference. Open research exploring whether neural networks can learn continuously without forgetting.</p>
   </div>
 </section>
 
@@ -275,13 +286,13 @@ a.text-link:hover{text-decoration-color:var(--fg)}
     <div class="content-col">
 
       <h2>What This Is</h2>
-      <p>AwareLiquid is an <strong>open research prototype</strong>, not a commercial product. It is built on the MT-LNN (liquid time-constant network) architecture — a continuous-time recurrent network whose hidden state evolves according to learnable time constants. On top of this backbone sits a stack of neuroscience-inspired "liquid core" modules: competitive global workspace, predictive world model, Hebbian plasticity, predictive coding, and rhythm modulation.</p>
+      <p>AwareLiquid is an <strong>open research framework</strong>, not a commercial product. It organises models into two series: <strong>M-Series</strong> (M1 — cognitive, slow-thinking, GWT + sleep consolidation + EWC) and <strong>O-Series</strong> (O1 — edge, fast-thinking, continuous-time liquid ODE with constant-memory state). Both series build on the MT-LNN backbone — a continuous-time recurrent network whose hidden state evolves according to learnable time constants — extended with neuroscience-inspired modules.</p>
       <div class="callout">
         <strong>The core research question:</strong> Can a model learn new domains sequentially without catastrophically forgetting prior ones? This is a direction structurally orthogonal to frozen-weight frontier models, including commercial LFM families.
       </div>
 
       <h2>Research Focus</h2>
-      <p>AwareLiquid does <strong>not</strong> claim to match frontier models on general dialogue, reasoning, or benchmark scores. The live demo has two modes: an <strong>MT-LNN residual adapter</strong> (our own architecture, ~2.5% of the weights) on a <strong>frozen Qwen2.5-0.5B-Instruct</strong> base for bilingual Q&amp;A — general language ability comes from the base, the adapter adds the liquid-core / continual-learning mechanisms — and a small <strong>from-scratch</strong> prototype that continues English short stories with no base model at all. Both are research artifacts, not general assistants. The project competes on a different axis:</p>
+      <p>AwareLiquid does <strong>not</strong> claim to match frontier models on general dialogue, reasoning, or benchmark scores. The live demo has two modes: an <strong>M1 Adapter</strong> (liquid-core module, ~2.5% of weights) on a <strong>frozen Qwen2.5-0.5B-Instruct</strong> base for bilingual Q&amp;A — general language ability comes from the base, GWT + continual-learning mechanisms from M1 — and <strong>M1 Scratch</strong>, a 48M model with no base, for native architecture testing. Both are research artifacts, not general assistants. The project competes on a different axis:</p>
       <ul>
         <li><strong>Frontier LLMs</strong>: weights frozen after training; adapt via context or retrieval; the underlying model no longer learns.</li>
         <li><strong>AwareLiquid research</strong>: explore weight-level <strong>continual learning and anti-forgetting</strong> mechanisms — elastic weight consolidation (EWC), Hebbian plasticity, memory reconsolidation.</li>
@@ -355,7 +366,8 @@ a.text-link:hover{text-decoration-color:var(--fg)}
       <div class="info-card">
         <h4>Project Facts</h4>
         <div class="row"><span class="label">Status</span><span class="val">Open research prototype</span></div>
-        <div class="row"><span class="label">Architecture</span><span class="val">MT-LNN (liquid time-constant)</span></div>
+        <div class="row"><span class="label">M-Series</span><span class="val">M1 · GWT + Sleep · Slow Thinking</span></div>
+        <div class="row"><span class="label">O-Series</span><span class="val">O1 · Liquid ODE · Fast Thinking</span></div>
         <div class="row"><span class="label">Model sizes</span><span class="val">48M – 60.7M params</span></div>
         <div class="row"><span class="label">Key result</span><span class="val">EWC −85% forgetting</span></div>
         <div class="row"><span class="label">License</span><span class="val">Open (see GitHub)</span></div>
@@ -406,13 +418,13 @@ a.text-link:hover{text-decoration-color:var(--fg)}
       </div>
       <div class="vs-mid">vs</div>
       <div class="vs-card vs-us">
-        <div class="vs-label">AwareLiquid · MT-LNN</div>
-        <div class="vs-title">Continual Learning<br>at the Frontier</div>
+        <div class="vs-label">AwareLiquid · M1 / O1</div>
+        <div class="vs-title">Cognitive Continuity<br>&amp; Lifelong Learning</div>
         <ul>
-          <li>Continuous-time RNN + neuroscience modules</li>
-          <li>48M – 60.7M · open research prototype</li>
-          <li>Online weight updates: EWC + Hebbian</li>
-          <li>Anti-forgetting &amp; lifelong learning</li>
+          <li>Continuous-time RNN + GWT + Sleep + EWC</li>
+          <li>M-Series (cognitive) · O-Series (edge)</li>
+          <li>Online weight updates — learns without forgetting</li>
+          <li>Episodic memory, agent cognition, adaptation</li>
           <li>Open science: all results reproducible</li>
         </ul>
       </div>
@@ -455,16 +467,22 @@ a.text-link:hover{text-decoration-color:var(--fg)}
       <a href="/#demo">Live Demo</a>
       <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
-    <nav class="footer-col" aria-label="API navigation">
-      <h4>API</h4>
-      <a href="/v1/model" target="_blank">Model Info</a>
+    <nav class="footer-col" aria-label="Legal navigation">
+      <h4>Legal</h4>
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/terms">Terms of Use</a>
+      <a href="/v1/model" target="_blank">Model API</a>
       <a href="/health" target="_blank">Health</a>
     </nav>
   </div>
   <div class="footer-bottom">
     <div class="container footer-bottom-inner">
       <span>© 2026 AwareLiquid · open research demo</span>
-      <span>Built on <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT Liquid Neural Networks</a></span>
+      <span>
+        <a href="/privacy">Privacy</a> &nbsp;·&nbsp;
+        <a href="/terms">Terms</a> &nbsp;·&nbsp;
+        Built on <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT LNN</a>
+      </span>
     </div>
   </div>
 </footer>

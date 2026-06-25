@@ -137,6 +137,16 @@ def research():
     return _static_page("research")
 
 
+@app.get("/privacy")
+def privacy():
+    return _static_page("privacy")
+
+
+@app.get("/terms")
+def terms():
+    return _static_page("terms")
+
+
 def _text_file(name: str) -> FileResponse:
     path = os.path.join(_STATIC_DIR, name)
     if os.path.exists(path):
