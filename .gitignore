@@ -57,6 +57,10 @@ kaggle/_sft_out2/
 # API / SFT scratch output dirs (machine-generated, not source)
 _apiout/
 
+# Training run output dirs (checkpoints, logs — large, not source)
+m2_out_v7/
+m2_out_*/
+
 # Experiment run logs (keep .py/.json/.md reports; ignore raw run logs)
 experiments/_*.log
 experiments/_*.txt
