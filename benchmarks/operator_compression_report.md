@@ -1,6 +1,6 @@
 # MT-LNN Operator Compression Report
 
-Generated: `2026-05-23T22:09:07.933518+00:00`
+Generated: `2026-06-08T09:18:13.486097+00:00`
 Device: `cpu`
 PyTorch: `2.5.1+cu121`
 
@@ -10,13 +10,13 @@ State-only streaming preserves recurrent `h_prev` while dropping historical KV t
 
 | Steps | Mode | Tok/s | Final cache | Peak cache | Mean div vs full | Max div vs full |
 |---:|---|---:|---:|---:|---:|---:|
-| 100 | `full_sequence_oracle` | 1824.9 | 0 B | 0 B | 0 | 0 |
-| 100 | `kv_cache_stream` | 210.2 | 106.4 KB | 106.4 KB | 6.6e-07 | 4.11e-06 |
-| 100 | `state_only_stream` | 222.9 | 4.1 KB | 4.1 KB | 0.0887 | 0.453 |
-| 100 | `prefix_replay_stream` | 87.0 | 0 B | 0 B | 3.67e-07 | 4.4e-06 |
-| 1000 | `full_sequence_oracle` | 11764.6 | 0 B | 0 B | 0 | 0 |
-| 1000 | `kv_cache_stream` | 240.9 | 1020.5 KB | 1020.5 KB | 5.45e-07 | 3.61e-06 |
-| 1000 | `state_only_stream` | 226.8 | 4.1 KB | 4.1 KB | 0.0892 | 0.523 |
+| 100 | `full_sequence_oracle` | 4838.2 | 0 B | 0 B | 0 | 0 |
+| 100 | `kv_cache_stream` | 228.6 | 106.4 KB | 106.4 KB | 6.6e-07 | 4.11e-06 |
+| 100 | `state_only_stream` | 229.2 | 4.1 KB | 4.1 KB | 0.0887 | 0.453 |
+| 100 | `prefix_replay_stream` | 88.0 | 0 B | 0 B | 3.67e-07 | 4.4e-06 |
+| 1000 | `full_sequence_oracle` | 6473.1 | 0 B | 0 B | 0 | 0 |
+| 1000 | `kv_cache_stream` | 212.0 | 1020.5 KB | 1020.5 KB | 5.45e-07 | 3.61e-06 |
+| 1000 | `state_only_stream` | 230.0 | 4.1 KB | 4.1 KB | 0.0892 | 0.523 |
 | 1000 | `prefix_replay_stream` | skipped | - | - | - | - |
 
 ## Scale-Gate Diagnostics
