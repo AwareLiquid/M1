@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Grid-cell emergence — minimal path-integration experiment (Kaggle GPU).
+"""Grid-cell emergence -- minimal path-integration experiment (Kaggle GPU).
 
 Scientific question
 -------------------
 When a recurrent network is trained to PATH-INTEGRATE (turn a stream of
 self-motion / velocity inputs into an estimate of its allocentric position,
 read out as place-cell activity), do its hidden units spontaneously develop
-HEXAGONAL grid firing fields — the signature of biological medial-entorhinal
+HEXAGONAL grid firing fields -- the signature of biological medial-entorhinal
 grid cells? This is the Cueva & Wei (2018) / Banino et al. (2018, Nature)
 result. Grid-cell emergence is a clean, quantitative probe of whether an
-architecture learns a *metric, allocentric spatial code* purely from motion —
+architecture learns a *metric, allocentric spatial code* purely from motion --
 exactly the "brain-like spatial representation" the MT-LNN roadmap is after.
 
 What this kernel does
@@ -17,15 +17,15 @@ What this kernel does
   1. Generates rat-like 2D random-walk trajectories in a square arena and the
      corresponding velocity inputs + ground-truth place-cell activations.
   2. Trains TWO recurrent path integrators on the same data:
-       (A) a vanilla GRU  — the canonical, known-to-work baseline; validates
+       (A) a vanilla GRU  -- the canonical, known-to-work baseline; validates
            the whole analysis pipeline end-to-end.
        (B) the MT-LNN recurrent core (small config), fed velocity through
            `inputs_embeds` with `use_lnn_recurrence=True`, hidden state tapped
            off `final_norm` via a forward hook, plus a linear place-cell readout.
        (B) is best-effort: wrapped in try/except so a model-API hiccup on the
        Kaggle node never costs us the baseline result.
-  3. Analyses the learned hidden units: spatial rate maps → 2D spatial
-     autocorrelogram → GRID SCORE (6-fold rotational symmetry). Saves the
+  3. Analyses the learned hidden units: spatial rate maps -> 2D spatial
+     autocorrelogram -> GRID SCORE (6-fold rotational symmetry). Saves the
      top grid cells' rate-map / autocorr figures, a grid-score histogram, and
      a metrics.json summary to /kaggle/working.
 
@@ -61,7 +61,7 @@ EVAL_TRAJ   = int(os.environ.get("GC_EVAL_TRAJ", "2000"))  # trajectories for ra
 TOPK_FIG    = int(os.environ.get("GC_TOPK_FIG", "16"))     # how many cells to plot
 
 print("=" * 70)
-print("Grid-cell emergence — minimal path-integration experiment")
+print("Grid-cell emergence -- minimal path-integration experiment")
 print("=" * 70)
 print(f"[cfg] arena={ARENA}m  n_place={N_PLACE}  seq_len={SEQ_LEN}  hidden={HIDDEN}")
 print(f"[cfg] batch={BATCH}  steps={STEPS}  lr={LR}  wd={WD}  n_bins={N_BINS}")
@@ -105,7 +105,7 @@ _dev = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu"
 print(f"[env] torch {torch.__version__} | device={_dev} | capability={_cap}")
 if _cap is not None and _cap[0] < 7:
     print(f"[env] {_dev} (sm_{_cap[0]}{_cap[1]}) unsupported by pre-installed torch "
-          f"— installing Pascal-compatible torch 2.6.0+cu124")
+          f"-- installing Pascal-compatible torch 2.6.0+cu124")
     subprocess.run(
         [sys.executable, "-m", "pip", "install", "-q",
          "torch==2.6.0", "--index-url", "https://download.pytorch.org/whl/cu124"],
@@ -135,7 +135,7 @@ np.random.seed(SEED)
 class TrajectoryGenerator:
     """Rat-like 2D random walk in a square box with smooth, boundary-aware turns.
 
-    Velocity input per step is the 3-vector (speed, sin(heading), cos(heading)) —
+    Velocity input per step is the 3-vector (speed, sin(heading), cos(heading)) --
     an egocentric, allocentric-free self-motion signal. The network must
     integrate it to recover allocentric position, read out as a population of
     Gaussian place cells (the supervised target).
@@ -150,11 +150,11 @@ class TrajectoryGenerator:
         # Place-cell target = the single source of truth in mt_lnn.spatial.
         # The DoG (center-surround / Mexican-hat) recipe that triggers hexagonal
         # grid emergence (Sorscher et al. 2019) used to be re-implemented inline
-        # here; it now lives ONCE in PlaceCellCode (validated, dog_amp∈(0,1)
+        # here; it now lives ONCE in PlaceCellCode (validated, dog_amp?(0,1)
         # enforced). This script simply parameterises and calls it, so the
         # experiment and the library can never drift apart.
-        #   GC_PLACE_DOG=1 → DoG target (the grid-emergence trigger);
-        #   default        → the proven single-bump Gaussian code.
+        #   GC_PLACE_DOG=1 -> DoG target (the grid-emergence trigger);
+        #   default        -> the proven single-bump Gaussian code.
         use_dog = os.environ.get("GC_PLACE_DOG", "0") == "1"
         try:
             from mt_lnn.spatial import PlaceCellCode
@@ -179,7 +179,7 @@ class TrajectoryGenerator:
         self.place_centers = self.place_code.place_centers     # (N_place, 2)
 
     def _place_activity(self, pos):                        # pos (B, T, 2)
-        # (B,T,2) → (B,T,N_place) softmax target, computed by the shared module.
+        # (B,T,2) -> (B,T,N_place) softmax target, computed by the shared module.
         return self.place_code(pos)
 
     def generate(self, batch, seq_len):
@@ -219,14 +219,14 @@ class TrajectoryGenerator:
 # ---------------------------------------------------------------------------
 class GRUIntegrator(torch.nn.Module):
     """Canonical baseline: GRU + linear place-cell readout. The hidden layer is
-    a low-D bottleneck encouraged (by weight decay) toward an efficient code —
+    a low-D bottleneck encouraged (by weight decay) toward an efficient code --
     the regime in which grid cells emerge (Sorscher et al. 2019)."""
 
     def __init__(self, n_place, hidden):
         super().__init__()
         self.init_h = torch.nn.Linear(n_place, hidden)     # encode t0 place code
         self.rnn = torch.nn.GRU(3, hidden, batch_first=True)
-        # Dropout on the recurrent→readout path (Banino et al. 2018): forces a
+        # Dropout on the recurrent->readout path (Banino et al. 2018): forces a
         # distributed, redundant code and is a known grid-emergence regulariser.
         # Active only in train mode, so the eval-time rate maps see clean units.
         self.drop = torch.nn.Dropout(float(os.environ.get("GC_READOUT_DROPOUT", "0.0")))
@@ -253,7 +253,7 @@ class MTLNNIntegrator(torch.nn.Module):
         self.model = model
         self.vel_proj = torch.nn.Linear(3, d_model)
         self.init_proj = torch.nn.Linear(n_place, d_model)
-        # Dropout before the readout MLP — same Banino-style grid regulariser
+        # Dropout before the readout MLP -- same Banino-style grid regulariser
         # as the GRU baseline (active only in train mode; eval rate maps clean).
         self.readout = torch.nn.Sequential(
             torch.nn.Dropout(float(os.environ.get("GC_READOUT_DROPOUT", "0.0"))),
@@ -279,10 +279,10 @@ class MTLNNIntegrator(torch.nn.Module):
 
 def build_mtlnn():
     """Small, valid MT-LNN core. Constraints (validated locally):
-      - d_model multiple of n_protofilaments(13)*8 = 104  → d_proto multiple of 8
+      - d_model multiple of n_protofilaments(13)*8 = 104  -> d_proto multiple of 8
       - d_model divisible by n_heads; d_head = d_model // n_heads
       - d_gw = d_model//8 divisible by gwtb_n_heads
-    d_model=208 (=13*16) → d_head=16, d_gw=26 (÷ gwtb_n_heads=2). ~0.83M params."""
+    d_model=208 (=13*16) -> d_head=16, d_gw=26 (? gwtb_n_heads=2). ~0.83M params."""
     from mt_lnn.config import MTLNNConfig
     from mt_lnn.model import MTLNNModel
     cfg = MTLNNConfig(
@@ -323,7 +323,7 @@ def train(model, gen, tag):
 # ---------------------------------------------------------------------------
 @torch.no_grad()
 def collect_rate_maps(model, gen, n_units):
-    """Accumulate mean hidden activation per spatial bin → (n_units, N_BINS, N_BINS)."""
+    """Accumulate mean hidden activation per spatial bin -> (n_units, N_BINS, N_BINS)."""
     model.eval()
     a = gen.arena
     acc = np.zeros((n_units, N_BINS, N_BINS), dtype=np.float64)
@@ -381,7 +381,7 @@ def grid_score(ac):
 
 
 def analyse(model, gen, tag, n_units):
-    print(f"[{tag}] collecting rate maps over {EVAL_TRAJ} trajectories …")
+    print(f"[{tag}] collecting rate maps over {EVAL_TRAJ} trajectories ...")
     rate, _cnt = collect_rate_maps(model, gen, n_units)
     scores = np.array([grid_score(autocorrelogram(rate[u])) for u in range(n_units)])
     order = np.argsort(-scores)
@@ -470,7 +470,7 @@ def main():
     with open(out, "w") as f:
         json.dump(results, f, indent=2)
     print("\n" + "=" * 70)
-    print(f"DONE in {results['elapsed_s']}s → {out}")
+    print(f"DONE in {results['elapsed_s']}s -> {out}")
     print(json.dumps(results["models"], indent=2))
     print("=" * 70)
 

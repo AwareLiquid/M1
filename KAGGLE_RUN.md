@@ -22,7 +22,7 @@ Click **Run All**. Cells in order:
 | Cell | Purpose | Time |
 |---|---|---|
 | 1 | env sanity (verifies GPU is P100) | <5 s |
-| 2 | `git clone` the repo into `/kaggle/working/O1` | ~10 s |
+| 2 | `git clone` the repo into `/tmp/M1` | ~10 s |
 | 3 | `pip install -r requirements.txt` + accelerate, safetensors, peft, datasets | ~2 min |
 | 4 | adapter smoke test (`pytest tests/test_llama_adapter.py`) | ~30 s |
 | 5 | **train + PPL ablation + needle benchmark** | ~3–4 h |
