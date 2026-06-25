@@ -670,15 +670,15 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   <div class="container">
     <div class="section-header">
       <span class="eyebrow">Live Demo</span>
-      <h2>Try AwareLiquid M1 in Your Browser</h2>
-      <p class="section-lead">The <strong>M1 Adapter</strong> runs a liquid-core module on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base — general language from the base, GWT + continual-learning mechanisms from M1. Switch to <strong>M1 Scratch</strong> for the native 48M architecture with no base model. Ask in English or Chinese.</p>
+      <h2>Try Both Models in Your Browser</h2>
+      <p class="section-lead">Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base — a general assistant. <strong>O1</strong> (small, edge) is the native 48M liquid architecture trained from scratch with no base model — the raw backbone for hardware / always-on inference. Switch between them below. Ask in English or Chinese.</p>
     </div>
     <div class="demo-widget">
       <div class="demo-bar">
         <div class="modelsel">
           <select id="modelSel" aria-label="Select model">
-            <option value="/adapter">M1 Adapter · Qwen2.5-0.5B base</option>
-            <option value="">M1 Scratch · 48M from scratch</option>
+            <option value="/adapter">M1 · TinyLlama-1.1B + MT adapter</option>
+            <option value="">O1 · 48M edge, from scratch</option>
           </select>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -890,8 +890,8 @@ const I18N={
     'rh.eyebrow':'Engineering Reality','rh.h2':'Honest Numbers.\nReal GPU Runs.',
     'rh.lead':'We report what the data shows — both where the mechanism works and where it doesn\'t. Every number is tagged, reproducible, and falsifiable. This is science, not marketing.',
     'rh.full':'Full methodology & results →',
-    'demo.eyebrow':'Live Demo','demo.h2':'Try AwareLiquid M1 in Your Browser',
-    'demo.lead':'The <strong>M1 Adapter</strong> runs a liquid-core module on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base. Switch to <strong>M1 Scratch</strong> for the native 48M architecture. Ask in English or Chinese.',
+    'demo.eyebrow':'Live Demo','demo.h2':'Try Both Models in Your Browser',
+    'demo.lead':'Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. <strong>O1</strong> (small, edge) is the native 48M architecture trained from scratch, no base model. Ask in English or Chinese.',
     'demo.fullpage':'Open Full-Page Demo →',
     'demo.note':'Research-grade demo — quality is experimental. ',
     'demo.notelink':'What to expect →',
@@ -923,8 +923,8 @@ const I18N={
     'rh.eyebrow':'工程实验结果','rh.h2':'诚实的数字。\n真实的 GPU 运行。',
     'rh.lead':'我们如实报告数据所呈现的结果——包括机制有效的地方和无效的地方。每个数字都有标注、可复现、可证伪。这是科学，不是营销。',
     'rh.full':'完整方法论与结果 →',
-    'demo.eyebrow':'在线演示','demo.h2':'在浏览器中试用 AwareLiquid M1',
-    'demo.lead':'<strong>M1 适配器</strong> 在冻结的 <strong>Qwen2.5-0.5B-Instruct</strong> 基础上运行液态核心模块。切换到 <strong>M1 原始版</strong> 体验原生 4800 万参数架构。支持中英文提问。',
+    'demo.eyebrow':'在线演示','demo.h2':'在浏览器中试用两款模型',
+    'demo.lead':'两款独立模型，均在线。<strong>M1</strong>（大模型、认知向）在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上运行已训练的液态核心适配器。<strong>O1</strong>（小模型、边缘向）是从零训练的原生 4800 万参数架构，无基座。支持中英文提问。',
     'demo.fullpage':'打开全屏演示 →',
     'demo.note':'研究级演示——质量处于实验阶段。',
     'demo.notelink':'了解预期效果 →',
@@ -1087,15 +1087,15 @@ const modelSel=document.getElementById('modelSel');
 
 const CONTENT={
   adapter:{
-    en:{lead:'<strong>AwareLiquid M1 Adapter</strong> — liquid-core residual modules on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base. Episodic memory is active: the model remembers what you tell it across turns. Ask anything in English or Chinese.',
+    en:{lead:'<strong>AwareLiquid M1</strong> — trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. The large, cognitive model. Episodic memory is active: it remembers what you tell it across turns. Ask anything in English or Chinese.',
       examples:[['What is catastrophic forgetting, and how does EWC solve it?','Research Q&A'],['How is AwareLiquid M1 different from Liquid AI?','Concept'],['My name is Alex and I\'m researching continual learning.','Memory demo'],['Write a short poem about neural networks that never forget.','Creative']]},
-    zh:{lead:'<strong>AwareLiquid M1 适配器</strong> — 在冻结的 <strong>Qwen2.5-0.5B-Instruct</strong> 基础上插入液态核心残差模块。情节记忆已激活：模型会记住你在对话中告诉它的内容。支持中英文提问。',
+    zh:{lead:'<strong>AwareLiquid M1</strong> — 在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上插入已训练的液态核心残差适配器。大模型、认知向。情节记忆已激活：模型会记住你在对话中告诉它的内容。支持中英文提问。',
       examples:[['什么是灾难性遗忘？EWC 是如何解决的？','研究问答'],['AwareLiquid M1 和 Liquid AI 有什么区别？','概念解析'],['我叫小明，正在研究持续学习。','记忆演示'],['写一首关于永不遗忘的神经网络的短诗。','创意写作']]},
   },
   scratch:{
-    en:{lead:'<strong>AwareLiquid M1 Scratch</strong> — 48M parameters trained from scratch on TinyStories. This is the raw liquid backbone: <strong>continues short English stories only</strong>, not a general assistant. Give it a story opening:',
+    en:{lead:'<strong>AwareLiquid O1</strong> — 48M parameters trained from scratch, no base model. The small, edge model: a raw liquid backbone for hardware / always-on inference. It <strong>continues short English text only</strong>, not a general assistant. Give it a story opening:',
       examples:[['Once upon a time, there was a little cat named Lily.','Continue story'],['The sun was shining and Tom wanted to play outside.','Continue story'],['One day, a girl found a big red box under the tree.','Continue story'],['There was a happy dog who liked to run very fast.','Continue story']]},
-    zh:{lead:'<strong>AwareLiquid M1 原始版</strong> — 在 TinyStories 上从零训练的 4800 万参数模型。纯液态骨干网络：<strong>仅能续写短篇英文故事</strong>，非通用助手。请给出故事开头：',
+    zh:{lead:'<strong>AwareLiquid O1</strong> — 从零训练的 4800 万参数模型，无基座。小模型、边缘向：面向硬件 / 常驻推理的纯液态骨干。<strong>仅能续写短篇英文文本</strong>，非通用助手。请给出故事开头：',
       examples:[['Once upon a time, there was a little cat named Lily.','续写故事'],['The sun was shining and Tom wanted to play outside.','续写故事'],['One day, a girl found a big red box under the tree.','续写故事'],['There was a happy dog who liked to run very fast.','续写故事']]},
   },
 };
@@ -1121,8 +1121,8 @@ function applyModel(m,kind){
   const name=(m.base_model||'').split('/').pop()||'MT-LNN';
   const size=m.n_params>=1e9?`${(m.n_params/1e9).toFixed(1)}B`:`${(m.n_params/1e6).toFixed(0)}M`;
   let tag='';
-  if(m.adapter_loaded) tag=' · M1 Adapter';
-  else if(m.is_baseline) tag=' · M1 Scratch';
+  if(m.adapter_loaded) tag=' · M1';
+  else if(m.is_baseline) tag=' · O1';
   statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
   renderWelcome(kind);
 }

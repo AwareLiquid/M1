@@ -403,16 +403,16 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 
       <hr class="divider">
 
-      <h2 id="demo-model">2 · Live Demo: AwareLiquid M1</h2>
-      <p>The demo offers two M1 modes. <strong>M1 Adapter</strong> wraps a <strong>frozen Qwen2.5-0.5B-Instruct</strong> base with a trained residual liquid-core module — only ~2.5% of the weights are ours (GWT broadcast + EWC continual-learning layers), general language comes from the base. It handles Q&amp;A in English and Chinese and carries <strong>persistent episodic memory</strong> — session recall tagged with typed cards (identity / preference / emotion / plan / relationship / health / detail). <strong>M1 Scratch</strong> is the opposite pole — 48M parameters pre-trained end-to-end on TinyStories, no base model, pure architecture research artifact for English story continuation.</p>
-      <div class="note">Honest note on the base: the demo base is Qwen2.5-0.5B-Instruct, but the <strong>−28.5% perplexity</strong> result below was measured on an earlier <strong>LLaMA-3 1B</strong> base. Re-measurement on the current Qwen-0.5B base is pending, so that number is reported against its original base, not this one.</div>
+      <h2 id="demo-model">2 · Live Demo: AwareLiquid O1 + M1</h2>
+      <p>The demo offers two distinct models. <strong>M1</strong> (the large, cognitive model) wraps a <strong>frozen TinyLlama-1.1B-Chat</strong> base with a trained residual liquid-core adapter — only a fraction of a percent of the weights are ours (GWT broadcast + EWC continual-learning layers), general language comes from the base. It handles Q&amp;A in English and Chinese and carries <strong>persistent episodic memory</strong> — session recall tagged with typed cards (identity / preference / emotion / plan / relationship / health / detail). <strong>O1</strong> (the small, edge model) is the opposite pole — 48M parameters trained end-to-end from scratch, no base model, the native liquid architecture for hardware / always-on inference, a pure research artifact for short English text continuation.</p>
+      <div class="note">Honest note on the base: the live M1 demo runs on a <strong>TinyLlama-1.1B-Chat</strong> base with a step-1000 adapter checkpoint. The <strong>−28.5% perplexity</strong> result below was measured on TinyLlama-1.1B with the validated phase-5b adapter recipe; the live checkpoint differs, so its interactive quality is not a direct stand-in for that number.</div>
       <div class="card">
         <table style="margin:0">
           <thead><tr><th>Metric</th><th>Value</th><th>Notes</th></tr></thead>
           <tbody>
             <tr><td>From-scratch params</td><td class="num">~48M</td><td>Full MT-LNN pre-training</td></tr>
             <tr><td>Validation <abbr title="Perplexity">PPL</abbr> (scratch)</td><td class="num">~136</td><td>Clean M2 run, 5,000 steps</td></tr>
-            <tr><td>Adapter PPL gain</td><td class="num">−28.5%</td><td>WikiText-2, vs. base (LLaMA-3 1B; early — not yet re-run on Qwen-0.5B)</td></tr>
+            <tr><td>Adapter PPL gain (M1)</td><td class="num">−28.5%</td><td>WikiText-2, vs. base (TinyLlama-1.1B, phase-5b recipe)</td></tr>
             <tr><td>Inference</td><td class="num">CPU</td><td>2–4 cores, ~2–15 tok/s</td></tr>
           </tbody>
         </table>
@@ -659,7 +659,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <p><strong>M1 (M-Series)</strong> is the cognitive slow-thinking engine — it layers GWT competitive broadcast, NREM sleep consolidation with SHY synaptic downscaling, and EWC continual learning on the LTC backbone. It targets episodic memory, agent cognition, and catastrophic forgetting research. <strong>O1 (O-Series)</strong> is the edge fast-thinking engine — pure continuous-time liquid ODE, constant 4 KB memory state regardless of context length, no KV-cache growth, targets CPU/edge deployment at millisecond latency. Both share the MT-LNN backbone; full cognitive module integration into O1 is in progress.</p>
 
       <h3>Is this production-ready?</h3>
-      <p>No. AwareLiquid is an open research framework. <strong>M1 Scratch</strong> (48M from scratch) produces coherent short stories but is not a general assistant. The <strong>M1 Adapter</strong> improves perplexity by 28.5% but generates repetitive outputs at higher temperatures. Neither is production-grade — both are research artifacts demonstrating architectural ideas. There is no SLA.</p>
+      <p>No. AwareLiquid is an open research framework. <strong>O1</strong> (48M from scratch) produces coherent short stories but is not a general assistant. <strong>M1</strong> (TinyLlama-1.1B + MT adapter) improves perplexity but generates repetitive outputs at higher temperatures. Neither is production-grade — both are research artifacts demonstrating architectural ideas. There is no SLA.</p>
 
       <h3>How is this different from Liquid AI / LFM?</h3>
       <p>Liquid AI builds high-performance models using an SSM + linear attention + MoE hybrid for maximum inference efficiency — targeting industrial time-series, edge signal processing, and autonomous driving. AwareLiquid layers cognitive architecture (GWT awareness, sleep consolidation, EWC online learning) on top of the liquid backbone to study <em>continual learning</em> — can a model acquire new knowledge without erasing the old? Same academic lineage (MIT LNN), orthogonal research axes. <strong>AwareLiquid is not affiliated with Liquid AI, Inc.</strong></p>
@@ -668,7 +668,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <p>When a neural network trains sequentially on domain A then B, its performance on A collapses. In AwareLiquid M1 experiments: dense baseline degrades from 244.9 → 10,806.9 PPL (×44). EWC reduces this to 1,878 PPL (×7.6, an 85% reduction in the forgetting delta). The threshold for "usable" retention is ≤5× degradation — not yet achieved. This is reported as Early Signal, not a solved problem.</p>
 
       <h3>Can I use the model API?</h3>
-      <p>Yes. The live demo server exposes <code>/v1/completions/stream</code> (SSE, M1 Scratch), <code>/adapter/v1/completions/stream</code> (SSE, M1 Adapter), and <code>/v1/model</code> (model metadata). See <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub README</a> for local setup. Research-grade — no rate limits, no SLAs.</p>
+      <p>Yes. The live demo server exposes <code>/v1/completions/stream</code> (SSE, O1), <code>/adapter/v1/completions/stream</code> (SSE, M1), and <code>/v1/model</code> (model metadata). See <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub README</a> for local setup. Research-grade — no rate limits, no SLAs.</p>
 
       <h3>Why report the needle-in-haystack failure?</h3>
       <p>Scientific honesty. The needle test requires locating a specific injected fact inside a 1K–4K token window. Both the base model and the M1 adapter score 0% across all context lengths and depths — because neither supports the scratch-pad / chain-of-thought reasoning the task demands. We report this prominently. Improving long-context retrieval is a target for future O1 work.</p>

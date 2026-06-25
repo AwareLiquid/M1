@@ -31,7 +31,7 @@ Flagship: AwareLiquid M1
 Core mechanisms: GWT-B competitive global workspace broadcast + NREM sleep consolidation with SHY synaptic downscaling + EWC continual learning
 Target: episodic memory, agent cognition, catastrophic forgetting research, multi-agent coordination
 Sizes: 48M (from-scratch), 60.7M (continual learning experiments)
-Demo modes: M1 Adapter (liquid-core module on frozen Qwen2.5-0.5B-Instruct base) + M1 Scratch (48M from-scratch, no base)
+Demo models: M1 (large/cognitive — liquid-core adapter on frozen TinyLlama-1.1B-Chat base) + O1 (small/edge — 48M from-scratch, no base)
 
 ### O-Series (Edge / Fast Thinking)
 Flagship: AwareLiquid O1
@@ -61,11 +61,11 @@ Modules active in the full M1 from-scratch model (MTLNNModel):
 ### O1 Edge Layer (O-Series)
 Pure LTC-ODE with learnable time constants. No discrete layer stacking, no KV-cache. Constant-memory state (4 KB regardless of context length). Microtubule-inspired dynamics. Target: edge/CPU deployment at millisecond latency. Full multi-module integration (all M1 cognitive layers wired into one O1 forward pass) is in progress — not yet shipped.
 
-### M1 Adapter (demo deployment)
+### M1 (adapter demo deployment)
 Residual M1 adapter modules inserted every 4 decoder layers of a FROZEN HuggingFace causal LM. The base supplies general language ability; the adapter adds the liquid-core mechanism. Combined with PEFT LoRA (rank 8) on q/k/v/o projections.
-- Current demo: Qwen2.5-0.5B-Instruct base — ~13.5M trainable (12.4M M1 adapter modules + 1.08M LoRA) / ~507.5M total (~2.66%). Bilingual SFT at step 3,000.
-- PPL-ablation experiment (Experiment 2): earlier LLaMA-3 1B deploy — 2.3M / 1,172,954,154 total (0.20%).
-- NOTE: "2.45%" is TRAINABLE-PARAMETER SHARE, not research effort — 494M frozen base is Qwen's; small adapter share is the intended property of the PEFT route.
+- Current live demo: TinyLlama-1.1B-Chat base — 2.3M trainable adapter params / 1,172,954,154 total (0.20%), serving a step-1000 adapter checkpoint.
+- The validated PPL-ablation result (Experiment 2, −28.5%) was measured on this same TinyLlama-1.1B base with the phase-5b recipe.
+- NOTE: "0.20%" is TRAINABLE-PARAMETER SHARE, not research effort — the 1.1B frozen base is TinyLlama's; a small adapter share is the intended property of the PEFT route.
 
 HONEST M1 ADAPTER INTEGRATION SCOPE: only the LTC resonance core is LIVE in the served M1 adapter forward pass — in_proj → multi-scale resonance bank (5 time scales, learnable τ) → lateral coupling with periodic GTP gate → per-protofilament MAP gate → out_proj. GWT-B, Hebbian, world-model, and predictive-coding are NOT wired into the adapter (forced off) because a standalone residual adapter has no outer model forward() to aggregate auxiliary losses. Those modules are active in the from-scratch MTLNNModel (O1 line) and in per-module ablations. The M1 demo = LTC core only; full cognitive integration is an O1 goal.
 
@@ -224,7 +224,7 @@ Q: What is the AwareLiquid M-Series / O-Series distinction?
 A: M-Series (flagship: M1) is the cognitive slow-thinking line — it layers GWT competitive broadcast, NREM sleep consolidation, and EWC continual learning on the LTC backbone. O-Series (flagship: O1) is the edge fast-thinking line — pure continuous-time liquid ODE, constant-memory state, no KV-cache, targets millisecond CPU latency. Both share the MT-LNN backbone; they differ in which cognitive modules are active and the deployment target.
 
 Q: Is AwareLiquid production-ready?
-A: No. It is an open research framework. M1 Scratch (48M) produces coherent short stories only. The M1 Adapter improves perplexity but generates repetitive outputs at higher temperatures. Neither is a general-purpose assistant.
+A: No. It is an open research framework. O1 (48M from scratch) produces coherent short stories only. M1 (TinyLlama-1.1B + MT adapter) improves perplexity but generates repetitive outputs at higher temperatures. Neither is a general-purpose assistant.
 
 Q: How is AwareLiquid different from Liquid AI?
 A: Liquid AI (LFM) optimises frozen-weight models for maximum inference efficiency — targets industrial time-series, edge signal processing, autonomous driving. AwareLiquid builds cognitive architecture on top of the liquid backbone: GWT awareness, sleep-based memory consolidation, EWC online weight updates. Same academic lineage (MIT LNN), entirely different research axis. AwareLiquid is not affiliated with Liquid AI, Inc.

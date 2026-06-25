@@ -41,10 +41,10 @@ Key components:
 - **Hebbian Plasticity**: co-activation weight modulation (currently inert at small scale)
 - **Predictive Coding**: hierarchical prediction error propagation
 - **EWC Consolidation**: Fisher-weighted quadratic penalty preventing weight drift from prior domain
-- **Residual adapter on a frozen base**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: Qwen2.5-0.5B-Instruct — 12.4M trainable / 506M total (2.45%). The −28.5% PPL result below was an earlier LLaMA-3 1B deploy (2.3M / 1.17B, 0.20%).
+- **Residual adapter on a frozen base (the M1 model)**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: TinyLlama-1.1B-Chat — 2.3M trainable / 1.17B total (0.20%). The validated −28.5% PPL result below was measured on this same TinyLlama-1.1B base with the phase-5b recipe.
 - **Episodic conversation memory**: typed-card RAG recall of past user statements (identity / preference / emotion / plan / relationship / health / detail) over a multilingual-e5 sentence encoder. Recall + a lightweight semantic tag only — no understanding, reasoning, or emotion.
 
-**Honest integration scope**: In the M1 demo adapter, only the **LTC resonance core** is live in the forward pass (in_proj → multi-scale resonance → lateral GTP-gated coupling → MAP gate → out_proj). GWT-B, Predictive World Model, Hebbian, Predictive Coding and EWC are NOT wired into the served adapter — they live in the from-scratch MTLNNModel (O1 line) and in standalone ablations. Full multi-module integration is an O1 goal, not yet shipped in M1. Also: the "2.45%" figure is trainable-parameter share (≈2.66% counting LoRA), not a measure of research effort — the frozen 494M base is Qwen's, deliberately reused; a small share is the intended property of the adapter route.
+**Honest integration scope**: In the M1 demo adapter, only the **LTC resonance core** is live in the forward pass (in_proj → multi-scale resonance → lateral GTP-gated coupling → MAP gate → out_proj). GWT-B, Predictive World Model, Hebbian, Predictive Coding and EWC are NOT wired into the served adapter — they live in the from-scratch MTLNNModel (the O1 model) and in standalone ablations. Full multi-module integration is an O1 goal, not yet shipped in M1. Also: the "0.20%" figure is trainable-parameter share, not a measure of research effort — the frozen 1.1B base is TinyLlama's, deliberately reused; a small share is the intended property of the adapter route.
 
 ## Relationship to Liquid AI / LFM
 
@@ -68,7 +68,7 @@ AwareLiquid is not competing with LFM. Liquid AI solved static-weight inference 
 
 ## Pages
 
-- `/` — Landing page with live demo widget (Qwen2.5-0.5B-Instruct + MT-LNN adapter)
+- `/` — Landing page with live demo widget (O1: 48M from-scratch · M1: TinyLlama-1.1B + MT-LNN adapter)
 - `/research` — Full experimental results, methodology, honest verdicts, charts, citation, FAQ
 - `/about` — Project overview, intellectual lineage, author/contact
 - `/llms-full.txt` — Extended machine-readable content dump

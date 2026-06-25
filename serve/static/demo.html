@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AwareLiquid M1 — Live Demo</title>
-<meta name="description" content="Try AwareLiquid M1 Adapter and M1 Scratch live. Bio-inspired liquid neural network with episodic memory. Ask in English or Chinese.">
+<title>AwareLiquid — Live Demo (O1 + M1)</title>
+<meta name="description" content="Try AwareLiquid O1 (48M edge, from scratch) and M1 (TinyLlama-1.1B + MT adapter) live. Bio-inspired liquid neural network with episodic memory. Ask in English or Chinese.">
 <meta name="robots" content="noindex">
 <link rel="canonical" href="https://awareliquid.ai/demo">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
@@ -180,8 +180,8 @@ textarea::placeholder{color:#b4b4c0}
   <div class="hdr-sep"></div>
   <div class="modelsel">
     <select id="modelSel" aria-label="Select model">
-      <option value="/adapter" id="optAdapter">M1 Adapter · Qwen2.5-0.5B</option>
-      <option value="" id="optScratch">M1 Scratch · 48M</option>
+      <option value="/adapter" id="optAdapter">M1 · TinyLlama-1.1B + MT adapter</option>
+      <option value="" id="optScratch">O1 · 48M edge, from scratch</option>
     </select>
   </div>
   <div class="status-wrap">
@@ -261,19 +261,19 @@ const LANGS={
     connecting:'Connecting…',offline:'Offline',
     placeholder:'Ask in English or Chinese…',
     retryBtn:'↺ Retry connection',
-    note:'AwareLiquid M1 · research prototype · ',
-    opt_adapter:'M1 Adapter · Qwen2.5-0.5B',
-    opt_scratch:'M1 Scratch · 48M',
-    w_adapter_title:'M1 Adapter',
-    w_adapter_lead:'<strong>AwareLiquid M1 Adapter</strong> — liquid-core residual modules on a frozen <strong>Qwen2.5-0.5B-Instruct</strong> base. Episodic memory is active: the model remembers what you tell it across turns. Ask anything in English or Chinese.',
+    note:'AwareLiquid · research prototype · ',
+    opt_adapter:'M1 · TinyLlama-1.1B + MT adapter',
+    opt_scratch:'O1 · 48M edge, from scratch',
+    w_adapter_title:'M1',
+    w_adapter_lead:'<strong>AwareLiquid M1</strong> — trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. The large, cognitive model. Episodic memory is active: it remembers what you tell it across turns. Ask anything in English or Chinese.',
     w_adapter_examples:[
       ['What is catastrophic forgetting, and how does EWC solve it?','Research Q&A'],
       ['How is AwareLiquid M1 different from Liquid AI?','Concept'],
       ['My name is Alex and I\'m researching continual learning.','Memory demo'],
       ['Write a short poem about neural networks that never forget.','Creative'],
     ],
-    w_scratch_title:'M1 Scratch',
-    w_scratch_lead:'<strong>AwareLiquid M1 Scratch</strong> — 48M parameters trained from scratch on TinyStories. This is the raw liquid backbone: <strong>continues short English stories only</strong>. Give it a story opening:',
+    w_scratch_title:'O1',
+    w_scratch_lead:'<strong>AwareLiquid O1</strong> — 48M parameters trained from scratch, no base model. The small, edge model: a raw liquid backbone for hardware / always-on inference. It <strong>continues short English text only</strong>. Give it a story opening:',
     w_scratch_examples:[
       ['Once upon a time, there was a little cat named Lily.','Continue story'],
       ['The sun was shining and Tom wanted to play outside.','Continue story'],
@@ -286,19 +286,19 @@ const LANGS={
     connecting:'连接中…',offline:'离线',
     placeholder:'用中文或英文提问…',
     retryBtn:'↺ 重试连接',
-    note:'AwareLiquid M1 · 研究原型 · ',
-    opt_adapter:'M1 适配器 · Qwen2.5-0.5B',
-    opt_scratch:'M1 原始版 · 4800万参数',
-    w_adapter_title:'M1 适配器',
-    w_adapter_lead:'<strong>AwareLiquid M1 适配器</strong> — 在冻结的 <strong>Qwen2.5-0.5B-Instruct</strong> 基础上插入液态核心残差模块。情节记忆已激活：模型会记住你在对话中告诉它的内容。支持中英文提问。',
+    note:'AwareLiquid · 研究原型 · ',
+    opt_adapter:'M1 · TinyLlama-1.1B + MT 适配器',
+    opt_scratch:'O1 · 4800万参数 边缘版',
+    w_adapter_title:'M1',
+    w_adapter_lead:'<strong>AwareLiquid M1</strong> — 在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上插入已训练的液态核心残差适配器。大模型、认知向。情节记忆已激活：模型会记住你在对话中告诉它的内容。支持中英文提问。',
     w_adapter_examples:[
       ['什么是灾难性遗忘？EWC 是如何解决的？','研究问答'],
       ['AwareLiquid M1 和 Liquid AI 有什么区别？','概念解析'],
       ['我叫小明，正在研究持续学习。','记忆演示'],
       ['写一首关于永不遗忘的神经网络的短诗。','创意写作'],
     ],
-    w_scratch_title:'M1 原始版',
-    w_scratch_lead:'<strong>AwareLiquid M1 原始版</strong> — 在 TinyStories 上从零训练的 4800 万参数模型。这是纯液态骨干网络：<strong>仅能续写短篇英文故事</strong>，非通用助手。请给出故事开头：',
+    w_scratch_title:'O1',
+    w_scratch_lead:'<strong>AwareLiquid O1</strong> — 从零训练的 4800 万参数模型，无基座。小模型、边缘向：面向硬件 / 常驻推理的纯液态骨干。<strong>仅能续写短篇英文文本</strong>，非通用助手。请给出故事开头：',
     w_scratch_examples:[
       ['Once upon a time, there was a little cat named Lily.','续写故事'],
       ['The sun was shining and Tom wanted to play outside.','续写故事'],
@@ -396,9 +396,9 @@ function renderWelcome(kind){
 
 function applyModel(m,kind){
   live.className='live ok';
-  const name=(m.base_model||'').split('/').pop()||'M1';
+  const name=(m.base_model||'').split('/').pop()||'O1';
   const size=m.n_params>=1e9?`${(m.n_params/1e9).toFixed(1)}B`:`${(m.n_params/1e6).toFixed(0)}M`;
-  let tag=m.adapter_loaded?' · M1 Adapter':m.is_baseline?' · M1 Scratch':'';
+  let tag=m.adapter_loaded?' · M1':m.is_baseline?' · O1':'';
   statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
   renderWelcome(kind);
 }
