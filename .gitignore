@@ -52,6 +52,14 @@ scripts/oneoff/
 # Kaggle build/run output dirs
 _kaggle_out/
 kaggle_out/
+kaggle/_sft_out2/
+
+# API / SFT scratch output dirs (machine-generated, not source)
+_apiout/
+
+# Experiment run logs (keep .py/.json/.md reports; ignore raw run logs)
+experiments/_*.log
+experiments/_*.txt
 
 # Duplicate scratch copy of kaggle kernels (source lives in kaggle_kernels/)
 kaggle_kernels_ea1/
