@@ -382,6 +382,21 @@ class MTLNNModel(nn.Module):
         if getattr(config, "use_self_monitor_head", False):
             self.self_monitor_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
+        # MTP lookahead heads (2026-06-26).
+        # K shallow linear heads predict tokens t+k for k=1..K from the final
+        # normed hidden state. Weight-untied from lm_head so each head can
+        # specialise at a different prediction horizon. At inference they emit
+        # draft logits for speculative decoding; during training they add an
+        # auxiliary CE loss (mtp_loss_weight * mean_over_k).
+        if getattr(config, "use_mtp_heads", False):
+            K = config.mtp_lookahead
+            self.mtp_heads = nn.ModuleList(
+                [nn.Linear(config.d_model, config.vocab_size, bias=False)
+                 for _ in range(K)]
+            )
+        else:
+            self.mtp_heads = None
+
         # Weight initialisation
         self.apply(lambda m: init_weights(m, config))
         nn.init.normal_(self.target_queries, mean=0.0, std=0.02)
@@ -498,8 +513,16 @@ class MTLNNModel(nn.Module):
         new_cache = ModelCacheStruct(
             token_count=position_offset + T_new
         ) if use_cache else None
+        _gate_period = getattr(self.config, "scale_gate_period", 1)
+        _shared_active_idx = None
         for i, block in enumerate(self.blocks):
             layer_cache = (cache.layers[i] if (cache is not None and i < len(cache.layers)) else None)
+            # Cross-layer scale-gate sharing: leader (i % period == 0) computes the
+            # τ-scale index; followers reuse it without re-running kappa_gate.
+            _is_leader = (_gate_period <= 1) or (i % _gate_period == 0)
+            block.lnn.resonance._forced_active_idx = (
+                None if _is_leader else _shared_active_idx
+            )
             x, new_layer_cache = block(
                 x,
                 layer_cache=layer_cache,
@@ -509,6 +532,8 @@ class MTLNNModel(nn.Module):
                 use_lnn_recurrence=use_lnn_recurrence,
                 top_down=top_down,
             )
+            if _is_leader and _gate_period > 1:
+                _shared_active_idx = block.lnn.resonance._last_computed_active_idx
             if use_cache:
                 new_cache.layers.append(new_layer_cache)
 
@@ -607,6 +632,20 @@ class MTLNNModel(nn.Module):
         if use_cache:
             result["cache"] = new_cache
 
+        # MTP lookahead heads. The draft branch runs only when speculative
+        # decoding is enabled — otherwise the heads stay built but idle, so a
+        # normal training/generation forward pays zero draft compute and adds
+        # no aux loss. (The draft→verify consumer is a separate future iteration;
+        # producing draft logits that nothing reads is pure waste until then.)
+        _mtp_draft: Optional[torch.Tensor] = None
+        if self.mtp_heads is not None and getattr(
+            self.config, "enable_speculative_decoding", False
+        ):
+            # Stack K draft logits: (B, T_new, K, vocab_size)
+            drafts = [head(x) for head in self.mtp_heads]
+            _mtp_draft = torch.stack(drafts, dim=2)
+            result["mtp_draft_logits"] = _mtp_draft
+
         if direct_target_labels is not None:
             target_len = direct_target_labels.shape[1]
             return_target_logits = True
@@ -704,6 +743,34 @@ class MTLNNModel(nn.Module):
                 if ortho is not None:
                     loss = loss + self.gwtb.ortho_penalty_weight * ortho
                     result["ortho_penalty"] = ortho.detach()
+
+            # MTP auxiliary loss: CE at each lookahead step k=1..K.
+            # Uses the same shift-by-1 convention as the main CE but shifts by k.
+            # Labels come from the input sequence itself (unsupervised), so no
+            # extra annotations required. Only computed when T_new > K.
+            if (_mtp_draft is not None
+                and self.config.mtp_loss_weight > 0.0
+                and T_new > self.config.mtp_lookahead):
+                K = self.config.mtp_lookahead
+                mtp_losses = []
+                for k in range(1, K + 1):
+                    # Predict position t+k from position t: valid for t in [0, T-k-1]
+                    pred = _mtp_draft[:, :T_new - k, k - 1, :]  # (B, T-k, V)
+                    tgt = labels[:, k:T_new]                     # (B, T-k)
+                    if tgt.numel() == 0:
+                        continue
+                    mtp_k = F.cross_entropy(
+                        pred.reshape(-1, self.config.vocab_size),
+                        tgt.reshape(-1),
+                        ignore_index=-100,
+                    )
+                    mtp_losses.append(mtp_k)
+                if mtp_losses:
+                    mtp_loss = torch.stack(mtp_losses).mean()
+                    mtp_ok = self._aux_or_skip("mtp_loss", mtp_loss)
+                    if mtp_ok is not None:
+                        loss = loss + self.config.mtp_loss_weight * mtp_ok
+                        result["mtp_loss"] = mtp_ok.detach()
 
             result["loss"] = loss
 

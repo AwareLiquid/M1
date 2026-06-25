@@ -19,6 +19,7 @@ Components:
 """
 
 import math
+from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -89,6 +90,12 @@ class VectorizedMultiScaleResonance(nn.Module):
         self.register_buffer("last_nonzero_scale_ratio", torch.ones(()), persistent=False)
         self.register_buffer("last_sparse_scale_ratio", torch.ones(()), persistent=False)
         self.register_buffer("last_sparse_selected_scales", torch.ones(S), persistent=False)
+        # Cross-layer scale-gate sharing side-channel.
+        # MTLNNModel.forward() sets _forced_active_idx on follower layers before
+        # each forward call; None means this layer is the leader and computes its own.
+        self._forced_active_idx: Optional[torch.Tensor] = None
+        # Leader layers write the computed index here so the model loop can read it.
+        self._last_computed_active_idx: Optional[torch.Tensor] = None
         
         self.use_predictive_coding = getattr(config, "use_predictive_coding", False)
         if self.use_predictive_coding and S > 1:
@@ -140,12 +147,21 @@ class VectorizedMultiScaleResonance(nn.Module):
         sparse_scale_mask = None
         active_idx = torch.arange(S, device=x.device)
         if self.dynamic_scale_gates:
-            dynamic_kappa = torch.sigmoid(self.kappa_gate(x))         # (B,T,P,S)
+            dynamic_kappa = torch.sigmoid(self.kappa_gate(x))             # (B,T,P,S)
 
             if self.sparse_resonance_kernel:
                 top_k = max(1, min(int(self.sparse_resonance_top_k), S))
-                gate_mean = dynamic_kappa.detach().mean(dim=(0, 1, 2)) # (S,)
-                active_idx = torch.topk(gate_mean, k=top_k).indices.sort().values
+                # Cross-layer gate sharing: follower layers reuse the leader's
+                # active_idx (skip the topk call) but keep their own kappa blend.
+                # This saves the topk + index propagation without changing quality.
+                if self._forced_active_idx is not None:
+                    active_idx = self._forced_active_idx.to(device=x.device)
+                    self._last_computed_active_idx = None
+                else:
+                    gate_mean = dynamic_kappa.detach().mean(dim=(0, 1, 2))  # (S,)
+                    active_idx = torch.topk(gate_mean, k=top_k).indices.sort().values
+                    self._last_computed_active_idx = active_idx              # leader: export
+
                 sparse_scale_mask = torch.zeros(S, device=x.device, dtype=torch.bool)
                 sparse_scale_mask[active_idx] = True
 
@@ -155,10 +171,12 @@ class VectorizedMultiScaleResonance(nn.Module):
                     )
                     self.last_sparse_selected_scales = sparse_scale_mask.to(dtype=x.dtype)
             else:
+                self._last_computed_active_idx = None
                 with torch.no_grad():
                     self.last_sparse_scale_ratio = torch.ones((), device=x.device, dtype=x.dtype)
                     self.last_sparse_selected_scales = torch.ones(S, device=x.device, dtype=x.dtype)
         else:
+            self._last_computed_active_idx = None
             with torch.no_grad():
                 self.last_sparse_scale_ratio = torch.ones((), device=x.device, dtype=x.dtype)
                 self.last_sparse_selected_scales = torch.ones(S, device=x.device, dtype=x.dtype)

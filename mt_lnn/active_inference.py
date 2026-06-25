@@ -93,6 +93,13 @@ class EFEPlan:
 class ActiveInferencePlanner:
     """Select autonomous goals by minimising Expected Free Energy.
 
+    .. note::
+        **研究实验组件 / Research prototype — NOT wired into the main path.**
+        Exported for standalone use only; never instantiated by ``MTLNNModel``,
+        the training loop, or the serving path (``generate_with_thinking`` /
+        ``DualSpeedSentry``). Kept as a code prototype for offline active-inference
+        experiments. Do not assume it runs as part of the model.
+
     Parameters
     ----------
     imagination : object

@@ -209,6 +209,33 @@ class MTLNNConfig:
     use_causal_head: bool = False
     use_self_monitor_head: bool = False
 
+    # Multi-Token Prediction (MTP) lookahead heads (2026-06-26).
+    # Biological grounding: Friston's predictive coding / free-energy principle
+    # posits that the brain simultaneously predicts multiple future states across
+    # time scales — not just the next step. These K shallow heads predict tokens
+    # t+1 … t+K from the final normed hidden state, trained with a joint CE loss.
+    # At inference: draft logits enable speculative decoding. M1's O(1) recurrent
+    # state (~4 KB) makes it an exceptionally cheap draft model — no KV cache to
+    # re-compute for each draft step.
+    #
+    # Zero-regression contract:
+    #   use_mtp_heads=False (default) → no MTP parameters built, forward unchanged.
+    #   use_mtp_heads=True with mtp_loss_weight=0.0 → heads present, no aux loss.
+    #   The main CE loss (result["lm_loss"]) is never affected — MTP is additive.
+    #
+    # Training: loss += mtp_loss_weight * mean(CE(h[t+k], label[t+k]) for k in 1..K)
+    # Inference: result["mtp_draft_logits"] → Tensor(B, T, K, vocab_size)
+    use_mtp_heads: bool = False
+    mtp_lookahead: int = 3            # K: number of future tokens to predict
+    mtp_loss_weight: float = 0.1     # λ: aux loss weight (won't affect lm_loss PPL)
+    # Master throttle: the draft-logit branch (and its aux loss) only runs when
+    # speculative decoding is actually in use. The serving-side draft→verify
+    # consumer is a separate, future iteration; until it lands, leaving this
+    # False keeps every forward pass free of the unused draft compute even if
+    # use_mtp_heads=True builds the parameters. Flip True only when training a
+    # model intended for the (not-yet-wired) speculative path.
+    enable_speculative_decoding: bool = False
+
     # Dynamic multi-scale tau gates. The first phase only gates the blend over
     # already-computed tau scales; compute skipping is kept behind a later flag.
     dynamic_scale_gates: bool = True
@@ -217,6 +244,23 @@ class MTLNNConfig:
     scale_gate_skip_threshold: float = 0.0
     sparse_resonance_kernel: bool = False
     sparse_resonance_top_k: int = 1
+
+    # Cross-layer scale-gate sharing (IndexShare analog, 2026-06-26).
+    # Every `scale_gate_period` MTLNNLayers, one "leader" layer computes the
+    # τ-scale selection index (which top-k time scales to activate); the next
+    # period-1 "follower" layers reuse that index without re-running kappa_gate.
+    # Biological rationale: cortical columns maintain the same dominant
+    # oscillatory frequency preference across 2-4 laminar integration steps;
+    # re-evaluating the τ-selection on every layer is biologically redundant
+    # and computationally wasteful.
+    # period=1 (default) → current behaviour, no sharing.
+    # period=4 → mirrors GLM-5.2 IndexShare (every 4 layers share 1 indexer).
+    # Only active when sparse_resonance_kernel=True (gate sharing without
+    # sparse compute skip has negligible benefit).
+    # CONSTRAINT: period must be in {1, 2, 4}. Values >4 risk τ-routing
+    # rigidity — a single group spanning >4 layers suppresses the dynamic
+    # multi-scale diversity that is architecturally central to MT-LNN.
+    scale_gate_period: int = 1
 
     # Hebbian Regularizer (Phase D, 2026-06-06)
     # Loss-level Hebbian co-activation term: L_hebb = -α × mean(out ⊙ x_in)
@@ -316,6 +360,13 @@ class MTLNNConfig:
                 f"d_model values (n_protofilaments={self.n_protofilaments}, "
                 f"n_heads={self.n_heads}): {aligned}",
                 RuntimeWarning, stacklevel=2,
+            )
+
+        # scale_gate_period constraint: values >4 risk τ-routing rigidity.
+        if self.scale_gate_period not in (1, 2, 4):
+            raise ValueError(
+                f"scale_gate_period must be 1, 2, or 4; got {self.scale_gate_period}. "
+                "Values >4 suppress multi-scale τ diversity across too many layers."
             )
 
         # Continuous τ spectrum: geometric sweep tau_min → tau_max.

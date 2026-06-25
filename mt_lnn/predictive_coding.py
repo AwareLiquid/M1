@@ -90,6 +90,16 @@ class PredictiveCodingResult:
 class HierarchicalPredictiveCoder(nn.Module):
     """Top-down prediction + bottom-up error across a stack of layer activations.
 
+    .. note::
+        **研究实验组件 / Research prototype — NOT wired into the main path.**
+        This class is exported as a standalone research component and is never
+        instantiated by ``MTLNNModel`` (training or inference). The live model's
+        predictive-coding signal comes directly from each block's resonance
+        ``last_pred_error`` (see ``model.py``), bypassing this facade. Treat this
+        as a code prototype for offline experiments; it does not run in the
+        training or serving loop.
+
+
     For ``n_levels`` representations ordered low→high, level ``l+1`` predicts
     level ``l`` through a trainable linear top-down projector; the residual is
     the prediction error. Errors are weighted by a learnable per-level

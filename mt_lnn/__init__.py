@@ -161,6 +161,12 @@ from .sleep_consolidation import (
     DownscaleResult,
     ConsolidationReport,
 )
+from .recipes import (
+    set_effort_level,
+    compare_effort_avp,
+    apply_efficient_recipe,
+    EFFORT_LEVELS,
+)
 from .cloud_client import (
     OracleClient,
     OracleResult,
@@ -352,6 +358,11 @@ __all__ = [
     "ReplayConsolidationResult",
     "DownscaleResult",
     "ConsolidationReport",
+    # Effort-level runtime API (GLM-5.2 style tiered compute intensity)
+    "set_effort_level",
+    "compare_effort_avp",
+    "apply_efficient_recipe",
+    "EFFORT_LEVELS",
     "OracleClient",
     "OracleResult",
     "MockOracleClient",
