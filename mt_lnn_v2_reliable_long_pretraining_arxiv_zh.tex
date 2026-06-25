@@ -11,12 +11,16 @@
 \usepackage{microtype}
 \usepackage{placeins}
 \usepackage{balance}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \pgfplotsset{compat=1.18}
 
 \title{类脑液态神经网络开发框架\\价值、功能逻辑与测试结论}
-\author{MT-LNN v2.0 / AwareLiquid M2 团队}
-\date{2026年6月}
+\author{
+  AN MUNING\thanks{通讯邮箱：\texttt{e@awareness.market}} \\
+  Everest Research（珠峰研究院�?\\
+  MT-LNN v2.0 / AwareLiquid M2 项目�?
+}
+\date{2026�?月}
 
 \begin{document}
 \maketitle
@@ -26,89 +30,106 @@
 \setlength{\floatsep}{6pt plus 2pt minus 2pt}
 
 \begin{abstract}
-本文将 MT-LNN v2.0（AwareLiquid M2）重构为一个\textbf{类脑液态神经网络开发框架}，而非单点可靠性补丁。我们围绕三条主线展开：\textbf{系统价值}（液态与类脑机制在长期训练中的工程收益）、\textbf{功能组合}（一致性检测、世界模型、竞争路由、记忆正则、优雅降级的协同逻辑）、\textbf{开发路径}（如何以零回归初始化和有界可观测性逐步落地复杂模块）。该 125M 实现（$d_{model}=832$，12 层，13 头）提供了“机制-指标-测试”一一对应的验证基座。仓库证据显示：惊喜值有界、路由熵不塌缩、辅助模块 NaN/Inf 可隔离、TorchScript 与 eager bit-exact 对齐，并取得 1.62$\times$ CPU 推理加速（2.381 到 1.466 ms/token）。结论是：类脑启发不应停留在叙事层，而应成为可验证、可迭代的工程方法学。
+本文�?MT-LNN v2.0（AwareLiquid M2）重构为一个\textbf{类脑液态神经网络开发框架}，而非单点可靠性补丁。我们围绕三条主线展开：\textbf{系统价值}（液态与类脑机制在长期训练中的工程收益）、\textbf{功能组合}（一致性检测、世界模型、竞争路由、记忆正则、优雅降级的协同逻辑）、\textbf{开发路径}（如何以零回归初始化和有界可观测性逐步落地复杂模块）。该 125M 实现�?d_{model}=832$�?2 层，13 头）提供了“机�?指标-测试”一一对应的验证基座。仓库证据显示：惊喜值有界、路由熵不塌缩、辅助模�?NaN/Inf 可隔离、TorchScript �?eager bit-exact 对齐，并取得 1.62$\times$ CPU 推理加速（2.381 �?1.466 ms/token）。结论是：类脑启发不应停留在叙事层，而应成为可验证、可迭代的工程方法学�?
 \par\smallskip
-\noindent\textbf{关键词：} 可靠预训练，液态神经网络，幻觉自检，优雅降级，竞争路由，世界模型惊喜值。
+\noindent\textbf{关键词：} 可靠预训练，液态神经网络，幻觉自检，优雅降级，竞争路由，世界模型惊喜值�?
 \end{abstract}
 
 \section{引言}
-当前基础模型工程面临一个结构性矛盾：规模化倾向于统一、同质的堆叠结构，而真实部署又要求对记忆、异常、失稳与恢复进行细粒度控制。液态神经网络与类脑启发的价值在于，它天然强调状态动力学、时间尺度适配和功能模块协同。
+当前基础模型工程面临一个结构性矛盾：规模化倾向于统一、同质的堆叠结构，而真实部署又要求对记忆、异常、失稳与恢复进行细粒度控制。液态神经网络与类脑启发的价值在于，它天然强调状态动力学、时间尺度适配和功能模块协同�?
 
-因此，本文不把 MT-LNN v2.0 仅作为“新模块集合”来讨论，而是把它作为一个\emph{开发案例}：类脑液态架构如何在工程上形成“价值链（为什么值得）-功能链（如何协作）-证据链（如何验证）”的闭环。
+因此，本文不�?MT-LNN v2.0 仅作为“新模块集合”来讨论，而是把它作为一个\emph{开发案例}：类脑液态架构如何在工程上形成“价值链（为什么值得�?功能链（如何协作�?证据链（如何验证）”的闭环�?
 
-本文所有结论仅基于仓库可复现实证：源码机制、机制有效性测试、基准工件与部署测量；不做缺乏证据支撑的外部 SOTA 叙述。
+本文所有结论仅基于仓库可复现实证：源码机制、机制有效性测试、基准工件与部署测量；不做缺乏证据支撑的外部 SOTA 叙述�?
 
 \paragraph{核心贡献}
-(1) 不同于仅依赖 cosine 的逻辑一致性检测，\textbf{我们的方法}使用子空间残差一致性，显式对抗各向异性遮蔽。 
-(2) 不同于缺乏有界内省信号的预测头，\textbf{我们的方法}引入 EMA 世界模型并输出 $[0,1]$ 惊喜值。 
-(3) 不同于单源路由，\textbf{我们的方法}实现多源竞争式 GWT，支持外部世界模型投标。 
-(4) 不同于与节律状态解耦的塑性项，\textbf{我们的方法}实现 Hebbian-LAVI 耦合正则。 
-(5) 不同于辅助模块异常直接中断训练，\textbf{我们的方法}提供优雅降级以隔离 NaN/Inf 故障。 
-(6) 不同于仅报告任务指标，\textbf{我们的方法}将可观测可靠性指标作为一等输出。
+(1) 不同于仅依赖 cosine 的逻辑一致性检测，\textbf{我们的方法}使用子空间残差一致性，显式对抗各向异性遮蔽�?
+(2) 不同于缺乏有界内省信号的预测头，\textbf{我们的方法}引入 EMA 世界模型并输�?$[0,1]$ 惊喜值�?
+(3) 不同于单源路由，\textbf{我们的方法}实现多源竞争�?GWT，支持外部世界模型投标�?
+(4) 不同于与节律状态解耦的塑性项，\textbf{我们的方法}实现 Hebbian-LAVI 耦合正则�?
+(5) 不同于辅助模块异常直接中断训练，\textbf{我们的方法}提供优雅降级以隔�?NaN/Inf 故障�?
+(6) 不同于仅报告任务指标，\textbf{我们的方法}将可观测可靠性指标作为一等输出�?
+(7) 不同于将“意识代理”停留在隐喻层面，\textbf{我们的方法}�?Orch-OR 坍缩门暴露为有界整合信息代理 $\hat{\Phi}$，并配备可证伪的麻醉式验证协议�?
 
 \paragraph{论文关注点}
 除模块本身外，本文重点回答四个问题：
 （i）类脑液态设计的系统价值是什么；
-（ii）各功能模块如何协同形成稳定逻辑；
-（iii）复杂机制如何以零回归路径逐步落地；
-（iv）当前测试结论已覆盖什么、尚缺什么。
+（ii）各功能模块如何协同形成稳定逻辑�?
+（iii）复杂机制如何以零回归路径逐步落地�?
+（iv）当前测试结论已覆盖什么、尚缺什么�?
 
 \section{相关工作}
-\textbf{液态与连续时间建模。} 液态网络与闭式 LTC 提供连续时间状态演化范式。MT-LNN 在此基础上加入可靠性机制与有界诊断。 
+\textbf{液态与连续时间建模。} 液态网络与闭式 LTC 提供连续时间状态演化范式。MT-LNN 在此基础上加入可靠性机制与有界诊断�?
 
-\textbf{预测式自监督。} BYOL、SimSiam、JEPA 证明了非对称与 stop-gradient 的必要性。MT-LNN v2.0 将其用于隐状态预测并映射为可消费惊喜信号。 
+\textbf{预测式自监督。} BYOL、SimSiam、JEPA 证明了非对称�?stop-gradient 的必要性。MT-LNN v2.0 将其用于隐状态预测并映射为可消费惊喜信号�?
 
-\textbf{竞争路由。} MoE 与工作空间瓶颈强调源选择与容量竞争。MT-LNN 扩展为多源投标并监控竞争熵。 
+\textbf{竞争路由。} MoE 与工作空间瓶颈强调源选择与容量竞争。MT-LNN 扩展为多源投标并监控竞争熵�?
 
-\textbf{幻觉与不确定性。} 现有方法常集中于输出层置信与语义熵。MT-LNN 将一致性检测前移到内部状态轨迹并接入决策路由。 
+\textbf{幻觉与不确定性。} 现有方法常集中于输出层置信与语义熵。MT-LNN 将一致性检测前移到内部状态轨迹并接入决策路由�?
 
-\textbf{鲁棒训练系统。} 传统方案多为全局 loss 守护与重启。MT-LNN 的贡献是模块级故障局部化与不中断运行。
+\textbf{鲁棒训练系统。} 传统方案多为全局 loss 守护与重启。MT-LNN 的贡献是模块级故障局部化与不中断运行�?
 
 \section{背景与设计原则}
-半个月前版本的 MT-LNN 论文重点是生物启发时序建模与全局工作空间约束；v2.0 在保留该主干的同时，引入了“可靠性优先”的设计层。其核心原则如下。
+早先�?MT-LNN 论文�?026�?月）重点是生物启发时序建模与全局工作空间约束；v2.0 在保留该主干的同时，引入了“可靠性优先”的设计层。其核心原则如下�?
 
-\textbf{P1：内省信号必须有界。} 对外暴露的可靠性指标应保持有界（如惊喜值 $[0,1]$），以支持长周期数值监控。
+\textbf{P1：内省信号必须有界。} 对外暴露的可靠性指标应保持有界（如惊喜�?$[0,1]$），以支持长周期数值监控�?
 
-\textbf{P2：故障局部化，但不掩蔽主故障。} 辅助模块异常可跳过并计数；主 LM 交叉熵异常必须直接暴露。
+\textbf{P2：故障局部化，但不掩蔽主故障。} 辅助模块异常可跳过并计数；主 LM 交叉熵异常必须直接暴露�?
 
-\textbf{P3：初始化保持身份映射。} 新增可靠性路径（如外部投标）在初始化阶段应为零回归，再通过训练学习分化。
+\textbf{P3：初始化保持身份映射。} 新增可靠性路径（如外部投标）在初始化阶段应为零回归，再通过训练学习分化�?
 
-\textbf{P4：机制与可观测性一一对应。} 每个机制都应有诊断通道（如一致性、竞争熵、惊喜值、降级计数）。
+\textbf{P4：机制与可观测性一一对应。} 每个机制都应有诊断通道（如一致性、竞争熵、惊喜值、降级计数）�?
 
-\textbf{P5：机制证据与部署证据并重。} 机制有效性测试（防塌缩、各向异性敏感、故障隔离）与部署指标（数值对齐、时延）共同构成证据闭环。
+\textbf{P5：机制证据与部署证据并重。} 机制有效性测试（防塌缩、各向异性敏感、故障隔离）与部署指标（数值对齐、时延）共同构成证据闭环�?
 
 \section{方法}
-\subsection{总体架构}
-MT-LNN v2.0 采用 $d_{model}=832$、$L=12$、$H=13$。前向流程包含注意力、液态动力学、可选竞争 GWT、全局一致性层与最终归一化。
+\subsection{微管液态主干}
+MT-LNN v2.0 采用 $d_{model}=832=13\times64$�?L=12$ 层�?H=13$ 个注意力头；头数�?13 条微管原丝（protofilament）这一生物常数对应（每个头映射一条原丝通道�?d_{head}=64$）。每�?block 包含：（i）带可学习极性偏置（$\alpha/\beta$-微管蛋白类比）的微管注意力，并由循环状态注入与位置无关的时序信号；（ii）液态（LTC 式）子层，其谐振库在 $\tau\in[\tau_{min},\tau_{max}]$ 上以几何方式铺设 $n_\tau=5$ 个连续时间常数，实现逐通道多尺度预测编码�?
+
+\textbf{$O(1)$ 工作记忆。} 液态子层以指数滑动平均维护循环状�?$h_t$，使工作记忆随序列长度为 $O(1)$，而非标准 Transformer �?$O(T)$ KV 缓存；注意力采用分组查询�? �?KV 头服�?13 个查询头，KV 缓存降低 $13\times$）。因此推理缓存为每层双状态：可选的注意�?KV 槽与定长循环�?$h_{prev}$�?
+
+\textbf{侧向 GTP 耦合。} 原丝之间由侧向耦合混合，并�?GTP 水解�?$\exp(-\gamma t)$ 门控，每 $\mathrm{gtp\_period}$ 个位置刷新一次，避免该门控在长上下文中衰减消失�?
+
+\textbf{并行/循环二象性。} 液态子层既可执行真实循环扫描（推理，逐步传�?$h_{prev}$），也可执行训练并行模式（每�?$h_{prev}=0$）。二者在构造上数值一致，这正是缓存前向与全量前向、以及推理延迟实验中导出�?TorchScript 图能�?bit-exact 的根本原因�?
+
+\subsection{全局一致性层（Orch-OR 坍缩�?\hat{\Phi}$ 代理）}
+�?block 堆叠与工作空间之后，一个常驻的全局一致性层实现 Orch-OR 式“坍缩”。稀�?top-$k$ 因果自注意力仅保留能量最高的 $k=\lceil \rho T\rceil$ 个交互（$\rho$ 为一致性稀疏度），并由可学习的坍缩�?
+\begin{equation}
+g_t=\sigma\!\big(10\,(\bar{e}_t-\theta)\big)\in(0,1),\qquad
+\bar{e}_t=\overline{QK^\top/\sqrt{d}}
+\end{equation}
+调制残差�?x \leftarrow \mathrm{LN}\!\big(x+\beta\,g_t\,\mathrm{Attn}_{\text{sparse}}\big)$，其中坍缩阈�?$\theta$ 与一致性尺�?$\beta$ 均可学习。门 $g_t$ 作为有界诊断（\texttt{collapse\_gate\_last}）导出，并充当整合信息代�?$\hat{\Phi}$：当大量因果交互被共同激活时升高，当一致性消散时趋于零。可选的 $O(1)$ 衰减工作记忆变体以单一 EMA 状�?$w_t=w_{t-1}\,d\,(1-u_t)+o_t\,u_t$ 替代 KV 历史，使一致性记忆在流式推理中保持定长�?
+
+\textbf{麻醉验证协议（AVP）。} 由于坍缩门是 $\hat{\Phi}$ 的数值代理，可像麻醉剂一样对其进行探测：施加抑制一致性的扰动应驱�?$g_t\to0$（整合丧失），撤除后 $g_t$ 应恢复，与微管稳定化的麻醉学发现相呼应。这把类脑主张从隐喻转化为针对单一可监控标量的可证伪测试�?
 
 \subsection{模块A：子空间因果一致性检测}
-给定当前隐状态 $h_t$ 与历史窗口 $\mathcal{H}_{t-1}=\{h_{t-w},...,h_{t-1}\}$，在各向异性条件下 cosine 易饱和。我们定义子空间残差一致性：
+给定当前隐状�?$h_t$ 与历史窗�?$\mathcal{H}_{t-1}=\{h_{t-w},...,h_{t-1}\}$，在各向异性条件下 cosine 易饱和。我们定义子空间残差一致性：
 \begin{equation}
 \bar{h}_i=h_i-\frac{1}{w}\sum_{j=1}^{w}h_{t-j},\quad U=\text{TopEigVecs}(\text{Cov}(\bar{h}))
 \end{equation}
 \begin{equation}
-r_t = \lVert (I-UU^\top)\bar{h}_t \rVert_2^2,\quad c_t = \exp(-\alpha r_t)
+r_t = \lVert (I-UU^\top)\bar{h}_t \rVert_2^2,\quad c_t = \exp(-\alpha r_t)\in(0,1]
 \end{equation}
 \begin{equation}
 \hat{c}_t = \lambda c_t + (1-\lambda)\hat{c}_{t-1}
 \end{equation}
-当 $\hat{c}_t<\tau_c$ 时，决策器触发自我批判路径。
+�?$\hat{c}_t<\tau_c$ 时，决策器触发自我批判路径�?
 
 \subsection{模块B：EMA世界模型与有界惊喜}
-设在线投影器 $q_\theta$、预测器 $p_\theta$、EMA 目标投影器 $q_{\xi}$：
+设在线投影器 $q_\theta$、预测器 $p_\theta$、EMA 目标投影�?$q_{\xi}$�?
 \begin{equation}
 z_t = p_\theta(q_\theta(x_t)),\quad z^+_{t+1}=\text{sg}(q_{\xi}(x_{t+1}))
 \end{equation}
 \begin{equation}
 \mathcal{L}_{wm} = 1 - \frac{\langle \tilde{z}_t,\tilde{z}^+_{t+1}\rangle}{\lVert \tilde{z}_t\rVert\lVert \tilde{z}^+_{t+1}\rVert}
 \end{equation}
-EMA 更新为 $\xi\leftarrow m\xi + (1-m)\theta$。惊喜值定义为：
+EMA 更新�?$\xi\leftarrow m\xi + (1-m)\theta$。惊喜值定义为�?
 \begin{equation}
 s_t=\frac{1-\cos(\tilde{z}_t,\tilde{z}^+_{t+1})}{2}\in[0,1]
 \end{equation}
 
 \subsection{模块C：竞争式多源GWT路由}
-内部投标 $\{b_k\}_{k=1}^{K}$ 与外部投标 $\{e_j\}_{j=1}^{J}$ 统一评分：
+内部投标 $\{b_k\}_{k=1}^{K}$ 与外部投�?$\{e_j\}_{j=1}^{J}$ 统一评分�?
 \begin{equation}
 \pi_i = \text{softmax}(g(v_i)),\quad v_i\in\{b_1,...,b_K,e_1,...,e_J\}
 \end{equation}
@@ -119,24 +140,24 @@ v_{gw} = \sum_i \pi_i v_i
 \begin{equation}
 \mathcal{H}_{route} = -\sum_i \pi_i\log\pi_i
 \end{equation}
-并结合打分噪声与正交正则防止路由垄断。
+并结合打分噪声与正交正则防止路由垄断�?
 
 \subsection{模块D：Hebbian-LAVI长时记忆正则}
-采用中心化共激活避免退化零信号：
+采用中心化共激活避免退化零信号�?
 \begin{equation}
 \mathcal{L}_{hebb} = -\eta\cdot\mathbb{E}[(y-\bar{y})\odot(x-\bar{x})]
 \end{equation}
-其中 $\eta$ 由 LAVI 全局状态调制。该项仅进入训练损失，不改变前向语义。
+其中 $\eta$ �?LAVI 全局状态调制。该项仅进入训练损失，不改变前向语义�?
 
 \subsection{模块E：元认知幻觉自觉察}
-推理阶段，当一致性低而输出置信高时，视为潜在逻辑断裂：
+推理阶段，当一致性低而输出置信高时，视为潜在逻辑断裂�?
 \begin{equation}
 \hat{c}_t<\tau_c\Rightarrow\texttt{SELF\_CRITIQUE}
 \end{equation}
-形成事中推理级告警。
+形成事中推理级告警�?
 
 \subsection{模块F：优雅降级（P3.2）}
-对辅助项 $a\in\{\mathcal{L}_{wm},\mathcal{L}_{hebb},\mathcal{L}_{ortho},\text{world-bid},\text{surprise}\}$：
+对辅助项 $a\in\{\mathcal{L}_{wm},\mathcal{L}_{hebb},\mathcal{L}_{ortho},\text{world-bid},\text{surprise}\}$�?
 \begin{equation}
 \texttt{aux\_or\_skip}(a)=
 \begin{cases}
@@ -144,7 +165,7 @@ a,&\text{有限}\\
 \varnothing,&\text{NaN/Inf并计数}
 \end{cases}
 \end{equation}
-主交叉熵损失从不掩蔽，确保核心故障可见。
+主交叉熵损失从不掩蔽，确保核心故障可见�?
 
 \subsection{训练目标}
 \begin{equation}
@@ -155,32 +176,33 @@ a,&\text{有限}\\
 \begin{algorithm}[h]
 \caption{MT-LNN v2.0 训练/推理步}
 \begin{algorithmic}[1]
-\Require 输入 $x$，标签 $y$，配置 $\Theta$
+\Require 输入 $x$，标�?$y$，配�?$\Theta$
 \State $h \leftarrow \text{Backbone}(x)$
 \State $c_t \leftarrow \text{SubspaceConsistency}(h)$
 \State $(z,\mathcal{L}_{wm},s_t) \leftarrow \text{WorldModel}(h)$
 \State $v_{gw},\mathcal{H}_{route} \leftarrow \text{CompetitiveGWT}(h,z)$
+\State $h,g_t \leftarrow \text{GlobalCoherence}(v_{gw})$ \Comment{Orch-OR 坍缩�?\hat{\Phi}$ 门}
 \State $\mathcal{L}_{hebb}\leftarrow\text{HebbianLAVI}(h,s_t)$
 \State $\mathcal{L}_{aux}\leftarrow\sum \texttt{aux\_or\_skip}(\cdot)$
 \State $\mathcal{L}\leftarrow\mathcal{L}_{LM}+\mathcal{L}_{aux}$
 \If{$c_t<\tau_c$}
   \State 触发 \texttt{SELF\_CRITIQUE}
 \EndIf
-\State 参数更新与 EMA 更新
+\State 参数更新�?EMA 更新
 \State 记录有界诊断指标
 \end{algorithmic}
 \end{algorithm}
 
 \section{实验}
 \subsection{数据来源与复现边界}
-本文所有数值均来自当前仓库工件与测试：基准 JSON、v2 工程报告、脚本输出与测试模块。所有结论均按来源边界解释。
+本文所有数值均来自当前仓库工件与测试：基准 JSON、v2 工程报告、脚本输出与测试模块。所有结论均按来源边界解释�?
 
 \subsection{整体性能与困惑度}
-表1给出三组基座模型的 base-vs-adapter PPL。相对降幅分别为 28.47\%、27.69\%、34.38\%（均值 30.18\%，样本标准差 3.72\%）。由于样本规模仅 3 组，本文以效应量与保守统计表述为主。
+�?给出三组基座模型�?base-vs-adapter PPL。相对降幅分别为 28.47\%�?7.69\%�?4.38\%（均�?30.18\%，样本标准差 3.72\%）。由于样本规模仅 3 组，本文以效应量与保守统计表述为主�?
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
-\caption{表1：整体性能与PPL基准（仓库工件）}
+\caption{整体性能与PPL基准（仓库工件）}
 \small
 \begin{tabular}{lccc}
 \toprule
@@ -190,15 +212,15 @@ TinyLlama-1.1B & 9.161 & 6.553 & 28.47\% \\
 Qwen-1.5B & 11.103 & 8.029 & 27.69\% \\
 Qwen-3B & 10.718 & 7.033 & 34.38\% \\
 \midrule
-均值$\pm$标准差 & -- & -- & 30.18$\pm$3.72\% \\
+均�?\pm$标准�?& -- & -- & 30.18$\pm$3.72\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{推理延迟与部署}
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
-\caption{表3：推理延迟与吞吐（125M类，CPU，batch=1，seq=128）}
+\caption{推理延迟与吞吐（125M类，CPU，batch=1，seq=128）}
 \small
 \begin{tabular}{lccc}
 \toprule
@@ -211,26 +233,28 @@ TorchScript(优化) & 187.6 & 1.466 & 1.62$\times$ \\
 \end{table}
 
 \subsection{稳定性与长时可靠性}
-在当前工作区额外执行了 25 项定向稳定性/降级测试，全部通过（22.20s）。该结果与仓库报告的全量测试通过结论一致，表明边界场景下的有界诊断与故障隔离可复现。
+在当前工作区额外执行�?25 项定向稳定�?降级测试，全部通过�?2.20s）。该结果与仓库报告的全量测试通过结论一致，表明边界场景下的有界诊断与故障隔离可复现�?
 
 \section{消融研究}
 \begin{table*}[t]
 \centering
-\caption{表2：完整模块消融（按仓库控制实验与机制测试）}
+\caption{完整模块消融（按仓库控制实验与机制测试）}
 \scriptsize
 \renewcommand{\arraystretch}{1.08}
 \begin{tabular}{p{0.19\textwidth}p{0.17\textwidth}p{0.16\textwidth}p{0.16\textwidth}p{0.24\textwidth}}
 \toprule
-设置 & 关键监测指标 & 完整v2.0 & 消融后 & 观测结论 \\
+设置 & 关键监测指标 & 完整v2.0 & 消融�?& 观测结论 \\
 \midrule
-去除子空间检测（仅cosine） & 主题切换敏感性 & $\Delta c>0.3$ & $|\Delta c|<0.1$ & 各向异性下易漏检 \\
-去除竞争破对称机制 & 训练后投标非均匀性 & 偏离 $1/K>0.02$ & 偏离 $<0.05$ & 路由分化不足 \\
-去除世界模型 & 惊喜值可观测性 & $s_t\in[0,1]$ + WM loss & 不可用 & 缺失预测异常通道 \\
-去除Hebbian-LAVI & 长时共激活信号 & 中心化信号非零 & 近退化/弱巩固 & 记忆正则减弱 \\
-去除优雅降级 & 故障容错 & 辅助故障可跳过 & NaN可传播至总损失 & 长跑鲁棒性下降 \\
+去除子空间检测（仅cosine�?& 主题切换敏感�?& $\Delta c>0.3$ & $|\Delta c|<0.1$ & 各向异性下易漏检 \\
+去除竞争破对称机�?& 训练后投标非均匀�?& 偏离 $1/K>0.02$ & 偏离 $<0.05$ & 路由分化不足 \\
+去除世界模型 & 惊喜值可观测�?& $s_t\in[0,1]$ + WM loss & 不可�?& 缺失预测异常通道 \\
+去除Hebbian-LAVI & 长时共激活信�?& 中心化信号非�?& 近退�?弱巩�?& 记忆正则减弱 \\
+去除优雅降级 & 故障容错 & 辅助故障可跳�?& NaN可传播至总损�?& 长跑鲁棒性下�?\\
 \bottomrule
 \end{tabular}
 \end{table*}
+
+统计说明：本消融表给出的是来自受控测试的确定性机制检查与有界阈值结果，而非大样本基准显著性检验�?
 
 \section{分析与可视化}
 \begin{figure*}[t]
@@ -252,124 +276,95 @@ TorchScript(优化) & 187.6 & 1.466 & 1.62$\times$ \\
 \draw[->,thick] (d)--(f);
 \draw[->,thick] (e)--(f);
 \end{tikzpicture}
-\caption{图1：MT-LNN v2 系统总架构图}
+\caption{MT-LNN v2 系统总架构图}
 \end{figure*}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=10pt,
-xtick=data,xticklabels={Cosine,Subspace},ylabel={切换灵敏度 $\Delta c$},ymin=0,ymax=0.5]
-\addplot coordinates {(1,0.000) (2,0.414)};
-\end{axis}
-\end{tikzpicture}
-\caption{图2：子空间因果一致性与传统 cosine 对比}
+\includegraphics[width=\linewidth]{assets/figures/fig_subspace}
+\caption{子空间因果一致性与传统 cosine 对比}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=8pt,
-xtick=data,xticklabels={bid0,bid1,bid2,ext},ylabel={权重占比},ymin=0,ymax=0.4]
-\addplot coordinates {(1,0.25) (2,0.25) (3,0.25) (4,0.25)};
-\end{axis}
-\end{tikzpicture}
-\caption{图3：GWT 多源外部投标竞争机制可视化（身份初始化）}
+\includegraphics[width=\linewidth]{assets/figures/fig_gwt_bids}
+\caption{GWT 多源外部投标竞争机制可视化（身份初始化）}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,xlabel={步数},ylabel={数值},legend pos=north east,ymin=0,ymax=1.05]
-\addplot[color=blue,mark=*] coordinates {(5,0.9649) (10,0.3854) (15,0.1981) (20,0.1022)};
-\addlegendentry{世界模型损失}
-\addplot[color=red,mark=square*] coordinates {(5,0.9589) (10,0.9365) (15,0.9141) (20,0.8907)};
-\addlegendentry{预测编码项}
-\end{axis}
-\end{tikzpicture}
-\caption{图4：世界模型预测误差与惊喜相关收敛曲线}
+\includegraphics[width=\linewidth]{assets/figures/fig_world_model}
+\caption{世界模型预测误差与惊喜相关收敛曲线}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,xlabel={$T_{total}$},ylabel={序列精确率},legend pos=north east,ymin=0,ymax=0.6]
-\addplot[color=black,mark=triangle*] coordinates {(37,0.03125) (101,0.015625) (229,0.015625)};
-\addlegendentry{Transformer}
-\addplot[color=green!60!black,mark=*] coordinates {(37,0.5234375) (101,0.4375) (229,0.09375)};
-\addlegendentry{MT-LNN}
-\end{axis}
-\end{tikzpicture}
-\caption{图5：长程稳定性对比（基线 Transformer vs 本方法）}
+\includegraphics[width=0.74\textwidth]{assets/figures/fig_long_context}
+\caption{选择性复制长上下文任务上的长程稳定性（仓库 \texttt{benchmarks/long\_context\_results.json}）：(a) 序列精确率�?b) 词元准确率随总序列长度的变化，比�?Transformer、纯 LNN �?MT-LNN。}
+\end{figure*}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\linewidth]{assets/figures/fig_halluc}
+\caption{正常与逻辑断裂样本下的幻觉自检分数分布}
 \end{figure}
 
-\begin{figure}[t]
+\begin{table}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=10pt,
-xtick=data,xticklabels={正常,错误},ylabel={自检分数},ymin=0,ymax=1.05]
-\addplot coordinates {(1,0.989) (2,0.575)};
-\end{axis}
-\end{tikzpicture}
-\caption{图6：正常与逻辑断裂样本下的幻觉自检分数分布}
-\end{figure}
-
-\begin{table}[t]
-\centering
-\caption{表4：优雅降级容错统计（模块级测试）}
+\caption{优雅降级容错统计（模块级测试）}
 \small
 \begin{tabular}{lcc}
 \toprule
 故障类型 & Guard ON & Guard OFF \\
 \midrule
-世界模型损失NaN & 已隔离 & 可传播 \\
-Hebbian损失NaN & 已隔离 & -- \\
-世界投标NaN & 回退原始状态 & -- \\
-LAVI惊喜非有限 & 置零继续 & -- \\
-健康运行误触发 & 0事件 & -- \\
+世界模型损失NaN & 已隔�?& 可传�?\\
+Hebbian损失NaN & 已隔�?& -- \\
+世界投标NaN & 回退原始状�?& -- \\
+LAVI惊喜非有�?& 置零继续 & -- \\
+健康运行误触�?& 0事件 & -- \\
 \midrule
-定向测试汇总 & 25/25通过 & 负载验证通过 \\
+定向测试汇�?& 25/25通过 & 负载验证通过 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \section{综合价值、功能逻辑与测试结论}
-\textbf{系统价值。} 本架构的价值体现在三点：
-（1）\emph{训练连续性}：辅助故障局部隔离，降低长跑中断概率；
-（2）\emph{推理可观测性}：一致性、惊喜值、竞争熵等通道形成过程级诊断；
-（3）\emph{部署可用性}：导出路径与时延收益可复现。
+\textbf{系统价值。} 本架构的价值体现在三点�?
+�?）\emph{训练连续性}：辅助故障局部隔离，降低长跑中断概率�?
+�?）\emph{推理可观测性}：一致性、惊喜值、竞争熵等通道形成过程级诊断；
+�?）\emph{部署可用性}：导出路径与时延收益可复现�?
 
 \textbf{功能逻辑。} 各模块不是并列拼接：
-子空间一致性与世界模型惊喜共同刻画“高置信且一致”与“高置信但断裂”的差异；
-竞争路由反映信息源选择健康；
+子空间一致性与世界模型惊喜共同刻画“高置信且一致”与“高置信但断裂”的差异�?
+竞争路由反映信息源选择健康�?
 Hebbian-LAVI 影响长期保持与状态惯性；
-优雅降级作为外围保护层，防止局部数值故障污染全局优化。
+优雅降级作为外围保护层，防止局部数值故障污染全局优化�?
 
-\textbf{开发逻辑。} v2.0 遵循“可选开启、零回归初始化、先观测后增强”的迭代路径：
+\textbf{开发逻辑。} v2.0 遵循“可选开启、零回归初始化、先观测后增强”的迭代路径�?
 新增路径从身份映射起步；
-机制上线同时暴露诊断指标；
-每个模块均绑定对应故障模式测试。
+机制上线同时暴露诊断指标�?
+每个模块均绑定对应故障模式测试�?
 
 \textbf{当前可支撑的测试结论。}
-1. 在仓库已发布的跨基座工件中，PPL 改善具备一致方向性。
-2. 机制测试支持：各向异性场景下的一致性检测、路由/惊喜值非塌缩、辅助故障隔离。
-3. 部署测试支持：eager 与 TorchScript 数值对齐以及可测时延收益。
-4. 尚需补充的是统计广度（更多随机种子、更长全程训练轨迹），而非机制存在性。
+1. 在仓库已发布的跨基座工件中，PPL 改善具备一致方向性�?
+2. 机制测试支持：各向异性场景下的一致性检测、路�?惊喜值非塌缩、辅助故障隔离�?
+3. 部署测试支持：eager �?TorchScript 数值对齐以及可测时延收益�?
+4. 尚需补充的是统计广度（更多随机种子、更长全程训练轨迹），而非机制存在性�?
 
 \paragraph{图表来源说明}
-图4来自当前工作区内的 v2 集成演示输出（step 5/10/15/20）；图5来自 \texttt{benchmarks/long\_context\_results.json}；图2与图6来自仓库中的因果一致性测试结果（含各向异性场景）；图3可视化了多源外部投标在身份初始化条件下的均匀竞争。
+�?来自当前工作区内�?v2 集成演示输出（step 5/10/15/20）；�?来自 \texttt{benchmarks/long\_context\_results.json}；图2与图6来自仓库中的因果一致性测试结果（含各向异性场景）；图3可视化了多源外部投标在身份初始化条件下的均匀竞争�?
 
 \FloatBarrier
 
 \section{讨论}
-\textbf{优势。} 本工作把因果断裂感知、预测惊喜、路由健康与故障容错统一到一个可观测框架，并保持可部署性（TorchScript bit-exact + 实测加速）。
+\textbf{优势。} 本工作把因果断裂感知、预测惊喜、路由健康与故障容错统一到一个可观测框架，并保持可部署性（TorchScript bit-exact + 实测加速）�?
 
-\textbf{局限。} 目前跨基座 PPL 统计样本规模仍较小（3组）；当前仓库快照未包含完整长时 metrics.jsonl 曲线，因此部分图基于基准摘要与控制测试而非全程轨迹。
+\textbf{局限。} 目前跨基�?PPL 统计样本规模仍较小（3组）；当前仓库快照未包含完整长时 metrics.jsonl 曲线，因此部分图基于基准摘要与控制测试而非全程轨迹�?
 
-\textbf{未来工作。} (i) 扩展多随机种子与大规模端到端消融，(ii) 扩展幻觉类别覆盖，(iii) 补齐超长训练全链路曲线与置信区间。
+\textbf{未来工作。} (i) 扩展多随机种子与大规模端到端消融�?ii) 扩展幻觉类别覆盖�?iii) 补齐超长训练全链路曲线与置信区间�?
 
 \section{结论}
-本文将 MT-LNN v2.0 / AwareLiquid M2 定位为类脑液态神经网络的开发框架，而不仅是单点可靠性增强。其核心贡献在于把“价值、功能、证据”三条线并行打通：液态状态动力学与竞争路由提供功能基础，内生一致性/惊喜值与优雅降级提供可观测与可恢复能力，测试工件与部署测量提供工程证据。由此可见，类脑启发可以从概念叙事转化为可验证、可迭代的模型工程方法。
+本文�?MT-LNN v2.0 / AwareLiquid M2 定位为类脑液态神经网络的开发框架，而不仅是单点可靠性增强。其核心贡献在于把“价值、功能、证据”三条线并行打通：液态状态动力学与竞争路由提供功能基础，内生一致�?惊喜值与优雅降级提供可观测与可恢复能力，测试工件与部署测量提供工程证据。由此可见，类脑启发可以从概念叙事转化为可验证、可迭代的模型工程方法�?
 
 \FloatBarrier
 \clearpage
@@ -398,3 +393,4 @@ Hebbian-LAVI 影响长期保持与状态惯性；
 \end{enumerate}
 
 \end{document}
+

@@ -10,11 +10,15 @@
 \usepackage{microtype}
 \usepackage{placeins}
 \usepackage{balance}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \pgfplotsset{compat=1.18}
 
 \title{Brain-Inspired Liquid Neural Network Development: System Value, Functional Logic, and Empirical Test Conclusions}
-\author{MT-LNN v2.0 / AwareLiquid M2 Team}
+\author{
+  AN MUNING\thanks{Correspondence: \texttt{e@awareness.market}} \\
+  Everest Research \\
+  MT-LNN v2.0 / AwareLiquid M2 Project
+}
 \date{June 2026}
 
 \begin{document}
@@ -44,6 +48,7 @@ Accordingly, we report only claims grounded in repository evidence: code-level m
 (4) Unlike prior work that applies plasticity separately from rhythm signals, \textbf{our method} introduces Hebbian-LAVI coupling for long-term regularization. 
 (5) Unlike prior work that crashes on auxiliary NaN/Inf events, \textbf{our method} introduces graceful degradation that skips faulty auxiliary terms while preserving primary LM loss visibility. 
 (6) Unlike prior work that reports quality only, \textbf{our method} reports reliability observability as first-class bounded diagnostics.
+(7) Unlike prior work that leaves consciousness-proxy claims metaphorical, \textbf{our method} exposes an Orch-OR collapse gate as a bounded integrated-information proxy $\hat{\Phi}$ with a falsifiable anesthesia-style validation protocol.
 
 \paragraph{Paper orientation.}
 Beyond module novelty, this paper explicitly answers four engineering questions: (i) what system-level value liquid and brain-inspired design adds, (ii) what each function contributes and how functions couple, (iii) how development proceeds without destabilizing the base model path, and (iv) which test conclusions are presently supported.
@@ -73,8 +78,24 @@ The earlier MT-LNN manuscript (May 2026) emphasized biologically inspired tempor
 \textbf{P5: Validate by mechanism and deployment evidence.} We treat mechanism-effectiveness tests (collapse prevention, anisotropy sensitivity, fault containment) and deployment tests (parity and latency) as co-equal evidence.
 
 \section{Method}
-\subsection{Model Backbone}
-MT-LNN v2.0 uses $d_{model}=832$, $L=12$, $H=13$ with microtubule-inspired liquid blocks. The forward pass combines attention, liquid dynamics, optional competitive GWT, global coherence, and final normalization.
+\subsection{Microtubule Liquid Backbone}
+MT-LNN v2.0 uses $d_{model}=832=13\times64$, $L=12$ layers, and $H=13$ heads, where the head count is tied to the biological constant of 13 microtubule protofilaments (each head maps to one protofilament channel, $d_{head}=64$). Every block runs (i) microtubule attention with a learned polarity bias (an $\alpha/\beta$-tubulin analogue) plus a position-free timing signal injected from the recurrent state, and (ii) a liquid (LTC-style) sub-layer whose resonance bank spans $n_\tau=5$ continuous time constants on a geometric sweep $\tau\in[\tau_{min},\tau_{max}]$, giving per-channel multi-scale predictive coding.
+
+\textbf{$O(1)$ working memory.} The liquid sub-layer carries a recurrent state $h_t$ updated as an exponential moving average, so working memory is $O(1)$ in sequence length rather than the $O(T)$ KV cache of a standard Transformer; attention uses grouped-query attention ($1$ KV head for $13$ query heads, a $13\times$ KV-cache reduction). The inference cache is therefore a dual state per layer: an optional attention KV slot and the constant-size recurrent slot $h_{prev}$.
+
+\textbf{Lateral GTP coupling.} Protofilaments are mixed by a lateral coupling gated by a GTP-hydrolysis term $\exp(-\gamma t)$ that is renewed every $\mathrm{gtp\_period}$ positions, preventing the mixing gate from vanishing over long contexts.
+
+\textbf{Parallel/recurrent duality.} The liquid sub-layer runs either a true recurrent scan (inference, threading $h_{prev}$) or a training-parallel mode ($h_{prev}=0$ per step). The two modes are constructed to be numerically consistent, which is precisely what makes cached vs.\ full-forward outputs �?and the exported TorchScript graph reported in the inference-latency experiments �?bit-exact.
+
+\subsection{Global Coherence Layer (Orch-OR Collapse, $\hat{\Phi}$ Proxy)}
+After the block stack and workspace, an always-on global coherence layer implements an Orch-OR--style ``collapse''. Sparse top-$k$ causal self-attention retains only the $k=\lceil \rho T\rceil$ highest-energy interactions ($\rho$ the coherence sparsity), and a learned collapse gate
+\begin{equation}
+g_t=\sigma\!\big(10\,(\bar{e}_t-\theta)\big)\in(0,1),\qquad
+\bar{e}_t=\overline{QK^\top/\sqrt{d}}
+\end{equation}
+modulates the residual, $x \leftarrow \mathrm{LN}\!\big(x+\beta\,g_t\,\mathrm{Attn}_{\text{sparse}}\big)$, with collapse threshold $\theta$ and coherence scale $\beta$ both learned. The gate $g_t$ is exported as a bounded diagnostic (\texttt{collapse\_gate\_last}) and acts as an integrated-information proxy $\hat{\Phi}$: it rises when many causal interactions are jointly active and decays toward zero as coherence dissipates. An optional $O(1)$ decay working-memory variant replaces the KV history with a single EMA state $w_t=w_{t-1}\,d\,(1-u_t)+o_t\,u_t$, keeping coherence memory constant-size for streaming.
+
+\textbf{Anesthesia Validation Protocol (AVP).} Because the collapse gate is a numerical $\hat{\Phi}$ proxy, it can be probed like an anesthetic: a coherence-suppressing perturbation should drive $g_t\to0$ (loss of integration) and its removal should restore $g_t$, mirroring microtubule-stabilization anesthesia findings. This turns the brain-inspired claim into a falsifiable test on a monitored scalar rather than a metaphor.
 
 \subsection{Module A: Subspace-based Causal Consistency Detector}
 Given current hidden state $h_t$ and history window $\mathcal{H}_{t-1}=\{h_{t-w},...,h_{t-1}\}$, cosine consistency is known to saturate under anisotropic embeddings. We compute subspace residual consistency instead:
@@ -158,6 +179,7 @@ with per-module opt-in and bounded diagnostics export.
 \State $c_t \leftarrow \text{SubspaceConsistency}(h)$
 \State $(z,\mathcal{L}_{wm},s_t) \leftarrow \text{WorldModel}(h)$
 \State $v_{gw},\mathcal{H}_{route} \leftarrow \text{CompetitiveGWT}(h,z)$
+\State $h,g_t \leftarrow \text{GlobalCoherence}(v_{gw})$ \Comment{Orch-OR collapse, $\hat{\Phi}$ gate}
 \State $\mathcal{L}_{hebb}\leftarrow\text{HebbianLAVI}(h,s_t)$
 \State $\mathcal{L}_{aux}\leftarrow\sum \texttt{aux\_or\_skip}(\cdot)$
 \State $\mathcal{L}\leftarrow\mathcal{L}_{LM}+\mathcal{L}_{aux}$
@@ -176,9 +198,9 @@ All numbers are taken from repository artifacts and tests: benchmark JSON files,
 \subsection{Overall Performance and Perplexity}
 Table 1 summarizes base-vs-adapter perplexity across three pretrained families. Relative PPL reductions are 28.47\%, 27.69\%, and 34.38\% (mean 30.18\%, sample SD 3.72\%). Given only three paired bases, we report effect sizes and confidence intervals conservatively; sign-based significance is underpowered.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
-\caption{Table 1: Overall performance and perplexity benchmark (repository artifacts).}
+\caption{Overall performance and perplexity benchmark (repository artifacts).}
 \small
 \begin{tabular}{lccc}
 \toprule
@@ -194,9 +216,9 @@ Mean$\pm$SD & -- & -- & 30.18$\pm$3.72\% \\
 \end{table}
 
 \subsection{Inference Latency and Deployment}
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
-\caption{Table 3: Inference latency and throughput benchmark (125M class, CPU, batch=1, seq=128).}
+\caption{Inference latency and throughput benchmark (125M class, CPU, batch=1, seq=128).}
 \small
 \begin{tabular}{lccc}
 \toprule
@@ -215,7 +237,7 @@ A targeted local run in this workspace executed 25 stability and degradation tes
 \section{Ablation Study}
 \begin{table*}[t]
 \centering
-\caption{Table 2: Full module ablation study (remove each v2 component, repository-controlled diagnostics).}
+\caption{Full module ablation study (remove each v2 component, repository-controlled diagnostics).}
 \scriptsize
 \renewcommand{\arraystretch}{1.08}
 \begin{tabular}{p{0.19\textwidth}p{0.17\textwidth}p{0.16\textwidth}p{0.16\textwidth}p{0.24\textwidth}}
@@ -253,74 +275,45 @@ Statistical note: this ablation table reports deterministic mechanism checks and
 \draw[->,thick] (d)--(f);
 \draw[->,thick] (e)--(f);
 \end{tikzpicture}
-\caption{Figure 1: Overall MT-LNN v2 system architecture diagram.}
+\caption{Overall MT-LNN v2 system architecture diagram.}
 \end{figure*}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=10pt,
-xtick=data,xticklabels={Cosine,Subspace},ylabel={Switch sensitivity $\Delta c$},ymin=0,ymax=0.5]
-\addplot coordinates {(1,0.000) (2,0.414)};
-\end{axis}
-\end{tikzpicture}
-\caption{Figure 2: Subspace causal consistency versus cosine similarity under anisotropic topic switch.}
+\includegraphics[width=\linewidth]{assets/figures/fig_subspace}
+\caption{Subspace causal consistency versus cosine similarity under anisotropic topic switch.}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=8pt,
-xtick=data,xticklabels={bid0,bid1,bid2,ext},ylabel={Weight share},ymin=0,ymax=0.4]
-\addplot coordinates {(1,0.25) (2,0.25) (3,0.25) (4,0.25)};
-\end{axis}
-\end{tikzpicture}
-\caption{Figure 3: GWT multi-source external bidding visualization at identity-initialization (uniform competition with one external bid).}
+\includegraphics[width=\linewidth]{assets/figures/fig_gwt_bids}
+\caption{GWT multi-source external bidding visualization at identity-initialization (uniform competition with one external bid).}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,xlabel={Step},ylabel={Value},legend pos=north east,ymin=0,ymax=1.05]
-\addplot[color=blue,mark=*] coordinates {(5,0.9649) (10,0.3854) (15,0.1981) (20,0.1022)};
-\addlegendentry{World-model loss}
-\addplot[color=red,mark=square*] coordinates {(5,0.9589) (10,0.9365) (15,0.9141) (20,0.8907)};
-\addlegendentry{Predictive-coding term}
-\end{axis}
-\end{tikzpicture}
-\caption{Figure 4: World-model prediction error and surprise-related convergence from a 20-step v2 integration run.}
+\includegraphics[width=\linewidth]{assets/figures/fig_world_model}
+\caption{World-model prediction error and surprise-related convergence from a 20-step v2 integration run.}
 \end{figure}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,xlabel={$T_{total}$},ylabel={Seq-exact},legend pos=north east,ymin=0,ymax=0.6]
-\addplot[color=black,mark=triangle*] coordinates {(37,0.03125) (101,0.015625) (229,0.015625)};
-\addlegendentry{Transformer}
-\addplot[color=green!60!black,mark=*] coordinates {(37,0.5234375) (101,0.4375) (229,0.09375)};
-\addlegendentry{MT-LNN}
-\end{axis}
-\end{tikzpicture}
-\caption{Figure 5: Long-run stability comparison from selective-copy long-context results.}
-\end{figure}
+\includegraphics[width=0.74\textwidth]{assets/figures/fig_long_context}
+\caption{Long-run stability on the selective-copy long-context task (repository \texttt{benchmarks/long\_context\_results.json}): (a) sequence-exact accuracy and (b) token accuracy versus total sequence length for Transformer, plain LNN, and MT-LNN.}
+\end{figure*}
 
-\begin{figure}[t]
+\begin{figure}[htbp]
 \centering
-\begin{tikzpicture}
-\begin{axis}[width=0.47\textwidth,height=0.26\textwidth,ybar,bar width=10pt,
-xtick=data,xticklabels={Normal,Error},ylabel={Self-detection score},ymin=0,ymax=1.05]
-\addplot coordinates {(1,0.989) (2,0.575)};
-\end{axis}
-\end{tikzpicture}
-\caption{Figure 6: Hallucination self-detection score distribution proxy (normal trajectory versus logic-break regime).}
+\includegraphics[width=\linewidth]{assets/figures/fig_halluc}
+\caption{Hallucination self-detection score distribution proxy (normal trajectory versus logic-break regime).}
 \end{figure}
 
 \paragraph{Figure-specific source notes.}
 Figure 4 uses the in-workspace demo run output (steps 5/10/15/20). Figure 5 uses \texttt{benchmarks/long\_context\_results.json}. Figure 2 and Figure 6 use repository-reported causal-check outcomes (subspace drop and anisotropy case). Figure 3 visualizes documented uniform identity initialization for one external bid.
 
-\begin{table}[t]
+\begin{table}[htbp]
 \centering
-\caption{Table 4: Graceful degradation fault-tolerance statistics (module-level tests).}
+\caption{Graceful degradation fault-tolerance statistics (module-level tests).}
 \small
 \begin{tabular}{lcc}
 \toprule
@@ -388,3 +381,4 @@ We presented MT-LNN v2.0 / AwareLiquid M2 as a brain-inspired liquid neural netw
 \end{enumerate}
 
 \end{document}
+
