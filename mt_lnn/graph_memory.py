@@ -42,6 +42,7 @@ Design discipline (same as session_consolidation.py / adapter_homeostasis.py)
 from __future__ import annotations
 
 import sqlite3
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
@@ -125,6 +126,12 @@ CREATE TABLE IF NOT EXISTS edges (
     PRIMARY KEY (src_id, dst_id, etype)
 );
 CREATE INDEX IF NOT EXISTS idx_edges_src ON edges(src_id);
+CREATE TABLE IF NOT EXISTS node_status (
+    node_id       INTEGER PRIMARY KEY,
+    status        TEXT    NOT NULL DEFAULT 'active',  -- 'active' | 'superseded'
+    superseded_by INTEGER,                            -- the node that replaced it
+    updated_at    TEXT    NOT NULL
+);
 """
 
 _PRAGMA = "PRAGMA journal_mode=WAL;"
@@ -370,6 +377,139 @@ class GraphKnowledgeMemory:
         )
 
     # ------------------------------------------------------------------
+    # Living-knowledge lifecycle (supersede / contradict + self-correction)
+    # ------------------------------------------------------------------
+    #
+    # Knowledge is not static: a fact gets updated ("the deadline moved"), and a
+    # stale version should stop being recalled as current truth without being
+    # destroyed (the history is still useful). This is the M1 analogue of the
+    # Awareness-SDK lifecycle manager: typed SUPERSEDES / CONTRADICTS edges plus a
+    # node status so recall returns the live view, while the superseded node and
+    # its provenance edge are kept for audit.
+    #
+    # Honesty boundary -- detection vs bookkeeping:
+    #   * SUPERSESSION is auto-detectable: a newer node that is a near-duplicate
+    #     (cosine >= a high threshold) of an older one is, with high confidence,
+    #     an update of it. Embeddings support that judgement, so auto_supersede
+    #     does it. Recency is "newer = larger node id" (ids autoincrement).
+    #   * CONTRADICTION (A and B assert incompatible things while NOT being near-
+    #     duplicates) needs entailment/NLI, which this module does NOT have and
+    #     does NOT fake. mark_contradiction records a caller-ASSERTED contradiction
+    #     and runs the resolution policy; it never claims to have detected one.
+
+    def status_of(self, node_id: int) -> str:
+        """Lifecycle status of a node: 'active' (default) or 'superseded'."""
+        row = self._conn.execute(
+            "SELECT status FROM node_status WHERE node_id = ?", (int(node_id),)
+        ).fetchone()
+        return row[0] if row else "active"
+
+    def _set_status(self, node_id: int, status: str, superseded_by: Optional[int]) -> None:
+        now = datetime.now(timezone.utc).isoformat()
+        self._conn.execute(
+            """
+            INSERT INTO node_status (node_id, status, superseded_by, updated_at)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(node_id) DO UPDATE SET
+                status = excluded.status,
+                superseded_by = excluded.superseded_by,
+                updated_at = excluded.updated_at
+            """,
+            (int(node_id), str(status),
+             None if superseded_by is None else int(superseded_by), now),
+        )
+        self._conn.commit()
+
+    def supersede(self, stale_id: int, current_id: int, *, weight: float = 1.0) -> None:
+        """Mark ``stale_id`` as replaced by ``current_id`` (the live version).
+
+        Records a directed ``supersedes`` edge ``current -> stale`` (provenance:
+        "this node replaced that one") and flips the stale node's status to
+        'superseded'. The stale node and its content stay in the store -- only its
+        recall visibility changes (see ``exclude_superseded`` on the query/walk).
+        A node cannot supersede itself.
+        """
+        if stale_id == current_id:
+            raise ValueError("a node cannot supersede itself")
+        self.link(current_id, stale_id, weight=weight, etype="supersedes",
+                  bidirectional=False)
+        self._set_status(stale_id, "superseded", current_id)
+
+    def auto_supersede(
+        self,
+        new_id: int,
+        key: torch.Tensor,
+        *,
+        threshold: float = 0.95,
+        top_k: int = 5,
+        center: bool = False,
+        only_older: bool = True,
+    ) -> int:
+        """Self-correction: retire OLDER near-duplicates of a just-added node.
+
+        Finds active nodes whose cosine to ``key`` is >= ``threshold`` (a HIGH cut
+        -- these are near-duplicate restatements, i.e. updates of the same fact)
+        and supersedes each by ``new_id``. With ``only_older`` (default) it only
+        retires nodes added before ``new_id`` (lower id), so adding an updated fact
+        replaces its stale versions but a fact is never retired by something that
+        predates it. Returns the number of nodes superseded.
+
+        ``threshold`` is intentionally high (0.95): supersession means "this IS the
+        same fact, restated", not merely "related". Use a normal link for related.
+        """
+        hits = self.nodes.query(
+            key, top_k=top_k + 1, touch=False, center=center, return_ids=True
+        )
+        n = 0
+        for nid, _content, score, _meta in hits:
+            if nid == new_id:
+                continue
+            if only_older and nid >= new_id:
+                continue
+            if score >= threshold and self.status_of(nid) == "active":
+                self.supersede(nid, new_id, weight=float(score))
+                n += 1
+        return n
+
+    def mark_contradiction(
+        self,
+        a_id: int,
+        b_id: int,
+        *,
+        weight: float = 1.0,
+        resolve: bool = True,
+    ) -> Optional[int]:
+        """Record a caller-ASSERTED contradiction between two nodes.
+
+        Adds a symmetric ``contradicts`` edge (the relation is mutual). This method
+        does NOT detect contradictions -- the caller asserts one (e.g. from an
+        external checker or the user). With ``resolve=True`` (default) the
+        lifecycle resolves it by recency: the OLDER node (smaller id) is superseded
+        by the newer one, so recall returns the current claim while the edge keeps
+        the conflict on record. Returns the id of the node that was superseded, or
+        ``None`` when ``resolve`` is False. A node cannot contradict itself.
+        """
+        if a_id == b_id:
+            raise ValueError("a node cannot contradict itself")
+        self.link(a_id, b_id, weight=weight, etype="contradicts", bidirectional=True)
+        if not resolve:
+            return None
+        older, newer = (a_id, b_id) if a_id < b_id else (b_id, a_id)
+        self.supersede(older, newer, weight=weight)
+        return older
+
+    def n_superseded(self) -> int:
+        return int(self._conn.execute(
+            "SELECT COUNT(*) FROM node_status WHERE status = 'superseded'"
+        ).fetchone()[0])
+
+    def _superseded_ids(self) -> set:
+        rows = self._conn.execute(
+            "SELECT node_id FROM node_status WHERE status = 'superseded'"
+        ).fetchall()
+        return {int(r[0]) for r in rows}
+
+    # ------------------------------------------------------------------
     # Spreading-activation recall (the associative step)
     # ------------------------------------------------------------------
 
@@ -384,6 +524,7 @@ class GraphKnowledgeMemory:
         center: bool = False,
         touch: bool = False,
         min_activation: float = 1e-6,
+        exclude_superseded: bool = True,
     ) -> List[Tuple[Any, float, Optional[Any]]]:
         """Multi-hop associative recall by spreading activation over the graph.
 
@@ -398,6 +539,13 @@ class GraphKnowledgeMemory:
         seed therefore surfaces -- the associative recall a flat Top-K cannot do.
         ``hops=0`` reduces exactly to a cosine Top-``seeds`` (no propagation), so
         the parameter directly trades flat recall against associative reach.
+
+        ``exclude_superseded`` (default True): nodes retired by the lifecycle
+        (see :meth:`supersede` / :meth:`auto_supersede`) are dropped from the
+        RESULTS so recall returns the live view, but they still CONDUCT activation
+        (a stale node can relay to its replacement's neighbours), keeping the graph
+        connected. With no superseded nodes this is a no-op, so it is safe by
+        default. Pass False to recall the full history including retired versions.
         """
         if seeds <= 0:
             raise ValueError(f"seeds must be positive, got {seeds}")
@@ -436,14 +584,21 @@ class GraphKnowledgeMemory:
                     next_frontier[dst] = next_frontier.get(dst, 0.0) + delta
             frontier = next_frontier
 
+        # Superseded nodes still conducted activation above (kept the graph
+        # connected); now drop them from the RESULTS so recall is the live view.
+        retired = self._superseded_ids() if exclude_superseded else set()
         ranked = sorted(activation.items(), key=lambda kv: kv[1], reverse=True)
         out: List[Tuple[Any, float, Optional[Any]]] = []
-        for nid, act in ranked[:top_k]:
+        for nid, act in ranked:
+            if nid in retired:
+                continue
             node = self._get_node(nid)
             if node is None:
                 continue                       # evicted under max_entries
             content, meta = node
             out.append((content, float(act), meta))
+            if len(out) >= top_k:
+                break
         return out
 
     # ------------------------------------------------------------------

@@ -59,6 +59,30 @@ from mt_lnn.knowledge_memory import PersistentKnowledgeMemory
 from mt_lnn.graph_memory import GraphKnowledgeMemory, calibrate_threshold_from_keys
 from mt_lnn.sentence_encoder import SentenceEncoder
 
+# Probe 3: fact-update pairs (old value, new value, question). The lifecycle
+# claim: after the new value is added and the old auto-superseded, the corrected
+# recall returns the NEW value, not the stale one -- self-correcting memory.
+FACT_UPDATES: List[dict] = [
+    {"q": "When is the project deadline?",
+     "old": "The project deadline is this Friday.",
+     "new": "The project deadline is now next Wednesday."},
+    {"q": "Where does Ada work now?",
+     "old": "Ada works at a startup in Berlin.",
+     "new": "Ada now works at a larger company in Munich."},
+    {"q": "What is the Wi-Fi password?",
+     "old": "The Wi-Fi password is sunflower42.",
+     "new": "The Wi-Fi password was changed to bluewhale77."},
+    {"q": "用户现在养什么宠物?",
+     "old": "用户养了一只名叫旺财的狗。",
+     "new": "用户后来改养了一只名叫咪咪的猫。"},
+    {"q": "What time does the store open?",
+     "old": "The store opens at 9 AM on weekdays.",
+     "new": "The store now opens earlier, at 7 AM on weekdays."},
+    {"q": "会议改到几点了?",
+     "old": "团队会议安排在上午十点。",
+     "new": "团队会议现在改到了下午三点。"},
+]
+
 
 # ---------------------------------------------------------------------------
 # Corpora (constructed, bilingual -- the companion is spoken to in zh + en)
@@ -285,6 +309,69 @@ def run_graph_reach_probe(
 
 
 # ---------------------------------------------------------------------------
+# Probe 3: living-knowledge lifecycle (self-correcting recall after updates)
+# ---------------------------------------------------------------------------
+
+def run_lifecycle_probe(
+    enc: SentenceEncoder, dim: int, *, supersede_threshold: float,
+) -> dict:
+    """Store an OLD fact, then an updated NEW fact + auto_supersede, and check the
+    corrected recall returns the NEW value (not the stale one) on real embeddings.
+
+    For each update pair we report:
+      * stale_before : the question recalled the OLD value before any update
+                       (sanity: the old fact was actually there).
+      * auto_retired : adding the NEW near-duplicate auto-superseded the OLD one
+                       (the self-correction fired, no manual supersede call).
+      * corrected    : after the update, LIVE recall returns NEW and not OLD.
+      * history_kept : with exclude_superseded=False the OLD value is still
+                       retrievable (nothing was destroyed).
+    """
+    stale_before = auto_retired = corrected = history_kept = 0
+    n = len(FACT_UPDATES)
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, fu in enumerate(FACT_UPDATES):
+            # One fresh graph per pair keeps the near-duplicate detection clean
+            # (cross-pair facts are unrelated and would only add noise here).
+            g = GraphKnowledgeMemory(key_dim=dim, db_path=os.path.join(tmp, f"lc{i}.db"))
+            try:
+                old_key = enc.encode(fu["old"], is_query=False)
+                g.add_node(old_key, fu["old"])
+                qk = enc.encode(fu["q"], is_query=True)
+
+                before = g.spread_activation(qk, seeds=3, hops=0, top_k=1)
+                if before and before[0][0] == fu["old"]:
+                    stale_before += 1
+
+                new_key = enc.encode(fu["new"], is_query=False)
+                new_id = g.add_node(new_key, fu["new"])
+                retired = g.auto_supersede(new_id, new_key,
+                                           threshold=supersede_threshold, top_k=5)
+                if retired >= 1:
+                    auto_retired += 1
+
+                live = [c for (c, _a, _m) in
+                        g.spread_activation(qk, seeds=3, hops=0, top_k=3)]
+                if fu["new"] in live and fu["old"] not in live:
+                    corrected += 1
+
+                full = [c for (c, _a, _m) in
+                        g.spread_activation(qk, seeds=3, hops=0, top_k=3,
+                                            exclude_superseded=False)]
+                if fu["old"] in full:
+                    history_kept += 1
+            finally:
+                g.close()
+
+    return {"n": n,
+            "stale_before": stale_before / n,
+            "auto_retired": auto_retired / n,
+            "corrected": corrected / n,
+            "history_kept": history_kept / n,
+            "supersede_threshold": supersede_threshold}
+
+
+# ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
 
@@ -398,6 +485,41 @@ def main() -> int:
         print("            Top-K. Either transitive similarity already surfaces the")
         print("            target (check the shortcut rate) or the bridges are too")
         print("            weak to link. Honest negative result; tune or accept.")
+    print()
+
+    # ---- Probe 3 ----------------------------------------------------------
+    _bar("PROBE 3 -- living-knowledge lifecycle (self-correcting recall)")
+    # A fact is stored, later UPDATED. Adding the newer near-duplicate must
+    # auto-supersede the stale one so LIVE recall returns the corrected value,
+    # while the retired node is kept for history. supersede_threshold is a cosine
+    # on the SAME e5 plain-cosine geometry as the linker (anisotropic high band),
+    # so a near-duplicate update sits ~0.90+; we use 0.88.
+    lc = run_lifecycle_probe(enc, dim, supersede_threshold=0.88)
+    print(f"   corpus : {lc['n']} fact-update pairs (old value -> new value), "
+          f"bilingual")
+    print(f"   supersede_threshold (cosine near-duplicate cut) : "
+          f"{lc['supersede_threshold']:.2f}")
+    print()
+    print(f"     stale recalled before update (sanity)  : {lc['stale_before']:.2f}")
+    print(f"     auto-superseded on update (no manual)   : {lc['auto_retired']:.2f}")
+    print(f"     LIVE recall corrected to new value      : {lc['corrected']:.2f}")
+    print(f"     old value kept for history (recoverable): {lc['history_kept']:.2f}")
+    print()
+    if lc["corrected"] >= 0.75 and lc["history_kept"] >= 0.75:
+        print("   verdict: GOOD -- on real embeddings, adding an updated fact")
+        print("            auto-retires the stale near-duplicate; live recall")
+        print("            returns the corrected value while history is preserved.")
+    elif lc["auto_retired"] < 0.5:
+        print("   verdict: WEAK -- the near-duplicate auto-detector did not fire on")
+        print("            most updates (real paraphrased updates fall below the")
+        print("            cosine cut). Lower supersede_threshold or assert manually.")
+    else:
+        print("   verdict: PARTIAL -- supersession fired but live recall did not")
+        print("            consistently return the corrected value. Inspect ranking.")
+    print()
+    print("   HONESTY: SUPERSESSION is auto-detected (newer near-duplicate by")
+    print("   cosine). CONTRADICTION detection needs NLI (not available here), so")
+    print("   mark_contradiction is caller-ASSERTED -- never claimed as auto-found.")
     print()
     print("=" * 72)
     print(" NOTE: controlled probe on a constructed corpus with a real encoder.")

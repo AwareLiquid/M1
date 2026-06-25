@@ -239,6 +239,103 @@ def test_adaptive_threshold_links_only_strong_relations():
 
 
 # ---------------------------------------------------------------------------
+# Living-knowledge lifecycle: supersede / contradict + self-correcting recall
+# ---------------------------------------------------------------------------
+
+def test_supersede_hides_stale_from_recall_but_keeps_history():
+    db = _db("_graph_supersede.db")
+    _cleanup(db)
+    try:
+        dim = 8
+        with GraphKnowledgeMemory(key_dim=dim, db_path=db) as g:
+            old = g.add_node(_e(dim, 0), "deadline: Friday")
+            new = g.add_node(_e(dim, 0) + 0.001 * _e(dim, 1), "deadline: Monday")
+            assert g.status_of(old) == "active"
+
+            g.supersede(old, new)
+            assert g.status_of(old) == "superseded"
+            assert g.n_superseded() == 1
+            # A directed supersedes edge new -> old was recorded (provenance).
+            assert (old, 1.0) in [(d, round(w)) for (d, w) in g._neighbours(new)]
+
+            q = _e(dim, 0)
+            # Live view (default): the stale node is gone, the current one remains.
+            live = {c for (c, _a, _m) in g.spread_activation(q, seeds=5, hops=0)}
+            assert "deadline: Friday" not in live
+            assert "deadline: Monday" in live
+            # Full history on demand: exclude_superseded=False brings the old back.
+            full = {c for (c, _a, _m) in
+                    g.spread_activation(q, seeds=5, hops=0, exclude_superseded=False)}
+            assert "deadline: Friday" in full and "deadline: Monday" in full
+    finally:
+        _cleanup(db)
+
+
+def test_auto_supersede_retires_older_near_duplicate_only():
+    db = _db("_graph_autosupersede.db")
+    _cleanup(db)
+    try:
+        dim = 8
+        with GraphKnowledgeMemory(key_dim=dim, db_path=db) as g:
+            v1 = g.add_node(_e(dim, 0), "fact v1")
+            unrelated = g.add_node(_e(dim, 5), "unrelated")
+            # A newer near-duplicate of v1 (cosine ~1) -> should retire v1 only.
+            key_v2 = _e(dim, 0) + 0.001 * _e(dim, 1)
+            v2 = g.add_node(key_v2, "fact v2")
+            n = g.auto_supersede(v2, key_v2, threshold=0.95, top_k=5)
+            assert n == 1, f"auto_supersede should retire exactly v1, got {n}"
+            assert g.status_of(v1) == "superseded"
+            assert g.status_of(unrelated) == "active", "orthogonal node wrongly retired"
+            assert g.status_of(v2) == "active"
+
+            # A node never retires something NEWER than itself (only_older).
+            assert g.auto_supersede(v1, _e(dim, 0), threshold=0.95) == 0
+    finally:
+        _cleanup(db)
+
+
+def test_mark_contradiction_is_asserted_and_resolves_by_recency():
+    db = _db("_graph_contradict.db")
+    _cleanup(db)
+    try:
+        dim = 8
+        with GraphKnowledgeMemory(key_dim=dim, db_path=db) as g:
+            # Two NON-duplicate nodes that the caller asserts conflict (the module
+            # does not detect this -- different directions, cosine ~0).
+            a = g.add_node(_e(dim, 0), "the sky is green")
+            b = g.add_node(_e(dim, 1), "the sky is blue")
+            superseded = g.mark_contradiction(a, b)   # resolve by recency
+            assert superseded == a, "older claim should be the one retired"
+            assert g.status_of(a) == "superseded"
+            assert g.status_of(b) == "active"
+            # The contradiction is on record (symmetric edge), not destroyed.
+            assert b in [d for (d, _w) in g._neighbours(a)]
+            assert a in [d for (d, _w) in g._neighbours(b)]
+            # resolve=False records the conflict without retiring either side.
+            c = g.add_node(_e(dim, 2), "claim c")
+            d = g.add_node(_e(dim, 3), "claim d")
+            assert g.mark_contradiction(c, d, resolve=False) is None
+            assert g.status_of(c) == "active" and g.status_of(d) == "active"
+    finally:
+        _cleanup(db)
+
+
+def test_supersede_and_contradict_reject_self():
+    import pytest
+    db = _db("_graph_lifecycle_self.db")
+    _cleanup(db)
+    try:
+        with GraphKnowledgeMemory(key_dim=4, db_path=db) as g:
+            a = g.add_node(_e(4, 0), "A")
+            with pytest.raises(ValueError):
+                g.supersede(a, a)
+            with pytest.raises(ValueError):
+                g.mark_contradiction(a, a)
+    finally:
+        _cleanup(db)
+
+
+# ---------------------------------------------------------------------------
 # Backward-compat of the return_ids extension on PersistentKnowledgeMemory
 # ---------------------------------------------------------------------------
 
