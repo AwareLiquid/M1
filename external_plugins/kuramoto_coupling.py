@@ -84,6 +84,10 @@ class KuramotoCoupling(PluginHook):
     alpha: float = 0.05
     layers: Optional[List[int]] = None
     seed: int = 0
+    center: bool = False  # subtract cross-channel mean before phase extraction
+    #                       (de-anisotropy control: tests whether a high order
+    #                        parameter R reflects real cross-channel binding or
+    #                        just a shared dominant direction in the hidden state)
     name: str = "kuramoto"
 
     # populated per forward
@@ -150,7 +154,12 @@ class KuramotoCoupling(PluginHook):
         h = x.reshape(B, T, P, d_proto).to(torch.float32)        # (B,T,P,dp)
         proj = self._projection(d_proto, x.device, torch.float32)  # (dp,2)
 
-        coords = h @ proj                                        # (B,T,P,2): [x_i, y_i]
+        # De-anisotropy control: remove the component shared by all P channels so
+        # the extracted phases describe channel-SPECIFIC structure, not a common
+        # dominant direction (which would inflate R as an artifact).
+        h_phase = h - h.mean(dim=2, keepdim=True) if self.center else h
+
+        coords = h_phase @ proj                                  # (B,T,P,2): [x_i, y_i]
         cx, cy = coords[..., 0], coords[..., 1]                  # (B,T,P)
         theta0 = torch.atan2(cy, cx)                             # (B,T,P) in (-pi,pi]
 

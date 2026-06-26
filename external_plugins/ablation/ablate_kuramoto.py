@@ -76,6 +76,19 @@ def load_batch(data_path: str, n_seq: int, seq_len: int, vocab_size: int, seed: 
     return ids  # (n_seq, seq_len)
 
 
+def random_R_baseline(P: int, n_draws: int = 20000, seed: int = 0) -> float:
+    """Expected order parameter R for P i.i.d. uniform phases (Monte-Carlo).
+
+    With P channels whose phases carry NO cross-channel structure, R is not 0 but
+    a finite-size floor ~ sqrt(pi)/(2*sqrt(P)) in expectation. Any observed R must
+    clear this floor to count as real binding rather than sampling noise.
+    """
+    rng = np.random.default_rng(seed)
+    theta = rng.uniform(-math.pi, math.pi, size=(n_draws, P))
+    z = np.exp(1j * theta).mean(axis=1)
+    return float(np.abs(z).mean())
+
+
 @torch.no_grad()
 def perplexity(model, ids, chunk: int = 8) -> float:
     """Mean next-token CE over the batch → exp = PPL. Chunked to bound memory.
@@ -121,9 +134,23 @@ def main() -> int:
                 "early_exit": dict(ee.last_diagnostics)}
     identical = abs(obs_ppl - base_ppl) < 1e-9
     print(f"[observe ] PPL = {obs_ppl:.4f}   bit-identical={identical}")
+
+    # De-anisotropy control: re-measure R after removing the cross-channel mean.
+    kur_c = KuramotoCoupling(n_protofilaments=cfg.n_protofilaments, kappa=0.6,
+                             n_steps=4, mode="observe", center=True)
+    with PluginRunner(model, plugins=[kur_c]):
+        perplexity(model, ids)
+    R_raw = diag["kuramoto"].get("R_mean")
+    R_centered = kur_c.last_diagnostics.get("R_mean")
+    R_rand = random_R_baseline(cfg.n_protofilaments)
+    print(f"[observe ] R_mean raw        = {R_raw:.4f}")
+    print(f"[observe ] R_mean centered   = {R_centered:.4f}  (de-anisotropy)")
+    print(f"[observe ] R random baseline = {R_rand:.4f}  (P={cfg.n_protofilaments} uniform phases)")
+    verdict = ("REAL cross-channel structure" if R_centered > R_rand + 0.05
+               else "likely ANISOTROPY artifact")
+    print(f"[observe ] => {verdict}")
     R_layers = {k: round(v, 4) for k, v in diag["kuramoto"].items() if k.startswith("R_final/")}
-    print(f"[observe ] R_mean = {diag['kuramoto'].get('R_mean'):.4f}")
-    print(f"[observe ] R per layer = {R_layers}")
+    print(f"[observe ] R per layer (raw) = {R_layers}")
     print(f"[observe ] settle_block = {diag['early_exit'].get('settle_block')}"
           f"/{diag['early_exit'].get('n_blocks')}  "
           f"skippable_frac = {diag['early_exit'].get('skippable_frac')}")
