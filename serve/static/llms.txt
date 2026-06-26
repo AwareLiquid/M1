@@ -23,7 +23,7 @@ Can a neural network learn new domains sequentially without catastrophically for
 ## Key Verified Results
 
 - **EWC reduces cross-domain forgetting by 85%** (PPL rise: 10,562 → 1,633; SNR 4.14; 3/3 seeds consistent; 60.7M model; WikiText-103 → TinyStories)
-- **MT-LNN adapter reduces perplexity by 28.5%** (base LLM PPL 9.161 → adapter PPL 6.553; Kaggle P100; LLaMA-3 1B)
+- **MT-LNN adapter reduces perplexity by 28.5%** (base LLM PPL 9.161 → adapter PPL 6.553; Kaggle P100; TinyLlama-1.1B)
 - **Context injection accuracy: +13.3 percentage points** (83.3% → 96.7%; 30 QA questions; Qwen-3B)
 - **State-only streaming: constant 4 KB memory** regardless of context length (vs. O(n) KV-cache)
 - **Hebbian plasticity term: currently inert** at tested scales (2 seeds × 150 steps; PPL changes within seed noise)

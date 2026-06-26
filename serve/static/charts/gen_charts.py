@@ -312,7 +312,7 @@ def fig_architecture():
 # Claim: MT-LNN adapter reduces perplexity by 28.5% over base LLM
 # ═══════════════════════════════════════════════════════════════════════════════
 def fig_ppl_ablation():
-    labels = ["Base LLM\n(LLaMA-3 1B)", "MT-LNN adapter\n(+LoRA, 1k steps)"]
+    labels = ["Base LLM\n(TinyLlama-1.1B)", "MT-LNN adapter\n(+LoRA, 1k steps)"]
     ppl    = [9.161, 6.553]
     colors = [P["baseline_soft"], P["ours"]]
 
