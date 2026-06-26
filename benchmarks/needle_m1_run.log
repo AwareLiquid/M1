@@ -1,0 +1,53 @@
+[needle] loading BASE (no adapter)...
+`torch_dtype` is deprecated! Use `dtype` instead!
+[needle] base: context=1024, depth=0.10, samples=5
+[needle] base: context=1024, depth=0.50, samples=5
+[needle] base: context=1024, depth=0.90, samples=5
+[needle] base: context=2048, depth=0.10, samples=5
+[needle] base: context=2048, depth=0.50, samples=5
+[needle] base: context=2048, depth=0.90, samples=5
+[needle] base: context=4096, depth=0.10, samples=5
+Token indices sequence length is longer than the specified maximum sequence length for this model (4014 > 2048). Running this sequence through the model will result in indexing errors
+This is a friendly reminder - the current text generation call has exceeded the model's predefined maximum length (2048). Depending on the model, you may observe exceptions, performance degradation, or nothing at all.
+[needle] base: context=4096, depth=0.50, samples=5
+[needle] base: context=4096, depth=0.90, samples=5
+[needle] loading M1 (base + llama_mt_adapter_003000.pt)...
+<string>:97: RuntimeWarning: d_proto=158 is not a multiple of 8 ¡ª protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=1): [1872, 1976, 2080, 2184, 2288]
+[needle] attached MT adapters to layers [3, 7, 11, 15, 19, 21]
+[needle] applied PEFT LoRA (r=8, alpha=16, targets=['q_proj', 'k_proj', 'v_proj', 'o_proj'])
+[needle] 2,298,304 adapter params / 1,165,165,386 total (0.197%)
+[needle] loaded step 3000: 374/374 tensors matched; missing(base)=201 unexpected=0
+[needle] adapter ACTIVE: 374 MT/LoRA tensors loaded.
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=1024, depth=0.10, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=1024, depth=0.50, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=1024, depth=0.90, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=2048, depth=0.10, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=2048, depth=0.50, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=2048, depth=0.90, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=4096, depth=0.10, samples=5
+Token indices sequence length is longer than the specified maximum sequence length for this model (4014 > 2048). Running this sequence through the model will result in indexing errors
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=4096, depth=0.50, samples=5
+[needle] mt+lora:llama_mt_adapter_003000.pt: context=4096, depth=0.90, samples=5
+
+| Variant | Context | Depth | Exact | Contains | Tok/s | Seconds |
+|---|---:|---:|---:|---:|---:|---:|
+| base | 1024 | 0.10 | 1.000 | 1.000 | 144 | 34.5 |
+| base | 1024 | 0.50 | 0.600 | 0.600 | 160 | 31.1 |
+| base | 1024 | 0.90 | 1.000 | 1.000 | 159 | 31.2 |
+| base | 2048 | 0.10 | 1.000 | 1.000 | 116 | 86.5 |
+| base | 2048 | 0.50 | 1.000 | 1.000 | 126 | 79.7 |
+| base | 2048 | 0.90 | 1.000 | 1.000 | 125 | 80.4 |
+| base | 4096 | 0.10 | 0.000 | 0.000 | 76 | 265.8 |
+| base | 4096 | 0.50 | 0.000 | 0.000 | 75 | 268.0 |
+| base | 4096 | 0.90 | 0.000 | 0.000 | 72 | 281.4 |
+| mt+lora:llama_mt_adapter_003000.pt | 1024 | 0.10 | 1.000 | 1.000 | 136 | 36.5 |
+| mt+lora:llama_mt_adapter_003000.pt | 1024 | 0.50 | 1.000 | 1.000 | 136 | 36.6 |
+| mt+lora:llama_mt_adapter_003000.pt | 1024 | 0.90 | 1.000 | 1.000 | 132 | 37.6 |
+| mt+lora:llama_mt_adapter_003000.pt | 2048 | 0.10 | 1.000 | 1.000 | 108 | 92.7 |
+| mt+lora:llama_mt_adapter_003000.pt | 2048 | 0.50 | 1.000 | 1.000 | 111 | 90.6 |
+| mt+lora:llama_mt_adapter_003000.pt | 2048 | 0.90 | 1.000 | 1.000 | 107 | 93.3 |
+| mt+lora:llama_mt_adapter_003000.pt | 4096 | 0.10 | 0.000 | 0.000 | 66 | 303.7 |
+| mt+lora:llama_mt_adapter_003000.pt | 4096 | 0.50 | 0.000 | 0.000 | 66 | 304.8 |
+| mt+lora:llama_mt_adapter_003000.pt | 4096 | 0.90 | 0.000 | 0.000 | 66 | 306.7 |
+
+[needle] saved JSON: benchmarks/needle_m1_chat_template.json

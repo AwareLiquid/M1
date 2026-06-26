@@ -27,7 +27,7 @@ Can a neural network learn new domains sequentially without catastrophically for
 - **Context injection accuracy: +13.3 percentage points** (83.3% → 96.7%; 30 QA questions; Qwen-3B)
 - **State-only streaming: constant 4 KB memory** regardless of context length (vs. O(n) KV-cache)
 - **Hebbian plasticity term: currently inert** at tested scales (2 seeds × 150 steps; PPL changes within seed noise)
-- **Needle-in-haystack: 0% accuracy** for both base model and adapter — honest failure; scratch-pad reasoning not yet supported
+- **Needle-in-haystack: near-perfect within the base's 2048 window** (re-tested 2026-06-26 with the chat template; base 0.867/1.000 at 1K/2K, adapter 1.000/1.000). The earlier "0%" was a harness artefact (raw-token concat without the instruct chat template). At 4096 tokens both collapse to 0 — exceeds TinyLlama's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; measurable uplift inconclusive at 5 samples/cell
 
 ## Architecture
 
@@ -62,7 +62,7 @@ AwareLiquid is not competing with LFM. Liquid AI solved static-weight inference 
 | Absolute PPL after EWC ≤5× original | Not Yet | Current: ~7.6× (1,878 vs 245); threshold not reached |
 | Adapter −28.5% PPL | Built | Kaggle P100, 38,400 tokens, 50 batches |
 | Context injection +13.3pp | Built | 30 QA questions, Qwen-3B |
-| Needle-in-haystack | Failed | 0% accuracy, both variants, all context lengths |
+| Needle-in-haystack | Re-tested (chat template) | Near-perfect within 2048 window (base 0.87-1.0, adapter 1.0); 4096 collapses for both (exceeds base RoPE window); old 0% was a harness artefact |
 | Hebbian plasticity | Inert | Effect within seed noise |
 | Conversation memory (typed recall) | Built | Bilingual recall ranking fixed by type boost (ZH 0/3 → 3/3); English off-topic floor ~0.75, Chinese off-topic gating honestly NOT solved |
 

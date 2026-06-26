@@ -352,9 +352,10 @@ def fig_ppl_ablation():
     save_svg(fig, "ppl_ablation.svg")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fig 7 — Context injection accuracy + honest needle failure
+# Fig 7 — Context injection accuracy + needle-in-haystack (corrected 2026-06-26)
 # Left: +13.3pp accuracy uplift with MT-LNN context injection
-# Right: needle-in-haystack — both variants fail (0%) across all conditions
+# Right: needle-in-haystack — near-perfect within the base 2048 window; both collapse
+#        at 4096 (exceeds TinyLlama RoPE window). Old "0%" was a chat-template harness bug.
 # ═══════════════════════════════════════════════════════════════════════════════
 def fig_context_and_needle():
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.0, 2.8),
@@ -390,46 +391,45 @@ def fig_context_and_needle():
     ax1.set_axisbelow(True)
     ax1.tick_params(axis="x", bottom=False)
 
-    # ── Right: needle-in-haystack honest failure heatmap ─────────────────────
-    # context_lens × depths, both variants = 0%
-    ctx_labels  = ["1024", "2048", "4096"]
-    depth_labels = ["0.1", "0.5", "0.9"]
-    data_base    = np.zeros((3, 3))
-    data_adapter = np.zeros((3, 3))
+    # ── Right: needle-in-haystack (corrected, chat-template re-test) ──────────
+    # Exact-match accuracy averaged over depths {0.1, 0.5, 0.9}, 5 samples/cell.
+    # Source: bench_needle_m1_faithful.py -> benchmarks/needle_m1_chat_template.json
+    base_acc    = [0.867, 1.000, 0.000]   # 1K / 2K / 4K
+    adapter_acc = [1.000, 1.000, 0.000]
 
     x = np.arange(3)
     width = 0.35
-    yoff = 0.05
 
-    # Show as a simple grouped bar grid (avg across depths per ctx_len)
-    ax2.bar(x - width/2, [0, 0, 0], width, label="Base LLM",
-            color=P["baseline_soft"], edgecolor="white")
-    ax2.bar(x + width/2, [0, 0, 0], width, label="MT-LNN adapter",
-            color=P["ours"], edgecolor="white")
+    b1 = ax2.bar(x - width/2, base_acc, width, label="Base LLM",
+                 color=P["baseline_soft"], edgecolor="white", zorder=3)
+    b2 = ax2.bar(x + width/2, adapter_acc, width, label="MT-LNN adapter",
+                 color=P["ours"], edgecolor="white", zorder=3)
+    for bars in (b1, b2):
+        for bar in bars:
+            h = bar.get_height()
+            if h > 0:
+                ax2.text(bar.get_x() + bar.get_width()/2, h + 0.02,
+                         f"{h:.2f}".rstrip("0").rstrip("."), ha="center",
+                         va="bottom", fontsize=6.5, fontweight="bold", color="#222")
 
     ax2.set_xticks(x)
     ax2.set_xticklabels(["1 K", "2 K", "4 K"])
     ax2.set_xlabel("Context length (tokens)", fontsize=8)
-    ax2.set_ylabel("Accuracy", fontsize=8)
-    ax2.set_ylim(0, 1.0)
+    ax2.set_ylabel("Exact match (↑)", fontsize=8)
+    ax2.set_ylim(0, 1.12)
     ax2.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
     ax2.set_yticklabels(["0%", "25%", "50%", "75%", "100%"])
-    ax2.set_title("Needle-in-haystack\n(from-scratch task)", fontsize=8,
+    ax2.set_title("Needle-in-haystack\n(chat template, re-test)", fontsize=8,
                   fontweight="bold", pad=6)
-    ax2.legend(loc="upper right", fontsize=6.5)
+    ax2.legend(loc="lower left", fontsize=6.5)
     ax2.grid(axis="y", lw=0.5, alpha=0.4, color="#ddd", zorder=0)
     ax2.set_axisbelow(True)
     ax2.tick_params(axis="x", bottom=False)
 
-    # Honest failure stamp
-    ax2.text(0.5, 0.52, "BOTH VARIANTS\nFAIL  (0 %)",
-             transform=ax2.transAxes, ha="center", va="center",
-             fontsize=9, fontweight="bold", color=P["accent_red"],
-             bbox=dict(boxstyle="round,pad=0.4", fc="white",
-                       ec=P["accent_red"], lw=1.2, alpha=0.92))
-    ax2.text(0.5, 0.18, "Task requires scratch-pad\nreasoning — not yet supported",
-             transform=ax2.transAxes, ha="center", va="center",
-             fontsize=6.5, color=P["neutral"], style="italic")
+    # Honest annotation: 4K collapse is a base-window limit, not an adapter failure
+    ax2.text(2, 0.06, "exceeds base\n2048 window",
+             ha="center", va="bottom", fontsize=5.8, color=P["accent_red"],
+             style="italic")
 
     fig.tight_layout()
     save_svg(fig, "context_needle.svg")

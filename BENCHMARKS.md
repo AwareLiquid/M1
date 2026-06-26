@@ -337,20 +337,40 @@ WikiText-2 valid, 50 batches × 768 tokens = 38 400 tokens.
 
 **This is the first end-to-end evidence that the MT-LNN inductive bias transfers to a real pretrained LM.** The adapter learns a 28 % PPL reduction with 0.196 % of the parameter budget, at the cost of ~10 % decode-time slowdown. No NaN / no loss explosion; training loss falls from 2.5 → ~1.9 over 1000 steps (raw curve in `benchmarks/kaggle_run/train.log`).
 
-### Needle-in-a-haystack (negative result, base-bottlenecked)
+### Needle-in-a-haystack (CORRECTED 2026-06-26 — old 0.000 was a harness artefact)
+
+> **Retraction.** The previous "0/15 across all contexts, base-model ceiling" result was
+> **invalid**. It came from `bench_llama_mt_needle.py`, which concatenates raw filler/needle/
+> question tokens *without applying the instruct chat template* — a format that returns 0.0
+> on any instruct-tuned base (documented in `NEEDLE_FIX.md`). Re-running with the chat
+> template **and** a faithful phase-5b model build (MT adapters **+** PEFT LoRA, with an honest
+> guard that aborts unless every adapter tensor maps onto the graph: 374/374 tensors matched,
+> unexpected=0) gives the real numbers below. Harness: `bench_needle_m1_faithful.py`; raw data:
+> `benchmarks/needle_m1_chat_template.json` + `benchmarks/needle_m1_run.log` (CPU, 5 samples/cell).
 
 | Variant | Context | Exact (avg over depth ∈ {0.1, 0.5, 0.9}) |
 |---|---:|---:|
-| Base | 1024 | 0.000 |
-| Base | 2048 | 0.000 |
+| Base | 1024 | **0.867** |
+| Base | 2048 | **1.000** |
 | Base | 4096 | 0.000 |
-| MT-Adapter | 1024 | 0.000 |
-| MT-Adapter | 2048 | 0.000 |
-| MT-Adapter | 4096 | 0.000 |
+| MT-Adapter (`_003000`) | 1024 | **1.000** |
+| MT-Adapter (`_003000`) | 2048 | **1.000** |
+| MT-Adapter (`_003000`) | 4096 | 0.000 |
 
-Both base and adapter score 0/15 across all contexts and depths. **This is a base-model ceiling, not an adapter failure**: TinyLlama-1.1B by itself cannot do this needle format. With base ≡ 0, the adapter has nothing to improve on — needle is non-discriminative at this scale.
+**Honest reading:**
+- **Within TinyLlama's 2048 context window, retrieval works** — near-perfect for both base and
+  adapter. The old "0% / cannot do this format" conclusion is withdrawn; it measured the broken
+  harness, not the model.
+- **M1 is no worse than base, and slightly better at the hardest in-window cell** (1024: base 0.867
+  vs adapter 1.000 — the base misses one mid-depth needle that the adapter recovers). But with only
+  5 samples/cell and the base already saturating at 2048, **"the adapter improves retrieval" remains
+  INCONCLUSIVE** — the headroom is too small to claim a real uplift. We report parity, not a win.
+- **4096 = 0.000 for *both* variants is a genuine base limit, not an adapter failure**: 4096 tokens
+  exceeds TinyLlama-1.1B's 2048 RoPE training window, so the base itself collapses. The adapter
+  cannot extend a context window the frozen base never had.
 
-Next experiment to run (see *What's next* below): repeat at Qwen-2.5-1.5B or Phi-3-mini-3.8B where the base hits non-zero needle scores, so the adapter delta becomes measurable.
+Next experiment to make the adapter delta *measurable*: a base with a larger native context window
+(so the in-window region is not already saturated), with more samples/cell to beat the noise floor.
 
 ### What this run validates / does not validate
 
@@ -359,7 +379,7 @@ Next experiment to run (see *What's next* below): repeat at Qwen-2.5-1.5B or Phi
 | MT-LNN adapter trains stably on a real 1B+ pretrained LM | ✅ |
 | Adapter learns LM-useful representations (PPL improves) | ✅ (−28 %) |
 | Parameter-efficient (0.2 % trainable) | ✅ |
-| Adapter improves long-context retrieval at 1.1B scale | ⚠ Inconclusive — base ≡ 0 on needle |
+| Adapter improves long-context retrieval at 1.1B scale | ⚠ Inconclusive — within-2048 retrieval near-saturated (base 0.87–1.0, adapter 1.0); parity, no measurable uplift |
 | Adapter improves long-context retrieval at ≥3B scale | ⏳ Not yet tested |
 
 
@@ -385,9 +405,14 @@ Raw artefacts: `benchmarks/kaggle_qwen_run/{ppl_ablation,needle}.json`. Reproduc
 
 Two different 1B+ bases, two different families (Llama vs Qwen), same recipe → essentially the same PPL drop. The MT inductive bias is **not** a TinyLlama-specific artefact.
 
-### Needle (negative result, same ceiling as Phase 5)
+### Needle (Qwen-2.5-1.5B — NOT yet re-run with the corrected harness)
 
-Both base and adapter score `accuracy = 0.000` across all 9 (context × depth) cells at 1024/2048/4096. Same conclusion as Phase 5: at 1.5 B base size the needle format is too hard even for the base; nothing to lift. Verdict deferred to ≥3 B base.
+> **Caveat (2026-06-26).** The `accuracy = 0.000` numbers stored in `benchmarks/kaggle_qwen_run/needle.json`
+> were produced by the same raw-concat harness that distorted Phase 5 (see the corrected Phase 5
+> needle section above). They are therefore **not trustworthy** and should not be read as a real
+> ceiling. The faithful chat-template re-test (`bench_needle_m1_faithful.py`) has so far only been
+> run on the TinyLlama-1.1B Phase-5 checkpoint; the Qwen-2.5-1.5B phase-5b checkpoint has **not** yet
+> been re-measured. Treat Phase 5b needle as **pending re-test**, not a negative result.
 
 
 ## Reasoning trace observability (2026-05-28)

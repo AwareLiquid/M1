@@ -106,7 +106,7 @@ Reduction: (10,562 − 1,633) / 10,562 = 84.6% ≈ 85%
 
 Setup:
 - Hardware: Kaggle P100 GPU
-- Base model: LLaMA-3 1B (meta-llama/Llama-3.2-1B)
+- Base model: TinyLlama-1.1B-Chat-v1.0 (TinyLlama/TinyLlama-1.1B-Chat-v1.0)
 - Adapter: AwareLiquid M1 residual adapter + LoRA, checkpoint at 1,000 steps
 - Evaluation: 38,400 tokens, 50 batches, pure next-token cross-entropy
 - Trainable params: 2,298,304 / 1,172,954,154 total (0.20%)
@@ -142,19 +142,36 @@ Verdict: BUILT — reproducible cloud run.
 
 ---
 
-## EXPERIMENT 4: NEEDLE-IN-HAYSTACK (HONEST FAILURE)
+## EXPERIMENT 4: NEEDLE-IN-HAYSTACK (CORRECTED 2026-06-26 — old 0% was a harness artefact)
 
-Setup:
+Setup (corrected harness):
 - Context lengths: 1,024 / 2,048 / 4,096 tokens
 - Depths: 0.1 / 0.5 / 0.9 (position of needle in haystack)
-- Samples: 5 per (context_len, depth, variant) = 90 total
-- Variants: base model (LLaMA-3 1B), AwareLiquid M1 adapter
+- Samples: 5 per (context_len, depth, variant)
+- Variants: base model (TinyLlama-1.1B-Chat), AwareLiquid M1 adapter (checkpoint 003000)
+- Harness: bench_needle_m1_faithful.py — uses the instruct chat template AND rebuilds the
+  faithful phase-5b model (MT adapter + PEFT LoRA), with an honest guard that aborts unless
+  every adapter tensor maps onto the graph (verified 374/374 tensors, unexpected=0)
 
-Results: 0% accuracy across ALL conditions for BOTH variants.
+RETRACTION: The earlier "0% accuracy across ALL conditions" was INVALID. It came from a harness
+that concatenated raw filler/needle/question tokens WITHOUT the instruct chat template — a format
+that always scores 0.0 on an instruct-tuned base (documented in NEEDLE_FIX.md). It measured the
+broken harness, not the model.
 
-Explanation: The needle-in-haystack task requires the model to locate a specific fact injected into a long context and extract it precisely. Both the base LLaMA-3 1B and the M1 adapter fail because: (1) the model is too small for reliable long-context retrieval, (2) neither implements scratch-pad / chain-of-thought reasoning. This is an honest open failure of the current M1 generation — O1 integration with improved context handling is a future goal.
+Corrected results (exact match, averaged over depth):
+- Base    : 1024 = 0.867 | 2048 = 1.000 | 4096 = 0.000
+- M1 adapter: 1024 = 1.000 | 2048 = 1.000 | 4096 = 0.000
 
-Verdict: HONEST FAILURE — reported transparently as an open gap.
+Honest reading:
+1. Within TinyLlama-1.1B's 2048-token window, retrieval is near-perfect for both base and adapter.
+2. The adapter is at parity with the base in-window (slightly better at 1024 where the base misses
+   one mid-depth needle), but with only 5 samples/cell and the base near saturation, a measurable
+   retrieval UPLIFT remains INCONCLUSIVE — we report parity, not a win.
+3. At 4096 tokens both collapse to 0.000 because that exceeds TinyLlama's 2048 RoPE training window
+   — a genuine base-model limit (the frozen base never had a larger window), NOT an adapter failure.
+
+Verdict: RETRIEVAL WORKS WITHIN THE BASE WINDOW. Extending beyond 2048 / proving an adapter uplift
+needs a larger-window base and more samples — logged as future work.
 
 ---
 
@@ -233,7 +250,7 @@ Q: What is catastrophic forgetting?
 A: When a neural network trains sequentially on domain A then B, its performance on A collapses. In AwareLiquid M1 experiments: 244.9 → 10,806.9 PPL for dense baseline (×44 degradation). EWC reduces this to 1,878 PPL (×7.6 degradation). Threshold for "usable" is ≤5× — not yet achieved. Reported honestly as Early Signal.
 
 Q: Does the needle-in-haystack benchmark work?
-A: No. Both the base model and the M1 adapter score 0% across all context lengths (1K–4K) and depths. Honest open failure — scratch-pad reasoning is not yet supported. Logged as a target for future O1 integration work.
+A: Yes, within the base model's context window. Re-tested 2026-06-26 with the instruct chat template (the earlier "0%" was a harness artefact from concatenating raw tokens without the template). Within TinyLlama-1.1B's 2048-token window retrieval is near-perfect: base 0.867/1.000 at 1K/2K, adapter 1.000/1.000. At 4096 tokens both drop to 0.000 — that exceeds the base's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; a measurable uplift stays inconclusive at 5 samples/cell. Extending long-context retrieval is logged as future work.
 
 Q: What is the API?
 A: GET /v1/model (model info), POST /v1/completions (batch), POST /v1/completions/stream (SSE), POST /adapter/v1/completions/stream (M1 adapter SSE). Research-grade, no SLAs. See https://github.com/everest-an/M1 for local setup.

@@ -649,7 +649,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
             <tr class="highlight-row"><td>EWC forgetting reduction</td><td class="good">−85% (SNR 4.14)</td><td>✓ Early Signal</td></tr>
             <tr><td>MT-LNN adapter PPL</td><td class="good">−28.5% on WikiText-2</td><td>✓ Built</td></tr>
             <tr><td>Context injection accuracy</td><td class="good">+13.3 pp (83→97%)</td><td>✓ Built</td></tr>
-            <tr><td>Needle-in-haystack (1K–4K)</td><td class="bad">0% both variants</td><td>✗ Honest Fail</td></tr>
+            <tr><td>Needle-in-haystack (within 2048 window)</td><td class="good">base 0.87–1.0 · adapter 1.0</td><td>✓ Re-tested (chat template)</td></tr>
           </tbody>
         </table>
         <p class="table-note">3 seeds · Kaggle P100 GPU · WikiText-103 → TinyStories domain shift.</p>
