@@ -56,7 +56,14 @@ class MemoryDataset(Dataset):
     def __getitem__(self, idx):
         start = idx * self.stride
         chunk = self.tokens[start: start + self.seq_len + 1]
-        return chunk[:-1], chunk[1:]
+        # Labels must be ALIGNED with inputs: MTLNNModel.forward shifts
+        # internally (shift_logits = logits[:, :-1] vs shift_labels =
+        # labels[:, 1:]). Returning chunk[1:] here would DOUBLE-shift into a
+        # 2-ahead objective, reporting an artificially low (wrong) PPL that
+        # masks a checkpoint which cannot actually do next-token prediction.
+        # See tests/test_label_alignment.py and train.py BinDataset.
+        x = chunk[:-1]
+        return x, x.clone()
 
 
 # ---------------------------------------------------------------------------
@@ -110,9 +117,12 @@ def evaluate_long_context_ppl(
         if chunk.shape[1] < 2:
             break
 
-        # Prepare labels: predict token t+1 from t
+        # Predict token t+1 from t. Labels must be ALIGNED with inputs because
+        # MTLNNModel.forward shifts internally (shift_labels = labels[:, 1:]);
+        # passing chunk[:, 1:] here double-shifts into a 2-ahead objective and
+        # reports an artificially low (wrong) PPL. See tests/test_label_alignment.py.
         inp = chunk[:, :-1]
-        lbl = chunk[:, 1:]
+        lbl = inp.clone()
         if inp.shape[1] == 0:
             break
 
