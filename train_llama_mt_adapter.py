@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 from mt_lnn.llama_adapter import (
     attach_mt_adapters,
     count_trainable_parameters,
+    iter_mt_adapter_parameters,
 )
 
 
@@ -237,6 +238,21 @@ def train(args):
         use_scan=not args.mt_no_scan,
     )
     model = maybe_apply_lora(model, args)
+
+    # PEFT's get_peft_model() freezes every non-LoRA parameter (no
+    # modules_to_save is set), which silently freezes the MT adapter's own
+    # weights -- including the residual gate `scale`. With scale stuck at its
+    # init (1e-3) the adapter only ever contributes 0.1% to the stream and can
+    # never grow: the MT module becomes decorative and only LoRA trains. Re-arm
+    # the MT adapter's parameters so the gate (and the rest of the adapter) can
+    # actually learn. No-op when --lora is off (they were already trainable).
+    n_rearmed = 0
+    for p in iter_mt_adapter_parameters(model):
+        if not p.requires_grad:
+            p.requires_grad = True
+        n_rearmed += p.numel()
+    print(f"Re-armed MT adapter params (requires_grad=True): {n_rearmed:,}")
+
     model.to(device)
     model.train()
 
