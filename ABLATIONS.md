@@ -223,3 +223,49 @@ python scripts/run_ablations.py --group my_new_group
 - Uses WikiText-2 (same as Phase 5b)
 - Results are comparable across groups (same base, data, steps)
 - Wall time: ~10-15 min per config on T4 (200 steps × batch 1 × grad_accum 8)
+
+## Honest Negative: Learnable `log_tau` (`--learn_tau`) — tested, NOT adopted
+
+**Question**: The MT resonance time-constants `tau = softplus(log_tau) + tau_min`
+(shape (P,S) = (13,5) per layer) are initialised as a fixed multi-scale filter
+bank. Should `log_tau` be *learned* per layer instead of staying a fixed prior?
+
+**Why it looked broken at first (and wasn't)**: Diagnostics showed every layer's
+`log_tau` moving by an *identical, data-independent* amount across a run
+(cross-layer std == 0). Root cause measured, not guessed:
+
+- The model trains in **bf16**, so `log_tau` is a bf16 parameter. Near |log_tau|~1
+  the bf16 ULP is ~0.0039.
+- Under the default `lr=2e-4`, the Adam step on `log_tau` is ~1e-4 **< ULP** →
+  rounded away. The only thing that moved it was `weight_decay=0.01` dragging all
+  elements uniformly (hence cross-layer std == 0). Gradient was *not* disconnected
+  (fp32 grad norm 2.2e-7, bf16 1.87e-7 — alive but below the rounding floor) and
+  `requires_grad` was correctly True after the re-arm fix.
+
+**The A/B fix tested** (`exp/learn-tau` branch): put `log_tau` in its own AdamW
+group with `lr × 50` and `weight_decay = 0`, so the step clears the bf16 ULP.
+
+| Metric | baseline (main, no `--learn_tau`) | `--learn_tau ×50` |
+|---|---|---|
+| `log_tau` cross-layer std (mean / max) | 0 / 0 (pure WD drift) | **0.109 / 0.408** |
+| Mechanism verdict | — | **LEARN_TAU_PASS** (data-dependent) |
+| SFT loss, steps 2500–3000 (mean) | **1.1333** | 1.2178 (~7.5% worse) |
+
+Local reproduction (`_diag_learn_tau.py`) confirmed the mechanism independently:
+baseline single-group bf16 moved exactly 0/65 elements; `learn_tau ×50` moved
+25/65 and **diverged across data seeds** (cross-seed divergence 0.21 > 0 ⇒ genuine
+data-dependent learning).
+
+**Verdict — adopted? NO.** The mechanism works (`log_tau` *can* be learned
+data-dependently once it clears the bf16 ULP), but learning it **does not improve
+quality — it slightly hurts** (~7.5% worse final-window loss, gap widening over
+training). This is consistent with the design intent: the multi-scale resonance is
+meant to be a *fixed* filter bank (a structural prior), not a free parameter. Per
+project discipline ("only merge if it goes smoothly **AND** is better"), this is
+recorded as an **honest negative**: the `exp/learn-tau` branch is **kept for
+archive, not merged**. `main` keeps the core re-arm fix (scale gate trains) and
+fixed `log_tau`.
+
+> Discipline note: same as the Kuramoto R=0.58 artefact lesson — measure first,
+> and report negatives faithfully rather than shipping a change that "works" but
+> doesn't help.
