@@ -92,4 +92,30 @@ cmd = [
 print("\n[train] " + " ".join(cmd) + "\n")
 subprocess.run(cmd, check=True)
 
+# --- VERDICT: did the re-arm actually let the MT residual gate train? -------
+import glob
+import torch
+import torch.nn.functional as F
+cks = sorted(glob.glob(os.path.join(CKPT_DIR, "llama_mt_adapter_*.pt")))
+print("\n" + "=" * 70)
+print("VERDICT (re-arm fix)")
+print("=" * 70)
+if cks:
+    sd = torch.load(cks[-1], map_location="cpu", weights_only=False)["state_dict"]
+    scales = {k: float(v) for k, v in sd.items() if k.endswith("mt_adapter.scale")}
+    print(f"checkpoint: {os.path.basename(cks[-1])}")
+    print("per-layer scale (init was 1e-3 -- ANY movement => fix works):")
+    for k in sorted(scales):
+        print(f"  {k} = {scales[k]:.6f}")
+    moved = any(abs(v - 1e-3) > 1e-6 for v in scales.values())
+    print(f"=> scale moved off 1e-3 init: {moved}")
+    # tau = softplus(log_tau) + tau_min (tau_min default 0.01); NOT exp(log_tau).
+    taus = {k: v for k, v in sd.items() if k.endswith("resonance.log_tau")}
+    for k in sorted(taus):
+        t = F.softplus(taus[k].float()) + 0.01
+        print(f"   {k}: tau min={t.min():.3g} max={t.max():.3g} std={t.std():.3g}")
+    print("\nPASS" if moved else "\nFAIL: scale still frozen -- fix did NOT take effect")
+else:
+    print("no checkpoint found to inspect")
+
 print(f"\nDone in {(time.time()-t_start)/60:.1f} min.  Outputs: {CKPT_DIR}/")
