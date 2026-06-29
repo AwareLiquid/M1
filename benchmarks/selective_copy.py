@@ -268,6 +268,16 @@ def evaluate_selective_copy(model, cfg: SelectiveCopyConfig, device: str = "cpu"
       - Autoregressively decode K_mem tokens.
       - Compare against the true memorable tokens.
 
+    Decode path is chosen per architecture so the comparison stays FAIR:
+      - If the model returns a usable incremental cache (e.g. MT-LNN's
+        recurrent state cache), decode token-by-token off that cache.
+      - If it returns no cache (the vanilla Transformer/LNN baselines, whose
+        forward emits ``cache=None``), fall back to the RECOMPUTE path: re-feed
+        the full growing sequence each step. Feeding a cacheless model a lone
+        token (the previous behaviour) silently drops the prefix context and
+        crushes the baseline to near-random -- an evaluation artifact, not a
+        real capability gap.
+
     Returns dict with token_accuracy and sequence_exact_match.
     """
     model.eval()
@@ -288,17 +298,24 @@ def evaluate_selective_copy(model, cfg: SelectiveCopyConfig, device: str = "cpu"
         prefix = ids[:, : T_n + 1]                              # (B, T_n+1) ending in SEP
         true_tokens = ids[:, T_n + 1: T_n + 1 + K]              # (B, K)
 
-        # Use dual-cache incremental decode for speed.
         out = model(prefix, use_cache=True)
-        cache = out["cache"]
+        cache = out.get("cache")
         logits = out["logits"][:, -1, :]                        # (B, V)
 
         preds = []
+        seq = prefix
         for _ in range(K):
             tok = logits.argmax(dim=-1, keepdim=True)           # (B, 1)
             preds.append(tok)
-            out = model(tok, cache=cache, use_cache=True)
-            cache = out["cache"]
+            if cache is not None:
+                # Incremental cache decode (correct + fast for stateful models).
+                out = model(tok, cache=cache, use_cache=True)
+                cache = out.get("cache")
+            else:
+                # Recompute decode: cacheless models must see the full sequence,
+                # otherwise they lose all prefix context.
+                seq = torch.cat([seq, tok], dim=1)
+                out = model(seq)
             logits = out["logits"][:, -1, :]
         preds = torch.cat(preds, dim=1)                          # (B, K)
 

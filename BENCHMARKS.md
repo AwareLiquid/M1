@@ -6,54 +6,78 @@ strengths: (1) long-range selective memory via `h_prev` recurrence, (2) global
 information bottleneck via GWTB, and (3) consciousness-relevant integration
 collapse via the Anesthesia Validation Protocol.
 
-## Headline result: head-to-head at matched parameter count
+> **Correction note (2026-06-29).** An earlier version of this section reported
+> a ×42 sequence-exact advantage. That number was an **evaluation artifact**:
+> `evaluate_selective_copy` decoded token-by-token off an incremental cache, but
+> the vanilla Transformer/LNN baselines return `cache=None` (they implement no
+> cache), so the decoder fed them a lone token each step and silently dropped
+> all prefix context — crushing them to near-random. MT-LNN, whose recurrent
+> state cache works, was unaffected. The decoder now falls back to a
+> **full-sequence recompute** path for cacheless models, so all architectures
+> are compared fairly. Under the fair decode the real advantage is **modest**
+> (×1.3 on sequence-exact at T=32), not a knockout. Numbers below are the
+> corrected, fair measurements.
 
 Three architectures trained on identical Selective Copy data with identical
-hyperparameters, parameter-matched to ~200K each. MT-LNN now uses **real
-parallel-scan recurrence** (no longer "fake parallel mode"):
+hyperparameters, parameter-matched to ~200K each, then evaluated with the
+**same fair full-sequence decode** for every model (16 batches × 16 = 256
+held-out sequences, 1500 training steps):
 
 | Model | #Params | Training tok-acc | **Held-out tok-acc** | **Held-out seq-exact** | AVP responsive |
 |---|---:|---:|---:|---:|:---:|
 | Random baseline | — | — | 0.250 | 0.0039 | — |
-| Vanilla Transformer | 199,464 | 0.938 | 0.432 | 0.023 | ✗ no |
-| LNN (CfLTC FFN only) | 135,930 | 0.969 | 0.433 | 0.023 | ✗ no |
-| **MT-LNN (with pscan)** | **203,697** | **0.984** | **0.983** | **0.965** | **✓ (+8.499)** |
-| MT-LNN advantage | — | — | **+0.55 (×2.3)** | **+0.942 (×42)** | — |
+| Vanilla Transformer | 199,464 | 0.875 | 0.874 | 0.676 | ✗ no |
+| LNN (CfLTC FFN only) | 135,930 | 0.969 | 0.900 | 0.727 | ✗ no |
+| **MT-LNN (with pscan)** | **224,900** | **1.000** | **0.949** | **0.895** | **✓ (+8.274)** |
+| MT-LNN advantage vs Transformer | — | — | **+0.075 (×1.09)** | **+0.219 (×1.32)** | — |
+
+MT-LNN reaches the highest held-out sequence-exact recall, but the lead over a
+plain Transformer is single-digit-to-modest, and the LNN baseline (attention +
+liquid LTC, no microtubule structure) is close behind — so most of the gain on
+this task comes from the *liquid* component, with the microtubule machinery
+adding a smaller increment.
 
 ### Long-context sweep: does the temporal advantage grow with T?
 
-The Selective Copy task at three sequence lengths, same models, same recipe.
-Reproduce with `python benchmarks/long_context.py` (~7 min on CPU).
+The Selective Copy task at three sequence lengths, same models, same recipe,
+**equal 1500-step budget at every length** (the earlier sweep used 600/600/500
+steps, which left the slower-converging MT-LNN undertrained and confounded the
+comparison). Fair full-sequence decode for all models.
+Reproduce with `python benchmarks/long_context.py` (~21 min on CPU).
 
 **Held-out sequence-exact accuracy:**
 
-| T_total | Transformer | LNN | **MT-LNN** | MT-LNN advantage |
+| T_total | Transformer | LNN | **MT-LNN** | MT-LNN vs Transformer |
 |---:|---:|---:|---:|---:|
-| 37  (steps=600) | 0.031 | 0.031 | **0.523** | ×17 |
-| 101 (steps=600) | 0.016 | 0.016 | **0.438** | **×27** |
-| 229 (steps=500) | 0.016 | 0.016 | **0.094** | ×6 |
+| 37  | 0.672 | 0.703 | **0.883** | +0.211 (×1.31) |
+| 101 | 0.570 | 0.727 | **0.742** | +0.172 (×1.30) |
+| 229 | 0.109 | 0.172 | **0.219** | +0.110 (×2.0) |
 
 **Held-out token accuracy:**
 
-| T_total | Transformer | LNN | **MT-LNN** |
+| T_total | Transformer | LNN | MT-LNN |
 |---:|---:|---:|---:|
-| 37  | 0.475 | 0.475 | **0.760** |
-| 101 | 0.438 | 0.424 | **0.756** |
-| 229 | 0.387 | 0.434 | **0.602** |
+| 37  | 0.871 | 0.887 | **0.947** |
+| 101 | 0.805 | **0.914** | 0.867 |
+| 229 | 0.656 | **0.691** | 0.625 |
 
-**Interpretation:**
+**Interpretation (honest):**
 
-1. **MT-LNN's advantage grows from ×17 → ×27 going from T=37 to T=101** —
-   real evidence that the temporal-recurrence inductive bias is what gives
-   it long-range memory, not just better hyperparameters at the short-task
-   default.
-2. **At T=229, all three models are training-budget-limited** (only 500
-   steps for a 229-token task with batch=8). MT-LNN still wins by ×6 on
-   sequence accuracy and is the only architecture that exceeds the random
-   baseline meaningfully.
-3. **Transformer's token accuracy degrades from 0.475 → 0.387 as T grows**
-   while MT-LNN holds at ~0.60-0.76 — the recurrent state compactly stores
-   the K_mem retrieval cues even as the noise prefix lengthens.
+1. **On strict whole-sequence recall (seq-exact), MT-LNN is the best at every
+   length** — 0.883 / 0.742 / 0.219. Its lead over a vanilla Transformer is
+   consistent (~+0.17–0.21 absolute at T=37/101) and the *ratio* widens at the
+   longest length (×2.0 at T=229), though absolute accuracy collapses for all
+   three there under the limited budget. This is suggestive of a length
+   advantage, but it is modest, not the order-of-magnitude gap the buggy
+   evaluation implied.
+2. **The LNN baseline is competitive.** Attention + liquid LTC (no microtubule
+   structure) nearly ties MT-LNN on seq-exact at T=101 (0.727 vs 0.742) and
+   *beats* it on token-accuracy at T=101 and T=229. So most of the benefit on
+   this task is the liquid recurrence; the microtubule machinery adds a smaller
+   increment, mainly visible on the all-or-nothing seq-exact metric.
+3. **MT-LNN does not dominate token-accuracy.** It wins token-acc only at T=37;
+   the baselines match or beat it at longer T. MT-LNN's edge is specifically on
+   recalling *every* memorable token in order, not on average per-token recall.
 
 ### Parallel scan ablation (proves real recurrence matters)
 
@@ -75,20 +99,19 @@ python benchmarks/compare_baselines.py
 
 ### What this shows
 
-1. **Selective Copy generalisation gap.** Transformer and LNN both fit the
-   training distribution (>92% token accuracy during training) but fail
-   to generalise: held-out token accuracy is ~45% (just 1.8× random),
-   and held-out sequence exact match is ~2% — barely above the 0.4%
-   random floor. They appear to memorise positions rather than learn
-   the underlying selectivity rule.
+1. **All three architectures learn the task and generalise** under a fair
+   decode: held-out token accuracy is 0.87–0.95 and sequence-exact 0.68–0.90
+   at T=32 — all far above the 0.25 / 0.004 random floors. (The earlier claim
+   that the baselines "collapse to ~2% seq-exact" was the evaluation artifact
+   described in the correction note above, not a real failure to generalise.)
 
-2. **MT-LNN closes the gap.** Held-out token accuracy 98.3% (vs ~43%
-   for both baselines) and sequence exact match **96.5% — 42× the
-   Transformer baseline**. The architectural priors that close the gap
-   are exactly the ones the paper highlights: 13 parallel protofilaments
-   with content-aware RMC + nearest-neighbour lateral coupling, periodic
-   GTP-cap renewal, MAPGate stabilisation. None of these exist in the
-   baselines.
+2. **MT-LNN has the highest sequence-exact recall, by a modest margin.**
+   0.895 vs 0.676 (Transformer) and 0.727 (LNN) at T=32 — a +0.22 / ×1.32 edge
+   over the Transformer. The architectural priors it adds over the baselines
+   (13 parallel protofilaments with content-aware RMC + nearest-neighbour
+   lateral coupling, periodic GTP-cap renewal, MAPGate stabilisation) buy a
+   real but incremental improvement on this task, concentrated in the
+   all-or-nothing whole-sequence metric rather than average token accuracy.
 
 3. **AVP is architecturally specific.** Anesthesia hooks attach only to
    `MTLNNLayer` and `GlobalCoherenceLayer`. The Transformer and LNN
@@ -104,9 +127,12 @@ This is a fair comparison **at toy scale** (200K params, synthetic Selective
 Copy). It is **not** a comparison vs mainstream 125M models (GPT-2-117M,
 Mamba-130M, Pythia-160M) — those would require training MT-LNN at 125M on
 WikiText-103, which we list as future work. The honest interpretation: at
-matched parameter budget, MT-LNN's inductive biases give it a substantial
-generalisation advantage on selective-memory tasks. Whether that
-advantage scales to 100M+ params on natural language is the next
+matched parameter budget and a fair decode, MT-LNN's inductive biases give it a
+**modest but consistent** edge on whole-sequence recall (×1.3 over a vanilla
+Transformer at T=32), with the simpler liquid-LTC baseline close behind. This
+is a real architectural signal on a selective-memory task — not the
+order-of-magnitude gap an earlier evaluation bug suggested. Whether even this
+modest advantage scales to 100M+ params on natural language is the next
 experiment to run.
 
 ---

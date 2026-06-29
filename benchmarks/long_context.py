@@ -143,10 +143,14 @@ def main():
     #   T_noise=96  -> T_total=101    (3x longer)
     #   T_noise=224 -> T_total=229    (7x longer)
     #   T_noise=480 -> T_total=485    (13x longer) — skip on CPU if too slow
+    # Equal, adequate step budget at every length so the comparison is not
+    # confounded by undertraining (MT-LNN converges slower than the baselines;
+    # at 600 steps it is still far from its loss floor). 1500 steps lets all
+    # three models reach a stable held-out accuracy.
     schedule = [
-        (32,   600),
-        (96,   600),
-        (224,  500),
+        (32,   1500),
+        (96,   1500),
+        (224,  1500),
     ]
 
     all_results = []
