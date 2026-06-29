@@ -166,7 +166,7 @@ This requires institutional resources, but the path is visible:
 - **Clinical records** (long patient histories): HIPAA-compliant local deployment at 7B scale
 
 **MT-LNN 在阶段三前能赢 GPT-4 的具体场景：**
-法律合同审查、大型代码库理解、多轮对话长期记忆、临床病历分析——所有这些场景的共同点是**上下文极长、需要精确检索**，正是 MT-LNN 基准测试里 ×17–×42 优势的来源。
+法律合同审查、大型代码库理解、多轮对话长期记忆、临床病历分析——所有这些场景的共同点是**上下文极长、需要精确检索**，正是 MT-LNN 在 Selective Copy 基准上稳定领先（公平全序列解码下逐序列召回各长度均居首，较 Transformer 约 1.3×，并随序列增长扩大至约 2×）的来源。
 
 ---
 

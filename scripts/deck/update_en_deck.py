@@ -15,7 +15,7 @@ replacement = r'''\begin{frame}{Core Validation: Verifiable \& Open Benchmarks}
     \item \textbf{2. Noise Immunity ("Needle in a Haystack" Retrieval)}
     \begin{itemize}
         \item \textbf{Testing Baseline:} Fair sandbox evaluation at 200K scale with extreme sequence lengths.
-        \item \textbf{Commercial Meaning in Plain Terms:} Accuracy is \textbf{42 times higher} (96.5\% for AwareLiquid vs a crashed 2.3\% for standard Transformer). In plain terms: your AI will never "hallucinate" or forget past conversations, completely locking down facts across months of history.
+        \item \textbf{Commercial Meaning in Plain Terms:} Under a fair full-sequence decode, AwareLiquid leads on whole-sequence recall at every length -- a modest $\sim$1.3$\times$ over a standard Transformer at $T=32$ (89.5\% vs 67.6\%) that widens to $\sim$2$\times$ at $T=229$ (21.9\% vs 10.9\%). In plain terms: our state-based memory holds onto scattered facts more reliably as conversations grow longer.
         \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/run_benchmark.py}{\texttt{benchmarks/run\_benchmark.py}}
     \end{itemize}
     \vspace{0.2em}

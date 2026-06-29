@@ -128,21 +128,27 @@ The following results are from the project's existing benchmark suite (see `BENC
 
 以下数据来自项目现有基准套件（见 `BENCHMARKS.md`），在**玩具规模（20 万参数，Selective Copy 任务）**下测量。这些数字描述的是 MT-LNN 架构本身的优势，与本次 adapter 训练独立。
 
-### Selective Copy — Sequence Exact Match
+> **Correction (2026-06-29):** earlier drafts of this table used an unfair
+> token-by-token decode that starved the cacheless Transformer/LNN baselines of
+> context (collapsing them toward random) and inflated MT-LNN's lead to "×42".
+> Under a fair full-sequence decode (see `BENCHMARKS.md`), the corrected numbers
+> below show a **modest but consistent** MT-LNN lead that widens with length.
+
+### Selective Copy — Sequence Exact Match (fair full-sequence decode, 1500 steps)
 
 | Context Length (T) | Transformer | LNN | **MT-LNN** | Advantage |
 |-------------------:|------------:|----:|----------:|----------:|
-| 37 | 3.1% | 3.1% | **52.3%** | **×17** |
-| 101 | 1.6% | 1.6% | **43.8%** | **×27** |
-| 229 | 1.6% | 1.6% | **9.4%** | **×6** |
+| 37 | 67.2% | 70.3% | **88.3%** | **×1.3** |
+| 101 | 57.0% | 72.7% | **74.2%** | **×1.3** |
+| 229 | 10.9% | 17.2% | **21.9%** | **×2.0** |
 
-### Head-to-Head at Matched Parameter Count (~200K)
+### Head-to-Head at Matched Parameter Count (~200K, T=32, 1500 steps)
 
 | Model | Held-out token acc | Held-out seq-exact |
 |-------|-------------------:|-------------------:|
-| Transformer | 43.2% | 2.3% |
-| LNN | 43.3% | 2.3% |
-| **MT-LNN** | **98.3%** | **96.5% (×42)** |
+| Transformer | 87.4% | 67.6% |
+| LNN | 90.0% | 72.7% |
+| **MT-LNN** | **94.9%** | **89.5% (×1.3)** |
 
 ### Needle-in-a-Haystack (1.1B Scale, TinyLlama)
 
@@ -158,7 +164,7 @@ MT-LNN adapter 在 1024–4096 token 上下文中保持 **100% 精确检索**，
 
 | # | Advantage | Evidence |
 |---|-----------|----------|
-| 1 | **Long-range selective memory** — recurrent `h_prev` state retains cues across full sequence | ×17–×42 on Selective Copy vs Transformer |
+| 1 | **Long-range selective memory** — recurrent `h_prev` state retains cues across full sequence | Leads Selective Copy seq-exact at every length; ×1.3 vs Transformer at T=32 widening to ×2.0 at T=229 |
 | 2 | **Parameter efficiency** — 12.4M adapter on 494M frozen base; architecture inductive bias does the work | 2.5% extra params, meaningful capability addition |
 | 3 | **Multi-timescale dynamics** — 5 τ scales (0.01–10.0), τ_std=3.85 after training confirms genuine multi-scale use | MT diagnostics post-training |
 | 4 | **Bilingual capability** — Qwen2.5 base provides native Chinese+English; adapter does not degrade this | Demo tested in both languages |

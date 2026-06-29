@@ -368,7 +368,7 @@ All: 12 layers, $d_\text{model}=832$, 13 heads, AdamW ($\beta_1=0.9$, $\beta_2=0
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{fig_experiments.pdf}
-\caption{\textbf{Experimental Results Summary.} \textbf{Left:} The Integration Metric ($\hat{\Phi}$) versus WikiText-103 Perplexity. MT-LNN demonstrates simultaneous improvement in integration and computational performance. \textbf{Center:} Accuracy across selected Long-Range Arena (LRA) tasks. \textbf{Right:} The Long-Context Selective Copy performance advantage ratio compared to the Transformer baseline, demonstrating state-retention superiority across extended sequences.}
+\caption{\textbf{Experimental Results Summary.} \textbf{Left:} The Integration Metric ($\hat{\Phi}$) versus WikiText-103 Perplexity. MT-LNN demonstrates simultaneous improvement in integration and computational performance. \textbf{Center:} Accuracy across selected Long-Range Arena (LRA) tasks. \textbf{Right:} Held-out sequence-exact accuracy on the Long-Context Selective Copy task versus sequence length. Under a fair full-sequence decode, MT-LNN holds a modest but consistent lead over the Transformer and LNN baselines that tends to widen as the stream grows.}
 \label{fig:experiments}
 \end{figure*}
 
@@ -413,26 +413,26 @@ Largest gain on Pathfinder (+8.9\,pp over Transformer), requiring long-range spa
 \subsection{Long-Context Selective Copy}
 \label{sec:long_context}
 
-To directly test the temporal-recurrence hypothesis — that MT-LNN's advantage \emph{grows} with sequence length — we run a \textbf{selective copy} task \citep{arjovsky2016unitary}: a sequence of $T_\text{total} = T_\text{noise} + 5$ tokens contains $T_\text{noise}$ noise tokens followed by 5 ``memorable'' tokens; the model must reproduce the 5 memorable tokens and ignore all noise. Success requires tracking state across $T_\text{noise}$ positions.
+To test the temporal-recurrence hypothesis — whether MT-LNN's advantage holds and \emph{grows} with sequence length — we run a \textbf{selective copy} task \citep{arjovsky2016unitary}: a sequence of $T_\text{total} = T_\text{noise} + 5$ tokens contains $T_\text{noise}$ noise tokens followed by 5 ``memorable'' tokens; the model must reproduce the 5 memorable tokens and ignore all noise. Success requires tracking state across $T_\text{noise}$ positions.
 
-All three models use $\approx$200K parameters each (2 layers, $d_\text{model}=104$, 4 heads) and identical training recipes.
+All three models use $\approx$200K parameters each (2 layers, $d_\text{model}=104$, 4 heads), identical training recipes (1500 steps per length), and — critically — are decoded the \emph{same} way: a full-sequence recompute at each step. (An earlier draft decoded the cacheless baselines incrementally off a non-existent cache, dropping their context and inflating the reported advantage to $\times$42; the numbers below are the corrected, fair measurements.)
 
 \begin{table}[h]
 \centering
-\caption{Selective Copy: sequence-exact accuracy at three noise lengths. MT-LNN advantage = MT-LNN / Transformer seq-exact ratio. Advantage \emph{grows} from T=37 to T=101, confirming recurrent temporal state does real work.}
+\caption{Selective Copy: held-out sequence-exact accuracy at three noise lengths, equal 1500-step budget, fair full-sequence decode for all models. Advantage = MT-LNN / Transformer seq-exact ratio.}
 \label{tab:long_ctx}
 \begin{tabular}{lccccc}
 \toprule
 $T_\text{total}$ & $T_\text{noise}$ & Transformer & LNN & MT-LNN & Advantage \\
 \midrule
-37   &  32 & 3.1\%  & 3.1\%  & 52.3\% & $\times$17 \\
-101  &  96 & 1.6\%  & 1.6\%  & 43.8\% & $\times$27 \\
-229  & 224 & 1.6\%  & 1.6\%  &  9.4\% & $\times$6  \\
+37   &  32 & 67.2\% & 70.3\% & 88.3\% & $\times$1.3 \\
+101  &  96 & 57.0\% & 72.7\% & 74.2\% & $\times$1.3 \\
+229  & 224 & 10.9\% & 17.2\% & 21.9\% & $\times$2.0 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Key finding.} The advantage \emph{grows} from $\times$17 at $T=37$ to $\times$27 at $T=101$, providing direct evidence that MT-LNN's recurrent temporal state is doing real work — not a short-context artefact. At $T=229$, the advantage drops to $\times$6 (500 training steps, only half of the shorter experiments), yet still far exceeds the Transformer baseline. Extended training at $T=229$ would likely restore the growth trend.
+\textbf{Key finding.} Under a fair decode the advantage is \emph{modest, not order-of-magnitude}: MT-LNN has the highest whole-sequence recall at every length, leading a vanilla Transformer by $\sim$17--21 points at $T=37$/$101$, and the \emph{ratio} grows to $\times$2.0 at $T=229$ as the Transformer degrades faster — although absolute accuracy collapses for all three under the limited budget at that length. The liquid-LTC baseline (LNN) is competitive throughout, even matching MT-LNN at $T=101$, so most of the gain on this task is attributable to the liquid recurrence, with the microtubule machinery contributing a smaller increment concentrated in the all-or-nothing seq-exact metric. This is suggestive of a length-scaling benefit, but the present evidence is directional rather than a clean scaling law.
 
 \textbf{Theoretical interpretation.} In the selective copy task the optimal solution tracks $K=5$ key tokens in recurrent state across $T_\text{noise}$ positions. Transformer attention is $O(T^2)$ and re-attends to the whole context on every decode step, making it content-aware but not state-compressed. MT-LNN's 13-protofilament LTC state accumulates the memorable tokens compactly in $h_\text{prev}\in\RR^{P\times D}$ via the Blelloch scan (Eq.\ \ref{eq:pscan}), achieving $O(1)$ state-size independent of $T_\text{noise}$. This is the same asymptotic advantage that makes S4/Mamba superior on long-range tasks relative to Transformers.
 

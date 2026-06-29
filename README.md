@@ -44,16 +44,22 @@ Cross-base universal PPL uplift on WikiText-2-raw-v1 with 0.1–0.2 % trainable 
 
 Same recipe transfers across Llama and Qwen families; PPL improvement grows with base size. Real $O(N)$ generation with `past_key_values` is implemented in `scripts/awareliquid_real_trace_v3.py`. Raw artifacts in `benchmarks/kaggle_{run,qwen_run,qwen3b_run}/`. Tag: `v1.0.0-track1-ppl34`.
 
-Selective Copy at matched ~200K params (training-from-scratch ablation):
+Selective Copy at matched ~200K params (training-from-scratch ablation),
+all models decoded the same fair way (full-sequence recompute), 1500 steps:
 
 | Model                   | #Params | Held-out tok-acc | **Held-out seq-exact** |
 |---                      |---:     |---:              |---:                    |
 | Random                  | —       | 0.250            | 0.004                  |
-| Vanilla Transformer     | 199 K   | 0.432            | 0.023                  |
-| LNN (CfLTC FFN)         | 136 K   | 0.433            | 0.023                  |
-| **MT-LNN (full arch)**  | 204 K   | **0.983**        | **0.965** (×42 over Transformer) |
+| Vanilla Transformer     | 199 K   | 0.874            | 0.676                  |
+| LNN (CfLTC FFN)         | 136 K   | 0.900            | 0.727                  |
+| **MT-LNN (full arch)**  | 225 K   | **0.949**        | **0.895** (×1.3 over Transformer) |
 
-Long-context advantage grows with $T$: at $T{=}101$, MT-LNN seq-exact is 34× the Transformer baseline. Full table in [BENCHMARKS.md](BENCHMARKS.md).
+MT-LNN has the highest whole-sequence recall, but the margin is modest and the
+liquid-LTC baseline is close behind. At longer noise lengths the Transformer
+degrades faster, so the *ratio* grows (≈×2 at $T{=}229$), though absolute
+accuracy drops for all three. Full table — and the correction note explaining
+why an earlier version reported ×42 (an evaluation artifact) — in
+[BENCHMARKS.md](BENCHMARKS.md).
 
 ---
 
@@ -543,7 +549,7 @@ Research-grade code. All 967 tests pass (model · rhythm · causality · world-m
 
 What's validated:
 
-- ✅ Architectural priors (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC, GWTB) yield ×42 advantage on long-range selective tasks at matched 200K params, growing with $T$.
+- ✅ Architectural priors (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC, GWTB) yield a modest but consistent edge on whole-sequence recall in long-range selective tasks at matched 200K params (×1.3 over a vanilla Transformer at $T{=}32$; ratio grows at longer $T$).
 - ✅ MT-residual adapter transfers across Llama and Qwen bases at 0.1–0.2 % trainable params, with PPL improvement that scales positively (−28 % at 1.1B → −34 % at 3B).
 - ✅ Real $O(N)$ generation with `past_key_values`; state-only streaming reduces 1000-token decode footprint from ~1020 KB → 4.1 KB.
 

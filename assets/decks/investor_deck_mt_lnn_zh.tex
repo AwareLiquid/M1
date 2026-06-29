@@ -300,11 +300,11 @@
 \begin{column}{0.55\textwidth}
 \textbf{超长噪声插入测试 ($T=229$)：}
 \begin{itemize}
-    \item \textbf{传统机制表现受限：} 随着文本长度和无关噪声的增加，传统小型序列模型的关键信息提取准确率锐减，极端情况下甚至下滑至 $2\%$ (约等于随机瞎猜)。
-    \item \textbf{MT-LNN 的高鲁棒性：} 凭借动态选择性过滤与隐状态遗忘机制，在极高噪音的干扰下，仍能将精确匹配率稳定保持在 \textbf{96.5\%}。
+    \item \textbf{长度压力测试：} 随着文本长度和无关噪声的增加，所有模型的逐序列完全匹配率都会下降。在公平的全序列解码下，$T=229$ 时 Transformer 基线降至 \textbf{10.9\%}，传统 LNN 为 \textbf{17.2\%}。
+    \item \textbf{MT-LNN 优势随长度扩大：} 凭借动态选择性过滤与隐状态遗忘机制，MT-LNN 在该长度下仍以 \textbf{21.9\%} 领先，约为 Transformer 的 \textbf{2$\times$}。
 \end{itemize}
 \vspace{0.5em}
-\textbf{在同等极小参数量 (200K) 评测下，性能大幅领先于主流竞品架构。}
+\textbf{在同等极小参数量 (200K) 评测下，MT-LNN 在各长度上的逐序列召回均领先：$T=32$ 时较 Transformer 适度领先约 1.3$\times$（89.5\% vs 67.6\%），并随序列增长扩大至约 2$\times$。}
 \end{column}
 \begin{column}{0.45\textwidth}
 \centering
@@ -333,13 +333,13 @@
 \begin{frame}[allowframebreaks]{硬核实测：AwareLiquid 与主流同梯队架构的数据鸿沟}
 \small
 \begin{itemize}\itemsep=0.3em
-    \item 在同等参数（200K级别微型沙盒验证）的绝对公平盲测下，AwareLiquid 展现出了令人惊悚的压制力：
+    \item 在同等参数（200K级别微型沙盒验证）的绝对公平盲测下，AwareLiquid 展现出稳定且可复现的领先：
     \vspace{0.5em}
     \item \textbf{1. 长文极限抗干扰（$T=229$ 大海捞针盲测）：}
     \begin{itemize}
-        \item \textbf{AwareLiquid 架构 (MT-LNN)：} 长序列事实的完全匹配率高达 \textbf{96.5\%}。
-        \item \textbf{标准 Transformer / 传统 LNN：} 仅为 \textbf{2.3\%}（基本等同于崩溃瞎猜）。
-        \item \textbf{[鸿沟]}：哪怕在显微镜级别测试下，AwareLiquid 的强力信息锚定能力更是将传统架构甩开了足足 \textbf{42倍}。
+        \item \textbf{AwareLiquid 架构 (MT-LNN)：} 在公平全序列解码下，长序列逐序列完全匹配率为 \textbf{21.9\%}，各长度均居首位。
+        \item \textbf{标准 Transformer / 传统 LNN：} 同长度下分别为 \textbf{10.9\%} 与 \textbf{17.2\%}。
+        \item \textbf{[优势]}：MT-LNN 在 $T=32$ 时较 Transformer 适度领先约 \textbf{1.3$\times$}（89.5\% vs 67.6\%），并随序列增长扩大至 $T=229$ 时的约 \textbf{2$\times$}。
     \end{itemize}
     \vspace{0.3em}
     \item \textbf{2. 内存运行极值压测（以 1000 Token 处理为例）：}
@@ -443,10 +443,10 @@
         \item \textbf{M1:} 核心隐状态 $h_{prev}$ 始终锁定在 \textbf{4.1 KB}。绝大部分日常推理在本地 CPU/NPU 免费完成，极大幅度地降低对昂贵云端算力的依赖。
     \end{itemize}
     \vspace{0.5em}
-    \item \textbf{2. 碾压级的长时记忆与精准度：}
+    \item \textbf{2. 稳健的长时记忆与精准度：}
     \begin{itemize}
-        \item \textbf{Transformer:} 同等参数下，面对抗噪序列提取（大海捞针），其精准召回率暴跌至 \textbf{2.3\%}。
-        \item \textbf{M1:} 维持在 \textbf{96.5\%（提升42倍）}。基于自上而下的预测编码机制，脱离核心逻辑即刻由于高预测误差而“亮灯拦截”，从根源有效压制幻觉（Hallucination）。
+        \item \textbf{Transformer:} 同等参数下，面对抗噪序列提取（大海捞针），其逐序列召回率从 $T=32$ 的 \textbf{67.6\%} 随噪声增加降至 $T=229$ 的 \textbf{10.9\%}。
+        \item \textbf{M1:} 各长度均领先——$T=32$ 为 \textbf{89.5\%}（约 1.3$\times$），$T=229$ 扩大至 \textbf{21.9\% vs 10.9\%}（约 2$\times$）。基于自上而下的预测编码机制有助于压制幻觉（Hallucination）。
     \end{itemize}
     \vspace{0.5em}
     \item \textbf{3. 更快：零网络延迟与稀疏共振加速：}
@@ -470,7 +470,7 @@
     \item \textbf{2. 极端噪音下金线索提取（大海捞针盲测）}
     \begin{itemize}
         \item \textbf{测试基准：} 200K 微型参数沙盒环境下的极长文本对抗。
-        \item \textbf{商业意义：} 精准度 \textbf{领先同类模型 42 倍} (传统 Transformer 召回率跌至 2.3\% v.s. AwareLiquid 维持在 96.5\%)。这意味着当它处理连篇累牍的文件或数月前的用户逻辑时，能够准确无误，基本杜绝“失忆”或者产生幻觉的情况。
+        \item \textbf{商业意义：} 在公平全序列解码下，AwareLiquid 在各长度上的逐序列召回均居首位——$T=32$ 时较 Transformer 适度领先约 \textbf{1.3$\times$}（89.5\% vs 67.6\%），并随序列增长扩大至 $T=229$ 时的约 \textbf{2$\times$}（21.9\% vs 10.9\%）。这意味着当它处理连篇累牍的文件或数月前的用户逻辑时，对分散事实的记忆随对话变长而更可靠。
         \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/run_benchmark.py}{\texttt{benchmarks/run\_benchmark.py}}
     \end{itemize}
     \vspace{0.4em}

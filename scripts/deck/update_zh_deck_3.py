@@ -15,7 +15,7 @@ replacement = r'''\begin{frame}{核心验证：100\% 开源可复现的基准测
     \item \textbf{2. 极端噪音下金线索提取（大海捞针盲测）}
     \begin{itemize}
         \item \textbf{测试基准：} 200K 微型参数沙盒环境下的极长文本对抗。
-        \item \textbf{大白话商业意义：} 精准度 \textbf{暴打同类模型 42 倍} (传统 Transformer 召回率暴跌至 2.3\% v.s. AwareLiquid 的 96.5\%)。这意味着当它处理连篇累牍的文件或数月前的长逻辑时，绝对不会“失忆”或者产生幻觉。
+        \item \textbf{大白话商业意义：} 在公平全序列解码下，AwareLiquid 在各长度上的逐序列召回均居首位——$T=32$ 时较 Transformer 适度领先约 \textbf{1.3$\times$}（89.5\% vs 67.6\%），并随序列增长扩大至 $T=229$ 时的约 \textbf{2$\times$}（21.9\% vs 10.9\%）。这意味着处理连篇累牍的文件或数月前的长逻辑时，对分散事实的记忆随对话变长而更可靠。
         \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/run_benchmark.py}{\texttt{benchmarks/run\_benchmark.py}}
     \end{itemize}
     \vspace{0.4em}

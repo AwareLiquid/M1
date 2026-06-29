@@ -17,13 +17,13 @@ injection = r"""\begin{frame}{从产品与商业化看 M1 的降维打击}
 
 \begin{frame}{硬核实测：M1 与主流同梯队架构的数据鸿沟}
 \begin{itemize}
-    \item 在同等参数（200K级别微型沙盒验证）的绝对公平盲测下，M1 展现出了令人惊悚的压制力：
+    \item 在同等参数（200K级别微型沙盒验证）的绝对公平盲测下，M1 展现出稳定且可复现的领先：
     \vspace{0.5em}
     \item \textbf{1. 长文极限抗干扰（$T=229$ 大海捞针盲测）：}
     \begin{itemize}
-        \item \textbf{M1 架构 (MT-LNN)：} 长序列事实的完全匹配率高达 \textbf{96.5\%}。
-        \item \textbf{标准 Transformer / 传统 LNN：} 仅为 \textbf{2.3\%}（基本等同于崩溃瞎猜）。
-        \item \textbf{[鸿沟]}：哪怕在显微镜级别测试下，M1 的强力信息锚定能力更是将传统架构甩开了足足 \textbf{42倍}。
+        \item \textbf{M1 架构 (MT-LNN)：} 在公平全序列解码下，长序列逐序列完全匹配率为 \textbf{21.9\%}，各长度均居首位。
+        \item \textbf{标准 Transformer / 传统 LNN：} 同长度下分别为 \textbf{10.9\%} 与 \textbf{17.2\%}。
+        \item \textbf{[优势]}：M1 在 $T=32$ 时较 Transformer 适度领先约 \textbf{1.3$\times$}（89.5\% vs 67.6\%），并随序列增长扩大至 $T=229$ 时的约 \textbf{2$\times$}。
     \end{itemize}
     \vspace{0.3em}
     \item \textbf{2. 内存运行极值压测（以 1000 Token 处理为例）：}
