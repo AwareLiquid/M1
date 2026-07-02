@@ -314,6 +314,8 @@ td.good{color:#16a34a;font-family:var(--mono);font-size:12.5px}
 .live{width:7px;height:7px;border-radius:50%;background:#c0c0cc}
 .live.ok{background:#10a37f}
 .live.err{background:#ef4444}
+.live.warm{background:#f5a623;animation:livepulse 1.1s ease-in-out infinite}
+@keyframes livepulse{0%,100%{opacity:1}50%{opacity:.28}}
 .demo-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
 .demo-scroll::-webkit-scrollbar{width:6px}
 .demo-scroll::-webkit-scrollbar-thumb{background:#e3e3e8;border-radius:3px}
@@ -335,6 +337,7 @@ td.good{color:#16a34a;font-family:var(--mono);font-size:12.5px}
 .turn.assistant .who .av{width:18px;height:18px;border-radius:50%;background:var(--fg);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .turn.assistant .who .av i{width:6px;height:6px;border-radius:50%;background:var(--bg);display:block}
 .bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
+.bubble.warming{color:var(--muted);font-size:14px;font-style:italic}
 @keyframes blink{50%{opacity:0}}
 .meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
 .bubble.md p{margin:0 0 8px}
@@ -1073,7 +1076,7 @@ const scroll=document.getElementById('scroll'),
       clearBtn=document.getElementById('clearBtn');
 
 const TEMP=0.8,MAXTOK=128,TOPP=0.9;
-let generating=false,abortCtl=null;
+let generating=false,abortCtl=null,modelReady=false;
 
 function refresh(){
   input.style.height='auto';
@@ -1117,6 +1120,7 @@ function renderWelcome(kind){
 }
 
 function applyModel(m,kind){
+  modelReady=true;
   live.className='live ok';
   const name=(m.base_model||'').split('/').pop()||'MT-LNN';
   const size=m.n_params>=1e9?`${(m.n_params/1e9).toFixed(1)}B`:`${(m.n_params/1e6).toFixed(0)}M`;
@@ -1127,13 +1131,34 @@ function applyModel(m,kind){
   renderWelcome(kind);
 }
 
-async function probe(base){
-  try{const r=await fetch(`${base}/v1/model`,{cache:'no-store'});if(!r.ok)return null;return await r.json();}
-  catch(e){return null;}
+async function probe(base,timeoutMs=8000){
+  try{
+    const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),timeoutMs);
+    const r=await fetch(`${base}/v1/model`,{cache:'no-store',signal:ctl.signal});
+    clearTimeout(t);
+    if(!r.ok)return null;return await r.json();
+  }catch(e){return null;}
+}
+// Poll /v1/model until the GPU container is warm. Modal scale-to-zero cold
+// starts take ~30-60s (loads TinyLlama onto the T4). Surfaces a "waking" state
+// via onState instead of hanging on a bare "Connecting…" or failing fast.
+// Returns the model info, or null if it can't warm within the budget.
+async function ensureWarm(base,onState){
+  const deadline=Date.now()+80000;let waking=false;
+  while(Date.now()<deadline){
+    const m=await probe(base);
+    if(m)return m;
+    if(!waking){waking=true;if(onState)onState('waking');}
+    await new Promise(r=>setTimeout(r,2500));
+  }
+  return null;
 }
 async function selectModel(base){
+  modelReady=false;
   live.className='live';statusText.textContent='Connecting…';
-  const m=await probe(base);
+  const m=await ensureWarm(base,state=>{
+    if(state==='waking'){live.className='live warm';statusText.textContent='Waking GPU… (~30s)';}
+  });
   if(m){API_BASE=base;modelSel.value=base;applyModel(m,base==='/adapter'?'adapter':'scratch');return true;}
   return false;
 }
@@ -1201,38 +1226,63 @@ async function send(){
   addUser(prompt);input.value='';refresh();
   const bot=addAssistant();
   generating=true;setSendIcon(true);sendBtn.disabled=false;
-  abortCtl=new AbortController();
+  abortCtl=null;
   const t0=performance.now();let ntok=0,acc='';
   try{
-    const res=await fetch(`${API_BASE}/v1/completions/stream`,{
-      method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
-      body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
-    });
-    if(!res.ok){bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
-    const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
-    while(true){
-      const{value,done}=await reader.read();if(done)break;
-      buf+=dec.decode(value,{stream:true});let idx;
-      while((idx=buf.indexOf('\n\n'))>=0){
-        const line=buf.slice(0,idx).trim();buf=buf.slice(idx+2);
-        if(!line.startsWith('data:'))continue;
-        const payload=line.slice(5).trim();
-        if(payload==='[DONE]')continue;
-        try{
-          const ev=JSON.parse(payload);
-          if(ev.text!=null){
-            acc+=ev.text;ntok++;
-            bot.classList.remove('empty');bot.classList.add('md');
-            bot.innerHTML=typeof marked!=='undefined'?marked.parse(acc):acc.replace(/&/g,'&amp;').replace(/</g,'&lt;');
-            if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<120)scroll.scrollTop=scroll.scrollHeight;
-          }
-        }catch(e){}
+    // Cold-start guard: if the GPU container was scaled to zero, warm it up
+    // first (with a friendly notice) so we never stream into a cold box and
+    // show a bogus "[no output]".
+    if(!modelReady){
+      bot.classList.remove('empty');bot.classList.add('warming');
+      bot.textContent='Waking the GPU… the first request after idle takes ~30s.';
+      const m=await ensureWarm(API_BASE,state=>{
+        if(state==='waking'){live.className='live warm';statusText.textContent='Waking GPU… (~30s)';}
+      });
+      bot.classList.remove('warming');
+      if(!m){bot.textContent='[GPU unavailable — please retry in a moment]';return;}
+      applyModel(m,API_BASE==='/adapter'?'adapter':'scratch');
+      bot.classList.add('empty');bot.textContent='';
+    }
+    // Stream, with one automatic retry if the first attempt yields zero tokens
+    // (the cold-start race: the container finished booting mid-request).
+    for(let attempt=0;attempt<2&&!acc;attempt++){
+      if(attempt>0){
+        bot.classList.remove('empty','md');bot.classList.add('warming');
+        bot.textContent='Warming up… retrying.';
+        await ensureWarm(API_BASE);
+        bot.classList.remove('warming');bot.classList.add('empty');bot.textContent='';ntok=0;
+      }
+      abortCtl=new AbortController();
+      const res=await fetch(`${API_BASE}/v1/completions/stream`,{
+        method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
+        body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
+      });
+      if(!res.ok){bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
+      const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
+      while(true){
+        const{value,done}=await reader.read();if(done)break;
+        buf+=dec.decode(value,{stream:true});let idx;
+        while((idx=buf.indexOf('\n\n'))>=0){
+          const line=buf.slice(0,idx).trim();buf=buf.slice(idx+2);
+          if(!line.startsWith('data:'))continue;
+          const payload=line.slice(5).trim();
+          if(payload==='[DONE]')continue;
+          try{
+            const ev=JSON.parse(payload);
+            if(ev.text!=null){
+              acc+=ev.text;ntok++;
+              bot.classList.remove('empty');bot.classList.add('md');
+              bot.innerHTML=typeof marked!=='undefined'?marked.parse(acc):acc.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+              if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<120)scroll.scrollTop=scroll.scrollHeight;
+            }
+          }catch(e){}
+        }
       }
     }
   }catch(e){
-    if(e.name!=='AbortError'){bot.classList.remove('empty');bot.textContent=acc+' [connection lost]';}
+    if(e.name!=='AbortError'){bot.classList.remove('empty','warming');bot.textContent=acc+' [connection lost]';}
   }finally{
-    bot.classList.remove('empty');
+    bot.classList.remove('empty','warming');
     if(!acc){bot.classList.remove('md');bot.textContent='[no output]';}
     const dt=(performance.now()-t0)/1000;
     const meta=document.createElement('div');meta.className='meta';
