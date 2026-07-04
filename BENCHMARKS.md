@@ -52,6 +52,36 @@ collapse via the Anesthesia Validation Protocol.
 > the differentiating test is `benchmarks/cross_window_recall.py`
 > (recall across a dropped KV cache, where attention cannot help).
 
+## Cross-window associative recall (2026-07-05)
+
+`benchmarks/cross_window_recall.py`: segment A shows 8 key→value token
+pairs, then the KV cache is **dropped** — segment B re-queries each key in
+a fresh attention context. The frozen attention physically cannot see
+segment A; the only A→B channel is the adapters' streaming recurrent
+state. TinyLlama-1.1B, 8000 steps, mixed protocol (75% cross-window),
+lr 1e-3, `--state_scale_init 0.1`, single P100, chance = 0.001:
+
+| config | trainable | in-window | **cross-window** |
+|---|---|---|---|
+| baseline (frozen) | 0 | 0.557 | 0.000 |
+| lora_only (r=8) | 2.25M | 0.000 † | 0.000 |
+| mt_only (v1, EMA state) | 62.8M | 0.994 | 0.002 |
+| mt_v2 **without** fast-weight | 5.2M | 0.996 | 0.008 |
+| mt_v2 (fast-weight) | 8.4M | 1.000 | **0.553** |
+| mt_v2s (+ selective decay) | 8.4M | 0.994 | **0.621** |
+
+Findings: (1) **the fast-weight matrix is the memory** — removing it
+collapses cross-window recall 0.553→0.008, and v1's 62.8M multi-timescale
+EMA state manages only 0.002: decaying averages cannot store discrete
+bindings. (2) **Selective (input-dependent) decay beats static** and the
+gap widens with training (0.490→0.553 vs 0.561→0.621 from 5k→8k steps;
+both still climbing). (3) LoRA/attention is **structurally zero** across
+the window — at 50/50 protocol mix it learns in-window recall fine (0.951,
+pilot) and still scores exactly 0.000 cross-window.
+† At the 75/25 mix the cross-window batches are an unlearnable objective
+for stateless configs; their gradient noise also destroys lora_only's
+in-window skill — reported honestly, see the 50/50 pilot for its 0.951.
+
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
 **same fair full-sequence decode** for every model (16 batches × 16 = 256
