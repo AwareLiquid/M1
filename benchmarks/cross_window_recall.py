@@ -180,6 +180,10 @@ def run_config(cfg: str, args, device, dtype) -> dict:
     m.train()
     opt = torch.optim.AdamW([p for p in m.parameters() if p.requires_grad],
                             lr=args.lr)
+    # fp16 (T4/P100 have no bf16) needs loss scaling or the adapters' small
+    # gradients underflow to zero. GradScaler rejects bf16, hence conditional.
+    scaler = (torch.amp.GradScaler("cuda")
+              if device == "cuda" and dtype == torch.float16 else None)
     g_train = torch.Generator().manual_seed(args.seed)
     t0 = time.time()
     for step in range(1, args.steps + 1):
@@ -189,10 +193,18 @@ def run_config(cfg: str, args, device, dtype) -> dict:
         with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
             logits_b = two_segment_forward(m, seg_a, seg_b, reset_fn)
             loss, acc = recall_loss_and_acc(logits_b, seg_b)
-        loss.backward()
+        if scaler is not None:
+            scaler.scale(loss).backward()
+            scaler.unscale_(opt)
+        else:
+            loss.backward()
         torch.nn.utils.clip_grad_norm_(
             [p for p in m.parameters() if p.requires_grad], 1.0)
-        opt.step()
+        if scaler is not None:
+            scaler.step(opt)
+            scaler.update()
+        else:
+            opt.step()
         opt.zero_grad(set_to_none=True)
         if step % args.log_every == 0:
             dt = max(time.time() - t0, 1e-3)

@@ -30,10 +30,27 @@ collapse via the Anesthesia Validation Protocol.
 > commit itself documents that the MT scale was frozen. The Phase 5/5b PPL
 > gains therefore measure **plain LoRA fine-tuning**, and the "first
 > end-to-end evidence that the MT-LNN inductive bias transfers" claim is
-> **retracted** pending `benchmarks/attribution_ablation.py` — a 6-config
-> controlled attribution (baseline / LoRA-only / MT-only / MT+LoRA / MT-v2 /
-> MT-v2+LoRA; identical data, steps, optimizer; held-out test PPL) whose
-> results will replace the affected tables.
+> **retracted**. The controlled attribution
+> (`benchmarks/attribution_ablation.py`) has since been run and confirms it.
+>
+> **Attribution results (2026-07-04, TinyLlama-1.1B, WikiText-2 test PPL,
+> 1000 steps, identical data/optimizer, single P100 fp16, seed 0):**
+>
+> | config | trainable | test PPL | vs base | ΔPPL/1M params |
+> |---|---|---|---|---|
+> | baseline (frozen) | 0 | 11.821 | — | — |
+> | **lora_only (r=8)** | **2.25M (0.20%)** | **7.984** | **−32.5%** | **+1.70** |
+> | mt_only (v1) | 62.8M (5.4%) | 8.102 | −31.5% | +0.06 |
+> | mt_lora (v1+LoRA) | 65.1M (5.6%) | 7.920 | −33.0% | +0.06 |
+> | mt_v2_only | 8.38M (0.76%) | 8.158 | −31.0% | +0.44 |
+> | mt_v2_lora | 10.6M (0.96%) | 7.918 | −32.9% | +0.37 |
+>
+> Verdict: **on plain-LM perplexity the MT adapter adds ≈nothing beyond
+> LoRA** (−0.064 PPL for +62.8M params; single-seed, within noise). v2
+> matches v1 quality at 7.5× fewer parameters. Perplexity inside the
+> attention window was the wrong battlefield for a memory architecture;
+> the differentiating test is `benchmarks/cross_window_recall.py`
+> (recall across a dropped KV cache, where attention cannot help).
 
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
