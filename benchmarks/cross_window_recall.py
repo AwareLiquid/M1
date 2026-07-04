@@ -174,7 +174,13 @@ def run_config(cfg: str, args, device, dtype) -> dict:
         torch.cuda.empty_cache()
         return {"config": cfg, "trainable": trainable, **res}
 
-    # --- train on the cross-window protocol, grads THROUGH carried state ---
+    # --- train, alternating protocols 50/50 (grads THROUGH carried state) ---
+    # Pure cross-window training is an UNLEARNABLE objective for stateless
+    # configs (the answer is not in their input): they degrade toward the
+    # value-marginal and their in-window skill is destroyed with nothing
+    # gained. Mixing teaches the recall task itself on even steps and the
+    # window-crossing variant on odd steps, so the in-window column shows
+    # "can it recall at all" and cross-window isolates "beyond attention".
     if has_state:
         set_stream_mode(m, True, train_through=True)
     m.train()
@@ -190,8 +196,15 @@ def run_config(cfg: str, args, device, dtype) -> dict:
         seg_a, seg_b = make_batch(args.batch, args.n_pairs, args.key_lo,
                                   args.key_hi, args.val_lo, args.val_hi, g_train)
         seg_a, seg_b = seg_a.to(device), seg_b.to(device)
+        cross = step % 2 == 1
         with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
-            logits_b = two_segment_forward(m, seg_a, seg_b, reset_fn)
+            if cross:
+                logits_b = two_segment_forward(m, seg_a, seg_b, reset_fn)
+            else:
+                reset_fn(m)
+                full = m(input_ids=torch.cat([seg_a, seg_b], dim=1),
+                         use_cache=False).logits
+                logits_b = full[:, seg_a.shape[1]:, :]
             loss, acc = recall_loss_and_acc(logits_b, seg_b)
         if scaler is not None:
             scaler.scale(loss).backward()
@@ -208,9 +221,10 @@ def run_config(cfg: str, args, device, dtype) -> dict:
         opt.zero_grad(set_to_none=True)
         if step % args.log_every == 0:
             dt = max(time.time() - t0, 1e-3)
-            print(f"[{cfg}] step {step:5d}/{args.steps} | loss {loss.item():.4f}"
-                  f" | train-acc {acc:.3f} | {args.log_every / dt:.2f} it/s",
-                  flush=True)
+            proto = "x-win" if cross else "in-win"
+            print(f"[{cfg}] step {step:5d}/{args.steps} | {proto} loss "
+                  f"{loss.item():.4f} | acc {acc:.3f} | "
+                  f"{args.log_every / dt:.2f} it/s", flush=True)
             t0 = time.time()
 
     if has_state:
@@ -230,7 +244,10 @@ def main():
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--n_pairs", type=int, default=8)
-    ap.add_argument("--lr", type=float, default=2e-4)
+    # Higher than the LM-finetune 2e-4: this task builds NEW behaviour from
+    # scratch and 2e-4 provably stalls (loss flat ~9.3 for 2000 steps while
+    # lr 2e-3 overfits a single batch in 20 steps).
+    ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--lora_r", type=int, default=8)
     ap.add_argument("--lora_alpha", type=int, default=16)
     ap.add_argument("--key_lo", type=int, default=5000)
