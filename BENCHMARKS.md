@@ -18,6 +18,23 @@ collapse via the Anesthesia Validation Protocol.
 > (×1.3 on sequence-exact at T=32), not a knockout. Numbers below are the
 > corrected, fair measurements.
 
+> **Correction note (2026-07-04) — Phase 5/5b adapter results are LoRA-only.**
+> All Phase 5/5b runs below (TinyLlama −28.5%, Qwen-1.5B −27.7%, Qwen-3B
+> −34.4%) predate the re-arm fix (`8d9d741`, 2026-06-28): `get_peft_model()`
+> silently froze the MT adapters at random initialization (residual scale
+> 1e-3, contribution ≈0), so **only LoRA trained**. Three independent lines of
+> evidence: (1) no committed version of the adapter code produces the reported
+> "2.30M trainable" — the real adapter is 9.6–11.8M *per layer*; (2) the
+> reported trainable counts match the LoRA-only parameter counts exactly
+> (TinyLlama 2.25M→"2.30M", Qwen-1.5B 2.18M→"2.22M"); (3) the re-arm fix
+> commit itself documents that the MT scale was frozen. The Phase 5/5b PPL
+> gains therefore measure **plain LoRA fine-tuning**, and the "first
+> end-to-end evidence that the MT-LNN inductive bias transfers" claim is
+> **retracted** pending `benchmarks/attribution_ablation.py` — a 6-config
+> controlled attribution (baseline / LoRA-only / MT-only / MT+LoRA / MT-v2 /
+> MT-v2+LoRA; identical data, steps, optimizer; held-out test PPL) whose
+> results will replace the affected tables.
+
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
 **same fair full-sequence decode** for every model (16 batches × 16 = 256

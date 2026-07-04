@@ -49,7 +49,11 @@ class FakeModel:
         # generate_with_thinking calls next(model.parameters()).device
         yield torch.zeros(1)
 
-    def __call__(self, input_ids=None):
+    def __call__(self, input_ids=None, past_key_values=None, use_cache=False,
+                 output_hidden_states=False):
+        # KV-cache kwargs accepted since generate_with_thinking decodes with
+        # use_cache=True; the fake has no real cache — its logits depend only
+        # on the newest position, which is all the router reads.
         b, t = input_ids.shape
         logits = torch.zeros(b, t, VOCAB)
         logits[:, -1, self.peak_token] = self.peak

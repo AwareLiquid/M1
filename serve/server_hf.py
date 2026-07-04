@@ -363,6 +363,19 @@ def _startup() -> None:
         else:
             print("[serve] QUANTIZE set but no MLP gate/up/down Linear layers found; skipped.")
 
+    # Streaming recurrent state (train/serve consistency fix): during KV-cached
+    # decode each T=1 forward used to hit the MT adapter with ZERO state, so the
+    # recurrence it was trained with degraded to a per-token gated FFN. With
+    # streaming on, adapters carry state across decode steps exactly like the
+    # training-time full-sequence scan (parity-tested to 2e-7 in
+    # tests/test_streaming_state.py). Endpoints reset the stream at each
+    # request start. STREAM_STATE=0 restores the old stateless behaviour.
+    if os.environ.get("STREAM_STATE", "1").lower() in ("1", "true", "yes"):
+        from mt_lnn.llama_adapter import set_adapter_streaming
+        n_streaming = set_adapter_streaming(model, True)
+        if n_streaming:
+            print(f"[serve] adapter streaming state ENABLED on {n_streaming} adapters.")
+
     # Detect instruct / chat mode from the tokenizer's chat_template field.
     use_chat = getattr(tok, "chat_template", None) is not None
     # Pick identity honestly: the AwareLiquid/MT-LNN identity is only claimed
@@ -726,7 +739,11 @@ def _encode_key_with(text: str, model, tok, device: str) -> torch.Tensor:
     """
     ids = tok(text or " ", return_tensors="pt", truncation=True,
               max_length=256).input_ids.to(device)
-    out = model(input_ids=ids, output_hidden_states=True, use_cache=False)
+    # Paused: this side forward must not read or clobber a generation's
+    # streaming adapter state.
+    from mt_lnn.llama_adapter import adapter_streaming_paused
+    with adapter_streaming_paused(model):
+        out = model(input_ids=ids, output_hidden_states=True, use_cache=False)
     return out.hidden_states[-1][0].mean(dim=0).float().cpu()   # (d_model,)
 
 
@@ -833,6 +850,11 @@ def completions(req: CompletionRequest):
     ids = _build_input_ids(aug_prompt)
     t0 = time.time()
 
+    # New request = new sequence: zero the adapters' streaming state so this
+    # generation starts from a clean recurrent state.
+    from mt_lnn.llama_adapter import reset_adapter_streams
+    reset_adapter_streams(model)
+
     # Self-thinking decode path (mt_lnn.thinking) -- per-request `think`
     # overrides the server default. Routes each token through the deliberation
     # policy and attaches a thinking trace summary. Falls back transparently to
@@ -921,6 +943,8 @@ def completions_stream(req: CompletionRequest):
 
     def _gen():
         yield f"data: {json.dumps({'event': 'memory', **mem_meta})}\n\n"
+        from mt_lnn.llama_adapter import reset_adapter_streams
+        reset_adapter_streams(model)          # new sequence, clean recurrent state
         past = None
         cur_ids = ids
         for _ in range(req.max_new_tokens):

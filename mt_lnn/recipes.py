@@ -237,12 +237,22 @@ def apply_phase5b_recipe(
     lora_targets: Optional[List[str]] = None,
     verbose: bool = True,
 ) -> RecipeResult:
-    """Apply the Phase 5b adapter recipe validated on TinyLlama, Qwen-1.5B, Qwen-3B.
+    """Apply the Phase 5b adapter recipe (MT residual adapters + LoRA).
 
-    This recipe achieved consistent PPL improvements:
-    - TinyLlama-1.1B: -28.5% PPL (0.196% trainable params)
-    - Qwen-2.5-1.5B: -27.7% PPL (0.139% trainable params)
-    - Qwen-2.5-3B:   -34.4% PPL (0.117% trainable params)
+    !! 2026-07-04 ATTRIBUTION CORRECTION !!
+    The historical Phase 5/5b results previously quoted here
+    (-28.5%/-27.7%/-34.4% PPL at "0.196%/0.139%/0.117% trainable") were run
+    BEFORE the re-arm fix (commit 8d9d741, 2026-06-28): get_peft_model()
+    froze the MT adapters at random init (residual scale 1e-3, contribution
+    ~0) and ONLY LoRA trained. The quoted "trainable" counts are exactly the
+    LoRA-only parameter counts (2.25M / 2.18M / 3.7M). Those PPL gains
+    therefore measure plain LoRA, not the MT architecture. This function DOES
+    train the MT adapters when the caller re-arms them after LoRA (as
+    train_llama_mt_adapter.py now does); its REAL trainable budget on
+    TinyLlama-1.1B is ~65.1M (5.6%) — the MT adapter is dominated by dense
+    in/out projections. See benchmarks/attribution_ablation.py for the honest
+    LoRA-vs-MT attribution and mt_lnn.mt_lnn_v2 for the parameter-lean
+    redesign (~8.4M, 0.76%).
 
     The recipe consists of:
     1. MT residual adapters on every 4th decoder layer
@@ -422,10 +432,9 @@ def apply_efficient_recipe(
     The two extra flags are written directly on the HuggingFace model's MT
     adapter modules (not weights) so they take effect at next forward() call.
 
-    Benchmark targets (matches Phase 5b numbers — these flags don't change training):
-    - TinyLlama-1.1B: -28.5% PPL, 0.196% trainable params
-    - Qwen-2.5-1.5B: -27.7% PPL, 0.139% trainable params
-    - Qwen-2.5-3B:   -34.4% PPL, 0.117% trainable params
+    NOTE: the historical Phase 5b benchmark numbers formerly quoted here are
+    retracted — see the ATTRIBUTION CORRECTION in apply_phase5b_recipe's
+    docstring (those runs trained LoRA only; the MT adapters were frozen).
 
     Use set_effort_level(model, 0) at inference time for the FAST tier
     (sparse k=1, period=2) if you need maximum throughput.

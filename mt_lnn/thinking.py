@@ -392,7 +392,11 @@ def generate_with_thinking(
             ids = torch.cat([ids, inject], dim=1)
             cloud_used = True
             # Injected tokens are not in the KV cache -> reset so the next
-            # step re-primes on the full (prompt + inject) context.
+            # step re-primes on the full (prompt + inject) context. The MT
+            # adapters' streaming state must reset with it: the re-fed prompt
+            # would otherwise be double-written into the recurrent state.
+            from .llama_adapter import reset_adapter_streams
+            reset_adapter_streams(model)
             past = None
             cur_input = ids
             # Record the inject as a zero-token annotation and move on.

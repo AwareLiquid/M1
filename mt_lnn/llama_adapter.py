@@ -140,11 +140,29 @@ class FastWeightMemory(nn.Module):
 
 
 class MTResidualAdapter(nn.Module):
-    """A pre-norm MT-LNN residual adapter for a transformer hidden stream."""
+    """A pre-norm MT-LNN residual adapter for a transformer hidden stream.
+
+    STREAMING STATE (opt-in via set_adapter_streaming): the MT layer and the
+    fast-weight memory both have an explicit recurrent-state contract
+    (h_prev in / h_last out), but the HF decoder-layer wrapper calls this
+    adapter without state -- so during KV-cached generation every T=1 decode
+    step used to start from ZERO state: the "recurrence" the adapter was
+    TRAINED with (full-sequence scan) silently degraded to a per-token gated
+    FFN at inference. With streaming enabled the adapter carries its own
+    state across forward calls, restoring train-time semantics. State is
+    detached (inference-only) and must be reset at each sequence start
+    (reset_adapter_streams) and whenever the KV cache is re-primed.
+    """
 
     def __init__(self, config: MTAdapterConfig):
         super().__init__()
         self.config = config
+        # Streaming state -- plain attributes, NOT buffers: transient, never
+        # part of state_dict, never saved to checkpoints.
+        self.stream_enabled: bool = False
+        self._stream_h: Optional[torch.Tensor] = None
+        self._stream_fw: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self._stream_pos: int = 0
         self.norm = nn.LayerNorm(config.hidden_size)
         mt_config = MTLNNConfig(
             vocab_size=1,
@@ -194,14 +212,28 @@ class MTResidualAdapter(nn.Module):
             # correction (matching the MT branch's init_scale convention).
             self.fw_scale = nn.Parameter(torch.tensor(float(config.init_scale)))
 
+    def reset_stream(self) -> None:
+        self._stream_h = None
+        self._stream_fw = None
+        self._stream_pos = 0
+
     def forward(
         self,
         hidden_states: torch.Tensor,
         position_offset: int = 0,
         h_prev: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        B = hidden_states.shape[0]
+        streaming = self.stream_enabled and not self.training
+        if streaming and h_prev is None:
+            # Batch-size change means a new, unrelated batch: drop stale state.
+            if self._stream_h is not None and self._stream_h.shape[0] != B:
+                self.reset_stream()
+            h_prev = self._stream_h
+            position_offset = self._stream_pos
+
         normed = self.norm(hidden_states)
-        mt_out, _ = self.mt_layer(
+        mt_out, h_last = self.mt_layer(
             normed,
             h_prev=h_prev,
             position_offset=position_offset,
@@ -209,8 +241,16 @@ class MTResidualAdapter(nn.Module):
         )
         out = hidden_states + self.scale * mt_out
         if self.fast_weight is not None:
-            fw_out, _ = self.fast_weight(normed)
+            fw_state = self._stream_fw if streaming else None
+            if fw_state is not None and fw_state[0].shape[0] != B:
+                fw_state = None
+            fw_out, fw_state = self.fast_weight(normed, state=fw_state)
             out = out + self.fw_scale * fw_out
+            if streaming:
+                self._stream_fw = tuple(t.detach() for t in fw_state)
+        if streaming:
+            self._stream_h = h_last.detach()
+            self._stream_pos = position_offset + hidden_states.shape[1]
         return out
 
 
@@ -353,6 +393,71 @@ def iter_mt_adapter_parameters(model: nn.Module):
     for module in model.modules():
         if isinstance(module, MTResidualAdapter):
             yield from module.parameters()
+
+
+def _iter_all_adapters(model: nn.Module):
+    """Yield every v1 AND v2 residual adapter in the model.
+
+    Tolerates non-nn.Module models (callers like mt_lnn.thinking are
+    model-agnostic and may pass bare callables) — no modules() means no
+    adapters, an empty iteration.
+    """
+    from .mt_lnn_v2 import MTResidualAdapterV2  # lazy: v2 imports from this module
+
+    modules = getattr(model, "modules", None)
+    if modules is None:
+        return
+    for module in modules():
+        if isinstance(module, (MTResidualAdapter, MTResidualAdapterV2)):
+            yield module
+
+
+def set_adapter_streaming(model: nn.Module, enabled: bool) -> int:
+    """Enable/disable cross-call recurrent state on all MT adapters (v1+v2).
+
+    Returns the number of adapters touched (0 = plain model, safe no-op).
+    Enabling also clears any stale state. Streaming is inference-only: the
+    adapters ignore the flag in training mode.
+    """
+    n = 0
+    for adapter in _iter_all_adapters(model):
+        adapter.stream_enabled = enabled
+        adapter.reset_stream()
+        n += 1
+    return n
+
+
+def reset_adapter_streams(model: nn.Module) -> None:
+    """Zero all adapters' streaming state. Call at every sequence start and
+    whenever the KV cache is re-primed on a rebuilt context (a re-fed prompt
+    would otherwise be double-written into the recurrent state)."""
+    for adapter in _iter_all_adapters(model):
+        adapter.reset_stream()
+
+
+class adapter_streaming_paused:
+    """Context manager: run auxiliary forwards (probes, encoders) without
+    reading or writing the generation's streaming state."""
+
+    def __init__(self, model: nn.Module):
+        self.model = model
+        self._saved = []
+
+    def __enter__(self):
+        for adapter in _iter_all_adapters(self.model):
+            self._saved.append((adapter, adapter.stream_enabled,
+                                adapter._stream_h, adapter._stream_fw,
+                                adapter._stream_pos))
+            adapter.stream_enabled = False
+        return self
+
+    def __exit__(self, *exc):
+        for adapter, enabled, h, fw, pos in self._saved:
+            adapter.stream_enabled = enabled
+            adapter._stream_h = h
+            adapter._stream_fw = fw
+            adapter._stream_pos = pos
+        return False
 
 
 def count_trainable_parameters(model: nn.Module) -> int:

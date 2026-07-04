@@ -51,7 +51,7 @@ import datasets as _datasets  # noqa: F401  (DLL-order guard)
 
 
 CONFIG_NAMES = ["baseline", "lora_only", "mt_only", "mt_lora",
-                "mt_v2_only", "mt_v2_lora"]
+                "mt_v2_only", "mt_v2_lora", "mt_v2s_only", "mt_v2s_lora"]
 
 
 def build_chunks(tok, split: str, seq_len: int) -> torch.Tensor:
@@ -122,14 +122,14 @@ def setup(cfg: str, m, lora_r: int, lora_alpha: int):
                            use_scan=True)
         m = add_lora(m)
         return m, rearm(m, iter_mt_adapter_parameters)
-    if cfg == "mt_v2_only":
+    if cfg in ("mt_v2_only", "mt_v2s_only"):
         from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
-        attach_mt_v2_adapters(m, every=4)
+        attach_mt_v2_adapters(m, every=4, selective_decay=cfg.startswith("mt_v2s"))
         return m, 0
-    if cfg == "mt_v2_lora":
+    if cfg in ("mt_v2_lora", "mt_v2s_lora"):
         from mt_lnn.mt_lnn_v2 import (attach_mt_v2_adapters,
                                       iter_mt_v2_adapter_parameters)
-        attach_mt_v2_adapters(m, every=4)
+        attach_mt_v2_adapters(m, every=4, selective_decay=cfg.startswith("mt_v2s"))
         m = add_lora(m)
         return m, rearm(m, iter_mt_v2_adapter_parameters)
     raise ValueError(f"unknown config: {cfg}")

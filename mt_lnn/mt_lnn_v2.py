@@ -58,7 +58,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .parallel_scan import pscan_constant_A
+from .parallel_scan import pscan, pscan_constant_A
 
 
 @dataclass
@@ -75,6 +75,15 @@ class MTAdapterV2Config:
     tau_init: Tuple[float, ...] = (0.5, 2.0, 8.0, 32.0, 90.0)
     init_scale: float = 1e-3       # residual gate init (same convention as v1)
     dropout: float = 0.0
+    # Selective (input-dependent) decay — the Mamba lesson. The static ladder
+    # gives every token the same persistence per (proto, scale); with
+    # selectivity the CONTENT decides how long it is remembered:
+    #     dt_t = softplus(W_dt u_t + b_dt)      (init b_dt so dt ~= 1)
+    #     decay_t = exp(-dt_t / tau_ps)
+    # At init this reproduces the static behaviour exactly (dt=1), so it is a
+    # strict generalisation. ~4K params/adapter. Off by default so the v2
+    # ablation baseline stays what was benchmarked; "v2s" configs turn it on.
+    selective_decay: bool = False
     # Fast-weight associative memory (Ba et al. 2016 / gated linear attention).
     # V2 turns it ON by default: precise in-context recall is the single
     # biggest capability gap of pure recurrent state (the honest 0% needle
@@ -232,6 +241,15 @@ class MTLNNLayerV2(nn.Module):
             log_tau[:, s] = math.log(math.expm1(max(t - cfg.tau_min, 1e-6)))
         self.log_tau = nn.Parameter(log_tau)
 
+        # 3b. Selective decay (opt-in): per-token dt from the block input.
+        # b_dt = softplus^-1(1) so dt starts at exactly 1 -> identical to the
+        # static path at init; W_dt small so selectivity is learned, not noise.
+        self.selective_decay = cfg.selective_decay
+        if cfg.selective_decay:
+            self.W_dt = nn.Parameter(torch.empty(P, d, S))
+            nn.init.normal_(self.W_dt, std=0.02)
+            self.b_dt = nn.Parameter(torch.full((P, S), math.log(math.e - 1.0)))
+
         # 4. Scale blending: static + dynamic kappa gate (kept from v1 — cheap
         # and it IS the "input-dependent timescale selection" mechanism)
         self.blend = nn.Parameter(torch.zeros(P, S))
@@ -274,14 +292,24 @@ class MTLNNLayerV2(nn.Module):
 
         tau = F.softplus(self.log_tau) + self.tau_min
         tau = tau.clamp(self.tau_min, self.tau_max)
-        decay = torch.exp(-self.dt / tau)                              # (P,S)
 
-        # Parallel scan: h_t = decay*h_{t-1} + (1-decay)*A_t
+        # Parallel scan: h_t = decay_t*h_{t-1} + (1-decay_t)*A_t
         A_perm = A.permute(0, 2, 3, 1, 4)                              # (B,P,S,T,d)
-        X = (1.0 - decay).view(1, P, S, 1, 1) * A_perm
-        decay_b = decay.unsqueeze(0).expand(B, P, S)
         h_init = h_prev if h_prev is not None else None
-        H = pscan_constant_A(decay_b, X, h_init=h_init)                # (B,P,S,T,d)
+        if self.selective_decay:
+            # Input-dependent dt -> per-token decay (Mamba-style selectivity)
+            dt = F.softplus(
+                torch.einsum("btpd,pds->btps", u, self.W_dt) + self.b_dt
+            )                                                          # (B,T,P,S)
+            decay_t = torch.exp(-dt / tau.view(1, 1, P, S))
+            decay_t = decay_t.permute(0, 2, 3, 1)                      # (B,P,S,T)
+            X = (1.0 - decay_t).unsqueeze(-1) * A_perm
+            H = pscan(decay_t, X, h_init=h_init)                       # (B,P,S,T,d)
+        else:
+            decay = torch.exp(-self.dt / tau)                          # (P,S)
+            X = (1.0 - decay).view(1, P, S, 1, 1) * A_perm
+            decay_b = decay.unsqueeze(0).expand(B, P, S)
+            H = pscan_constant_A(decay_b, X, h_init=h_init)            # (B,P,S,T,d)
         h_scales = H.permute(0, 3, 1, 2, 4)                            # (B,T,P,S,d)
         h_last = h_scales[:, -1]                                       # (B,P,S,d)
 
@@ -310,7 +338,13 @@ class MTLNNLayerV2(nn.Module):
 
 
 class MTResidualAdapterV2(nn.Module):
-    """Pre-norm residual adapter: x + scale*MT(x) [+ fw_scale*FastWeight(x)]."""
+    """Pre-norm residual adapter: x + scale*MT(x) [+ fw_scale*FastWeight(x)].
+
+    Streaming state contract matches v1's MTResidualAdapter (see its
+    docstring): opt-in via set_adapter_streaming, inference-only, detached,
+    reset at sequence start. Without it, KV-cached decode runs every T=1
+    step from zero state — a train/serve mismatch.
+    """
 
     def __init__(self, cfg: MTAdapterV2Config):
         super().__init__()
@@ -328,14 +362,40 @@ class MTResidualAdapterV2(nn.Module):
                 chunk=cfg.fast_weight_chunk,
             )
             self.fw_scale = nn.Parameter(torch.tensor(float(cfg.init_scale)))
+        # Streaming state — transient attributes, never in state_dict.
+        self.stream_enabled: bool = False
+        self._stream_h: Optional[torch.Tensor] = None
+        self._stream_fw: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
+        self._stream_pos: int = 0   # kept for API parity with v1 (no clock here)
+
+    def reset_stream(self) -> None:
+        self._stream_h = None
+        self._stream_fw = None
+        self._stream_pos = 0
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        B = hidden_states.shape[0]
+        streaming = self.stream_enabled and not self.training
+        h_prev = None
+        if streaming:
+            if self._stream_h is not None and self._stream_h.shape[0] != B:
+                self.reset_stream()
+            h_prev = self._stream_h
+
         normed = self.norm(hidden_states)
-        mt_out, _ = self.mt_layer(normed)
+        mt_out, h_last = self.mt_layer(normed, h_prev=h_prev)
         out = hidden_states + self.scale * mt_out
         if self.fast_weight is not None:
-            fw_out, _ = self.fast_weight(normed)
+            fw_state = self._stream_fw if streaming else None
+            if fw_state is not None and fw_state[0].shape[0] != B:
+                fw_state = None
+            fw_out, fw_state = self.fast_weight(normed, state=fw_state)
             out = out + self.fw_scale * fw_out
+            if streaming:
+                self._stream_fw = tuple(t.detach() for t in fw_state)
+        if streaming:
+            self._stream_h = h_last.detach()
+            self._stream_pos += hidden_states.shape[1]
         return out
 
 
@@ -350,6 +410,7 @@ def attach_mt_v2_adapters(
     proj_rank: int = 128,
     init_scale: float = 1e-3,
     dropout: float = 0.0,
+    selective_decay: bool = False,
     use_fast_weight: bool = True,
     fast_weight_dim: int = 64,
     fast_weight_heads: int = 1,
@@ -392,6 +453,7 @@ def attach_mt_v2_adapters(
             proj_rank=proj_rank,
             init_scale=init_scale,
             dropout=dropout,
+            selective_decay=selective_decay,
             use_fast_weight=use_fast_weight,
             fast_weight_dim=fast_weight_dim,
             fast_weight_heads=fast_weight_heads,

@@ -84,6 +84,36 @@ def test_v2_adapter_grad_flow_on_tiny_llama():
           f"{n_v2:,} v2 params, all grads finite)  OK")
 
 
+def test_selective_decay_init_equivalence():
+    """selective_decay is a STRICT generalisation: with W_dt zeroed (its
+    learned part removed) the per-token dt collapses to softplus(b_dt)=1
+    and the output must equal the static-decay path exactly."""
+    torch.manual_seed(0)
+    kw = dict(hidden_size=64, n_protofilaments=4, d_proto=16,
+              n_time_scales=3, proj_rank=8, use_fast_weight=False)
+    a_static = MTResidualAdapterV2(MTAdapterV2Config(**kw))
+    a_sel = MTResidualAdapterV2(MTAdapterV2Config(selective_decay=True, **kw))
+    missing, unexpected = a_sel.load_state_dict(a_static.state_dict(), strict=False)
+    assert not unexpected, f"unexpected keys: {unexpected}"
+    assert set(missing) == {"mt_layer.W_dt", "mt_layer.b_dt"}, missing
+    a_sel.mt_layer.W_dt.data.zero_()
+
+    x = torch.randn(2, 21, 64)
+    a_static.eval(), a_sel.eval()
+    with torch.no_grad():
+        out_s, out_d = a_sel(x), a_static(x)
+    assert torch.allclose(out_s, out_d, rtol=1e-5, atol=1e-6), (
+        f"max diff {(out_s - out_d).abs().max().item():.2e}"
+    )
+
+    # And with W_dt live, gradients reach it (the selectivity actually trains)
+    a_sel.train()
+    a_sel(x).sum().backward()
+    g = a_sel.mt_layer.W_dt.grad
+    assert g is not None and torch.isfinite(g).all() and g.abs().sum() > 0
+    print("[5/6] selective decay: init-equivalent to static + W_dt trains  OK")
+
+
 def test_peft_does_not_wrap_v2_internals():
     try:
         from peft import LoraConfig, get_peft_model
@@ -126,5 +156,6 @@ if __name__ == "__main__":
     test_fast_weight_chunked_matches_sequential()
     test_v2_adapter_grad_flow_on_tiny_llama()
     test_param_budget_at_tinyllama_width()
+    test_selective_decay_init_equivalence()
     test_peft_does_not_wrap_v2_internals()
     print("all v2 tests passed")
