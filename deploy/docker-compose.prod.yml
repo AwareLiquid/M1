@@ -84,16 +84,17 @@ services:
       - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
     environment:
       BASE_MODEL: TinyLlama/TinyLlama-1.1B-Chat-v1.0
-      # step-3000 bilingual SFT adapter (alpaca EN + alpaca-zh, completion-only
-      # loss). Replaces the step-1000 WikiText causal-LM adapter, which produced
-      # WikiText-style continuations and could not follow instructions. The SFT
-      # adapter follows instructions, answers concisely, and gives a sane self-
-      # identity; English reasoning improved (correct arithmetic on held-out
-      # prompts). NOTE: open-domain Chinese generation quality is still limited by
-      # the 1.1B base's thin Chinese knowledge -- SFT fixed format/fluency, not the
-      # base's factual coverage. Upload the .pt to the host then `restart adapter`.
-      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_003000.pt
-      RECIPE: phase5b                  # MT adapters + LoRA, matching the checkpoint
+      # v2s bilingual SFT adapter (2026-07-05): same alpaca EN+ZH recipe as the
+      # previous 003000, but the MT-v2s adapter generation — selective decay +
+      # fast-weight memory, 8.4M adapter params vs v1's 62.8M, 24 MB file vs
+      # 129 MB, and the architecture that won the cross-window recall ablation
+      # (see BENCHMARKS.md). server_hf.py rebuilds the v2 graph automatically
+      # from the checkpoint's recorded args; smoke-tested locally (honest guard
+      # 344/344 tensors mapped, EN+ZH instruction following OK). Upload the .pt
+      # to the host then `restart adapter`. ROLLBACK: point ADAPTER_CKPT back
+      # to llama_mt_adapter_003000.pt (v1) and restart.
+      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_v2s_003000.pt
+      RECIPE: phase5b                  # LoRA on q/k/v/o (adapter kind auto-detected from ckpt)
       DEVICE: cpu
       MAX_NEW_TOKENS_CAP: "512"
       OMP_NUM_THREADS: "4"
