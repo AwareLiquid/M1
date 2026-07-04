@@ -215,6 +215,16 @@ def run_config(cfg: str, args, tok, train_chunks, test_chunks,
     ppl = eval_ppl(m, test_chunks, device, dtype, args.batch)
     print(f"[{cfg}] final train loss {last_loss:.4f} | test PPL {ppl:.3f}",
           flush=True)
+    if getattr(args, "save_ckpt", False):
+        os.makedirs(args.out_dir, exist_ok=True)
+        ck_path = os.path.join(args.out_dir, f"adapter_{cfg}_{args.steps}steps.pt")
+        torch.save({
+            "config": cfg, "steps": args.steps, "model": args.model,
+            "test_ppl": ppl,
+            "state_dict": {k: v.cpu() for k, v in m.state_dict().items()
+                           if "mt_adapter" in k or "lora_" in k},
+        }, ck_path)
+        print(f"[{cfg}] saved adapter checkpoint {ck_path}", flush=True)
     del m, opt
     torch.cuda.empty_cache()
     return {"config": cfg, "trainable": trainable, "total": total,
@@ -261,6 +271,9 @@ def main():
                     help="0 = whole test split")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out_dir", default="benchmarks/attribution_out")
+    ap.add_argument("--save_ckpt", action="store_true",
+                    help="save each trained config's adapter/LoRA tensors to "
+                         "out_dir (reusable by length_streaming_eval.py --ckpt)")
     args = ap.parse_args()
 
     from transformers import AutoTokenizer

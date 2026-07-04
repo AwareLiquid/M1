@@ -95,3 +95,23 @@ id_ed25519.*
 *.crt
 secrets/
 *.secret
+
+# Local experiment scratch (Kaggle/Modal artifacts, diag scripts, run logs)
+/_kaggle_*/
+/_kgl_*/
+/_o1_*/
+/_o1_*.py
+/_diag_*
+/_compare_baselines_rerun.log
+/_modal_*.log
+/o1-pretrain-48m.log
+/M1/
+/_kaggle_fetch_final.py
+
+# Benchmark run outputs (JSON/ckpt artifacts land here at runtime)
+benchmarks/attribution_out/
+benchmarks/recall_out/
+benchmarks/length_out/
+/_kgl_ckpt_dl.log
+/temp_nature_skills
+benchmarks/_needle_smoke.json
