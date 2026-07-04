@@ -82,6 +82,28 @@ pilot) and still scores exactly 0.000 cross-window.
 for stateless configs; their gradient noise also destroys lora_only's
 in-window skill — reported honestly, see the 50/50 pilot for its 0.951.
 
+## Out-of-window streaming on real text (2026-07-05) — honest null
+
+`benchmarks/length_streaming_eval.py`: WikiText-2 test windows of 2048,
+fed in 512-token chunks with the KV cache dropped between chunks; the
+adapters' streaming state either carries (streaming) or not (stateless).
+Adapters trained the standard way (1000 LM steps at seq 512):
+
+| protocol | mt_lora (v1) | mt_v2_lora |
+|---|---|---|
+| full attention @512/1024/2048 | 7.92 / 7.35 / 6.98 | 7.92 / 7.34 / 6.98 |
+| chunked stateless @512 | 7.921 | 7.919 |
+| chunked **streaming** @512 | 7.927 | 7.920 |
+| **out-of-window gain** | **−0.006** | **−0.000** |
+
+**Null result, cause understood**: standard windowed LM training gives the
+state ZERO pressure to carry information across chunk boundaries — exactly
+as the recall experiment predicted (recall was also ~0 until trained WITH
+the cross-window protocol). Full attention gains 0.94 PPL from 512→2048 of
+context; that is the prize a state-carry TRAINING recipe (TBPTT-style
+chunked training with carried state) still has to capture. Capability is
+trainable, not free.
+
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
 **same fair full-sequence decode** for every model (16 batches × 16 = 256
