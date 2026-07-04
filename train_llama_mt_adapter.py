@@ -227,16 +227,33 @@ def train(args):
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
 
-    wrapped = attach_mt_adapters(
-        model,
-        every=args.mt_every,
-        n_protofilaments=args.mt_proto,
-        n_time_scales=args.mt_scales,
-        map_hidden_dim=args.mt_map_hidden,
-        dropout=args.mt_dropout,
-        init_scale=args.mt_init_scale,
-        use_scan=not args.mt_no_scan,
-    )
+    if getattr(args, "adapter", "v1") == "v2":
+        from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
+        wrapped = attach_mt_v2_adapters(
+            model,
+            every=args.mt_every,
+            n_protofilaments=args.mt_proto,
+            d_proto=args.v2_d_proto,
+            n_time_scales=args.mt_scales,
+            proj_rank=args.v2_rank,
+            init_scale=args.mt_init_scale,
+            dropout=args.mt_dropout,
+            selective_decay=args.v2_selective,
+            use_fast_weight=not args.v2_no_fw,
+            fast_weight_dim=args.v2_fw_dim,
+            fast_weight_heads=args.v2_fw_heads,
+        )
+    else:
+        wrapped = attach_mt_adapters(
+            model,
+            every=args.mt_every,
+            n_protofilaments=args.mt_proto,
+            n_time_scales=args.mt_scales,
+            map_hidden_dim=args.mt_map_hidden,
+            dropout=args.mt_dropout,
+            init_scale=args.mt_init_scale,
+            use_scan=not args.mt_no_scan,
+        )
     model = maybe_apply_lora(model, args)
 
     # PEFT's get_peft_model() freezes every non-LoRA parameter (no
@@ -246,11 +263,13 @@ def train(args):
     # never grow: the MT module becomes decorative and only LoRA trains. Re-arm
     # the MT adapter's parameters so the gate (and the rest of the adapter) can
     # actually learn. No-op when --lora is off (they were already trainable).
+    from mt_lnn.llama_adapter import _iter_all_adapters
     n_rearmed = 0
-    for p in iter_mt_adapter_parameters(model):
-        if not p.requires_grad:
-            p.requires_grad = True
-        n_rearmed += p.numel()
+    for adapter in _iter_all_adapters(model):     # covers v1 AND v2 adapters
+        for p in adapter.parameters():
+            if not p.requires_grad:
+                p.requires_grad = True
+            n_rearmed += p.numel()
     print(f"Re-armed MT adapter params (requires_grad=True): {n_rearmed:,}")
 
     model.to(device)
@@ -358,6 +377,21 @@ def parse_args():
     p.add_argument("--mt_dropout", type=float, default=0.0)
     p.add_argument("--mt_init_scale", type=float, default=1e-3)
     p.add_argument("--mt_no_scan", action="store_true")
+
+    # Adapter generation. v2 (mt_lnn.mt_lnn_v2) = bottleneck factorized
+    # projections + diagonal per-scale maps + fast-weight memory: ~8.4M
+    # trainable vs v1's 62.8M on TinyLlama. The choice is recorded in the
+    # checkpoint's args so serve/server_hf.py rebuilds the matching graph.
+    p.add_argument("--adapter", choices=["v1", "v2"], default="v1")
+    p.add_argument("--v2_d_proto", type=int, default=64)
+    p.add_argument("--v2_rank", type=int, default=128)
+    p.add_argument("--v2_selective", action="store_true",
+                   help="v2: input-dependent (selective) decay")
+    p.add_argument("--v2_no_fw", action="store_true",
+                   help="v2: disable the fast-weight memory")
+    p.add_argument("--v2_fw_dim", type=int, default=64,
+                   help="v2: fast-weight memory width (d_mem)")
+    p.add_argument("--v2_fw_heads", type=int, default=1)
 
     p.add_argument("--lora", action="store_true")
     p.add_argument("--lora_r", type=int, default=8)

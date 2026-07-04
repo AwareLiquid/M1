@@ -364,6 +364,9 @@ class MTResidualAdapterV2(nn.Module):
             self.fw_scale = nn.Parameter(torch.tensor(float(cfg.init_scale)))
         # Streaming state — transient attributes, never in state_dict.
         self.stream_enabled: bool = False
+        # See v1: cross-window trainers flip these to backprop through state.
+        self.stream_in_training: bool = False
+        self.stream_detach: bool = True
         self._stream_h: Optional[torch.Tensor] = None
         self._stream_fw: Optional[Tuple[torch.Tensor, torch.Tensor]] = None
         self._stream_pos: int = 0   # kept for API parity with v1 (no clock here)
@@ -375,7 +378,9 @@ class MTResidualAdapterV2(nn.Module):
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         B = hidden_states.shape[0]
-        streaming = self.stream_enabled and not self.training
+        streaming = self.stream_enabled and (
+            not self.training or self.stream_in_training
+        )
         h_prev = None
         if streaming:
             if self._stream_h is not None and self._stream_h.shape[0] != B:
@@ -392,9 +397,11 @@ class MTResidualAdapterV2(nn.Module):
             fw_out, fw_state = self.fast_weight(normed, state=fw_state)
             out = out + self.fw_scale * fw_out
             if streaming:
-                self._stream_fw = tuple(t.detach() for t in fw_state)
+                self._stream_fw = tuple(
+                    (t.detach() if self.stream_detach else t) for t in fw_state
+                )
         if streaming:
-            self._stream_h = h_last.detach()
+            self._stream_h = h_last.detach() if self.stream_detach else h_last
             self._stream_pos += hidden_states.shape[1]
         return out
 

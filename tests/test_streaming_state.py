@@ -140,9 +140,49 @@ def test_v2_selective_streaming_parity():
         proj_rank=8, fast_weight_dim=8, selective_decay=True))
 
 
+def test_train_through_state_keeps_graph():
+    """Cross-window training depends on carried state STAYING in the autograd
+    graph (stream_in_training + stream_detach=False): segment A's compute must
+    be reachable from a loss on segment B."""
+    model = tiny_model()
+    attach_mt_v2_adapters(model, every=4, n_protofilaments=4, d_proto=16,
+                          n_time_scales=3, proj_rank=8, fast_weight_dim=8)
+    adapters = list(_iter_all_adapters(model))
+    for a in adapters:
+        a.stream_enabled = True
+        a.stream_in_training = True
+        a.stream_detach = False
+        a.reset_stream()
+    model.train()
+
+    ids_a = torch.randint(0, 128, (2, 8))
+    ids_b = torch.randint(0, 128, (2, 8))
+    model(input_ids=ids_a, use_cache=False)
+    for a in adapters:
+        assert a._stream_h is not None and a._stream_h.grad_fn is not None, \
+            "carried MT state was detached — segment A unreachable from B's loss"
+        assert a._stream_fw is not None and a._stream_fw[0].grad_fn is not None, \
+            "carried fast-weight state was detached"
+    out_b = model(input_ids=ids_b, use_cache=False)
+    out_b.logits.sum().backward()   # must not raise; graph spans both segments
+
+    # And the default (inference) mode still detaches:
+    for a in adapters:
+        a.stream_in_training = False
+        a.stream_detach = True
+        a.reset_stream()
+    model.eval()
+    with torch.no_grad():
+        model(input_ids=ids_a, use_cache=False)
+    for a in adapters:
+        assert a._stream_h.grad_fn is None
+    print("[train-through] carried state stays in graph; inference detaches  OK")
+
+
 if __name__ == "__main__":
     test_v1_streaming_parity()
     test_v1_fastweight_streaming_parity()
     test_v2_streaming_parity()
     test_v2_selective_streaming_parity()
+    test_train_through_state_keeps_graph()
     print("all streaming-state tests passed")

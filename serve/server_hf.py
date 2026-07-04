@@ -269,18 +269,42 @@ def _startup() -> None:
               "with predictive coding to match (inference-inert).")
 
     # (1) MT adapters -- use checkpoint args when present, else env/defaults.
-    wrapped = attach_mt_adapters(
-        model,
-        every=int(cargs.get("mt_every", mt_every)),
-        n_protofilaments=int(cargs.get("mt_proto", mt_proto)),
-        n_time_scales=int(cargs.get("mt_scales", 5)),
-        map_hidden_dim=int(cargs.get("mt_map_hidden", 64)),
-        dropout=float(cargs.get("mt_dropout", 0.0)),
-        init_scale=float(cargs.get("mt_init_scale", 1e-3)),
-        use_scan=not bool(cargs.get("mt_no_scan", False)),
-        use_predictive_coding=want_pc,
-    )
-    print(f"[serve] attached MT adapters to layers {wrapped}")
+    # Adapter GENERATION comes from the checkpoint's recorded --adapter flag
+    # (train_llama_mt_adapter.py), overridable via ADAPTER_KIND env for
+    # checkpoint-less baselines. v2 = mt_lnn.mt_lnn_v2 (bottleneck factorized
+    # projections + fast-weight memory, ~8.4M vs v1's 62.8M on TinyLlama).
+    adapter_kind = str(
+        cargs.get("adapter") or os.environ.get("ADAPTER_KIND", "v1")
+    ).lower()
+    if adapter_kind == "v2":
+        from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
+        wrapped = attach_mt_v2_adapters(
+            model,
+            every=int(cargs.get("mt_every", mt_every)),
+            n_protofilaments=int(cargs.get("mt_proto", mt_proto)),
+            d_proto=int(cargs.get("v2_d_proto", 64)),
+            n_time_scales=int(cargs.get("mt_scales", 5)),
+            proj_rank=int(cargs.get("v2_rank", 128)),
+            init_scale=float(cargs.get("mt_init_scale", 1e-3)),
+            dropout=float(cargs.get("mt_dropout", 0.0)),
+            selective_decay=bool(cargs.get("v2_selective", False)),
+            use_fast_weight=not bool(cargs.get("v2_no_fw", False)),
+            fast_weight_dim=int(cargs.get("v2_fw_dim", 64)),
+            fast_weight_heads=int(cargs.get("v2_fw_heads", 1)),
+        )
+    else:
+        wrapped = attach_mt_adapters(
+            model,
+            every=int(cargs.get("mt_every", mt_every)),
+            n_protofilaments=int(cargs.get("mt_proto", mt_proto)),
+            n_time_scales=int(cargs.get("mt_scales", 5)),
+            map_hidden_dim=int(cargs.get("mt_map_hidden", 64)),
+            dropout=float(cargs.get("mt_dropout", 0.0)),
+            init_scale=float(cargs.get("mt_init_scale", 1e-3)),
+            use_scan=not bool(cargs.get("mt_no_scan", False)),
+            use_predictive_coding=want_pc,
+        )
+    print(f"[serve] attached MT adapters ({adapter_kind}) to layers {wrapped}")
 
     # (2) PEFT LoRA -- only if the checkpoint used it (cargs['lora']) or RECIPE
     # explicitly asks for phase5b. get_peft_model returns a NEW PeftModel that we
