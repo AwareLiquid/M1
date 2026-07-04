@@ -104,6 +104,26 @@ context; that is the prize a state-carry TRAINING recipe (TBPTT-style
 chunked training with carried state) still has to capture. Capability is
 trainable, not free.
 
+## ARR — attention-free recurrent distillation, round 1 (2026-07-05)
+
+`mt_lnn/arr.py` + `benchmarks/distill_arr.py`: ALL 22 TinyLlama
+self-attention blocks replaced by MT-v2s recurrent mixers (79.5M trainable;
+pretrained MLPs/embeddings frozen — zero token-to-token attention, no KV
+cache, O(1) inference state), then distilled from the frozen teacher.
+
+| stage | student WikiText-2 test PPL |
+|---|---|
+| teacher (with attention) | 11.8 |
+| after hidden alignment (2k steps) | 13,110 (alignment unstable — see below) |
+| after logit KD (4k steps ≈ 2M tokens) | **264, still falling** |
+
+Honest read: a promising slope, nowhere near parity — MOHAWK-class results
+use 3B+ distillation tokens vs our 2M. Known round-2 fix: stage A aligned
+all layers simultaneously on the student's own (drifting) hidden stream,
+compounding error layer-by-layer until it destabilised; the correct
+protocol teacher-forces each layer's INPUT from the teacher stream
+(MOHAWK stage 2). Mixer checkpoint saved for resuming.
+
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
 **same fair full-sequence decode** for every model (16 batches × 16 = 256
