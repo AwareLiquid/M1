@@ -119,7 +119,9 @@ def two_segment_forward(model, seg_a, seg_b, reset_fn):
 
 
 @torch.no_grad()
-def evaluate(model, args, device, g_eval, reset_fn, n_batches: int = 8):
+def evaluate(model, args, device, g_eval, reset_fn, n_batches: int = None):
+    if n_batches is None:
+        n_batches = getattr(args, "eval_batches", 8)
     from mt_lnn.llama_adapter import reset_adapter_streams
     model.eval()
     accs = {"in_window": [], "cross_window": []}
@@ -152,6 +154,11 @@ def run_config(cfg: str, args, device, dtype) -> dict:
     # NO gradient checkpointing here: its backward-time replay re-reads the
     # MUTATED stream state and corrupts gradients. Sequences are short.
     m, n_rearmed = setup(cfg, m, args.lora_r, args.lora_alpha)
+    if args.state_scale_init > 0:
+        for a in _iter_all_adapters(m):
+            a.scale.data.fill_(args.state_scale_init)
+            if getattr(a, "fw_scale", None) is not None:
+                a.fw_scale.data.fill_(args.state_scale_init)
     m.to(device)
     trainable = count_trainable_parameters(m)
     print(f"\n=== {cfg} ===  trainable {trainable:,}  re-armed {n_rearmed:,}",
@@ -192,11 +199,12 @@ def run_config(cfg: str, args, device, dtype) -> dict:
               if device == "cuda" and dtype == torch.float16 else None)
     g_train = torch.Generator().manual_seed(args.seed)
     t0 = time.time()
+    ema = {"x-win": [None, None], "in-win": [None, None]}   # loss, acc
     for step in range(1, args.steps + 1):
         seg_a, seg_b = make_batch(args.batch, args.n_pairs, args.key_lo,
                                   args.key_hi, args.val_lo, args.val_hi, g_train)
         seg_a, seg_b = seg_a.to(device), seg_b.to(device)
-        cross = step % 2 == 1
+        cross = torch.rand((), generator=g_train).item() < args.cross_frac
         with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
             if cross:
                 logits_b = two_segment_forward(m, seg_a, seg_b, reset_fn)
@@ -219,12 +227,17 @@ def run_config(cfg: str, args, device, dtype) -> dict:
         else:
             opt.step()
         opt.zero_grad(set_to_none=True)
+        k = "x-win" if cross else "in-win"
+        for i, v in enumerate((loss.item(), acc)):
+            ema[k][i] = v if ema[k][i] is None else 0.9 * ema[k][i] + 0.1 * v
         if step % args.log_every == 0:
             dt = max(time.time() - t0, 1e-3)
-            proto = "x-win" if cross else "in-win"
-            print(f"[{cfg}] step {step:5d}/{args.steps} | {proto} loss "
-                  f"{loss.item():.4f} | acc {acc:.3f} | "
-                  f"{args.log_every / dt:.2f} it/s", flush=True)
+            parts = []
+            for k2 in ("x-win", "in-win"):
+                if ema[k2][0] is not None:
+                    parts.append(f"{k2} loss {ema[k2][0]:.3f} acc {ema[k2][1]:.3f}")
+            print(f"[{cfg}] step {step:5d}/{args.steps} | " + " | ".join(parts)
+                  + f" | {args.log_every / dt:.2f} it/s", flush=True)
             t0 = time.time()
 
     if has_state:
@@ -248,6 +261,16 @@ def main():
     # scratch and 2e-4 provably stalls (loss flat ~9.3 for 2000 steps while
     # lr 2e-3 overfits a single batch in 20 steps).
     ap.add_argument("--lr", type=float, default=1e-3)
+    ap.add_argument("--cross_frac", type=float, default=0.5,
+                    help="fraction of training batches using the cross-window "
+                         "protocol (in-window saturates early; give the hard "
+                         "task the budget)")
+    ap.add_argument("--state_scale_init", type=float, default=0.0,
+                    help=">0: re-init every adapter's residual gates (scale, "
+                         "fw_scale) to this value. The 1e-3 default makes the "
+                         "state path's output influence tiny at step 0, so "
+                         "the CE gradient bootstraps it very slowly.")
+    ap.add_argument("--eval_batches", type=int, default=8)
     ap.add_argument("--lora_r", type=int, default=8)
     ap.add_argument("--lora_alpha", type=int, default=16)
     ap.add_argument("--key_lo", type=int, default=5000)
