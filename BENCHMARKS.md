@@ -167,6 +167,24 @@ compounding error layer-by-layer until it destabilised; the correct
 protocol teacher-forces each layer's INPUT from the teacher stream
 (MOHAWK stage 2). Mixer checkpoint saved for resuming.
 
+### Round 2 — teacher-forced alignment (2026-07-05)
+
+Stage A teacher-forced (`--align_mode teacher_forced`, layers decoupled):
+norm-MSE converges stably to **0.016** (round 1 oscillated to 467), and
+alignment ALONE brings the student to PPL **278** — better than round 1's
+final. Stage B (10k KD steps ≈ 5M tokens): final PPL **32.9**, still
+falling at cutoff.
+
+| round | after alignment | after KD | vs teacher (11.8) |
+|---|---|---|---|
+| 1 (free-running align, 2M tok) | 13,110 | 264 | 22× |
+| **2 (teacher-forced, 5M tok)** | **278** | **32.9** | **2.8×** |
+
+An attention-free, KV-cache-free, O(1)-state 1.1B reaches 2.8× teacher
+perplexity on ~5M distillation tokens (free-tier GPUs). The remaining gap
+is a token-budget problem, not a stability problem. Round 3 (resumed, +18k
+KD steps) queued.
+
 Three architectures trained on identical Selective Copy data with identical
 hyperparameters, parameter-matched to ~200K each, then evaluated with the
 **same fair full-sequence decode** for every model (16 batches × 16 = 256
