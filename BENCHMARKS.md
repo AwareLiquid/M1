@@ -104,6 +104,25 @@ context; that is the prize a state-carry TRAINING recipe (TBPTT-style
 chunked training with carried state) still has to capture. Capability is
 trainable, not free.
 
+### State-carry (TBPTT) training — second null, boundary established (2026-07-05)
+
+`benchmarks/state_carry_train.py`: chunked LM training with KV dropped
+between chunks, adapter state carried WITH gradients (pieces 2+ only
+improvable through the state channel), state_scale_init 0.1, lr 5e-4,
+1000 window-steps (~1M tokens), mt_v2s_lora:
+
+| trained | chunked_stateless | chunked_streaming | state gain |
+|---|---|---|---|
+| carry=False (control) | 7.809 | 7.818 | −0.009 |
+| **carry=True (TBPTT)** | 7.812 | 7.808 | **+0.004 (noise)** |
+
+Full attention still gains 0.89 PPL from 512→2048 context. Combined with
+the recall result (0.62 cross-window accuracy on discrete pairs), the
+boundary is now sharp: **the fast-weight state is an episodic key→value
+memory — it carries discrete addressable bindings across windows, not
+compressed distributed context** — consistent with the linear-attention
+literature. Larger budgets/windows might move this; under ours it is null.
+
 ## ARR — attention-free recurrent distillation, round 1 (2026-07-05)
 
 `mt_lnn/arr.py` + `benchmarks/distill_arr.py`: ALL 22 TinyLlama
