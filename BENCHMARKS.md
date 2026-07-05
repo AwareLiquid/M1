@@ -131,6 +131,22 @@ memory — it carries discrete addressable bindings across windows, not
 compressed distributed context** — consistent with the linear-attention
 literature. Larger budgets/windows might move this; under ours it is null.
 
+## Capability evals — v2s SFT is ability-neutral (2026-07-05)
+
+`benchmarks/capability_eval.py` (lm-evaluation-harness, full tasks, P100),
+TinyLlama base vs base + v2s SFT adapter (streaming on, serving semantics):
+
+| task | base | v2s SFT | Δ |
+|---|---|---|---|
+| LAMBADA-openai (acc / ppl) | 0.610 / 5.90 | 0.617 / 5.74 | +0.7pt / −0.16 |
+| ARC-easy (acc / acc_norm) | 0.617 / 0.548 | 0.624 / 0.560 | +0.7 / +1.2 |
+| HellaSwag (acc / acc_norm) | 0.465 / 0.604 | 0.458 / 0.595 | −0.7 / −0.9 |
+| PIQA (acc / acc_norm) | 0.742 / 0.745 | 0.742 / 0.749 | 0.0 / +0.4 |
+
+As the attribution predicted: the adapter is **capability-neutral** (±1pt,
+noise) — the SFT bought chat formatting and recall machinery without
+trading away core abilities. Deployment-safety box ticked.
+
 ## ARR — attention-free recurrent distillation, round 1 (2026-07-05)
 
 `mt_lnn/arr.py` + `benchmarks/distill_arr.py`: ALL 22 TinyLlama
