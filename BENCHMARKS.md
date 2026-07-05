@@ -195,7 +195,12 @@ falling at cutoff.
 | round | after alignment | after KD | vs teacher (11.8) |
 |---|---|---|---|
 | 1 (free-running align, 2M tok) | 13,110 | 264 | 22× |
-| **2 (teacher-forced, 5M tok)** | **278** | **32.9** | **2.8×** |
+| 2 (teacher-forced, 5M tok) | 278 | 32.9 | 2.8× |
+| **3 (resumed KD, ~18M tok cum.)** | — | **25.4** | **2.15×** |
+
+Round-over-round gains are turning log-linear in tokens (standard for
+distillation); KD loss still descending at cutoff. Next lever is data
+scale (FineWeb-class corpus), not more epochs of WikiText-2.
 
 An attention-free, KV-cache-free, O(1)-state 1.1B reaches 2.8× teacher
 perplexity on ~5M distillation tokens (free-tier GPUs). The remaining gap
