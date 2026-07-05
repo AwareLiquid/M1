@@ -97,6 +97,16 @@ at lr 1e-3 (training instability for LoRA at this task lr; the structural
 zero-channel argument is unaffected, and its seed-0 run learned in-window
 0.951 while still scoring exactly 0.000 cross-window).
 
+**ARR-student recall — negative at current budget (2026-07-06):** the
+distilled attention-free student (round-2 mixers, streaming state wired,
+79.5M trainable) trained on the same recall protocol scores 0.000 both
+in-window and cross-window at 8k steps — unlike the adapters, which get
+in-window recall "for free" from frozen attention, the ARR student must
+implement induction entirely in recurrence. Diagnosis: expressivity is NOT
+the blocker (a single batch is memorized to acc 1.0 in 20 steps); it is an
+optimization/curriculum problem (start at n_pairs=2, longer training).
+Curriculum retry queued for the next GPU budget.
+
 ## Out-of-window streaming on real text (2026-07-05) — honest null
 
 `benchmarks/length_streaming_eval.py`: WikiText-2 test windows of 2048,
