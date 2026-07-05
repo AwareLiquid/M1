@@ -60,10 +60,37 @@ class MTRecurrentMixer(nn.Module):
         )
         # Learnable blend between the two recall pathways, init 50/50-ish.
         self.fw_gate = nn.Parameter(torch.tensor(0.0))   # sigmoid(0)=0.5
+        # Streaming state — same contract as the adapter classes (transient
+        # attributes, never in state_dict). Without this the ARR student is
+        # stateless across forward calls and cannot do cross-window anything.
+        self.stream_enabled: bool = False
+        self.stream_in_training: bool = False
+        self.stream_detach: bool = True
+        self._stream_h = None
+        self._stream_fw = None
+
+    def reset_stream(self) -> None:
+        self._stream_h = None
+        self._stream_fw = None
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        mt_out, _ = self.mt(hidden_states)
-        fw_out, _ = self.fw(hidden_states)
+        B = hidden_states.shape[0]
+        streaming = self.stream_enabled and (
+            not self.training or self.stream_in_training
+        )
+        h_prev, fw_state = None, None
+        if streaming:
+            if self._stream_h is not None and self._stream_h.shape[0] != B:
+                self.reset_stream()
+            h_prev, fw_state = self._stream_h, self._stream_fw
+
+        mt_out, h_last = self.mt(hidden_states, h_prev=h_prev)
+        fw_out, fw_state = self.fw(hidden_states, state=fw_state)
+        if streaming:
+            self._stream_h = h_last.detach() if self.stream_detach else h_last
+            self._stream_fw = tuple(
+                (t.detach() if self.stream_detach else t) for t in fw_state
+            )
         g = torch.sigmoid(self.fw_gate)
         return mt_out + g * fw_out
 
@@ -159,6 +186,30 @@ def iter_mixer_parameters(model: nn.Module):
     for module in model.modules():
         if isinstance(module, MTRecurrentMixer):
             yield from module.parameters()
+
+
+def set_mixer_streaming(model: nn.Module, enabled: bool,
+                        train_through: bool = False) -> int:
+    """Enable/disable cross-call recurrent state on all ARR mixers.
+
+    O-series analogue of llama_adapter.set_adapter_streaming (kept separate
+    on purpose: M-series adapters and O-series mixers are distinct products).
+    """
+    n = 0
+    for m in model.modules():
+        if isinstance(m, MTRecurrentMixer):
+            m.stream_enabled = enabled
+            m.stream_in_training = train_through
+            m.stream_detach = not train_through
+            m.reset_stream()
+            n += 1
+    return n
+
+
+def reset_mixer_streams(model: nn.Module) -> None:
+    for m in model.modules():
+        if isinstance(m, MTRecurrentMixer):
+            m.reset_stream()
 
 
 def count_mixer_parameters(model: nn.Module) -> int:

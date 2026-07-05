@@ -48,11 +48,33 @@ import torch.nn.functional as F
 from benchmarks.attribution_ablation import setup as attr_setup  # noqa: E402
 
 CONFIG_NAMES = ["baseline", "lora_only", "mt_only", "mt_lora",
-                "mt_v2_nofw", "mt_v2", "mt_v2s"]
+                "mt_v2_nofw", "mt_v2", "mt_v2s", "arr"]
 
 
-def setup(cfg: str, m, lora_r: int, lora_alpha: int):
-    """attribution_ablation's setup + the fast-weight ablation config."""
+def setup(cfg: str, m, lora_r: int, lora_alpha: int, arr_ckpt: str = ""):
+    """attribution_ablation's setup + recall-specific configs.
+
+    'arr' = the O-series attention-free student: convert every layer to a
+    recurrent mixer and load distilled mixer weights from --arr_ckpt.
+    """
+    if cfg == "arr":
+        from mt_lnn.arr import convert_to_arr, probe_return_convention
+        ck = (torch.load(arr_ckpt, map_location="cpu", weights_only=False)
+              if arr_ckpt else None)
+        dargs = (ck or {}).get("args", {})
+        convert_to_arr(
+            m,
+            d_proto=int(dargs.get("d_proto", 96)),
+            proj_rank=int(dargs.get("proj_rank", 384)),
+            fast_weight_dim=int(dargs.get("fw_dim", 96)),
+        )
+        probe_return_convention(m)
+        if ck is not None:
+            sd = ck["state_dict"]
+            missing, unexpected = m.load_state_dict(sd, strict=False)
+            assert not unexpected, f"mixer ckpt mismatch: {unexpected[:4]}"
+            print(f"[arr] loaded {len(sd)} distilled mixer tensors", flush=True)
+        return m, 0
     if cfg == "mt_v2_nofw":
         from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
         attach_mt_v2_adapters(m, every=4, use_fast_weight=False)
@@ -101,8 +123,10 @@ def recall_loss_and_acc(logits_b: torch.Tensor, seg_b: torch.Tensor):
 
 
 def set_stream_mode(model, enabled: bool, train_through: bool = False):
+    from mt_lnn.arr import set_mixer_streaming
     from mt_lnn.llama_adapter import _iter_all_adapters
-    for a in _iter_all_adapters(model):
+    set_mixer_streaming(model, enabled, train_through)   # O-series mixers
+    for a in _iter_all_adapters(model):                  # M-series adapters
         a.stream_enabled = enabled
         a.stream_in_training = train_through
         a.stream_detach = not train_through
@@ -122,15 +146,15 @@ def two_segment_forward(model, seg_a, seg_b, reset_fn):
 def evaluate(model, args, device, g_eval, reset_fn, n_batches: int = None):
     if n_batches is None:
         n_batches = getattr(args, "eval_batches", 8)
-    from mt_lnn.llama_adapter import reset_adapter_streams
     model.eval()
     accs = {"in_window": [], "cross_window": []}
     for _ in range(n_batches):
         seg_a, seg_b = make_batch(args.batch, args.n_pairs, args.key_lo,
                                   args.key_hi, args.val_lo, args.val_hi, g_eval)
         seg_a, seg_b = seg_a.to(device), seg_b.to(device)
-        # In-window: one contiguous sequence, attention sees everything.
-        reset_adapter_streams(model)
+        # In-window: one contiguous sequence (for ARR there is no attention,
+        # but the scan covers the whole sequence in one forward).
+        reset_fn(model)
         full = model(input_ids=torch.cat([seg_a, seg_b], dim=1),
                      use_cache=False).logits
         _, acc_in = recall_loss_and_acc(full[:, seg_a.shape[1]:, :], seg_b)
@@ -153,21 +177,33 @@ def run_config(cfg: str, args, device, dtype) -> dict:
     m.config.use_cache = False
     # NO gradient checkpointing here: its backward-time replay re-reads the
     # MUTATED stream state and corrupts gradients. Sequences are short.
-    m, n_rearmed = setup(cfg, m, args.lora_r, args.lora_alpha)
+    m, n_rearmed = setup(cfg, m, args.lora_r, args.lora_alpha,
+                         arr_ckpt=getattr(args, 'arr_ckpt', ''))
     if args.state_scale_init > 0:
         for a in _iter_all_adapters(m):
             a.scale.data.fill_(args.state_scale_init)
             if getattr(a, "fw_scale", None) is not None:
                 a.fw_scale.data.fill_(args.state_scale_init)
+    if args.freeze_tau:
+        n_frozen = 0
+        for name, p in m.named_parameters():
+            if name.endswith("log_tau"):
+                p.requires_grad = False
+                n_frozen += p.numel()
+        print(f"[freeze_tau] froze {n_frozen} tau params at bio init", flush=True)
     m.to(device)
     trainable = count_trainable_parameters(m)
     print(f"\n=== {cfg} ===  trainable {trainable:,}  re-armed {n_rearmed:,}",
           flush=True)
 
-    has_state = any(True for _ in _iter_all_adapters(m))
+    from mt_lnn.arr import MTRecurrentMixer
+    has_state = (any(True for _ in _iter_all_adapters(m))
+                 or any(isinstance(x, MTRecurrentMixer) for x in m.modules()))
 
     def reset_fn(model):
         reset_adapter_streams(model)
+        from mt_lnn.arr import reset_mixer_streams
+        reset_mixer_streams(model)
 
     g_eval = torch.Generator().manual_seed(10_000 + args.seed)
 
@@ -271,6 +307,10 @@ def main():
                          "state path's output influence tiny at step 0, so "
                          "the CE gradient bootstraps it very slowly.")
     ap.add_argument("--eval_batches", type=int, default=8)
+    ap.add_argument("--freeze_tau", action="store_true",
+                    help="bio-prior ablation: keep every mixer/adapter tau "
+                         "ladder (log_tau) FROZEN at its biologically-derived "
+                         "init instead of training it")
     ap.add_argument("--lora_r", type=int, default=8)
     ap.add_argument("--lora_alpha", type=int, default=16)
     ap.add_argument("--key_lo", type=int, default=5000)
@@ -279,6 +319,8 @@ def main():
     ap.add_argument("--val_hi", type=int, default=8000)
     ap.add_argument("--log_every", type=int, default=100)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--arr_ckpt", default="",
+                    help="distilled mixer checkpoint for the 'arr' config")
     ap.add_argument("--out_dir", default="benchmarks/recall_out")
     args = ap.parse_args()
 
@@ -299,7 +341,8 @@ def main():
     for cfg in wanted:
         path = os.path.join(
             args.out_dir,
-            f"recall_{args.n_pairs}pairs_{args.steps}steps_{cfg}_s{args.seed}.json")
+            f"recall_{args.n_pairs}pairs_{args.steps}steps_{cfg}"
+            f"{'_ftau' if args.freeze_tau else ''}_s{args.seed}.json")
         if os.path.exists(path):
             with open(path) as f:
                 results.append(json.load(f))
