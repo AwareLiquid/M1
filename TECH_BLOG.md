@@ -1,5 +1,19 @@
 # Cross-Architecture Reproducibility with MT-LNN Adapters: From 1.1B to 3B
 
+> **⚠️ CORRECTION (2026-07-05) — supersedes the adapter results below.**
+> The Phase 5/5b adapter numbers quoted in this document (−28.5 %/−27.7 %/−34.4 % PPL
+> at "0.196 %/0.139 %/0.117 % trainable") are **retracted**: those runs predate the
+> re-arm fix (`8d9d741`) — PEFT had silently frozen the MT adapters at random init,
+> so **only LoRA trained**, and the quoted "trainable" counts are exactly the
+> LoRA-only parameter counts. A controlled 6-config attribution confirms plain LoRA
+> reproduces those PPL gains; the MT adapter adds ≈nothing on in-window perplexity.
+> The architecture's real, reproducible differentiator is **cross-window recall
+> through streaming state** (fast-weight memory: 0.62 accuracy where attention/LoRA
+> are 0 by construction), delivered by the 7.5× smaller v2s adapter now serving.
+> Authoritative results and protocols: **BENCHMARKS.md** (attribution, cross-window
+> recall, out-of-window LM nulls, ARR distillation).
+
+
 **TL;DR**: A microtubule-inspired adapter recipe achieves **-28% to -34% PPL improvements** across three different base models (TinyLlama, Qwen-1.5B, Qwen-3B) with **<0.2% trainable parameters**. The same configuration works on both Llama and Qwen families, suggesting the architecture captures a general long-context inductive bias rather than model-specific tuning.
 
 ---

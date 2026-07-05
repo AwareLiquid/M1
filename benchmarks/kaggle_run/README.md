@@ -1,5 +1,19 @@
 # Kaggle Run — Phase 5 Backbone (TinyLlama-1.1B + MT adapter + LoRA)
 
+> **⚠️ CORRECTION (2026-07-05) — supersedes the adapter results below.**
+> The Phase 5/5b adapter numbers quoted in this document (−28.5 %/−27.7 %/−34.4 % PPL
+> at "0.196 %/0.139 %/0.117 % trainable") are **retracted**: those runs predate the
+> re-arm fix (`8d9d741`) — PEFT had silently frozen the MT adapters at random init,
+> so **only LoRA trained**, and the quoted "trainable" counts are exactly the
+> LoRA-only parameter counts. A controlled 6-config attribution confirms plain LoRA
+> reproduces those PPL gains; the MT adapter adds ≈nothing on in-window perplexity.
+> The architecture's real, reproducible differentiator is **cross-window recall
+> through streaming state** (fast-weight memory: 0.62 accuracy where attention/LoRA
+> are 0 by construction), delivered by the 7.5× smaller v2s adapter now serving.
+> Authoritative results and protocols: **BENCHMARKS.md** (attribution, cross-window
+> recall, out-of-window LM nulls, ARR distillation).
+
+
 Run date: **2026-05-28**
 Hardware: **Kaggle free GPU — Tesla T4 (14.6 GB), single GPU**
 Wall-clock: ~3 h (train) + ~5 min (PPL eval) + ~5 min (needle eval)
