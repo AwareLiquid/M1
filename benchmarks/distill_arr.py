@@ -43,6 +43,26 @@ from mt_lnn.arr import (convert_to_arr, count_mixer_parameters,
                         iter_mixer_parameters, probe_return_convention)
 
 
+class InputTap:
+    """Forward PRE-hooks capturing each decoder layer's input hidden state
+    (args[0] in Llama's layer call). Used to teacher-force stage A."""
+
+    def __init__(self, layers, indices):
+        self.acts = {}
+        self.handles = [
+            layers[i].register_forward_pre_hook(self._make(i)) for i in indices
+        ]
+
+    def _make(self, i):
+        def hook(_mod, inp):
+            self.acts[i] = inp[0]
+        return hook
+
+    def close(self):
+        for h in self.handles:
+            h.remove()
+
+
 class LayerTap:
     """Forward hooks that capture each decoder layer's output tensor.
 
@@ -108,6 +128,15 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out_dir", default="benchmarks/arr_out")
     ap.add_argument("--save_ckpt", action="store_true")
+    # Round-2 lessons: 'free' stage A (round 1) ran the full student forward,
+    # so layer l trained against its own drifting layer-(l-1) output —
+    # compounding error destabilised alignment (norm-MSE spiked to 467).
+    # 'teacher_forced' feeds every student layer the TEACHER's input for that
+    # layer (MOHAWK stage 2), decoupling all layers.
+    ap.add_argument("--align_mode", choices=["teacher_forced", "free"],
+                    default="teacher_forced")
+    ap.add_argument("--resume", default="",
+                    help="mixer checkpoint (.pt) to load before training")
     args = ap.parse_args()
 
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -142,6 +171,12 @@ def main():
     student.to(device)
     rt = probe_return_convention(student)
     print(f"layer return convention: {'tuple' if rt else 'tensor'}", flush=True)
+    if args.resume and os.path.exists(args.resume):
+        sd = torch.load(args.resume, map_location="cpu",
+                        weights_only=False)["state_dict"]
+        missing, unexpected = student.load_state_dict(sd, strict=False)
+        print(f"resumed mixers: {len(sd) - len(unexpected)}/{len(sd)} tensors",
+              flush=True)
     n_mix = count_mixer_parameters(student)
     total = sum(p.numel() for p in student.parameters())
     print(f"converted {len(converted)} layers | mixer params {n_mix:,} "
@@ -175,8 +210,12 @@ def main():
     # ---------------- Stage A: layerwise hidden alignment ----------------
     if args.steps_a > 0:
         from mt_lnn.llama_adapter import find_decoder_layers
-        t_tap = LayerTap(find_decoder_layers(teacher), converted)
-        s_tap = LayerTap(find_decoder_layers(student), converted)
+        t_layers = find_decoder_layers(teacher)
+        s_layers = find_decoder_layers(student)
+        t_in = InputTap(t_layers, converted)
+        t_tap = LayerTap(t_layers, converted)
+        s_tap = (LayerTap(s_layers, converted)
+                 if args.align_mode == "free" else None)
         opt = torch.optim.AdamW(iter_mixer_parameters(student), lr=args.lr_a)
         student.train()
         step, t0 = 0, time.time()
@@ -191,12 +230,22 @@ def main():
                     teacher(input_ids=ids)
                 with torch.amp.autocast("cuda", dtype=dtype,
                                         enabled=device == "cuda"):
-                    student(input_ids=ids)
                     loss = 0.0
-                    for l in converted:
-                        t = t_tap.acts[l].float()
-                        s = s_tap.acts[l].float()
-                        loss = loss + F.mse_loss(s, t) / t.pow(2).mean().clamp_min(1e-6)
+                    if args.align_mode == "teacher_forced":
+                        # Each student layer sees the TEACHER's input for that
+                        # layer: layers train decoupled, no compounding drift.
+                        for l in converted:
+                            ti = t_in.acts[l].detach()
+                            to = t_tap.acts[l].detach().float()
+                            so = s_layers[l](ti)
+                            so = (so[0] if isinstance(so, tuple) else so).float()
+                            loss = loss + F.mse_loss(so, to) / to.pow(2).mean().clamp_min(1e-6)
+                    else:
+                        student(input_ids=ids)
+                        for l in converted:
+                            t = t_tap.acts[l].detach().float()
+                            s = s_tap.acts[l].float()
+                            loss = loss + F.mse_loss(s, t) / t.pow(2).mean().clamp_min(1e-6)
                     loss = loss / len(converted) / args.grad_accum
                 opt_step(opt, loss)
                 if (step + 1) % args.grad_accum == 0:
@@ -209,8 +258,10 @@ def main():
                           f"{args.log_every / dt:.2f} it/s", flush=True)
                     t0 = time.time()
         del opt
+        t_in.close()
         t_tap.close()
-        s_tap.close()
+        if s_tap is not None:
+            s_tap.close()
         ppl_a = eval_ppl(student, test_chunks, device, dtype,
                          args.batch, args.eval_chunks)
         print(f"after stage A: student test PPL {ppl_a:.3f}", flush=True)
