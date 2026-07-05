@@ -298,7 +298,8 @@ def main():
     results = []
     for cfg in wanted:
         path = os.path.join(
-            args.out_dir, f"recall_{args.n_pairs}pairs_{args.steps}steps_{cfg}.json")
+            args.out_dir,
+            f"recall_{args.n_pairs}pairs_{args.steps}steps_{cfg}_s{args.seed}.json")
         if os.path.exists(path):
             with open(path) as f:
                 results.append(json.load(f))
