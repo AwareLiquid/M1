@@ -82,6 +82,13 @@ pilot) and still scores exactly 0.000 cross-window.
 for stateless configs; their gradient noise also destroys lora_only's
 in-window skill — reported honestly, see the 50/50 pilot for its 0.951.
 
+**Bio-prior (frozen-tau) ablation (2026-07-06):** freezing every tau
+ladder at its biologically-derived init (training everything else) scores
+cross-window **0.285** vs **0.621** trained (in-window ~0.99 both). Read
+both ways: the bio initialization alone carries ~46 % of the effect (285x
+chance), and trainability doubles it — the bio prior is a genuinely good
+starting point, not a sufficient endpoint.
+
 **Multi-seed replication (2026-07-05):** mt_v2s cross-window over seeds
 {0, 1, 2} = **0.621 / 0.434 / 0.621** (mean 0.56 ± 0.09; in-window
 0.994–1.000 every seed) — the effect is robust, three orders of magnitude
