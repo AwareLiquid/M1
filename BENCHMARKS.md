@@ -82,6 +82,14 @@ pilot) and still scores exactly 0.000 cross-window.
 for stateless configs; their gradient noise also destroys lora_only's
 in-window skill — reported honestly, see the 50/50 pilot for its 0.951.
 
+**Multi-seed replication (2026-07-05):** mt_v2s cross-window over seeds
+{0, 1, 2} = **0.621 / 0.434 / 0.621** (mean 0.56 ± 0.09; in-window
+0.994–1.000 every seed) — the effect is robust, three orders of magnitude
+above chance in every run. lora_only seed 1 failed to learn even in-window
+at lr 1e-3 (training instability for LoRA at this task lr; the structural
+zero-channel argument is unaffected, and its seed-0 run learned in-window
+0.951 while still scoring exactly 0.000 cross-window).
+
 ## Out-of-window streaming on real text (2026-07-05) — honest null
 
 `benchmarks/length_streaming_eval.py`: WikiText-2 test windows of 2048,
