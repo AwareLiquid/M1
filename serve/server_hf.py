@@ -986,3 +986,119 @@ def completions_stream(req: CompletionRequest):
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(_gen(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# OpenAI-compatible surface (/v1/chat/completions + /v1/models)
+#
+# This is the GATEWAY contract: relay panels (new-api / one-api class) speak
+# the OpenAI schema to their upstream channels. The native endpoints above
+# keep M1's own UI features (memory augmentation, thinking traces); this
+# surface is deliberately plain — the caller owns the conversation, we honor
+# their messages verbatim (no memory injection), reset the recurrent state
+# per request, and answer in OpenAI chunk/response format.
+# ---------------------------------------------------------------------------
+
+_OAI_MODEL_ID = os.environ.get("OAI_MODEL_ID", "awareliquid-m1")
+
+
+@app.get("/v1/models")
+def oai_models():
+    return {"object": "list", "data": [{
+        "id": _OAI_MODEL_ID, "object": "model", "owned_by": "awareliquid",
+    }]}
+
+
+@app.post("/v1/chat/completions")
+def oai_chat_completions(body: dict):
+    if not _STATE.get("ready"):
+        raise HTTPException(503, "model not ready")
+    messages = body.get("messages") or []
+    if not isinstance(messages, list) or not messages:
+        raise HTTPException(400, "messages required")
+    model, tok, device = _STATE["model"], _STATE["tok"], _STATE["device"]
+
+    max_tokens = int(body.get("max_tokens") or body.get("max_completion_tokens")
+                     or 256)
+    max_tokens = max(1, min(max_tokens, MAX_NEW_CAP))
+    temperature = float(body.get("temperature", 0.7))
+    top_p = float(body.get("top_p", 0.95))
+    do_sample = temperature > 0
+    stream = bool(body.get("stream", False))
+
+    # Honor caller-supplied system prompt; add ours only when absent.
+    if not any(m.get("role") == "system" for m in messages):
+        messages = ([{"role": "system", "content": _STATE["system_prompt"]}]
+                    + messages)
+    try:
+        text = tok.apply_chat_template(messages, tokenize=False,
+                                       add_generation_prompt=True)
+    except Exception as exc:
+        raise HTTPException(400, f"bad messages: {exc}")
+    ids = tok(text, return_tensors="pt").input_ids.to(device)
+    n_prompt = ids.shape[1]
+    eos_id = tok.eos_token_id
+    rid = f"chatcmpl-{int(time.time() * 1000)}"
+    created = int(time.time())
+
+    from mt_lnn.llama_adapter import reset_adapter_streams
+    reset_adapter_streams(model)
+
+    class _P:  # adapter for _sample_next_token's attribute access
+        pass
+    sp = _P()
+    sp.do_sample, sp.temperature, sp.top_k, sp.top_p = do_sample, temperature, 0, top_p
+
+    if stream:
+        def _gen():
+            head = {"id": rid, "object": "chat.completion.chunk",
+                    "created": created, "model": _OAI_MODEL_ID,
+                    "choices": [{"index": 0,
+                                 "delta": {"role": "assistant", "content": ""},
+                                 "finish_reason": None}]}
+            yield f"data: {json.dumps(head)}\n\n"
+            past, cur = None, ids
+            finish = "length"
+            for _ in range(max_tokens):
+                with torch.no_grad():
+                    out = model(cur, past_key_values=past, use_cache=True)
+                past = out.past_key_values
+                tid = _sample_next_token(out.logits[:, -1, :], sp)
+                if eos_id is not None and tid == eos_id:
+                    finish = "stop"
+                    break
+                piece = tok.decode([tid], skip_special_tokens=True)
+                chunk = {"id": rid, "object": "chat.completion.chunk",
+                         "created": created, "model": _OAI_MODEL_ID,
+                         "choices": [{"index": 0, "delta": {"content": piece},
+                                      "finish_reason": None}]}
+                yield f"data: {json.dumps(chunk)}\n\n"
+                cur = torch.tensor([[tid]], device=device)
+            tail = {"id": rid, "object": "chat.completion.chunk",
+                    "created": created, "model": _OAI_MODEL_ID,
+                    "choices": [{"index": 0, "delta": {},
+                                 "finish_reason": finish}]}
+            yield f"data: {json.dumps(tail)}\n\n"
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(_gen(), media_type="text/event-stream")
+
+    with torch.no_grad():
+        out = model.generate(
+            ids, max_new_tokens=max_tokens, do_sample=do_sample,
+            temperature=temperature if do_sample else None,
+            top_p=top_p if do_sample else None,
+            eos_token_id=eos_id, pad_token_id=tok.pad_token_id,
+        )
+    new_ids = out[0, n_prompt:]
+    finish = ("stop" if eos_id is not None and len(new_ids)
+              and new_ids[-1].item() == eos_id else "length")
+    answer = tok.decode(new_ids, skip_special_tokens=True)
+    return {
+        "id": rid, "object": "chat.completion", "created": created,
+        "model": _OAI_MODEL_ID,
+        "choices": [{"index": 0, "finish_reason": finish,
+                     "message": {"role": "assistant", "content": answer}}],
+        "usage": {"prompt_tokens": n_prompt,
+                  "completion_tokens": int(len(new_ids)),
+                  "total_tokens": n_prompt + int(len(new_ids))},
+    }

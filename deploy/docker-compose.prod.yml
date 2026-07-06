@@ -120,6 +120,28 @@ services:
       start_period: 180s               # first start downloads the base model
       retries: 3
 
+  # API gateway / account-pool panel (new-api). Independent product surface:
+  # manages provider accounts (Anthropic/OpenAI/... keys) AND exposes M1 as an
+  # OpenAI-compatible channel so third parties can call it with per-user
+  # tokens, quotas and billing. Profile-gated: needs a DNS A record for
+  # relay.awareliquid.ai first, then:
+  #   docker compose -f deploy/docker-compose.prod.yml --profile relay up -d relay
+  # First login: root / 123456 — CHANGE IT IMMEDIATELY, then add the M1
+  # channel (type: OpenAI, base_url http://adapter:8000, model awareliquid-m1).
+  # SESSION_SECRET must be set in deploy/.env (any long random string).
+  relay:
+    image: calciumion/new-api:latest
+    container_name: mtlnn_relay
+    restart: unless-stopped
+    profiles: ["relay"]
+    ports:
+      - "127.0.0.1:3001:3000"          # localhost only; Caddy fronts it with TLS
+    environment:
+      TZ: Asia/Shanghai
+      SESSION_SECRET: ${RELAY_SESSION_SECRET:?set RELAY_SESSION_SECRET in deploy/.env}
+    volumes:
+      - relay_data:/data               # SQLite DB: accounts, tokens, usage logs
+
   caddy:
     image: caddy:2-alpine
     container_name: caddy_prod
@@ -137,4 +159,5 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  relay_data:                          # gateway DB (accounts/tokens/usage)
   hf_cache:                            # cached base-model weights for the baseline service

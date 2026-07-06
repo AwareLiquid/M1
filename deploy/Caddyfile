@@ -56,3 +56,18 @@ awareliquid.ai, www.awareliquid.ai {
 		format console
 	}
 }
+
+# API gateway (account pool / third-party access). Separate subdomain and
+# container so it shares nothing with the model UI. Requires a DNS A record:
+#   relay.awareliquid.ai -> this server's IP
+relay.awareliquid.ai {
+	encode zstd gzip
+	reverse_proxy relay:3000 {
+		flush_interval -1
+	}
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+	}
+}
