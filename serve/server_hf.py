@@ -132,6 +132,11 @@ def about():
     return _static_page("about")
 
 
+@app.get("/api")
+def api_docs():
+    return _static_page("api")
+
+
 @app.get("/research")
 def research():
     return _static_page("research")
