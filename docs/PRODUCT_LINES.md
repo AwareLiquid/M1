@@ -65,6 +65,9 @@ Biology provides initialization, engineering provides the optimum: τ
 timescale ladders initialize from biological priors and are
 softplus-trainable. Ablation: freezing τ at biological values scores 0.285
 cross-window recall vs 0.621 trained — the prior is a good start and must
-not be a cage. Modules without positive evidence (Orch-OR/Φ̂, and any
-switch-matrix losers from `benchmarks/o1_module_ablation.py`) stay OFF in
-shipped configs and are documented as negative results.
+not be a cage. Modules without positive evidence stay OFF in shipped configs and are
+documented as negative results. The switch-matrix has now been run
+(BENCHMARKS.md §O1 module switch-matrix): **all five optional modules
+(predictive coding, competitive GWTB, world model, rhythm, Hebbian) are
+PPL-neutral at the 48M scale** — the full stack costs 5.6% throughput for a
+noise-level change. Lean/shipped O1 configs run the core trunk only.

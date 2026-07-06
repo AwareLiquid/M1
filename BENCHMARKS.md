@@ -164,7 +164,29 @@ As the attribution predicted: the adapter is **capability-neutral** (±1pt,
 noise) — the SFT bought chat formatting and recall machinery without
 trading away core abilities. Deployment-safety box ticked.
 
-## ARR — attention-free recurrent distillation, round 1 (2026-07-05)
+## O1 module switch-matrix — all optional modules PPL-neutral (2026-07-05)
+
+`benchmarks/o1_module_ablation.py` (Colab free T4, 48M-class O1, TinyStories,
+1200 steps, identical budget/seed; leave-one-in over the five optional
+brain-inspired modules):
+
+| config | val PPL | Δ vs core | tok/s |
+|---|---|---|---|
+| **core (all optional OFF)** | 25.33 | — | **3678** |
+| + predictive coding | 25.98 | +0.65 (worse) | 3567 |
+| + competitive GWTB | 25.36 | +0.03 | 3604 |
+| + world model | 25.19 | −0.14 | 3615 |
+| + rhythm (LAVI) | 25.05 | −0.28 | 3670 |
+| + Hebbian | 25.62 | +0.29 | 3627 |
+| full (all ON) | 25.09 | −0.24 | 3471 (−5.6%) |
+
+Verdict (single seed, small budget — treat ±0.3–0.5 PPL as the noise band):
+**no optional module clears noise**; the full stack costs 5.6% throughput
+for a noise-level PPL change, and predictive coding — the one module that
+defaults ON — trends *negative*. All quality lives in the core recurrent
+trunk. Shipped/lean configs should run `core` (pass
+`--no_predictive_coding`); the five modules are archived as negative
+results at this scale, retained behind flags for larger-scale retests.
 
 `mt_lnn/arr.py` + `benchmarks/distill_arr.py`: ALL 22 TinyLlama
 self-attention blocks replaced by MT-v2s recurrent mixers (79.5M trainable;
