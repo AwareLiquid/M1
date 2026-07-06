@@ -172,6 +172,8 @@ def train(args):
         world_model_loss_weight=args.world_model_weight,
         use_hebbian=args.hebbian,
         hebbian_lr=args.hebbian_lr,
+        use_predictive_coding=not args.no_predictive_coding,
+        use_rhythm=args.rhythm,
         **cfg_kwargs,
     )
     model = MTLNNModel(config).to(device)
@@ -456,6 +458,11 @@ def parse_args():
                    help="[Phase D] Enable HebbianRegularizer: co-activation loss term")
     p.add_argument("--hebbian_lr", type=float, default=1e-4,
                    help="[Phase D] Base Hebbian learning rate α (default 1e-4)")
+    p.add_argument("--no_predictive_coding", action="store_true",
+                   help="disable the multi-scale predictive-coding aux loss "
+                        "(ON by default in config; exposed for ablations)")
+    p.add_argument("--rhythm", action="store_true",
+                   help="enable the LAVI rhythm gate (use_rhythm)")
     # ---- Observability + resume ----
     p.add_argument("--metrics_jsonl", type=str, default=None,
                    help="If set, append v2.0 module metrics (bounded scalars) to this JSONL file")
