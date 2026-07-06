@@ -567,6 +567,7 @@ What's not yet shown (by design):
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Full v2.0 architecture spec |
 | [MT_LNN_ARCHITECTURE_VISUAL.md](MT_LNN_ARCHITECTURE_VISUAL.md) | Visual walkthrough |
 | [BENCHMARKS.md](BENCHMARKS.md) | All benchmark numbers + AVP details |
+| [docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md) | M-series (hybrid) vs O-series (attention-free ARR): honest capability cards |
 | [RECIPES.md](RECIPES.md) | Recipe API reference |
 | [ABLATIONS.md](ABLATIONS.md) | Ablation framework |
 | [V2_REVIEW.md](V2_REVIEW.md) | v2.0/v2.1 module review (incl. SimSiam collapse proof) |
