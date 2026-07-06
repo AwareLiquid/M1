@@ -445,6 +445,75 @@ def reset_adapter_streams(model: nn.Module) -> None:
         adapter.reset_stream()
 
 
+def snapshot_adapter_streams(model: nn.Module) -> dict:
+    """Capture every adapter's live streaming state as a persistable dict.
+
+    Turns the transient, request-volatile fast-weight/recurrent state
+    (``_stream_h``, ``_stream_fw`` = the (F, z) pair, ``_stream_pos``) into a
+    plain dict of CPU float32 tensors that can be ``torch.save``d and reloaded
+    into a FRESH process — the fast->slow (hippocampus->durable) transfer the
+    consolidation stack needs but never had a source for.
+
+    Keyed by deterministic ``_iter_all_adapters`` enumeration order so a
+    snapshot restores onto the same adapters it came from. The (F, z) PAIR is
+    captured atomically: F alone is unusable because the associative read
+    divides by q·z, so persisting one without its exactly-paired other yields
+    garbage. Tensors are detached to CPU float32 (the bf16/fp16 round-trip
+    would otherwise bleed low-order bits of the magnitude-heavy DxD sums each
+    consolidation cycle).
+
+    Returns ``{"i0": {...}, "i1": {...}}`` where each entry has ``h`` (or None),
+    ``fw`` (a 2-list [F, z] or None) and ``pos``. Empty streams snapshot as
+    None — a fresh, never-written adapter round-trips to itself.
+    """
+    def _cpu(t):
+        return None if t is None else t.detach().to("cpu", torch.float32)
+
+    snap: dict = {"_schema": "adapter_streams_v1"}
+    for i, adapter in enumerate(_iter_all_adapters(model)):
+        fw = adapter._stream_fw
+        snap[f"i{i}"] = {
+            "h": _cpu(adapter._stream_h),
+            "fw": None if fw is None else [_cpu(fw[0]), _cpu(fw[1])],
+            "pos": int(adapter._stream_pos),
+        }
+    return snap
+
+
+def restore_adapter_streams(model: nn.Module, snap: dict) -> int:
+    """Write a :func:`snapshot_adapter_streams` dict back onto the adapters.
+
+    Moves each tensor to the target adapter's own device/dtype (a snapshot is
+    stored device-agnostic in CPU fp32; here it is cast ONCE to the live
+    dtype). Entries whose batch axis ``shape[0]`` disagrees with the model's
+    current batch are dropped — a B=1 serve snapshot restored into a B>1 eval
+    batch would otherwise be silently zeroed by the forward's own shape guard,
+    reading as "the bridge didn't fire". Returns the number of adapters whose
+    state was restored. Enables streaming on every touched adapter so the
+    restored state is actually read on the next forward.
+    """
+    restored = 0
+    adapters = list(_iter_all_adapters(model))
+    for i, adapter in enumerate(adapters):
+        entry = snap.get(f"i{i}")
+        if entry is None:
+            continue
+        p = next(adapter.parameters(), None)
+        device = p.device if p is not None else torch.device("cpu")
+        dtype = p.dtype if p is not None else torch.float32
+
+        def _to(t):
+            return None if t is None else t.to(device=device, dtype=dtype)
+
+        adapter.stream_enabled = True
+        adapter._stream_h = _to(entry.get("h"))
+        fw = entry.get("fw")
+        adapter._stream_fw = None if fw is None else (_to(fw[0]), _to(fw[1]))
+        adapter._stream_pos = int(entry.get("pos", 0))
+        restored += 1
+    return restored
+
+
 class adapter_streaming_paused:
     """Context manager: run auxiliary forwards (probes, encoders) without
     reading or writing the generation's streaming state."""
