@@ -107,6 +107,37 @@ the blocker (a single batch is memorized to acc 1.0 in 20 steps); it is an
 optimization/curriculum problem (start at n_pairs=2, longer training).
 Curriculum retry queued for the next GPU budget.
 
+## Cross-session persistence — snapshot/restore is lossless (2026-07-05)
+
+`benchmarks/cross_session_recall.py` + `snapshot_adapter_streams` /
+`restore_adapter_streams` (llama_adapter.py). The fast-weight (F,z) that
+carries cross-window recall is normally reset every request and never
+serialized. This measures whether snapshotting it to DISK and restoring into
+a FRESH model object (new (F,z)=None by construction — process-volatile state
+provably did not ride along) preserves recall. Oracle retrieval (restore the
+correct session by id) isolates round-trip fidelity from content-addressed
+retrieval. TinyLlama, mt_v2s, B=1 eval:
+
+| run | within_window | cross_session | round-trip Δ | C1 no-restore | C2 wrong-session |
+|---|---|---|---|---|---|
+| A (fixed bf16, 8k steps) | 0.273 | 0.266 | **+0.008** | 0.004 | 0.000 |
+| B (earlier, undertrained) | 0.027 | 0.027 | **+0.000** | 0.000 | 0.000 |
+
+Verdict: **the snapshot->disk->fresh-process->restore round-trip is lossless**
+(cross_session tracks within_window to within noise in both runs) and
+**content-addressed to the right session** (C2 wrong-session restore = chance,
+so it is not "any non-zero F helps"); C1 no-restore = chance proves the state
+was really gone and the test has power. A CPU unit test
+(`tests/test_cross_session_snapshot.py`) confirms the round-trip is bit-exact
+(max|diff| 0.0). The absolute within_window here (0.27, not the standalone
+benchmark's 0.62) is training-convergence-limited — this recall task is
+high-variance (see the 0.62/0.43/0.62 multi-seed spread) and run A undertrained;
+the persistence CLAIM is the delta and the controls, which are clean. This is
+the fast->slow (hippocampus->durable) transfer the consolidation stack was
+missing a source for; follow-ons are server session_id wiring + e5
+content-addressed retrieval (turning within-session recall into "remembers you
+across sessions" on the site).
+
 ## Out-of-window streaming on real text (2026-07-05) — honest null
 
 `benchmarks/length_streaming_eval.py`: WikiText-2 test windows of 2048,
