@@ -88,7 +88,11 @@ def train_recall(m, args, device, dtype):
     g = torch.Generator().manual_seed(args.seed)
     t0 = time.time()
     for step in range(1, args.steps + 1):
-        seg_a, seg_b = make_batch(args.batch, args.n_pairs, args.key_lo,
+        # Train with train_batch (batch=1 recall training is too noisy to
+        # converge — it stalls at ~0.03 vs 0.6 at batch 4). The session
+        # snapshot/eval separately runs B=1 to dodge the batch-shape trap;
+        # training batch and eval batch are independent.
+        seg_a, seg_b = make_batch(args.train_batch, args.n_pairs, args.key_lo,
                                   args.key_hi, args.val_lo, args.val_hi, g)
         seg_a, seg_b = seg_a.to(device), seg_b.to(device)
         cross = torch.rand((), generator=g).item() < 0.75
@@ -148,7 +152,9 @@ def main():
     ap.add_argument("--config", default="mt_v2s",
                     help="mt_v2 / mt_v2s / mt_v2_nofw (maps to cross_window setup)")
     ap.add_argument("--steps", type=int, default=8000)
-    ap.add_argument("--batch", type=int, default=1)   # B=1: dodge snapshot batch-shape trap
+    ap.add_argument("--batch", type=int, default=1)   # EVAL/snapshot: B=1 dodges the batch-shape trap
+    ap.add_argument("--train_batch", type=int, default=4,   # recall training needs B>1 to converge
+                    help="training batch (independent of the B=1 eval/snapshot)")
     ap.add_argument("--n_pairs", type=int, default=8)
     ap.add_argument("--eval_trials", type=int, default=16)
     ap.add_argument("--lr", type=float, default=1e-3)
