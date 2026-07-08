@@ -146,6 +146,15 @@ def read_session(m, seg_b, snap):
     return recall_loss_and_acc(logits_b, seg_b)
 
 
+def _tag_encoder(dim):
+    """Deterministic per-session-tag encoder (no e5 download): clean, distinct
+    keys so 'key' retrieval mode measures the store round-trip + recall, not
+    e5-over-random-ids key quality (which real session TEXT, not these random
+    token ids, would exercise in production)."""
+    from mt_lnn.fast_weight_store import id_key
+    return lambda tag: id_key(tag, dim)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
@@ -167,6 +176,10 @@ def main():
     ap.add_argument("--val_hi", type=int, default=8000)
     ap.add_argument("--log_every", type=int, default=200)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--retrieval", choices=["oracle", "key"], default="oracle",
+                    help="oracle: restore correct session by id (isolates "
+                         "round-trip fidelity). key: content-addressed recall "
+                         "through FastWeightSessionStore (adds retrieval_top1).")
     ap.add_argument("--out_dir", default="benchmarks/cross_session_out")
     args = ap.parse_args()
     # cross_window_recall.setup expects the "*_only" config names.
@@ -195,8 +208,23 @@ def main():
     g = torch.Generator().manual_seed(10_000 + args.seed)
     accs = {"within_window": [], "cross_session": [], "c1_no_restore": [],
             "c2_wrong_session": []}
+    retrieval_ok = []       # key mode only: did content-addressing return session 1?
+
+    # 'key' mode routes session 1 -> durable content-addressed store (e5-like
+    # tag key) -> session 2 recalls by key. 'oracle' restores the correct
+    # snapshot by id (isolates round-trip fidelity from retrieval).
+    use_store = args.retrieval == "key"
+    store = enc = None
+    if use_store:
+        from mt_lnn.fast_weight_store import (FastWeightSessionStore,
+                                              build_session_key)
+        enc = _tag_encoder(384)
+
     with tempfile.TemporaryDirectory() as d:
-        for _ in range(args.eval_trials):
+        if use_store:
+            store = FastWeightSessionStore(db_path=os.path.join(d, "fw.db"),
+                                           key_dim=384)
+        for trial in range(args.eval_trials):
             a1, b1 = make_batch(args.batch, args.n_pairs, args.key_lo, args.key_hi,
                                 args.val_lo, args.val_hi, g)
             a2, b2 = make_batch(args.batch, args.n_pairs, args.key_lo, args.key_hi,
@@ -208,16 +236,26 @@ def main():
                 two_segment_forward(m, a1, b1, reset_adapter_streams), b1)
             accs["within_window"].append(acc_win)
 
-            # session 1 writes; snapshot goes to disk.
+            # session 1 writes; snapshot goes to disk (oracle) or store (key).
             p1 = os.path.join(d, "s1.pt")
             snap1 = write_session(m, a1, p1)
             p2 = os.path.join(d, "s2.pt")
             snap2 = write_session(m, a2, p2)     # distractor session's snapshot
+            if use_store:
+                sid1, sid2 = f"t{trial}-s1", f"t{trial}-s2"
+                store.write_session(sid1, build_session_key(sid1, enc), snap1)
+                store.write_session(sid2, build_session_key(sid2, enc), snap2)
 
-            # session 2: fresh model, restore FROM DISK, query b1.
+            # session 2: fresh model, restore session 1's state, query b1.
             tw = fresh_twin()
-            loaded1 = torch.load(p1, weights_only=False)
-            _, acc_x = read_session(tw, b1, loaded1)
+            if use_store:
+                hits = store.recall_session(build_session_key(sid1, enc),
+                                            top_k=1, center=False)
+                got_snap, _, got_sid, _ = hits[0]
+                retrieval_ok.append(1.0 if got_sid == sid1 else 0.0)
+                _, acc_x = read_session(tw, b1, got_snap)
+            else:
+                _, acc_x = read_session(tw, b1, torch.load(p1, weights_only=False))
             accs["cross_session"].append(acc_x)
 
             # C1: fresh model, no restore.
@@ -228,10 +266,14 @@ def main():
             loaded2 = torch.load(p2, weights_only=False)
             _, acc_c2 = read_session(fresh_twin(), b1, loaded2)
             accs["c2_wrong_session"].append(acc_c2)
+        if store is not None:
+            store.close()
 
     res = {k: sum(v) / len(v) for k, v in accs.items()}
+    if retrieval_ok:
+        res["retrieval_top1"] = sum(retrieval_ok) / len(retrieval_ok)
     res.update({"config": args.config, "chance": chance, "steps": args.steps,
-                "n_pairs": args.n_pairs})
+                "n_pairs": args.n_pairs, "retrieval": args.retrieval})
     os.makedirs(args.out_dir, exist_ok=True)
     with open(os.path.join(args.out_dir,
               f"cross_session_{args.config}_{args.steps}.json"), "w") as f:
@@ -240,7 +282,10 @@ def main():
     print("\n" + "=" * 60, flush=True)
     print(f"CROSS-SESSION RECALL | {args.config} | chance={chance:.4f}", flush=True)
     print("=" * 60, flush=True)
-    for k in ("within_window", "cross_session", "c1_no_restore", "c2_wrong_session"):
+    keys = ["within_window", "cross_session", "c1_no_restore", "c2_wrong_session"]
+    if "retrieval_top1" in res:
+        keys.append("retrieval_top1")
+    for k in keys:
         print(f"  {k:<18} {res[k]:.3f}", flush=True)
     delta = res["within_window"] - res["cross_session"]
     print(f"\n  round-trip loss (within - cross_session): {delta:+.3f}", flush=True)
