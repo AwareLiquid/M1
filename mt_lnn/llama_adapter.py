@@ -422,6 +422,26 @@ def _iter_all_adapters(model: nn.Module):
             yield module
 
 
+def _iter_stream_modules(model: nn.Module):
+    """Yield every module carrying the streaming-state contract — the M-series
+    residual adapters AND the O-series ARR mixers (MTRecurrentMixer). All of
+    them hold ``_stream_h`` / ``_stream_fw`` and a ``reset_stream``; the mixers
+    lack ``_stream_pos`` (they have no GTP clock), so callers must read it with
+    getattr. Used by the state-lifecycle helpers (set/reset/snapshot/restore/
+    pause) so persistence covers BOTH product lines — an ARR model's fast-weight
+    would otherwise be silently skipped by the adapter-only iterator."""
+    from .mt_lnn_v2 import MTResidualAdapterV2
+    from .arr import MTRecurrentMixer
+
+    modules = getattr(model, "modules", None)
+    if modules is None:
+        return
+    for module in modules():
+        if isinstance(module, (MTResidualAdapter, MTResidualAdapterV2,
+                               MTRecurrentMixer)):
+            yield module
+
+
 def set_adapter_streaming(model: nn.Module, enabled: bool) -> int:
     """Enable/disable cross-call recurrent state on all MT adapters (v1+v2).
 
@@ -430,7 +450,7 @@ def set_adapter_streaming(model: nn.Module, enabled: bool) -> int:
     adapters ignore the flag in training mode.
     """
     n = 0
-    for adapter in _iter_all_adapters(model):
+    for adapter in _iter_stream_modules(model):   # adapters + ARR mixers
         adapter.stream_enabled = enabled
         adapter.reset_stream()
         n += 1
@@ -438,10 +458,11 @@ def set_adapter_streaming(model: nn.Module, enabled: bool) -> int:
 
 
 def reset_adapter_streams(model: nn.Module) -> None:
-    """Zero all adapters' streaming state. Call at every sequence start and
-    whenever the KV cache is re-primed on a rebuilt context (a re-fed prompt
-    would otherwise be double-written into the recurrent state)."""
-    for adapter in _iter_all_adapters(model):
+    """Zero every streaming module's state (adapters AND ARR mixers). Call at
+    each sequence start and whenever the KV cache is re-primed on a rebuilt
+    context (a re-fed prompt would otherwise be double-written into the
+    recurrent state)."""
+    for adapter in _iter_stream_modules(model):
         adapter.reset_stream()
 
 
@@ -462,42 +483,56 @@ def snapshot_adapter_streams(model: nn.Module) -> dict:
     would otherwise bleed low-order bits of the magnitude-heavy DxD sums each
     consolidation cycle).
 
+    Covers M-series adapters AND O-series ARR mixers (see
+    :func:`_iter_stream_modules`); mixers have no ``_stream_pos`` so it is read
+    with getattr and defaults to 0.
+
     Returns ``{"i0": {...}, "i1": {...}}`` where each entry has ``h`` (or None),
     ``fw`` (a 2-list [F, z] or None) and ``pos``. Empty streams snapshot as
-    None — a fresh, never-written adapter round-trips to itself.
+    None — a fresh, never-written module round-trips to itself.
     """
     def _cpu(t):
         return None if t is None else t.detach().to("cpu", torch.float32)
 
     snap: dict = {"_schema": "adapter_streams_v1"}
-    for i, adapter in enumerate(_iter_all_adapters(model)):
+    for i, adapter in enumerate(_iter_stream_modules(model)):
         fw = adapter._stream_fw
         snap[f"i{i}"] = {
             "h": _cpu(adapter._stream_h),
             "fw": None if fw is None else [_cpu(fw[0]), _cpu(fw[1])],
-            "pos": int(adapter._stream_pos),
+            "pos": int(getattr(adapter, "_stream_pos", 0)),
         }
     return snap
 
 
-def restore_adapter_streams(model: nn.Module, snap: dict) -> int:
-    """Write a :func:`snapshot_adapter_streams` dict back onto the adapters.
+def restore_adapter_streams(model: nn.Module, snap: dict,
+                            batch: Optional[int] = None) -> int:
+    """Write a :func:`snapshot_adapter_streams` dict back onto the modules
+    (adapters AND ARR mixers).
 
-    Moves each tensor to the target adapter's own device/dtype (a snapshot is
-    stored device-agnostic in CPU fp32; here it is cast ONCE to the live
-    dtype). Entries whose batch axis ``shape[0]`` disagrees with the model's
-    current batch are dropped — a B=1 serve snapshot restored into a B>1 eval
-    batch would otherwise be silently zeroed by the forward's own shape guard,
-    reading as "the bridge didn't fire". Returns the number of adapters whose
-    state was restored. Enables streaming on every touched adapter so the
-    restored state is actually read on the next forward.
+    Moves each tensor to the target module's own device/dtype (a snapshot is
+    stored device-agnostic in CPU fp32; here it is cast ONCE to the live dtype).
+    When ``batch`` is given, entries whose snapshot batch axis ``shape[0]`` !=
+    ``batch`` are DROPPED and not counted — a B=1 serve snapshot restored into a
+    B>1 forward would otherwise be silently zeroed by the module's own shape
+    guard on the next forward, reading as "the bridge fired" (restored>0) when
+    it did not. When ``batch`` is None the caller asserts B matches (e.g. the
+    B=1 eval path); the forward guard still protects correctness, but the
+    returned count is only trustworthy when ``batch`` is supplied. Returns the
+    number of modules whose state was actually restored; enables streaming on
+    each so the restored state is read on the next forward.
     """
     restored = 0
-    adapters = list(_iter_all_adapters(model))
-    for i, adapter in enumerate(adapters):
+    for i, adapter in enumerate(_iter_stream_modules(model)):
         entry = snap.get(f"i{i}")
         if entry is None:
             continue
+        if batch is not None:
+            h, fw = entry.get("h"), entry.get("fw")
+            cand_b = (h.shape[0] if h is not None
+                      else fw[0].shape[0] if fw is not None else None)
+            if cand_b is not None and cand_b != batch:
+                continue                          # drop B-mismatched, don't count
         p = next(adapter.parameters(), None)
         device = p.device if p is not None else torch.device("cpu")
         dtype = p.dtype if p is not None else torch.float32
@@ -509,7 +544,8 @@ def restore_adapter_streams(model: nn.Module, snap: dict) -> int:
         adapter._stream_h = _to(entry.get("h"))
         fw = entry.get("fw")
         adapter._stream_fw = None if fw is None else (_to(fw[0]), _to(fw[1]))
-        adapter._stream_pos = int(entry.get("pos", 0))
+        if hasattr(adapter, "_stream_pos"):
+            adapter._stream_pos = int(entry.get("pos", 0))
         restored += 1
     return restored
 
@@ -523,10 +559,10 @@ class adapter_streaming_paused:
         self._saved = []
 
     def __enter__(self):
-        for adapter in _iter_all_adapters(self.model):
+        for adapter in _iter_stream_modules(self.model):
             self._saved.append((adapter, adapter.stream_enabled,
                                 adapter._stream_h, adapter._stream_fw,
-                                adapter._stream_pos))
+                                getattr(adapter, "_stream_pos", None)))
             adapter.stream_enabled = False
         return self
 
@@ -535,7 +571,8 @@ class adapter_streaming_paused:
             adapter.stream_enabled = enabled
             adapter._stream_h = h
             adapter._stream_fw = fw
-            adapter._stream_pos = pos
+            if pos is not None and hasattr(adapter, "_stream_pos"):
+                adapter._stream_pos = pos
         return False
 
 

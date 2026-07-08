@@ -76,21 +76,42 @@ class FastWeightSessionStore:
         top_k: int = 1,
         center: bool = True,
         score_floor: Optional[float] = None,
+        expected_session_id: Optional[str] = None,
     ) -> List[Tuple[dict, float, Optional[str], Any]]:
         """Return the best-matching sessions as
-        ``(fw_snapshot, score, session_id, meta)`` tuples, highest score first.
+        ``(fw_snapshot, score, session_id, meta)`` tuples, best first.
 
-        A ``score_floor`` (cosine in [-1, 1]) suppresses weak matches so an
-        unrelated new session does not spuriously restore stale state — the
-        conservative default of None returns the top hit unconditionally; set a
-        floor in production so "no relevant memory" cleanly yields nothing."""
-        hits = self.kb.query(query_vec, top_k=top_k, center=center)
+        ``score_floor`` (cosine in [-1, 1]) suppresses weak matches so an
+        unrelated new session does not spuriously restore stale state (None =
+        return the top hit unconditionally; set a floor in production so "no
+        relevant memory" cleanly yields nothing).
+
+        ``expected_session_id`` filters to that session so an EVICTED or absent
+        session yields ``[]`` instead of a foreign snapshot — without it, a
+        caller resuming a specific session that has been LRU-evicted would
+        silently receive some other session's state (review finding [3]).
+
+        Ties are broken toward the NEWEST row (append-only + an exact-id key
+        produces several cosine-1.0 rows for a re-written session; the latest
+        write must win, not the oldest — review finding [2])."""
+        if len(self.kb) == 0:
+            return []
+        # Query a generous window so all exact-id tie duplicates are visible,
+        # then re-rank (score desc, row-id desc) so recency breaks ties.
+        window = min(len(self.kb), max(top_k * 8, 32))
+        hits = self.kb.query(query_vec, top_k=window, center=center,
+                             return_ids=True)                # (rid, content, score, meta)
+        hits.sort(key=lambda h: (h[2], h[0]), reverse=True)
         out: List[Tuple[dict, float, Optional[str], Any]] = []
-        for content, score, meta in hits:
+        for rid, content, score, meta in hits:
             if score_floor is not None and score < score_floor:
                 continue
-            out.append((content["snapshot"], float(score),
-                        content.get("session_id"), meta))
+            sid = content.get("session_id")
+            if expected_session_id is not None and sid != expected_session_id:
+                continue
+            out.append((content["snapshot"], float(score), sid, meta))
+            if len(out) >= top_k:
+                break
         return out
 
     def __len__(self) -> int:
@@ -123,9 +144,11 @@ def id_key(session_id: str, dim: int) -> torch.Tensor:
     score_floor separating exact-id hits from semantic ones.
 
     NOTE: append-only + this exact-id key means N re-writes of the same session
-    produce N cosine-1.0 rows; picking the LATEST among them needs a KB
-    delete/upsert or recency-ranked query the store does not yet have — so
-    exact-id RESUME across many turns is a documented follow-on, not shipped.
+    produce N cosine-1.0 rows. ``recall_session`` breaks the tie toward the
+    newest row, so RESUME correctly returns the latest snapshot; the remaining
+    cost is storage bloat from stale duplicates, bounded by the store's
+    ``max_entries`` LRU. True per-session UPSERT (deleting the stale rows on
+    rewrite) still needs a KB delete-by-id API and is a documented follow-on.
     """
     import hashlib
 

@@ -247,6 +247,11 @@ def main():
                 store.write_session(sid2, build_session_key(sid2, enc), snap2)
 
             # session 2: fresh model, restore session 1's state, query b1.
+            # oracle: correct snapshot straight from disk (round-trip fidelity).
+            # key: content-addressed recall THROUGH the store. retrieval_top1
+            #   verifies the store returned session 1 among the N stored (an
+            #   exact-key round-trip among distractors — e5 semantic
+            #   discrimination on similar text is covered by the store unit test).
             tw = fresh_twin()
             if use_store:
                 hits = store.recall_session(build_session_key(sid1, enc),
@@ -258,13 +263,20 @@ def main():
                 _, acc_x = read_session(tw, b1, torch.load(p1, weights_only=False))
             accs["cross_session"].append(acc_x)
 
-            # C1: fresh model, no restore.
+            # C1: fresh model, no restore -> must be chance (state really gone).
             _, acc_c1 = read_session(fresh_twin(), b1, None)
             accs["c1_no_restore"].append(acc_c1)
 
-            # C2: fresh model, restore the WRONG session (distractor).
-            loaded2 = torch.load(p2, weights_only=False)
-            _, acc_c2 = read_session(fresh_twin(), b1, loaded2)
+            # C2: restore the WRONG (distractor) session, query b1 -> chance.
+            # key mode routes C2 THROUGH the store (recall the distractor's key)
+            # so the whole control path exercises content-addressing, not disk.
+            if use_store:
+                d_hits = store.recall_session(build_session_key(sid2, enc),
+                                              top_k=1, center=False)
+                wrong_snap = d_hits[0][0]
+            else:
+                wrong_snap = torch.load(p2, weights_only=False)
+            _, acc_c2 = read_session(fresh_twin(), b1, wrong_snap)
             accs["c2_wrong_session"].append(acc_c2)
         if store is not None:
             store.close()
@@ -289,9 +301,18 @@ def main():
         print(f"  {k:<18} {res[k]:.3f}", flush=True)
     delta = res["within_window"] - res["cross_session"]
     print(f"\n  round-trip loss (within - cross_session): {delta:+.3f}", flush=True)
-    verdict = ("PASS" if res["cross_session"] > 5 * chance
-               and res["c1_no_restore"] < 3 * chance
-               and res["c2_wrong_session"] < 3 * chance else "CHECK")
+    # Honest verdict: PASS requires (1) the model actually LEARNED recall
+    # (within_window clears chance), (2) the round-trip RECOVERED most of it —
+    # cross_session >= 0.7*within_window, so a 96%-lossy restore is NOT a pass
+    # even though it clears chance — and (3) both controls at chance. Tying the
+    # gate to within_window (not an absolute bar) is what enforces "lossless".
+    trained = res["within_window"] > 5 * chance
+    lossless = res["cross_session"] >= 0.7 * res["within_window"]
+    controls_ok = (res["c1_no_restore"] < 3 * chance
+                   and res["c2_wrong_session"] < 3 * chance)
+    verdict = "PASS" if (trained and lossless and controls_ok) else "CHECK"
+    if not trained:
+        verdict += " (undertrained: within_window at chance — bridge claim needs a trained model)"
     print(f"  verdict: {verdict}", flush=True)
 
 

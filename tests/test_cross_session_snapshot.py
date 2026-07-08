@@ -108,6 +108,72 @@ def test_snapshot_restore_fidelity_across_fresh_model():
           f"(max|diff| {diff:.1e}); no-restore control diverges  OK")
 
 
+def test_arr_mixer_roundtrip():
+    """The O-series (ARR, attention-free) carries the same (F,z) state on
+    MTRecurrentMixer, not on an adapter. snapshot/restore must cover it — the
+    review found the adapter-only iterator silently no-op'd ARR persistence."""
+    from mt_lnn.arr import convert_to_arr
+
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    def build_arr(seed=0):
+        torch.manual_seed(seed)
+        cfg = LlamaConfig(vocab_size=128, hidden_size=64, intermediate_size=128,
+                          num_hidden_layers=6, num_attention_heads=4,
+                          num_key_value_heads=4, max_position_embeddings=128)
+        m = LlamaForCausalLM(cfg)
+        convert_to_arr(m, n_protofilaments=4, d_proto=16, n_time_scales=3,
+                       proj_rank=8, fast_weight_dim=8)
+        m.eval()
+        return m
+
+    live = build_arr()
+    sd = live.state_dict()
+    n = set_adapter_streaming(live, True)          # must now touch mixers
+    assert n > 0, "set_adapter_streaming found no ARR mixers — iterator too narrow"
+    seg_a = torch.randint(0, 128, (1, 20), generator=torch.Generator().manual_seed(3))
+    seg_b = torch.randint(0, 128, (1, 8), generator=torch.Generator().manual_seed(4))
+    reset_adapter_streams(live)
+    with torch.no_grad():
+        live(input_ids=seg_a, use_cache=False)
+    snap = snapshot_adapter_streams(live)
+    assert any(k != "_schema" for k in snap), "snapshot captured no mixer state"
+
+    with torch.no_grad():
+        logits_ref = live(input_ids=seg_b, use_cache=False).logits
+
+    twin = build_arr(); twin.load_state_dict(sd); twin.eval()
+    set_adapter_streaming(twin, True); reset_adapter_streams(twin)
+    with torch.no_grad():
+        logits_ctrl = twin(input_ids=seg_b, use_cache=False).logits
+    assert not torch.allclose(logits_ref, logits_ctrl, rtol=1e-3, atol=1e-4), \
+        "ARR no-restore control matches — mixer state inert or test powerless"
+
+    assert restore_adapter_streams(twin, snap) > 0, "no ARR mixers restored"
+    with torch.no_grad():
+        logits_restored = twin(input_ids=seg_b, use_cache=False).logits
+    diff = (logits_ref - logits_restored).abs().max().item()
+    assert torch.allclose(logits_ref, logits_restored, rtol=1e-4, atol=1e-5), \
+        f"ARR mixer restore diverges: max|diff|={diff:.2e}"
+    print(f"[arr] mixer snapshot/restore lossless (max|diff| {diff:.1e})  OK")
+
+
+def test_batch_guard_drops_mismatch():
+    """restore_adapter_streams(batch=B) must DROP entries whose snapshot batch
+    != B (and not count them), the guard the docstring promises."""
+    m = build()
+    set_adapter_streaming(m, True); reset_adapter_streams(m)
+    with torch.no_grad():
+        m(input_ids=torch.randint(0, 128, (1, 12)))   # B=1 snapshot
+    snap = snapshot_adapter_streams(m)
+    twin = build(); twin.load_state_dict(m.state_dict())
+    assert restore_adapter_streams(twin, snap, batch=4) == 0, \
+        "B=1 snapshot into batch=4 should drop all entries"
+    assert restore_adapter_streams(twin, snap, batch=1) > 0, \
+        "B=1 snapshot into batch=1 should restore"
+    print("[batch-guard] mismatched-batch entries dropped, matched restored  OK")
+
+
 def test_empty_stream_roundtrips():
     m = build()
     set_adapter_streaming(m, True)
@@ -122,5 +188,7 @@ def test_empty_stream_roundtrips():
 
 if __name__ == "__main__":
     test_snapshot_restore_fidelity_across_fresh_model()
+    test_arr_mixer_roundtrip()
+    test_batch_guard_drops_mismatch()
     test_empty_stream_roundtrips()
     print("all cross-session snapshot tests passed")
