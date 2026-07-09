@@ -121,8 +121,11 @@ def decode_state_profile(args, device, dtype):
                        num_key_value_heads=n_kv,
                        intermediate_size=4 * args.d_model,
                        max_position_embeddings=max(lens) + 8)
-    arr = LlamaForCausalLM(lcfg).to(device=device, dtype=dtype)
+    arr = LlamaForCausalLM(lcfg)
     convert_to_arr(arr, d_proto=args.d_model // 13, fast_weight_dim=64)
+    # Move AFTER conversion: convert_to_arr creates the mixers fresh (on CPU),
+    # so the whole model must be placed on the device once they exist.
+    arr = arr.to(device=device, dtype=dtype)
     arr.eval()                        # streaming is gated off in train() mode
     set_adapter_streaming(arr, True)
 
