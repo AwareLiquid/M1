@@ -248,18 +248,23 @@ The O(1) claim is an inference-time property (the state you must retain to
 generate the next token), and it belongs to the attention-free **O-series
 (ARR)**, not the hybrid. Matched Llama vs its ARR conversion:
 
+T4, 832 x 12, GQA=1 (matched to the native model's config):
+
 | context T | Llama KV-cache | ARR state | ratio |
 |---|---|---|---|
-| 256 | 0.062 MB | 0.048 MB | — |
-| 512 | 0.125 MB | 0.048 MB | 2.6x |
-| 1024 | 0.250 MB | 0.048 MB | 5.2x |
-| 2048 | 0.500 MB | 0.048 MB | 10.4x |
+| 512 | 1.5 MB | 0.381 MB | 3.9x |
+| 2048 | 6.0 MB | 0.381 MB | 15.7x |
+| 8192 | 24.0 MB | 0.381 MB | 63x |
+| 32768 | 96.0 MB | 0.381 MB | **252x** |
 
-Attention KV-cache grows **exactly linearly** (doubles with T); ARR state is
-**flat** (F is D×D, no T dimension). This is the honest, correct home of the
-O(1) claim — and it cleanly validates the M-series/O-series split: only the
-attention-free line gets constant memory. (Numbers above are a CPU smoke at
-416x2; the T4 run at 832x12 with long contexts widens the gap.)
+Attention KV-cache grows **exactly linearly** (4x per 4x in T); ARR state is
+**flat at 0.381 MB** (F is DxD, no T dimension) — the O(1) claim, proven at
+real 125M scale. At 128k context the ratio is ~1000x; the KV line never
+plateaus while ARR never moves. And this is CONSERVATIVE: GQA=1 already
+shrinks the KV cache 13x — standard multi-head attention would put the ratio
+~13x higher again. This cleanly validates the M-series/O-series split: only
+the attention-free O-series gets constant memory, which is exactly the
+edge/streaming/unbounded-context niche the product line targets.
 
 ## O1 module switch-matrix — all optional modules PPL-neutral (2026-07-05)
 
