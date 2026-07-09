@@ -216,6 +216,33 @@ large P·S·D constant; (2) the native block STILL contains attention (it is a
 HYBRID, not attention-free). **Do not claim MT-LNN saves memory in training —
 it does not.**
 
+**--mode train (STABILITY + sample efficiency, WikiText-103, 2000 steps):**
+
+| arch | params | stable | val PPL | tok/s |
+|---|---|---|---|---|
+| transformer | 142M | **yes** | 435.6 | 2357 |
+| lnn | 92M | **yes** | 445.5 | 3361 |
+| **mt_lnn (native)** | 127M | **yes** | **299.5** | 1491 |
+
+Two POSITIVES (the project's strongest scaling evidence):
+1. **Stability confirmed** — all three train with no NaN/divergence at 125M.
+   The review's central fear ("does an ODE/liquid-recurrent net even converge
+   when scaled 100x from 48M?") is answered: it does.
+2. **MT-LNN is more sample-efficient** — at matched data/steps/optimizer it
+   reaches 299 PPL vs the Transformer's 436 (−31%), and the gap is *consistent*
+   across the whole curve (step 500: 5.79 vs 6.09; step 1900: 5.34 vs 5.76),
+   not noise. Unlike the *adapter* attribution (where MT added nothing over
+   LoRA), the from-scratch native recurrent model genuinely beats a matched
+   Transformer on per-step learning.
+
+Honest caveats: all PPLs are high (2000 steps << 1 epoch of WikiText-103 —
+undertrained; the comparison is relative, at matched budget). MT-LNN costs
+~1.6x the wall-clock (1491 vs 2357 tok/s), so at matched TIME (not steps) the
+gap narrows. Single seed; the Transformer is this repo's simple reference
+impl, not a SOTA-tuned baseline. No Mamba baseline yet (dependency-free
+comparison). Direction is clear and consistent, but this is a budget-limited
+signal, not a converged result.
+
 **--mode decode (CARRIED STATE bytes vs context — the real O(1) test):**
 The O(1) claim is an inference-time property (the state you must retain to
 generate the next token), and it belongs to the attention-free **O-series
