@@ -80,8 +80,72 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
     return m.to(device=device, dtype=dtype)
 
 
+def decode_state_profile(args, device, dtype):
+    """The REAL O(1) test: bytes of CARRIED STATE needed to continue generation
+    vs context length. An attention model must keep a KV cache that grows O(T);
+    an attention-free recurrent model (ARR) keeps a fixed (F,z)+h state, O(1).
+
+    llama  : matched-size HF Llama — KV-cache bytes are exact/analytic
+             (2 * n_layers * n_kv_heads * d_head * T * dtype_bytes).
+    arr    : convert_to_arr of the same Llama — state measured EMPIRICALLY by
+             priming T tokens (streaming, O(1) memory) and summing the snapshot
+             tensors, to prove the state size does NOT grow with T.
+
+    This is the honest home of the O(1) claim — NOT training-time memory (see
+    --mode profile, where MT-LNN has no advantage because full-sequence
+    forward+backward materialises the whole scan)."""
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    from mt_lnn.arr import convert_to_arr
+    from mt_lnn.llama_adapter import (reset_adapter_streams,
+                                      set_adapter_streaming,
+                                      snapshot_adapter_streams)
+
+    n_kv, d_head, L = 1, args.d_model // 13, args.n_layers   # GQA=1 (native's choice)
+    bytes_per = 2                                             # bf16/fp16
+    lens = [int(x) for x in args.profile_lens.split(",")]
+
+    def _snap_bytes(snap):
+        tot = 0
+        for k, e in snap.items():
+            if k == "_schema":
+                continue
+            for t in ([e["h"]] + (e["fw"] or [])):
+                if t is not None:
+                    tot += t.numel() * t.element_size()
+        return tot
+
+    torch.manual_seed(0)
+    lcfg = LlamaConfig(vocab_size=args.vocab, hidden_size=args.d_model,
+                       num_hidden_layers=L, num_attention_heads=13,
+                       num_key_value_heads=n_kv,
+                       intermediate_size=4 * args.d_model,
+                       max_position_embeddings=max(lens) + 8)
+    arr = LlamaForCausalLM(lcfg).to(device=device, dtype=dtype)
+    convert_to_arr(arr, d_proto=args.d_model // 13, fast_weight_dim=64)
+    arr.eval()                        # streaming is gated off in train() mode
+    set_adapter_streaming(arr, True)
+
+    rows = []
+    for T in lens:
+        kv_mb = 2 * L * n_kv * d_head * T * bytes_per / 2**20   # analytic, exact
+        reset_adapter_streams(arr)
+        with torch.no_grad():                                   # prime in chunks: O(1) mem
+            for s in range(0, T, 512):
+                arr(input_ids=torch.randint(0, args.vocab,
+                    (1, min(512, T - s)), device=device), use_cache=False)
+        arr_mb = _snap_bytes(snapshot_adapter_streams(arr)) / 2**20
+        rows.append({"seq_len": T, "llama_kv_mb": round(kv_mb, 3),
+                     "arr_state_mb": round(arr_mb, 3)})
+        print(f"  T={T:6d} | llama KV {kv_mb:8.3f} MB (O(T)) | "
+              f"arr state {arr_mb:7.3f} MB (O(1))", flush=True)
+    return {"rows": rows, "n_layers": L, "n_kv_heads": n_kv, "d_head": d_head}
+
+
 def profile_arch(arch, args, device, dtype):
-    """Peak memory + throughput vs sequence length — the O(1) demonstration."""
+    """TRAINING memory + throughput vs sequence length (full fwd+bwd). NOTE:
+    this is NOT the O(1) test — the parallel scan materialises the whole
+    sequence, so MT-LNN has no memory advantage here (see --mode decode)."""
     rows = []
     for T in [int(x) for x in args.profile_lens.split(",")]:
         try:
@@ -202,7 +266,8 @@ def train_arch(arch, args, device, dtype):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--mode", choices=["profile", "train"], default="profile")
+    ap.add_argument("--mode", choices=["profile", "train", "decode"],
+                    default="profile")
     ap.add_argument("--archs", default="all")
     ap.add_argument("--d_model", type=int, default=832)   # 13*64, MTLNNConfig default
     ap.add_argument("--n_layers", type=int, default=12)   # ~125M
@@ -229,6 +294,25 @@ def main():
           f"d_model={args.d_model} n_layers={args.n_layers} archs={archs}", flush=True)
 
     os.makedirs(args.out_dir, exist_ok=True)
+
+    if args.mode == "decode":
+        print("\n=== decode: carried-state bytes vs context (the O(1) test) ===",
+              flush=True)
+        res = decode_state_profile(args, device, dtype)
+        json.dump(res, open(os.path.join(args.out_dir, "decode.json"), "w"), indent=2)
+        print("\n" + "=" * 66, flush=True)
+        print("CARRIED STATE vs CONTEXT | attention KV-cache O(T) vs ARR state O(1)",
+              flush=True)
+        print(f"{'context T':>10} {'llama KV (MB)':>15} {'ARR state (MB)':>16} "
+              f"{'ratio':>8}", flush=True)
+        for r in res["rows"]:
+            ratio = r["llama_kv_mb"] / max(r["arr_state_mb"], 1e-9)
+            print(f"{r['seq_len']:>10} {r['llama_kv_mb']:>15.3f} "
+                  f"{r['arr_state_mb']:>16.3f} {ratio:>7.1f}x", flush=True)
+        print("\nARR state should be FLAT across T (O(1)); llama KV grows linearly.",
+              flush=True)
+        return
+
     results = {}
     for arch in archs:
         path = os.path.join(args.out_dir, f"{args.mode}_{arch}.json")

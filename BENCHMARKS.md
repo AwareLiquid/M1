@@ -195,6 +195,45 @@ As the attribution predicted: the adapter is **capability-neutral** (±1pt,
 noise) — the SFT bought chat formatting and recall machinery without
 trading away core abilities. Deployment-safety box ticked.
 
+## Scaling to ~125M (2026-07-05) — training memory is a NEGATIVE, O(1) is real but only for O-series
+
+`benchmarks/scaling_comparison.py`, T4, d_model 832 x 12 layers, matched
+width/depth (embeddings tied so param diff = mixer cost).
+
+**--mode profile (TRAINING memory + throughput, fwd+bwd):**
+
+| arch | params | T=512 | T=1024 | T=2048 | T=4096 |
+|---|---|---|---|---|---|
+| transformer | 142M | 1928 MB / 1594 t/s | 3630 / 2400 | 8993 / 2081 | OOM |
+| lnn | 92M | 1521 / 2879 | 3108 / 3357 | 8267 / 2710 | OOM |
+| **mt_lnn (hybrid)** | 127M | **2499** / 1316 | **5085** / 1303 | **12344** / 1109 | OOM |
+
+**Honest negative:** in TRAINING, the native (hybrid) MT-LNN uses MORE memory
+than a plain Transformer at every length, grows just as fast, OOMs at 4096
+too, and is slower. Two reasons, both structural: (1) the parallel scan
+materialises the whole (B,P,S,T,D) hidden stream for backprop — O(T) with a
+large P·S·D constant; (2) the native block STILL contains attention (it is a
+HYBRID, not attention-free). **Do not claim MT-LNN saves memory in training —
+it does not.**
+
+**--mode decode (CARRIED STATE bytes vs context — the real O(1) test):**
+The O(1) claim is an inference-time property (the state you must retain to
+generate the next token), and it belongs to the attention-free **O-series
+(ARR)**, not the hybrid. Matched Llama vs its ARR conversion:
+
+| context T | Llama KV-cache | ARR state | ratio |
+|---|---|---|---|
+| 256 | 0.062 MB | 0.048 MB | — |
+| 512 | 0.125 MB | 0.048 MB | 2.6x |
+| 1024 | 0.250 MB | 0.048 MB | 5.2x |
+| 2048 | 0.500 MB | 0.048 MB | 10.4x |
+
+Attention KV-cache grows **exactly linearly** (doubles with T); ARR state is
+**flat** (F is D×D, no T dimension). This is the honest, correct home of the
+O(1) claim — and it cleanly validates the M-series/O-series split: only the
+attention-free line gets constant memory. (Numbers above are a CPU smoke at
+416x2; the T4 run at 832x12 with long contexts widens the gap.)
+
 ## O1 module switch-matrix — all optional modules PPL-neutral (2026-07-05)
 
 `benchmarks/o1_module_ablation.py` (Colab free T4, 48M-class O1, TinyStories,
