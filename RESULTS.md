@@ -1,0 +1,67 @@
+# MT-LNN Results — Canonical Evidence Base
+
+**This file is the single source of truth for what MT-LNN has and has not demonstrated.** Every row maps to a reproducible table in [BENCHMARKS.md](BENCHMARKS.md). If a marketing doc, slide, or README states a number that is not in the "Proven" section below (or is contradicted by the "Retracted / Null" section), that doc is wrong and this file wins.
+
+Last reconciled: 2026-07-11.
+
+---
+
+## The one-paragraph honest summary
+
+MT-LNN is a streaming-state recurrent architecture with **two independently proven, hard-to-replicate results**: (1) a from-scratch native 125M model beats a matched simple-reference Transformer by **−31% validation PPL** (299 vs 436, single seed, undertrained, ~1.6x slower), and (2) its fast-weight state supports **cross-window / cross-session associative recall** (0.56 mean accuracy) that attention and LoRA score **exactly 0.000** on by construction. A separate attention-free variant (the O-series / ARR) has genuinely **O(1) inference memory** (flat 0.381 MB vs an O(T) KV-cache, up to 1008x smaller at 128k context). The earlier headline "−28–34% PPL adapter" wins were **retracted** (they were plain LoRA — the MT adapter was frozen and adds ≈0 PPL), out-of-window language modeling is a **null result**, and the Orch-OR / Φ̂ / consciousness modules are **inert in the trained path** (with the AVP sign inverted vs theory). We do not sell those.
+
+---
+
+## PROVEN — reproducible, and the only claims allowed in public docs
+
+| Claim | Number | Status | BENCHMARKS.md section |
+|---|---|---|---|
+| From-scratch native 125M MT-LNN beats a **matched** Transformer on val PPL, at matched data/steps/optimizer | **299.5 vs 435.6 PPL (−31%)**; gap consistent across the curve (step 500: 5.79 vs 6.09; step 1900: 5.34 vs 5.76) | ✅ proven (single seed, undertrained, ~1.6x slower: 1491 vs 2357 tok/s; simple-ref transformer, no Mamba baseline) | "Scaling to ~125M → --mode train" |
+| 125M recurrent/liquid model trains **stably at scale** (the review's central "does it converge at 100x?" fear) | No NaN / no divergence for all three archs (transformer / lnn / mt_lnn) at 125M | ✅ proven | "Scaling to ~125M → --mode train" |
+| Cross-window associative recall through fast-weight state | **0.56 mean** (3-seed 0.621 / 0.434 / 0.621, ±0.09; in-window 0.99–1.00 every seed) | ✅ proven; attention/LoRA are **0.000 by construction** (structural zero-channel) | "Cross-window associative recall" |
+| The fast-weight matrix **is** the memory (not incidental) | Remove fast-weight → cross-window collapses **0.553 → 0.008**; v1's 62.8M EMA state manages only 0.002 | ✅ proven | "Cross-window associative recall" |
+| Cross-session snapshot → disk → fresh process → restore is **lossless** | Round-trip Δ **+0.008 / +0.000**; unit test **bit-exact (max\|diff\| 0.0)**; wrong-session restore = chance; no-restore = chance | ✅ proven | "Cross-session persistence" |
+| O(1) inference memory — **O-series (ARR) only** | ARR state **flat 0.381 MB** vs KV-cache O(T): 3.9x @512 → 252x @32k → **1008x @128k**, at real 125M scale | ✅ proven (attention-free O-series only; conservative — GQA=1 already shrinks KV 13x) | "Scaling to ~125M → --mode decode" |
+| Adapter (M-series SFT) is **capability-neutral** — recall machinery costs no core ability | LAMBADA +0.7pt, ARC-easy +0.7/+1.2, HellaSwag −0.7/−0.9, PIQA 0.0/+0.4 (all ±1pt, noise) | ✅ proven (deployment-safety) | "Capability evals — v2s SFT is ability-neutral" |
+| Bio prior is a good **initialization**, not the endpoint | Frozen-τ cross-window **0.285** vs trained **0.621** (bio init ≈46% of the effect, 285x chance; training doubles it) | ✅ proven | "Cross-window recall → Bio-prior (frozen-τ) ablation" |
+| Cloud-inject prompt template lifts factual accuracy on a real model | **+13.3%** (25/30 → 29/30 on Qwen-1.5B) — **and is identical with vs without the MT adapter** | ✅ proven for the **template**; the adapter contributes 0 to this (see "what we do NOT claim") | "Real cloud-inject numbers on Qwen-2.5-1.5B" |
+| Selective Copy (toy, ~200K params, matched budget, fair decode) | MT-LNN seq-exact **0.895** vs Transformer 0.676 (×1.32) / LNN 0.727; ratio widens to ×2.0 at T=229 | ✅ proven **at toy scale only**; LNN baseline close behind — most gain is the liquid component | "Selective Copy" / "Long-context sweep" |
+| Real recurrence (pscan) does real work | pscan vs legacy broadcast: seq-exact **0.965 vs 0.883** (+8.2pp), tok-acc 0.983 vs 0.942 | ✅ proven | "Parallel scan ablation" |
+
+---
+
+## RETRACTED / NULL / INERT — must not appear as selling points anywhere
+
+| Old claim | The real number | Status | BENCHMARKS.md section |
+|---|---|---|---|
+| "MT adapter drops PPL −28.5% / −27.7% / −34.4% at 0.117–0.196% trainable params" (TinyLlama / Qwen-1.5B / Qwen-3B) | The MT adapter was **frozen by PEFT** — only LoRA trained. Controlled ablation: **lora_only 7.984 vs mt_lora 7.920** (v1) / **mt_v2_lora 7.918** — MT adds **≈0 PPL** (−0.064 for +62.8M params, within noise). The "0.1–0.2% trainable" figures ARE the LoRA-only param counts. | ❌ **RETRACTED** (2026-07-04) | Correction note (2026-07-04) + "Attribution results" table |
+| "First end-to-end evidence the MT-LNN inductive bias transfers to a real pretrained LM" / "gain grows with base size (−28% → −34%)" | The trend measures **plain LoRA fine-tuning**; the MT adapter transferred nothing measurable on in-window PPL. | ❌ **RETRACTED** | Correction note (2026-07-04) |
+| "MT-LNN has O(1) working memory / long-context compression" (as a property of the **hybrid** M-series) | O(1) holds **only for the attention-free O-series**. The hybrid **still contains attention** → KV cache still grows → **not O(1)**. Its **training memory is a NEGATIVE** (uses MORE than a plain Transformer at every length, OOMs at 4096 too, ~1.6x slower). | ❌ **RETRACTED for the hybrid** (real for O-series only) | "Scaling to ~125M → --mode profile" (negative) + "--mode decode" (O-series positive) |
+| "State compresses long context / out-of-window LM gains" | **NULL ×2**: standard chunked-streaming **−0.006 / −0.000**; TBPTT state-carry **+0.004 (noise)**. Full attention gains 0.89–0.94 PPL from 512→2048 that the state does **not** capture. The state is an **episodic key→value memory**, not compressed distributed context. | ❌ **NULL** | "Out-of-window streaming" + "State-carry (TBPTT) training" |
+| "Orch-OR collapse gate / Φ̂ integration / anesthesia validation is a working consciousness biomarker and a unique selling point" | Modules are **INERT in the trained path**. AVP **FAILED**; Φ̂ **rises** under anesthesia (sign **inverted** vs theory). Φ̂ moves +8.499 signed only as a "hooks fire" artifact on toy activations with no real-data baseline (Kraskov bias at N=148, Lord et al.). | ❌ **INERT / net liability** — inspiration only, never load-bearing | "Anesthesia Validation Protocol" + "What this does NOT show" |
+| "Optional bio modules (predictive coding, GWTB, world model, rhythm, Hebbian) improve quality" | All 5 are **PPL-neutral at 48M** (within ±0.3–0.5 noise band); the full stack costs **5.6% throughput** for nothing; predictive coding (the one ON by default) trends **negative**. Lean core trunk is best. | ❌ **NULL** (archived behind flags) | "O1 module switch-matrix" |
+| "Adapter improves long-context / needle retrieval" | Within the 2048 window base and adapter both ~0.87–1.0 (**parity, inconclusive**); at 4096 both 0.000 (base RoPE limit, not adapter). Attribution now shows the adapter adds nothing anyway. | ⚠️ **INCONCLUSIVE / parity** | "Needle-in-a-haystack (CORRECTED)" |
+| "ARR attention-free student matches teacher" | PPL **25.4 = 2.15× teacher** (11.8), still falling — converging with tokens, **not at parity**. ARR cross-window recall is **negative** at current budget (curriculum retry queued). | ⚠️ **research preview, not parity** | "Round 2/3 distillation" + "ARR-student recall — negative" |
+
+---
+
+## What we do NOT claim
+
+- **We do NOT claim the MT adapter beats LoRA on perplexity.** On in-window LM PPL it adds ≈0 beyond LoRA. The old −28/−34% numbers are retracted.
+- **We do NOT claim the hybrid (M-series) flagship is O(1).** It contains attention; its KV cache grows and its **training** memory is worse than a Transformer's. O(1) is an **inference** property of the **O-series (ARR) only**.
+- **We do NOT claim long-context language-modeling gains.** Out-of-window LM is a double null. The state carries **discrete addressable key→value bindings**, not compressed distributed context.
+- **We do NOT claim a working consciousness / integrated-information / Orch-OR result.** Those modules are inert in the trained path and the AVP Φ̂ sign is inverted. Microtubule/Orch-OR framing is **inspiration only**, not evidence.
+- **We do NOT claim the optional bio modules improve quality.** They are PPL-neutral; shipped configs run the lean core.
+- **We do NOT claim a 125M SOTA result.** The 125M win is vs this repo's simple-reference Transformer, single seed, undertrained, no Mamba baseline — a real, consistent, budget-limited signal, not a converged or SOTA-competitive result.
+- **We do NOT claim the cloud-inject +13.3% as MT-adapter value.** It is 100% the `[Absorbed fact]` prompt template; the adapter row is identical to baseline.
+
+---
+
+## Product positioning (M-series vs O-series)
+
+Two checkpoints, one codebase, deliberately different trade-offs — kept split so every claim stays attributable ([docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md)):
+
+- **M-series — hybrid (attention + liquid adapter).** Cloud/GPU serving where full base quality matters. Its **unique** edge is cross-window / cross-session associative recall (0.56 vs 0.000 structural for attention/LoRA) at ~1% parameter overhead, plus lossless cross-session state snapshot/restore. It is **not** a perplexity win over LoRA and **not** O(1).
+- **O-series — pure recurrent (ARR, attention-free).** Edge / CPU / low-power / unbounded-stream where KV-cache growth is disqualifying. Its **unique** edge is genuine **O(1) inference memory** (flat 0.381 MB, 1008x smaller than KV at 128k). It is a **research preview** at 2.15× teacher PPL — a token-budget gap, not a stability problem.
+
+Everything else — the from-scratch 125M sample-efficiency result and the stability-at-scale result — is a shared architectural signal that motivates both lines.

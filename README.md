@@ -16,50 +16,60 @@
 
 ---
 
-## What this repo is
+**A streaming-state recurrent LLM architecture with two proven, hard-to-replicate results: cross-window associative recall that attention cannot express, and (in its attention-free variant) genuine O(1) inference memory.**
 
-MT-LNN replaces a Transformer block's FFN with a recurrent **Microtubule Liquid Neural Network** layer (13 protofilaments × 5 timescales, continuous-time LTC ODE), and adds two cross-layer modules: a **GWTB** workspace bottleneck (Global Workspace Theory) and a **Global Coherence** sparse top-$k$ collapse gate (Orch-OR inspired).
+> **Evidence policy.** Every number in this README is backed by a reproducible table in [BENCHMARKS.md](BENCHMARKS.md) and reconciled in [RESULTS.md](RESULTS.md). RESULTS.md is the source of truth; if any other doc disagrees, RESULTS.md wins. Earlier "−28–34% adapter PPL" and consciousness/Φ̂ claims have been **retracted or reclassified as inspiration** — see [What is retracted](#what-is-retracted).
 
-The architecture targets three pain points of modern LLMs:
+## What is proven
 
-| Pain point | Standard LLM | MT-LNN |
+Two independent results, both reproducible at real scale:
+
+1. **From-scratch native MT-LNN (125M) beats a matched Transformer by −31% val PPL** — 299 vs 436, at matched data / steps / optimizer, gap consistent across the whole curve. All three architectures (transformer, lnn, mt_lnn) train **stably** at 125M with no NaN — answering the "does a liquid-recurrent net even converge when scaled 100×?" question. *(Single seed, undertrained, ~1.6× slower wall-clock, simple-reference Transformer, no Mamba baseline yet — a budget-limited signal, not a SOTA claim.)*
+
+2. **Cross-window / cross-session associative recall that attention and LoRA get 0.000 on by construction.** The fast-weight state stores discrete key→value bindings across a **dropped KV cache**: **0.56 mean recall** (3-seed 0.62 / 0.43 / 0.62) where frozen attention and LoRA are structurally zero. Remove the fast-weight matrix and it collapses to 0.008 — the fast weight *is* the memory. Snapshotting that state to disk and restoring into a fresh process is **bit-exact lossless** — what turns "recall within a session" into "remembers you across sessions."
+
+And, in the attention-free line:
+
+3. **O(1) inference memory (O-series / ARR only).** Every attention block replaced by a recurrent mixer → carried state **flat at 0.381 MB** regardless of context, versus an O(T) KV cache — up to **1008× smaller at 128k context**, measured at 125M scale.
+
+| Result | Number | Caveat |
 |---|---|---|
-| KV-cache memory | $O(T)$, blows up at long context | $O(1)$ recurrent state (`h_prev`) |
-| Wasted compute | All neurons fire on every token | Dynamic $\kappa$-gating + LAVI rhythm gating skips idle channels |
-| No world-model loss | Pure next-token prediction | Optional BYOL/V-JEPA predictive-state head with stop-grad EMA target |
+| Native 125M vs matched Transformer | −31% val PPL (299 vs 436), stable | single seed, undertrained, ~1.6× slower |
+| Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete K→V bindings, not long-context LM |
+| Cross-session snapshot/restore | bit-exact, controls at chance | recall task is high-variance |
+| O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k | attention-free ARR only, not the hybrid |
 
-Everything ships behind config flags. Defaults reproduce the legacy MT-LNN forward pass; opt-in flags enable the v2.0/v2.1 brain-inspired modules without changing the main forward signature.
+## Honest pain-point framing
 
----
+| Transformer pain point | What MT-LNN actually offers |
+|---|---|
+| KV-cache memory grows O(T) | **O(1) constant state — O-series (ARR) inference only.** The hybrid M-series still has attention and is **not** O(1); its *training* memory is worse than a Transformer's. |
+| Attention cannot recall across a dropped context window | **Fast-weight state carries K→V bindings across windows/sessions** (0.56 vs 0.000). |
+| No durable per-user memory across sessions | **Lossless (F,z) snapshot/restore** — bit-exact round-trip. |
 
-## Track 1 results (v1.0.0, 2026-05-30)
+*(MT-LNN does **not** give long-context language-modeling gains — out-of-window LM is a measured null. The state is episodic key→value memory, not compressed distributed context.)*
 
-Cross-base universal PPL uplift on WikiText-2-raw-v1 with 0.1–0.2 % trainable params (frozen base + MT residual adapter every 4th layer + LoRA on q/k/v/o):
+## What is retracted
 
-| Base LM         | Trainable | PPL drop | Status |
-|---              |---:       |---:      |:---:   |
-| TinyLlama-1.1B  | 0.196 %   | −28.5 %  | ✅     |
-| Qwen-2.5-1.5B   | 0.139 %   | −27.7 %  | ✅     |
-| **Qwen-2.5-3B** | **0.117 %** | **−34.4 %** | ✅ |
+To keep this repo credible, the following earlier headline claims are **withdrawn** (full detail in [RESULTS.md](RESULTS.md) and the BENCHMARKS.md correction notes):
 
-Same recipe transfers across Llama and Qwen families; PPL improvement grows with base size. Real $O(N)$ generation with `past_key_values` is implemented in `scripts/awareliquid_real_trace_v3.py`. Raw artifacts in `benchmarks/kaggle_{run,qwen_run,qwen3b_run}/`. Tag: `v1.0.0-track1-ppl34`.
+- **The "−28.5% / −27.7% / −34.4% PPL at 0.1–0.2% trainable params" adapter results are retracted.** Those runs froze the MT adapter (PEFT) and trained **LoRA only**; a controlled ablation shows the MT adapter adds **≈0 PPL beyond LoRA** (7.98 vs 7.92). The "0.1–0.2% trainable" figures were the LoRA-only param counts.
+- **The hybrid is not O(1) and gives no long-context LM gain.** Both are measured nulls for the M-series.
+- **The Orch-OR / Φ̂ / anesthesia "consciousness" results are inert in the trained path** (AVP failed; Φ̂ sign inverted vs theory). Inspiration, not evidence.
+- **The five optional bio modules are PPL-neutral at 48M.** Shipped configs run the lean core.
 
-Selective Copy at matched ~200K params (training-from-scratch ablation),
-all models decoded the same fair way (full-sequence recompute), 1500 steps:
+## Product lines
 
-| Model                   | #Params | Held-out tok-acc | **Held-out seq-exact** |
-|---                      |---:     |---:              |---:                    |
-| Random                  | —       | 0.250            | 0.004                  |
-| Vanilla Transformer     | 199 K   | 0.874            | 0.676                  |
-| LNN (CfLTC FFN)         | 136 K   | 0.900            | 0.727                  |
-| **MT-LNN (full arch)**  | 225 K   | **0.949**        | **0.895** (×1.3 over Transformer) |
+- **M-series (hybrid, attention + liquid adapter):** cloud/GPU serving at full base quality; unique edge is cross-window/cross-session recall at ~1% param overhead.
+- **O-series (ARR, attention-free):** edge/streaming; unique edge is genuine O(1) inference memory. Research preview at 2.15× teacher PPL.
 
-MT-LNN has the highest whole-sequence recall, but the margin is modest and the
-liquid-LTC baseline is close behind. At longer noise lengths the Transformer
-degrades faster, so the *ratio* grows (≈×2 at $T{=}229$), though absolute
-accuracy drops for all three. Full table — and the correction note explaining
-why an earlier version reported ×42 (an evaluation artifact) — in
-[BENCHMARKS.md](BENCHMARKS.md).
+See [docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md).
+
+## Inspiration (not load-bearing)
+
+MT-LNN's design *draws on* neuroscience — neuronal microtubules and the 13-protofilament count, Global Workspace Theory, Friston's predictive coding, and the Penrose–Hameroff Orch-OR collapse hypothesis. These shaped the initial architecture (e.g. the τ timescale ladder is initialized from biological priors, which the frozen-τ ablation shows is a genuinely good *starting point*: 0.285 vs 0.621 trained recall).
+
+**None of this is load-bearing on the results above, and we do not present it as evidence.** The Orch-OR collapse gate, the Φ̂ "integrated information" proxy, the Anesthesia Validation Protocol, and the quantum-coupling module are **inert in the trained path** — the AVP fails and the Φ̂ response is even sign-inverted versus the theory's prediction. They remain behind flags as research scaffolding and biological motivation, not a working consciousness metric or a selling point. The credible story is the benchmarked engineering: recall, cross-session persistence, O(1) O-series inference, and 125M sample efficiency.
 
 ---
 
