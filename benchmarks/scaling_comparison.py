@@ -39,7 +39,13 @@ import torch
 
 import datasets as _datasets  # noqa: F401  (Windows DLL-order guard)
 
-ARCHS = ["transformer", "lnn", "mt_lnn"]
+ARCHS = ["transformer", "lnn", "mt_lnn", "mamba"]
+
+
+# Mamba config, set from CLI in main() so build() (which only sees d_model/
+# n_layers, the SHARED width for the matched-width archs) can size Mamba to its
+# own natural ~130M shape independently. Default = standard Mamba-130m.
+_MAMBA = {"hidden": 768, "layers": 24}
 
 
 def count_params(m):
@@ -53,6 +59,16 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
     from benchmarks.baselines import (BaselineConfig, SimpleCausalLNN,
                                        SimpleCausalTransformer)
 
+    if arch == "mamba":
+        # The reviewer's named SSM baseline. Standard Mamba-130m config
+        # (matched ~scale, not matched width — Mamba's layer is ~half a
+        # transformer layer, so it uses 2x depth). HF falls back to a correct
+        # sequential impl when mamba-ssm's CUDA kernel is absent (slower, but
+        # the PPL comparison is unaffected).
+        from transformers import MambaConfig, MambaForCausalLM
+        cfg = MambaConfig(vocab_size=vocab, hidden_size=_MAMBA["hidden"],
+                          num_hidden_layers=_MAMBA["layers"], state_size=16)
+        return MambaForCausalLM(cfg).to(device=device, dtype=dtype)
     if arch in ("transformer", "lnn"):
         cfg = BaselineConfig(vocab_size=vocab, max_seq_len=seq_len,
                              d_model=d_model, n_layers=n_layers,
@@ -204,16 +220,17 @@ def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1"):
                         dtype=torch.long)
 
 
-def train_arch(arch, args, device, dtype):
+def train_arch(arch, args, device, dtype, seed=0):
     from transformers import AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained("gpt2")
     tok.pad_token = tok.eos_token
     train_c = build_chunks(tok, "train", args.seq_len, args.wikitext)
     test_c = build_chunks(tok, "test", args.seq_len, args.wikitext)
-    g = torch.Generator().manual_seed(0)
+    g = torch.Generator().manual_seed(seed)
     order = torch.randperm(len(train_c), generator=g)
 
+    torch.manual_seed(seed)   # reproducible weight init per seed
     m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, dtype)
     n_params = count_params(m)
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr, betas=(0.9, 0.95))
@@ -263,7 +280,10 @@ def train_arch(arch, args, device, dtype):
             nll += out["loss"].float().item() * n
             ntok += n
     ppl = math.exp(nll / ntok) if ntok else float("nan")
-    return {"arch": arch, "params": n_params, "stable": stable,
+    del m, opt
+    if device == "cuda":
+        torch.cuda.empty_cache()
+    return {"arch": arch, "seed": seed, "params": n_params, "stable": stable,
             "final_loss": last, "val_ppl": ppl, "steps": step}
 
 
@@ -281,6 +301,10 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--log_every", type=int, default=100)
     ap.add_argument("--eval_chunks", type=int, default=200)
+    ap.add_argument("--seeds", default="0,1,2",
+                    help="train mode: comma seeds for error bars")
+    ap.add_argument("--mamba_hidden", type=int, default=768)
+    ap.add_argument("--mamba_layers", type=int, default=24)
     ap.add_argument("--wikitext", default="wikitext-103-raw-v1",
                     help="wikitext-2-raw-v1 for a cheap smoke")
     ap.add_argument("--profile_lens", default="512,1024,2048,4096")
@@ -289,6 +313,7 @@ def main():
     ap.add_argument("--out_dir", default="benchmarks/scaling_out")
     args = ap.parse_args()
 
+    _MAMBA["hidden"], _MAMBA["layers"] = args.mamba_hidden, args.mamba_layers
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = (torch.bfloat16 if device == "cuda" and torch.cuda.is_bf16_supported()
              else (torch.float16 if device == "cuda" else torch.float32))
@@ -316,24 +341,20 @@ def main():
               flush=True)
         return
 
-    results = {}
-    for arch in archs:
-        path = os.path.join(args.out_dir, f"{args.mode}_{arch}.json")
-        if os.path.exists(path):
-            results[arch] = json.load(open(path)); print(f"[skip] {arch}", flush=True); continue
-        print(f"\n=== {arch} ({args.mode}) ===", flush=True)
-        r = (profile_arch(arch, args, device, dtype) if args.mode == "profile"
-             else train_arch(arch, args, device, dtype))
-        results[arch] = r
-        json.dump(r, open(path, "w"), indent=2)
-
-    print("\n" + "=" * 66, flush=True)
     if args.mode == "profile":
+        results = {}
+        for arch in archs:
+            path = os.path.join(args.out_dir, f"profile_{arch}.json")
+            if os.path.exists(path):
+                results[arch] = json.load(open(path)); print(f"[skip] {arch}", flush=True); continue
+            print(f"\n=== {arch} (profile) ===", flush=True)
+            results[arch] = profile_arch(arch, args, device, dtype)
+            json.dump(results[arch], open(path, "w"), indent=2)
+        print("\n" + "=" * 66, flush=True)
         print(f"SCALING PROFILE | peak MB (lower+flatter = better) | "
               f"d_model={args.d_model} x {args.n_layers}L", flush=True)
         lens = [int(x) for x in args.profile_lens.split(",")]
-        hdr = "arch         " + "".join(f"T={T:<10}" for T in lens)
-        print(hdr, flush=True)
+        print("arch         " + "".join(f"T={T:<10}" for T in lens), flush=True)
         for arch in archs:
             cells = {row["seq_len"]: row for row in results[arch]}
             line = f"{arch:<12} "
@@ -342,16 +363,35 @@ def main():
                 line += (f"{r['peak_mb']:>5.0f}MB " if "peak_mb" in r
                          else f"{r.get('error','-'):>7} ")[:11]
             print(line, flush=True)
-    else:
-        print(f"SCALING TRAIN | WikiText-103 | {args.steps} steps | "
-              f"d_model={args.d_model} x {args.n_layers}L", flush=True)
-        print("(embeddings tied+identical across archs, so the param DIFFERENCE "
-              "is purely mixer cost)", flush=True)
-        print(f"{'arch':<12} {'params':>12} {'stable':>7} {'val_ppl':>9} {'final_loss':>11}", flush=True)
-        for arch in archs:
-            r = results[arch]
-            print(f"{arch:<12} {r['params']:>12,} {str(r['stable']):>7} "
-                  f"{r['val_ppl']:>9.2f} {r['final_loss']:>11.4f}", flush=True)
+        return
+
+    # --- train mode: multi-seed, mean±std per arch (resume-safe per arch/seed) ---
+    seeds = [int(s) for s in str(args.seeds).split(",") if s != ""]
+    runs = {arch: [] for arch in archs}
+    for arch in archs:
+        for seed in seeds:
+            path = os.path.join(args.out_dir, f"train_{arch}_s{seed}.json")
+            if os.path.exists(path):
+                runs[arch].append(json.load(open(path)))
+                print(f"[skip] {arch} seed {seed}", flush=True); continue
+            print(f"\n=== {arch} (train, seed {seed}) ===", flush=True)
+            r = train_arch(arch, args, device, dtype, seed=seed)
+            json.dump(r, open(path, "w"), indent=2)
+            runs[arch].append(r)
+
+    import statistics
+    print("\n" + "=" * 72, flush=True)
+    print(f"SCALING TRAIN | WikiText-103 | {args.steps} steps | seeds {seeds}", flush=True)
+    print(f"{'arch':<12} {'params':>12} {'stable':>7} {'val_ppl (mean±std)':>22} {'n':>3}", flush=True)
+    for arch in archs:
+        rs = runs[arch]
+        ppls = [x["val_ppl"] for x in rs]
+        mean = statistics.mean(ppls)
+        std = statistics.stdev(ppls) if len(ppls) > 1 else 0.0
+        stable = all(x["stable"] for x in rs)
+        params = rs[0]["params"]
+        print(f"{arch:<12} {params:>12,} {str(stable):>7} "
+              f"{mean:>11.2f} ± {std:<7.2f} {len(ppls):>3}", flush=True)
 
 
 if __name__ == "__main__":
