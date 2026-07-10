@@ -39,8 +39,9 @@ style: |
 ### The Biological Inspiration (生物学启示)
 - **Transformer (Current Status Quo)**: Operates like a forced video recorder. It caches every single past frame (KV Cache). Over time, memory and compute explode $O(N^2)$.
   **Transformer 的困境**：如同有强迫症的录像机，把每一个字死死钉在显存里 (KV Cache)。随着上下文变长，计算量呈 $O(N^2)$ 级爆炸。
-- **Brain-Like Fluidity (类脑机制)**: The human brain relies on **Working Memory** and **Selective Forgetting**. It compresses past events into a dynamic latent state, discarding noise and retaining semantic needles.
-  **MT-LNN 的类脑灵感**：人脑绝不试图记住十年的每个像素。它依靠**工作记忆**与**选择性遗忘**。MT-LNN 引入并行线性扫描与量子态门控，将万字压缩成固定的隐状态 $h_{prev}$。
+- **Streaming recurrent state (类脑流式状态)**: instead of a growing KV cache, the attention-free O-series carries a **fixed-size recurrent state** — measured **flat at 0.381 MB vs an O(T) KV cache, 1008× smaller at 128k context**. Its fast-weight state also stores discrete key→value bindings that survive a dropped context window (**cross-window recall 0.56, where attention scores 0.000**).
+  **MT-LNN 的类脑机制**：无注意力的 O 系用**固定大小的递归状态**取代不断膨胀的 KV cache——实测 128k 上下文下比 KV cache 小 **1008 倍**（恒定 0.381 MB）；快权重状态还能存住跨窗口的键值绑定（跨窗口召回 0.56，注意力为 0.000）。
+  > *诚实边界:这是**联想记忆 + 恒定内存**,不是"把万字压缩进隐状态"——窗口外语言建模是实测阴性。见 [RESULTS.md](../../RESULTS.md)。*
 
 ---
 

@@ -1,4 +1,6 @@
-# MT-LNN: A Microtubule-Inspired Liquid Neural Architecture with Global Workspace Theory Bottleneck and Anesthesia Validation
+# MT-LNN: A Streaming-State Recurrent Architecture with Cross-Window Associative Recall and O(1) Attention-Free Inference
+
+*(Title revised 2026-07-11 to lead with the reproducible results. The original title foregrounded a Global-Workspace / Anesthesia-Φ̂ "consciousness" framing that is **inert in the trained path** — the AVP failed and Φ̂'s sign is inverted vs theory — retained below only as biological inspiration, not evidence. Source of truth: [RESULTS.md](../../RESULTS.md).)*
 
 > **⚠️ CORRECTION (2026-07-05) — supersedes the adapter results below.**
 > The Phase 5/5b adapter numbers quoted in this document (−28.5 %/−27.7 %/−34.4 % PPL

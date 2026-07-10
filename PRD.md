@@ -6,6 +6,8 @@
 **Repo:** https://github.com/everest-an/M1
 **Supersedes:** v2.1 (2026-05-30), which added Position-Free Architecture. v2.2 adds EEG-inspired Rhythm Gate (LAVI + GlobalRhythmController).
 
+> **⚠️ CORRECTION (2026-07-11) — read [RESULTS.md](RESULTS.md) first.** The "~28% PPL at ≤0.2% trainable params" adapter claim below is **retracted** (those runs trained LoRA only; the MT adapter was frozen and adds ≈0 PPL beyond LoRA). The real, proven differentiators are cross-window/cross-session **associative recall** (0.56 where attention/LoRA are 0.000) and **O(1) inference memory** in the attention-free O-series (1008× smaller than a KV cache at 128k). RESULTS.md is the source of truth; where this PRD disagrees, RESULTS.md wins.
+
 ---
 
 ## 0. What changed since v1.1
@@ -34,11 +36,11 @@ This v2.2 adds the Rhythm Gate (F7) as a Track A architecture advancement with d
 
 **What is AwareLiquid?**
 AwareLiquid is an open-source reasoning system that combines:
-1. A **local liquid-neural-network adapter** (MT residual adapter) bolted onto any open-weight 1B+ LM, which drops perplexity ~28% with ≤0.2% trainable parameters
+1. A **local liquid-neural-network adapter** (MT residual adapter) bolted onto any open-weight 1B+ LM, which adds cross-window/cross-session **associative recall** (0.56 accuracy where attention/LoRA score 0.000) at ~1% param overhead — *not* a perplexity win over LoRA (see [RESULTS.md](RESULTS.md))
 2. A **cloud oracle inject pathway** that pulls verifiable facts from a frontier LM only when the local model's entropy / route gate decides it can't answer alone
 3. A **fully auditable per-token reasoning trace** (JSONL + clickable HTML viewer) that records every routing decision, entropy spike, Φ̂ sample, and cloud-inject event
 
-> *AwareLiquid 是一个开源推理系统：本地液态神经网络适配器（28% PPL 下降，0.2% 可训练参数）+ 云端按需注入（self-sufficiency 99%+）+ 完全可审计的逐 token 推理日志（替代 Gemini 黑盒 thinking summary）。*
+> *AwareLiquid 是一个开源推理系统：本地液态神经网络适配器（跨窗口/跨会话联想记忆 0.56,注意力/LoRA 结构性为 0;非 PPL 优势)+ 云端按需注入 + 完全可审计的逐 token 推理日志。详见 [RESULTS.md](RESULTS.md)。*
 
 **Pitch in one line:** Gemini-3.1-class reasoning UX, but local-first, audit-trail-native, and runnable on a single RTX 4090.
 

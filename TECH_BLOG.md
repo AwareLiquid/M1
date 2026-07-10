@@ -14,7 +14,7 @@
 > recall, out-of-window LM nulls, ARR distillation).
 
 
-**TL;DR**: A microtubule-inspired adapter recipe achieves **-28% to -34% PPL improvements** across three different base models (TinyLlama, Qwen-1.5B, Qwen-3B) with **<0.2% trainable parameters**. The same configuration works on both Llama and Qwen families, suggesting the architecture captures a general long-context inductive bias rather than model-specific tuning.
+**TL;DR** *(revised 2026-07-11 — the −28…−34% PPL claim is retracted; see [RESULTS.md](RESULTS.md))*: the headline adapter-PPL numbers below were **LoRA-only** (the MT adapter was frozen by PEFT and adds ≈0 PPL beyond LoRA). What actually replicates: a **from-scratch native MT-LNN at 125M beats a matched Transformer by −31% val PPL** (299 vs 436, stable at scale), and the streaming fast-weight state gives **cross-window associative recall (0.56) that attention/LoRA score 0.000 on by construction**, plus genuine **O(1) inference memory** in the attention-free O-series (1008× smaller than a KV cache at 128k).
 
 ---
 
