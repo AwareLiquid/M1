@@ -255,11 +255,12 @@ T4, 832 x 12, GQA=1 (matched to the native model's config):
 | 512 | 1.5 MB | 0.381 MB | 3.9x |
 | 2048 | 6.0 MB | 0.381 MB | 15.7x |
 | 8192 | 24.0 MB | 0.381 MB | 63x |
-| 32768 | 96.0 MB | 0.381 MB | **252x** |
+| 32768 | 96.0 MB | 0.381 MB | 252x |
+| 131072 | 384.0 MB | 0.381 MB | **1008x** |
 
 Attention KV-cache grows **exactly linearly** (4x per 4x in T); ARR state is
 **flat at 0.381 MB** (F is DxD, no T dimension) — the O(1) claim, proven at
-real 125M scale. At 128k context the ratio is ~1000x; the KV line never
+real 125M scale. At 128k context the ratio is **1008x measured**; the KV line never
 plateaus while ARR never moves. And this is CONSERVATIVE: GQA=1 already
 shrinks the KV cache 13x — standard multi-head attention would put the ratio
 ~13x higher again. This cleanly validates the M-series/O-series split: only
