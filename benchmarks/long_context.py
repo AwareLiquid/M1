@@ -134,39 +134,72 @@ def run_one_length(T_noise: int, steps: int, device: str) -> dict:
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--sweep", action="store_true",
+                    help="step-budget ablation at long T: is long-sequence "
+                         "collapse undertraining or an architectural ceiling? "
+                         "Runs each --lens at each --steps_list; if seq-exact "
+                         "keeps climbing with steps it was undertraining, if it "
+                         "plateaus it is a capacity ceiling.")
+    ap.add_argument("--lens", default="224,480", help="T_noise values (sweep)")
+    ap.add_argument("--steps_list", default="1500,3000,6000")
+    ap.add_argument("--out", default="benchmarks/long_context_results.json")
+    args = ap.parse_args()
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Long-context Selective Copy sweep")
     print(f"Device: {device}")
 
-    # T_noise schedule. T_total = T_noise + 1 + K_mem(=4)
-    #   T_noise=32  -> T_total=37     (baseline, was our default)
-    #   T_noise=96  -> T_total=101    (3x longer)
-    #   T_noise=224 -> T_total=229    (7x longer)
-    #   T_noise=480 -> T_total=485    (13x longer) — skip on CPU if too slow
-    # Equal, adequate step budget at every length so the comparison is not
-    # confounded by undertraining (MT-LNN converges slower than the baselines;
-    # at 600 steps it is still far from its loss floor). 1500 steps lets all
-    # three models reach a stable held-out accuracy.
-    schedule = [
-        (32,   1500),
-        (96,   1500),
-        (224,  1500),
-    ]
+    if args.sweep:
+        lens = [int(x) for x in args.lens.split(",")]
+        steps_list = [int(x) for x in args.steps_list.split(",")]
+        schedule = [(T, s) for T in lens for s in steps_list]
+        out_dir = os.path.splitext(args.out)[0] + "_sweep"
+        os.makedirs(out_dir, exist_ok=True)
+    else:
+        # T_total = T_noise + 1 + K_mem(=4). Equal, adequate budget per length.
+        schedule = [(32, 1500), (96, 1500), (224, 1500)]
+        out_dir = None
 
     all_results = []
     t0 = time.time()
     for T_noise, steps in schedule:
-        all_results.append(run_one_length(T_noise, steps, device))
+        # Resume-safe in sweep mode: each (T,steps) point cached to its own file.
+        pt = os.path.join(out_dir, f"T{T_noise}_s{steps}.json") if out_dir else None
+        if pt and os.path.exists(pt):
+            all_results.append(json.load(open(pt)))
+            print(f"[skip] T_noise={T_noise} steps={steps}", flush=True)
+            continue
+        r = run_one_length(T_noise, steps, device)
+        all_results.append(r)
+        if pt:
+            json.dump(r, open(pt, "w"), indent=2)
 
     total = time.time() - t0
     print(f"\nTotal wall-clock: {total:.0f}s")
 
     # Save raw JSON
     os.makedirs("benchmarks", exist_ok=True)
-    out_path = "benchmarks/long_context_results.json"
+    out_path = args.out
     with open(out_path, "w") as f:
         json.dump(all_results, f, indent=2)
     print(f"Saved raw results -> {out_path}")
+
+    if args.sweep:
+        print("\n" + "=" * 64)
+        print(" ABLATION: seq-exact vs step budget (climbing=undertrain, flat=ceiling)")
+        print("=" * 64)
+        by_t = {}
+        for r in all_results:
+            by_t.setdefault(r["T_total"], []).append(r)
+        for T_total, rs in sorted(by_t.items()):
+            rs.sort(key=lambda x: x["steps"])
+            print(f"\n T_total={T_total}:")
+            for m in ["Transformer", "LNN", "MT-LNN"]:
+                cells = "  ".join(f"{x['steps']}s:{x['models'][m]['seq_exact']:.3f}"
+                                  for x in rs)
+                print(f"   {m:<12} {cells}")
 
     # Print summary table
     print("\n" + "=" * 64)
