@@ -19,8 +19,11 @@ Why classical simulation still matters scientifically
 2. The ring entanglement pattern (CNOTs between neighbours mod P) is a
    direct architectural analogue of the MT lateral lattice; this maps
    the topology rather than the substrate.
-3. Future work can swap ``default.qubit`` for ``lightning.gpu`` or actual
-   quantum hardware (IBM Quantum, IonQ) with no other code changes.
+3. Pass ``device_name="lightning.gpu"`` (needs ``pennylane-lightning-gpu`` +
+   CUDA) to run the circuit on GPU — ``diff_method`` then auto-switches to
+   ``adjoint`` (lightning does not support ``backprop``); ``default.qubit``
+   keeps its ``backprop`` fast path. Actual quantum hardware (IBM Quantum,
+   IonQ) works the same way via its device name.
 
 Computational cost
 ------------------
@@ -95,6 +98,7 @@ class QuantumLateralCoupling(nn.Module):
         d_proto: int,
         n_qlayers: int = 2,
         device_name: str = "default.qubit",
+        diff_method: str = None,
     ):
         super().__init__()
         if not PENNYLANE_AVAILABLE:
@@ -110,12 +114,23 @@ class QuantumLateralCoupling(nn.Module):
         # (We use 3 angles per qubit so encoding is information-rich.)
         self.encoder = nn.Linear(d_proto, 3)
 
-        # Quantum device — classical simulator by default
+        # Quantum device — classical simulator by default. Pass
+        # device_name="lightning.gpu" (needs pennylane-lightning-gpu + CUDA) to
+        # run the P-qubit circuit on GPU.
         self._device_name = device_name
         self.dev = qml.device(device_name, wires=self.P)
 
+        # Differentiation method. lightning.gpu does NOT support "backprop" —
+        # it uses the analytic "adjoint" method; default.qubit's fast path IS
+        # "backprop". Auto-pick by device unless the caller overrides, so the
+        # default.qubit path is not slowed by forcing adjoint on it.
+        if diff_method is None:
+            diff_method = ("adjoint" if device_name.startswith("lightning")
+                           else "backprop")
+        self._diff_method = diff_method
+
         # Variational quantum circuit
-        @qml.qnode(self.dev, interface="torch", diff_method="backprop")
+        @qml.qnode(self.dev, interface="torch", diff_method=self._diff_method)
         def circuit(inputs, weights):
             """
             inputs  : (P, 3)  — encoding angles for each qubit
