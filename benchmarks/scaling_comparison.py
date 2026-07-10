@@ -239,10 +239,16 @@ def train_arch(arch, args, device, dtype, seed=0):
     m.train()
     stable, last, t0, step = True, float("nan"), time.time(), 0
     while step < args.steps:
-        for idx in order:
+        # Fancy-index permuted rows into REAL shuffled minibatches. Slicing
+        # train_c[idx:idx+batch] would draw `batch` temporally-ADJACENT corpus
+        # windows (and overlapping start indices share batch-1 rows) — the
+        # comparison stays fair (same for every arch) but the sampling is
+        # autocorrelated, unlike standard shuffled-minibatch SGD.
+        for b in range(0, len(order), args.batch):
             if step >= args.steps:
                 break
-            ids = train_c[int(idx):int(idx) + args.batch].to(device)
+            sel = order[b:b + args.batch]
+            ids = train_c[sel].to(device)
             if ids.shape[0] < 1:
                 continue
             opt.zero_grad(set_to_none=True)
@@ -279,7 +285,13 @@ def train_arch(arch, args, device, dtype, seed=0):
             n = ids.shape[0] * (ids.shape[1] - 1)
             nll += out["loss"].float().item() * n
             ntok += n
-    ppl = math.exp(nll / ntok) if ntok else float("nan")
+    # Guard exp() for exactly the divergence this benchmark exists to measure:
+    # a diverged-but-finite model (mean CE > ~709) would raise OverflowError
+    # and abort the whole multi-seed sweep; a NaN would poison statistics.mean.
+    # Map both to a reported inf (a large-but-reported value) instead.
+    mean_nll = nll / ntok if ntok else float("nan")
+    ppl = (math.exp(mean_nll) if math.isfinite(mean_nll) and mean_nll < 709.0
+           else float("inf"))
     del m, opt
     if device == "cuda":
         torch.cuda.empty_cache()

@@ -72,14 +72,28 @@ def auroc(scores, labels):
 
 @torch.no_grad()
 def score_choice(model, tok, device, prompt, choice):
-    """Length-normalised log-likelihood of `choice` continuing `prompt`."""
-    p_ids = tok(prompt, return_tensors="pt").input_ids.to(device)
-    full = tok(prompt + " " + choice, return_tensors="pt").input_ids.to(device)
-    cont = full[:, p_ids.shape[1]:]
+    """Length-normalised log-likelihood of `choice` continuing `prompt`.
+
+    Robustness (both were review-confirmed hazards):
+      * The continuation tokens are tokenized SEPARATELY and concatenated as
+        IDs — never assume tok(prompt) is a byte-prefix of tok(prompt+choice)
+        (BPE can merge across the boundary, which would misalign the scored
+        span and silently corrupt every number).
+      * reset the adapter's streaming state before each choice, so each choice
+        is scored from ZERO recurrent state (matching the stateless base);
+        without it, build_model turns streaming ON and choice N's score is
+        contaminated by choice N-1's carried (F,z)/h state.
+    """
+    from mt_lnn.llama_adapter import reset_adapter_streams
+    reset_adapter_streams(model)
+    ctx = tok(prompt, return_tensors="pt").input_ids.to(device)
+    cont = tok(" " + choice, add_special_tokens=False,
+               return_tensors="pt").input_ids.to(device)
     if cont.shape[1] == 0:
         return -1e9
+    full = torch.cat([ctx, cont], dim=1)
     out = model(full)
-    logits = out.logits[:, p_ids.shape[1] - 1: full.shape[1] - 1, :]
+    logits = out.logits[:, ctx.shape[1] - 1: full.shape[1] - 1, :]
     logp = torch.log_softmax(logits.float(), dim=-1)
     tok_lp = logp.gather(-1, cont.unsqueeze(-1)).squeeze(-1)
     return (tok_lp.sum() / cont.shape[1]).item()

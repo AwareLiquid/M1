@@ -82,6 +82,7 @@ def train_model(model, task: SelectiveCopyConfig, label: str,
         opt = torch.optim.AdamW(model.parameters(), lr=task.lr, betas=(0.9, 0.95))
 
     t0 = time.time()
+    out = None
     for step in range(task.steps):
         ids, labels = make_selective_copy_batch(task, task.batch, device=device)
         opt.zero_grad()
@@ -91,7 +92,8 @@ def train_model(model, task: SelectiveCopyConfig, label: str,
         opt.step()
         if verbose and ((step + 1) % task.log_every == 0 or step == 0):
             print(f"    {label} step {step+1:5d}  loss {out['loss'].item():.4f}")
-    return {"train_time": time.time() - t0, "final_loss": out["loss"].item()}
+    final_loss = out["loss"].item() if out is not None else float("nan")
+    return {"train_time": time.time() - t0, "final_loss": final_loss}
 
 
 def run_one_length(T_noise: int, steps: int, device: str) -> dict:
@@ -205,11 +207,13 @@ def main():
     print("\n" + "=" * 64)
     print(" Summary: held-out sequence-exact accuracy vs T_total")
     print("=" * 64)
-    header = f"{'T_total':>8s}  " + "  ".join(f"{m:>14s}" for m in ["Transformer", "LNN", "MT-LNN"])
+    # steps column so sweep mode (multiple step budgets share one T_total)
+    # never prints ambiguous duplicate-labelled rows.
+    header = f"{'T_total':>8s}  {'steps':>7s}  " + "  ".join(f"{m:>14s}" for m in ["Transformer", "LNN", "MT-LNN"])
     print(header)
-    print(f"{'-'*8:>8s}  " + "  ".join(f"{'-'*14:>14s}" for _ in range(3)))
+    print(f"{'-'*8:>8s}  {'-'*7:>7s}  " + "  ".join(f"{'-'*14:>14s}" for _ in range(3)))
     for r in all_results:
-        row = f"{r['T_total']:>8d}  "
+        row = f"{r['T_total']:>8d}  {r['steps']:>7d}  "
         row += "  ".join(f"{r['models'][m]['seq_exact']:>14.3f}" for m in ["Transformer", "LNN", "MT-LNN"])
         print(row)
 
@@ -217,9 +221,9 @@ def main():
     print(" Summary: held-out token accuracy vs T_total")
     print("=" * 64)
     print(header)
-    print(f"{'-'*8:>8s}  " + "  ".join(f"{'-'*14:>14s}" for _ in range(3)))
+    print(f"{'-'*8:>8s}  {'-'*7:>7s}  " + "  ".join(f"{'-'*14:>14s}" for _ in range(3)))
     for r in all_results:
-        row = f"{r['T_total']:>8d}  "
+        row = f"{r['T_total']:>8d}  {r['steps']:>7d}  "
         row += "  ".join(f"{r['models'][m]['tok_acc']:>14.3f}" for m in ["Transformer", "LNN", "MT-LNN"])
         print(row)
 
