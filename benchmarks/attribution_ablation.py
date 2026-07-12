@@ -51,7 +51,8 @@ import datasets as _datasets  # noqa: F401  (DLL-order guard)
 
 
 CONFIG_NAMES = ["baseline", "lora_only", "mt_only", "mt_lora",
-                "mt_v2_only", "mt_v2_lora", "mt_v2s_only", "mt_v2s_lora"]
+                "mt_v2_only", "mt_v2_lora", "mt_v2s_only", "mt_v2s_lora",
+                "mt_v2_delta"]
 
 
 def build_chunks(tok, split: str, seq_len: int) -> torch.Tensor:
@@ -122,9 +123,13 @@ def setup(cfg: str, m, lora_r: int, lora_alpha: int):
                            use_scan=True)
         m = add_lora(m)
         return m, rearm(m, iter_mt_adapter_parameters)
-    if cfg in ("mt_v2_only", "mt_v2s_only"):
+    if cfg in ("mt_v2_only", "mt_v2s_only", "mt_v2_delta"):
         from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
-        attach_mt_v2_adapters(m, every=4, selective_decay=cfg.startswith("mt_v2s"))
+        # mt_v2_delta = gradient-as-memory fast-weight write (DeltaNet/Titans);
+        # candidate for the distributed-context the outer product can't encode.
+        rule = "delta" if cfg == "mt_v2_delta" else "outer"
+        attach_mt_v2_adapters(m, every=4, selective_decay=cfg.startswith("mt_v2s"),
+                              fast_weight_rule=rule)
         return m, 0
     if cfg in ("mt_v2_lora", "mt_v2s_lora"):
         from mt_lnn.mt_lnn_v2 import (attach_mt_v2_adapters,

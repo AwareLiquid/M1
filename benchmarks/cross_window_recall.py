@@ -48,7 +48,7 @@ import torch.nn.functional as F
 from benchmarks.attribution_ablation import setup as attr_setup  # noqa: E402
 
 CONFIG_NAMES = ["baseline", "lora_only", "mt_only", "mt_lora",
-                "mt_v2_nofw", "mt_v2", "mt_v2s", "arr"]
+                "mt_v2_nofw", "mt_v2", "mt_v2s", "arr", "mt_v2_delta"]
 
 
 def setup(cfg: str, m, lora_r: int, lora_alpha: int, arr_ckpt: str = ""):

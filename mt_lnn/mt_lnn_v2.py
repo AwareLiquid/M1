@@ -93,6 +93,7 @@ class MTAdapterV2Config:
     fast_weight_heads: int = 1
     fast_weight_init_decay: float = 0.95
     fast_weight_chunk: int = 64    # chunk length of the parallel scan
+    fast_weight_rule: str = "outer"   # "outer" (default) or "delta" (gradient-as-memory)
 
 
 class FastWeightMemoryV2(nn.Module):
@@ -112,12 +113,22 @@ class FastWeightMemoryV2(nn.Module):
     """
 
     def __init__(self, d_model: int, d_mem: int = 64, n_heads: int = 1,
-                 init_decay: float = 0.95, chunk: int = 64):
+                 init_decay: float = 0.95, chunk: int = 64,
+                 write_rule: str = "outer"):
         super().__init__()
         self.d_model = d_model
         self.d_mem = d_mem
         self.n_heads = n_heads
         self.chunk = chunk
+        # "outer" = classic outer-product accumulation (chunk-parallel, the
+        # default, proven at 0.56 cross-window). "delta" = gradient-as-memory:
+        # a 1-step inner gradient on ||k^T F - v^T||^2 per position (DeltaNet /
+        # Titans), which CORRECTS existing associations instead of only adding —
+        # the candidate for encoding distributed context the outer product
+        # can't (the out-of-window LM null). It is nonlinear in (k,v,F), so the
+        # closed-form chunk scan does not apply — the delta path runs sequential.
+        assert write_rule in ("outer", "delta")
+        self.write_rule = write_rule
         inner = n_heads * d_mem
         self.W_k = nn.Linear(d_model, inner, bias=False)
         self.W_q = nn.Linear(d_model, inner, bias=False)
@@ -126,6 +137,9 @@ class FastWeightMemoryV2(nn.Module):
         init_decay = min(max(init_decay, 1e-3), 1 - 1e-3)
         raw = math.log(init_decay / (1.0 - init_decay))
         self.decay_raw = nn.Parameter(torch.full((n_heads,), float(raw)))
+        if write_rule == "delta":
+            # learnable inner learning-rate eta per head; sigmoid(0)=0.5 init.
+            self.eta_raw = nn.Parameter(torch.zeros(n_heads))
 
     def forward(
         self,
@@ -149,6 +163,24 @@ class FastWeightMemoryV2(nn.Module):
             zvec = x.new_zeros(B, H, D)
         else:
             Fmat, zvec = state
+
+        if self.write_rule == "delta":
+            # Gradient-as-memory: F_t = lam*F_{t-1} - eta * k_t (k_t^T F_{t-1} - v_t^T).
+            # Read r_t = q_t^T F_t (the delta rule self-normalises by regressing
+            # v directly, so no q·z denominator). Sequential — F appears in its
+            # own write, so the closed-form chunk scan does not hold. zvec is
+            # carried unchanged (kept for the (F,z) snapshot/restore contract).
+            eta = torch.sigmoid(self.eta_raw).to(x.dtype).view(1, H, 1, 1)
+            lam_d = lam.view(1, H, 1, 1)
+            reads = []
+            for t in range(T):
+                kt, qt, vt = k[:, :, t], q[:, :, t], v[:, :, t]      # (B,H,D)
+                pred = torch.einsum("bhd,bhde->bhe", kt, Fmat)        # k^T F  (B,H,D)
+                err = pred - vt                                       # (B,H,D)
+                Fmat = lam_d * Fmat - eta * (kt.unsqueeze(-1) * err.unsqueeze(-2))
+                reads.append(torch.einsum("bhd,bhde->bhe", qt, Fmat))  # q^T F
+            r = torch.stack(reads, dim=2).transpose(1, 2).reshape(B, T, H * D)
+            return self.W_o(r), (Fmat, zvec)
 
         # Precompute intra-chunk decay tables once (shapes (H,C,C) / (H,C)).
         t_idx = torch.arange(C, device=x.device, dtype=x.dtype)
@@ -360,6 +392,7 @@ class MTResidualAdapterV2(nn.Module):
                 n_heads=cfg.fast_weight_heads,
                 init_decay=cfg.fast_weight_init_decay,
                 chunk=cfg.fast_weight_chunk,
+                write_rule=cfg.fast_weight_rule,
             )
             self.fw_scale = nn.Parameter(torch.tensor(float(cfg.init_scale)))
         # Streaming state — transient attributes, never in state_dict.
@@ -422,6 +455,7 @@ def attach_mt_v2_adapters(
     fast_weight_dim: int = 64,
     fast_weight_heads: int = 1,
     fast_weight_init_decay: float = 0.95,
+    fast_weight_rule: str = "outer",
 ) -> List[int]:
     """Freeze `model`, wrap every Nth decoder layer with a V2 adapter.
 
@@ -465,6 +499,7 @@ def attach_mt_v2_adapters(
             fast_weight_dim=fast_weight_dim,
             fast_weight_heads=fast_weight_heads,
             fast_weight_init_decay=fast_weight_init_decay,
+            fast_weight_rule=fast_weight_rule,
         )
         layers[idx] = DecoderLayerWithMTAdapter(
             layers[idx],
