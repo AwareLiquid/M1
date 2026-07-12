@@ -311,6 +311,26 @@ class PersistentKnowledgeMemory:
         self._conn.execute("DELETE FROM knowledge")
         self._conn.commit()
 
+    def delete(self, ids) -> int:
+        """Delete records by row id. Returns the count requested. Enables true
+        per-record consolidation/UPSERT (previously a documented follow-on:
+        only LRU eviction could remove records)."""
+        ids = [int(i) for i in ids]
+        if not ids:
+            return 0
+        self._conn.executemany("DELETE FROM knowledge WHERE id = ?",
+                               [(i,) for i in ids])
+        self._conn.commit()
+        return len(ids)
+
+    def all_meta(self):
+        """Return ``[(id, meta_dict_or_None), ...]`` for every record — for
+        consolidation policies that RANK by a meta field (e.g. surprise)
+        without needing a query key."""
+        rows = self._conn.execute("SELECT id, meta FROM knowledge").fetchall()
+        return [(int(r[0]), _bytes_to_obj(r[1]) if r[1] is not None else None)
+                for r in rows]
+
     def close(self) -> None:
         self._conn.close()
 

@@ -62,13 +62,50 @@ class FastWeightSessionStore:
         key_vec: torch.Tensor,
         fw_snapshot: dict,
         meta: Optional[dict] = None,
+        surprise: float = 0.0,
     ) -> int:
         """Persist *fw_snapshot* (from snapshot_adapter_streams) under a
         content key. Returns the row id. The snapshot is stored verbatim as
-        the KB content; session_id rides in both content and meta."""
+        the KB content; session_id rides in both content and meta.
+
+        ``surprise`` (a salience scalar, e.g. session mean/max token entropy or
+        world-model prediction error) is recorded so consolidation can keep
+        'what surprised the model' rather than the longest session — see
+        :meth:`consolidate`."""
         content = {"session_id": session_id, "snapshot": fw_snapshot}
-        full_meta = {"session_id": session_id, **(meta or {})}
+        full_meta = {"session_id": session_id, "surprise": float(surprise),
+                     **(meta or {})}
         return self.kb.write(key_vec, content=content, meta=full_meta)
+
+    def consolidate(self, keep_fraction: float = 0.5, min_keep: int = 1) -> dict:
+        """Surprise-gated consolidation of the (F,z) sessions.
+
+        Keeps the top ``keep_fraction`` of stored sessions by recorded
+        ``surprise`` and evicts the rest. This is the fix for the two defects
+        the memory-system audit found in the WIRED /v1/sleep path: it ranks by
+        SURPRISE (not session length / token_count) and it operates on the real
+        (F,z) episodic bindings (not the pooled recurrent h, which carries no
+        cross-window content). Ties break toward the newest row.
+
+        SCOPE (honest): this is surprise-gated RETENTION — which episodic
+        bindings survive. It does NOT yet distill the kept bindings INTO
+        slow/semantic weights (that is a replay-and-fine-tune step, the GPU
+        follow-on); no end-to-end episodic→weight migration exists yet."""
+        recs = self.kb.all_meta()                       # [(id, meta)]
+        if not recs:
+            return {"kept": 0, "evicted": 0, "kept_surprise": []}
+        ranked = sorted(
+            recs,
+            key=lambda r: (float((r[1] or {}).get("surprise", 0.0)), r[0]),
+            reverse=True,
+        )
+        n_keep = max(min_keep, int(round(len(ranked) * keep_fraction)))
+        n_keep = min(n_keep, len(ranked))
+        evict_ids = [rid for rid, _ in ranked[n_keep:]]
+        self.kb.delete(evict_ids)
+        return {"kept": len(ranked) - len(evict_ids), "evicted": len(evict_ids),
+                "kept_surprise": [float((m or {}).get("surprise", 0.0))
+                                  for _, m in ranked[:n_keep]]}
 
     def recall_session(
         self,

@@ -123,6 +123,44 @@ def test_store_retrieval_and_payload_fidelity():
           f"scores discriminate  OK")
 
 
+def test_surprise_gated_consolidation():
+    """consolidate(keep_fraction) must retain the HIGH-surprise sessions and
+    evict the low-surprise ones — the audit's fix for 'consolidate the longest
+    session' (token_count) -> 'consolidate what surprised the model', on the
+    real (F,z) payload. Kept sessions stay recallable; evicted ones are gone."""
+    with tempfile.TemporaryDirectory() as d:
+        store = FastWeightSessionStore(db_path=str(Path(d) / "fw.sqlite"),
+                                       key_dim=DIM)
+        # 6 sessions; surprise = 0,1,2,3,4,5 (session_k has surprise k).
+        for k in range(6):
+            snap = {"_schema": "adapter_streams_v1",
+                    "i0": {"h": None, "fw": None, "pos": k}}  # opaque payload
+            store.write_session(f"sess{k}",
+                                build_session_key(f"session number {k}", fake_encoder),
+                                snap, surprise=float(k))
+        assert len(store) == 6
+        res = store.consolidate(keep_fraction=0.5)   # keep top 3 by surprise
+        assert res["kept"] == 3 and res["evicted"] == 3, res
+        assert sorted(res["kept_surprise"], reverse=True) == [5.0, 4.0, 3.0], res
+        assert len(store) == 3
+
+        # high-surprise sessions survive + recall; low-surprise are gone.
+        for k in (5, 4, 3):
+            hits = store.recall_session(
+                build_session_key(f"session number {k}", fake_encoder),
+                top_k=1, expected_session_id=f"sess{k}")
+            assert hits and hits[0][2] == f"sess{k}", f"kept sess{k} not recallable"
+        for k in (0, 1, 2):
+            hits = store.recall_session(
+                build_session_key(f"session number {k}", fake_encoder),
+                top_k=1, expected_session_id=f"sess{k}")
+            assert not hits, f"evicted sess{k} still present"
+        store.close()
+    print("[consolidate] surprise-gated retention keeps high-surprise, "
+          "evicts low-surprise, survivors recallable  OK")
+
+
 if __name__ == "__main__":
     test_store_retrieval_and_payload_fidelity()
+    test_surprise_gated_consolidation()
     print("all fast-weight store tests passed")
