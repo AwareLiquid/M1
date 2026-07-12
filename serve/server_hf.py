@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import threading
 import time
 from typing import List, Optional, Tuple
 
@@ -43,7 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import re
 
 import torch
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -643,23 +644,53 @@ class CompletionRequest(BaseModel):
 
 _FW_KEY_DIM = 256
 
+# The served model is a SINGLE shared instance whose MT adapters hold MUTABLE
+# per-request streaming state (_stream_h/_stream_fw). FastAPI runs the sync
+# generation endpoints on an anyio threadpool, so without serialization two
+# concurrent requests interleave per-token reads/writes of that shared state and
+# corrupt each other's decode (and, with the session store, persist cross-session
+# garbage). This lock serializes ALL model-touching generation. Held across a
+# stream's whole token loop — the shared adapter state cannot be time-shared, so
+# concurrent streams must run one at a time anyway.
+_MODEL_LOCK = threading.Lock()
+_FW_STORE_LOCK = threading.Lock()
+
+
+def _gen_lock():
+    """FastAPI yield-dependency that serializes a whole request on the shared
+    model: setup acquires _MODEL_LOCK, teardown releases it AFTER the response
+    (incl. a streaming body) is fully sent. Applied to the non-inline
+    generation endpoints so the shared adapter streaming state is never touched
+    by two requests at once. (threading.Lock, not asyncio: sync endpoints run on
+    the anyio threadpool; a Lock may be released by a different thread than
+    acquired, which is safe here.)"""
+    _MODEL_LOCK.acquire()
+    try:
+        yield
+    finally:
+        _MODEL_LOCK.release()
+
 
 def _fw_store():
-    """Lazily create the (F,z) session store on first use. FW_SESSION_STORE=1
-    enables it; otherwise every session call is a clean per-request reset (the
-    unchanged default)."""
+    """Lazily create the (F,z) session store on first use, thread-safe
+    (double-checked). FW_SESSION_STORE=1 enables it; otherwise every session
+    call is a clean per-request reset (the unchanged default)."""
     if _STATE.get("fw_store_init"):
         return _STATE.get("fw_store")
-    _STATE["fw_store_init"] = True
-    _STATE["fw_store"] = None
-    if os.environ.get("FW_SESSION_STORE", "0").lower() in ("1", "true", "yes"):
-        try:
-            from mt_lnn.fast_weight_store import FastWeightSessionStore
-            path = os.environ.get("FW_SESSION_DB", "fw_sessions.sqlite")
-            _STATE["fw_store"] = FastWeightSessionStore(db_path=path, key_dim=_FW_KEY_DIM)
-            print(f"[serve] cross-session fast-weight store ENABLED at {path}")
-        except Exception as e:      # never let memory wiring break generation
-            print(f"[serve] fast-weight store init failed ({e}); disabled")
+    with _FW_STORE_LOCK:
+        if _STATE.get("fw_store_init"):
+            return _STATE.get("fw_store")
+        _STATE["fw_store"] = None
+        enabled = os.environ.get("FW_SESSION_STORE", "0").lower() in ("1", "true", "yes")
+        _STATE["fw_store_init"] = True
+        if enabled:
+            try:
+                from mt_lnn.fast_weight_store import FastWeightSessionStore
+                path = os.environ.get("FW_SESSION_DB", "fw_sessions.sqlite")
+                _STATE["fw_store"] = FastWeightSessionStore(db_path=path, key_dim=_FW_KEY_DIM)
+                print(f"[serve] cross-session fast-weight store ENABLED at {path}")
+            except Exception as e:   # never let memory wiring break generation
+                print(f"[serve] fast-weight store init failed ({e}); disabled")
     return _STATE.get("fw_store")
 
 
@@ -941,7 +972,7 @@ def _augment_with_memory(req: "CompletionRequest") -> Tuple[str, dict]:
 
 
 @app.post("/v1/completions")
-def completions(req: CompletionRequest):
+def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     if req.max_new_tokens > MAX_NEW_CAP:
@@ -1041,7 +1072,7 @@ def completions(req: CompletionRequest):
 
 
 @app.post("/v1/completions/stream")
-def completions_stream(req: CompletionRequest):
+def completions_stream(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     if req.max_new_tokens > MAX_NEW_CAP:
@@ -1059,27 +1090,32 @@ def completions_stream(req: CompletionRequest):
     eos_id = tok.eos_token_id if req.stop_at_eos else None
 
     def _gen():
+        # _MODEL_LOCK is held for the whole request by the _gen_lock dependency
+        # (spans _augment_with_memory above AND this stream, released after the
+        # response is fully sent). The try/finally guarantees the (F,z) snapshot
+        # runs even on client disconnect (GeneratorExit), so the turn's state is
+        # not lost.
         yield f"data: {json.dumps({'event': 'memory', **mem_meta})}\n\n"
-        # Restore this session's carried (F,z) if a session_id is set + store on;
-        # otherwise a clean per-request reset (the default).
         _session_enter(model, req)
         past = None
         cur_ids = ids
         ent_sum, ent_n = 0.0, 0
-        for _ in range(req.max_new_tokens):
-            with torch.no_grad():
-                out = model(cur_ids, past_key_values=past, use_cache=True)
-            logits = out.logits[:, -1, :]
-            past = out.past_key_values
-            ent_sum += _token_entropy(logits); ent_n += 1
-            tid = _sample_next_token(logits, req)
-            piece = tok.decode([tid], skip_special_tokens=True)
-            yield f"data: {json.dumps({'token': tid, 'text': piece})}\n\n"
-            if eos_id is not None and tid == eos_id:
-                break
-            cur_ids = torch.tensor([[tid]], device=_STATE["device"])
-
-        _session_exit(model, req, surprise=(ent_sum / ent_n) if ent_n else 0.0)
+        try:
+            for _ in range(req.max_new_tokens):
+                with torch.no_grad():
+                    out = model(cur_ids, past_key_values=past, use_cache=True)
+                logits = out.logits[:, -1, :]
+                past = out.past_key_values
+                ent_sum += _token_entropy(logits); ent_n += 1
+                tid = _sample_next_token(logits, req)
+                piece = tok.decode([tid], skip_special_tokens=True)
+                yield f"data: {json.dumps({'token': tid, 'text': piece})}\n\n"
+                if eos_id is not None and tid == eos_id:
+                    break
+                cur_ids = torch.tensor([[tid]], device=_STATE["device"])
+        finally:
+            _session_exit(model, req,
+                          surprise=(ent_sum / ent_n) if ent_n else 0.0)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(_gen(), media_type="text/event-stream")
@@ -1107,7 +1143,7 @@ def oai_models():
 
 
 @app.post("/v1/chat/completions")
-def oai_chat_completions(body: dict):
+def oai_chat_completions(body: dict, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     messages = body.get("messages") or []

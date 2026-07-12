@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import io
 import sqlite3
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -154,6 +155,13 @@ class PersistentKnowledgeMemory:
         # the persisted max so recency survives reopen.
         row = self._conn.execute("SELECT MAX(access_seq) FROM knowledge").fetchone()
         self._seq = int(row[0]) if row and row[0] is not None else 0
+        # One shared sqlite3.Connection (check_same_thread=False) + the _seq
+        # counter are touched by every request; FastAPI runs the sync serve
+        # endpoints on an anyio threadpool (concurrent). Serialize all access
+        # behind an RLock (reentrant: write()->_enforce_capacity(),
+        # query(touch=True) both re-enter). Prevents interleaved sqlite ops and
+        # the non-atomic `self._seq += 1` read-modify-write.
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Write
@@ -172,25 +180,26 @@ class PersistentKnowledgeMemory:
         """
         key = self._validate_key(key)
         now = datetime.now(timezone.utc).isoformat()
-        self._seq += 1
-        cur = self._conn.execute(
-            """
-            INSERT INTO knowledge (key_vec, content, meta, created_at, accessed_at, access_seq)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (
-                _key_to_bytes(key),
-                _obj_to_bytes(content),
-                _obj_to_bytes(meta) if meta is not None else None,
-                now,
-                now,
-                self._seq,
-            ),
-        )
-        self._conn.commit()
-        row_id = int(cur.lastrowid)
-        self._enforce_capacity()
-        return row_id
+        with self._lock:
+            self._seq += 1
+            cur = self._conn.execute(
+                """
+                INSERT INTO knowledge (key_vec, content, meta, created_at, accessed_at, access_seq)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    _key_to_bytes(key),
+                    _obj_to_bytes(content),
+                    _obj_to_bytes(meta) if meta is not None else None,
+                    now,
+                    now,
+                    self._seq,
+                ),
+            )
+            self._conn.commit()
+            row_id = int(cur.lastrowid)
+            self._enforce_capacity()
+            return row_id
 
     # ------------------------------------------------------------------
     # Query
@@ -237,9 +246,10 @@ class PersistentKnowledgeMemory:
             raise ValueError(f"top_k must be positive, got {top_k}")
         q = self._validate_key(key)
 
-        rows = self._conn.execute(
-            "SELECT id, key_vec, content, meta FROM knowledge"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, key_vec, content, meta FROM knowledge"
+            ).fetchall()
         if not rows:
             return []
 
@@ -279,15 +289,16 @@ class PersistentKnowledgeMemory:
             now = datetime.now(timezone.utc).isoformat()
             # Bump the recency counter for each hit so they become the freshest
             # records for LRU purposes (counter, not wall-clock → collision-free).
-            updates = []
-            for rid in touched_ids:
-                self._seq += 1
-                updates.append((now, self._seq, rid))
-            self._conn.executemany(
-                "UPDATE knowledge SET accessed_at = ?, access_seq = ? WHERE id = ?",
-                updates,
-            )
-            self._conn.commit()
+            with self._lock:
+                updates = []
+                for rid in touched_ids:
+                    self._seq += 1
+                    updates.append((now, self._seq, rid))
+                self._conn.executemany(
+                    "UPDATE knowledge SET accessed_at = ?, access_seq = ? WHERE id = ?",
+                    updates,
+                )
+                self._conn.commit()
 
         return hits
 
@@ -304,12 +315,14 @@ class PersistentKnowledgeMemory:
     # ------------------------------------------------------------------
 
     def __len__(self) -> int:
-        return int(self._conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0])
+        with self._lock:
+            return int(self._conn.execute("SELECT COUNT(*) FROM knowledge").fetchone()[0])
 
     def clear(self) -> None:
         """Delete all stored knowledge."""
-        self._conn.execute("DELETE FROM knowledge")
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM knowledge")
+            self._conn.commit()
 
     def delete(self, ids) -> int:
         """Delete records by row id. Returns the count requested. Enables true
@@ -318,16 +331,18 @@ class PersistentKnowledgeMemory:
         ids = [int(i) for i in ids]
         if not ids:
             return 0
-        self._conn.executemany("DELETE FROM knowledge WHERE id = ?",
-                               [(i,) for i in ids])
-        self._conn.commit()
+        with self._lock:
+            self._conn.executemany("DELETE FROM knowledge WHERE id = ?",
+                                   [(i,) for i in ids])
+            self._conn.commit()
         return len(ids)
 
     def all_meta(self):
         """Return ``[(id, meta_dict_or_None), ...]`` for every record — for
         consolidation policies that RANK by a meta field (e.g. surprise)
         without needing a query key."""
-        rows = self._conn.execute("SELECT id, meta FROM knowledge").fetchall()
+        with self._lock:
+            rows = self._conn.execute("SELECT id, meta FROM knowledge").fetchall()
         return [(int(r[0]), _bytes_to_obj(r[1]) if r[1] is not None else None)
                 for r in rows]
 
