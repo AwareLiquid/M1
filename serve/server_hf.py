@@ -682,8 +682,11 @@ def _session_enter(model, req) -> None:
             print(f"[serve] session restore failed for {sid!r}: {e}")
 
 
-def _session_exit(model, req) -> None:
-    """Snapshot this session's fast-weight state so a later request resumes it."""
+def _session_exit(model, req, surprise: float = 0.0) -> None:
+    """Snapshot this session's fast-weight state so a later request resumes it.
+    ``surprise`` (mean generated-token entropy, a live uncertainty signal) is
+    recorded so offline consolidate() can keep 'what surprised the model'
+    rather than the longest session."""
     store = _fw_store()
     sid = getattr(req, "session_id", None)
     if store is not None and sid:
@@ -691,9 +694,18 @@ def _session_exit(model, req) -> None:
             from mt_lnn.fast_weight_store import id_key
             from mt_lnn.llama_adapter import snapshot_adapter_streams
             store.write_session(sid, id_key(sid, _FW_KEY_DIM),
-                                snapshot_adapter_streams(model))
+                                snapshot_adapter_streams(model),
+                                surprise=float(surprise))
         except Exception as e:
             print(f"[serve] session snapshot failed for {sid!r}: {e}")
+
+
+def _token_entropy(logits) -> float:
+    """Shannon entropy (nats) of one next-token distribution — a per-step
+    surprise/uncertainty scalar (the same signal the deliberation router gates
+    on)."""
+    logp = torch.log_softmax(logits.float().reshape(-1), dim=-1)
+    return float(-(logp.exp() * logp).sum().item())
 
 
 # ---------------------------------------------------------------------------
@@ -978,7 +990,8 @@ def completions(req: CompletionRequest):
         )
         dt = time.time() - t0
         n_new = len(trace.steps)
-        _session_exit(model, req)   # persist this turn's (F,z) for the session
+        ents = [s.entropy for s in trace.steps if s.entropy is not None]
+        _session_exit(model, req, surprise=(sum(ents) / len(ents)) if ents else 0.0)
         return {
             "text": text,
             "tokens": [s.token_id for s in trace.steps if s.token_id >= 0],
@@ -992,7 +1005,8 @@ def completions(req: CompletionRequest):
             "conv_memory_hits": conv_hits,
         }
 
-    out = model.generate(
+    want_session = _fw_store() is not None and getattr(req, "session_id", None)
+    gen = model.generate(
         ids,
         max_new_tokens=req.max_new_tokens,
         do_sample=req.do_sample,
@@ -1001,11 +1015,18 @@ def completions(req: CompletionRequest):
         top_p=req.top_p,
         eos_token_id=tok.eos_token_id if req.stop_at_eos else None,
         pad_token_id=tok.pad_token_id,
+        # only pay for scores when we need the surprise signal for a session
+        return_dict_in_generate=bool(want_session),
+        output_scores=bool(want_session),
     )
+    out = gen.sequences if want_session else gen
     new_ids = out[0, ids.shape[1]:]
     text = tok.decode(new_ids, skip_special_tokens=True)
     dt = time.time() - t0
-    _session_exit(model, req)   # persist this turn's (F,z) for the session
+    surprise = 0.0
+    if want_session and gen.scores:
+        surprise = sum(_token_entropy(s) for s in gen.scores) / len(gen.scores)
+    _session_exit(model, req, surprise=surprise)   # persist (F,z) + surprise
     return {
         "text": text,
         "tokens": new_ids.tolist(),
@@ -1039,15 +1060,18 @@ def completions_stream(req: CompletionRequest):
 
     def _gen():
         yield f"data: {json.dumps({'event': 'memory', **mem_meta})}\n\n"
-        from mt_lnn.llama_adapter import reset_adapter_streams
-        reset_adapter_streams(model)          # new sequence, clean recurrent state
+        # Restore this session's carried (F,z) if a session_id is set + store on;
+        # otherwise a clean per-request reset (the default).
+        _session_enter(model, req)
         past = None
         cur_ids = ids
+        ent_sum, ent_n = 0.0, 0
         for _ in range(req.max_new_tokens):
             with torch.no_grad():
                 out = model(cur_ids, past_key_values=past, use_cache=True)
             logits = out.logits[:, -1, :]
             past = out.past_key_values
+            ent_sum += _token_entropy(logits); ent_n += 1
             tid = _sample_next_token(logits, req)
             piece = tok.decode([tid], skip_special_tokens=True)
             yield f"data: {json.dumps({'token': tid, 'text': piece})}\n\n"
@@ -1055,6 +1079,7 @@ def completions_stream(req: CompletionRequest):
                 break
             cur_ids = torch.tensor([[tid]], device=_STATE["device"])
 
+        _session_exit(model, req, surprise=(ent_sum / ent_n) if ent_n else 0.0)
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(_gen(), media_type="text/event-stream")
