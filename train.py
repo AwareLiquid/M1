@@ -174,6 +174,10 @@ def train(args):
         hebbian_lr=args.hebbian_lr,
         use_predictive_coding=not args.no_predictive_coding,
         use_rhythm=args.rhythm,
+        # MTP regularizer (additive aux loss; lm_loss/PPL unaffected). Off by default.
+        use_mtp_heads=args.mtp_heads,
+        mtp_lookahead=args.mtp_lookahead,
+        mtp_loss_weight=args.mtp_loss_weight,
         **cfg_kwargs,
     )
     model = MTLNNModel(config).to(device)
@@ -463,6 +467,16 @@ def parse_args():
                         "(ON by default in config; exposed for ablations)")
     p.add_argument("--rhythm", action="store_true",
                    help="enable the LAVI rhythm gate (use_rhythm)")
+    p.add_argument("--mtp_heads", action="store_true",
+                   help="[MTP] Enable multi-token-prediction lookahead heads + aux CE "
+                        "loss (DeepSeek-V3-style regularizer). Additive: never affects "
+                        "the reported lm_loss/PPL. NOTE the K flat linear heads here are "
+                        "weaker than the paper's sequential modules — validate PPL is "
+                        "neutral-or-better before trusting as default.")
+    p.add_argument("--mtp_lookahead", type=int, default=3,
+                   help="[MTP] K: number of future tokens each head set predicts (default 3)")
+    p.add_argument("--mtp_loss_weight", type=float, default=0.1,
+                   help="[MTP] λ: weight of the MTP aux CE loss (default 0.1; 0 disables it)")
     # ---- Observability + resume ----
     p.add_argument("--metrics_jsonl", type=str, default=None,
                    help="If set, append v2.0 module metrics (bounded scalars) to this JSONL file")

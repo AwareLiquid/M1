@@ -228,12 +228,17 @@ class MTLNNConfig:
     use_mtp_heads: bool = False
     mtp_lookahead: int = 3            # K: number of future tokens to predict
     mtp_loss_weight: float = 0.1     # λ: aux loss weight (won't affect lm_loss PPL)
-    # Master throttle: the draft-logit branch (and its aux loss) only runs when
-    # speculative decoding is actually in use. The serving-side draft→verify
-    # consumer is a separate, future iteration; until it lands, leaving this
-    # False keeps every forward pass free of the unused draft compute even if
-    # use_mtp_heads=True builds the parameters. Flip True only when training a
-    # model intended for the (not-yet-wired) speculative path.
+    # Master throttle for the INFERENCE speculative-decoding path ONLY. The
+    # serving-side draft→verify consumer is a separate, future iteration and is
+    # NOT built yet (RESEARCH — not wired; needs a verify loop + O(1)-recurrent-
+    # cache rollback). When True, forward exposes result["mtp_draft_logits"] for
+    # that (absent) consumer; leaving False keeps every inference forward free of
+    # the unused draft compute even when use_mtp_heads=True builds the params.
+    # NOTE (2026-07-12): the MTP TRAINING aux loss NO LONGER depends on this flag
+    # (that gating was a bug — it made the regularizer unreachable). The aux loss
+    # now runs whenever use_mtp_heads=True, mtp_loss_weight>0, and the forward is
+    # a training pass with labels. Enable MTP-as-regularizer with use_mtp_heads
+    # alone; flip this True only for the (unwired) speculative-decoding path.
     enable_speculative_decoding: bool = False
 
     # Dynamic multi-scale tau gates. The first phase only gates the blend over
@@ -287,8 +292,13 @@ class MTLNNConfig:
     #
     # Zero-regression contract: use_hebbian_refactor=False (default) builds NO
     # module and adds NO forward/loss op -> bit-identical to the current model.
-    # When ON during Stage 0 the module is param-free and compute_loss() returns
-    # None, so even the opt-in path is a verified no-op until Stage 2 lands.
+    # STATUS (corrected 2026-07-12): Stages 1+2 have LANDED — when ON,
+    # HebbianPlasticity.compute_loss() returns a REAL loss term (NOT None; the
+    # old "Stage 0 no-op" note was stale). ⚠ It is ACTIVE, currently UNVALIDATED
+    # (the ablation shows it HURTS val PPL: report_ablation_hebbian_refactor.md),
+    # and its grad-fraction safety cap only engages if the training loop calls
+    # HebbianPlasticity.recalibrate() — which train.py does NOT. Do not enable on
+    # a real training run without wiring recalibrate() first.
     use_hebbian_refactor: bool = False
     hebbian_base_lr: float = 1e-2          # independent base lr (decoupled from main BP lr)
     hebbian_window: int = 32               # LAVI sliding-window length (Stage 1)

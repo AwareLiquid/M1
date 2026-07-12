@@ -1,6 +1,19 @@
 """
 neuromodulation.py — a global multi-neuromodulator regulator for MT-LNN.
 
+╔══════════════════════════════════════════════════════════════════════════╗
+║ RESEARCH — NOT WIRED (architecture audit 2026-07-12).                     ║
+║ NeuromodulationController is constructed on NO trained/served path — only ║
+║ in tests/. Even if constructed, its ACh→GWTB actuator lands on the        ║
+║ dynamic-bandwidth gate (gwtb_dynamic_bandwidth), which is default-OFF,    ║
+║ has no train.py CLI flag, and is enabled/trained by no config — so        ║
+║ set_bandwidth_bias_offset early-returns (a silent no-op). 3 of its 4      ║
+║ signal channels (reward/risk/arousal) have no source in an LM loop. Sound ║
+║ theory (Yu & Dayan 2005), ZERO empirical evidence in this repo. Decision: ║
+║ ARCHIVE — wiring it requires first training the dynamic-bandwidth gate    ║
+║ (large, unproven). Do not assume this is active. See the seam audit.      ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
 Why this module exists (the "联调中枢" / integration hub)
 --------------------------------------------------------
 The brain does not run every circuit at a fixed gain. Four diffuse

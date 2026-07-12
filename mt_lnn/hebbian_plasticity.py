@@ -20,12 +20,24 @@ and the code audit of mt_lnn_layer.py / rhythm.py):
      WITHIN-SEQUENCE lagged term (h_t * h_{t-1}) along the sequence dim -- NOT
      across optimiser steps (shuffled batches are not temporally adjacent).
 
-STAGED BUILD
-  Stage 0 (this commit): scaffold only. Param-free; compute_loss() returns None;
-    integration in MTLNNModel is gated so the whole thing is a verified no-op.
-  Stage 1: dedicated LAVI estimator + non-trivial gate + within-seq lag term.
-  Stage 2: equivalent Hebbian loss added to total loss, gradient alignment + cap.
-  Stage 3: ablation/effectiveness validation.
+STAGED BUILD  (status corrected 2026-07-12 — see the architecture audit)
+  Stage 0 (superseded): was a param-free scaffold with compute_loss()==None.
+  Stage 1 (LANDED): dedicated LAVI estimator (gate_temp/b_lavi params) +
+    non-trivial gate + within-seq lag term — compute_signal() below.
+  Stage 2 (LANDED): compute_loss() now returns a REAL in-graph tensor
+    (alpha_eff * raw_loss), and recalibrate() implements the gradient-fraction
+    safety cap. ***compute_loss() NO LONGER returns None*** when a training
+    forward stashes block sequences — the old "verified no-op" claim is STALE.
+  Stage 3 (open): effectiveness validation. Current status is NEGATIVE, not
+    neutral: experiments/report_ablation_hebbian_refactor.md shows val PPL rises
+    monotonically with the Hebbian gradient share (+9~18 PPL); "max effective
+    share is ~0". So this term currently HURTS.
+
+  ⚠ SAFETY: recalibrate() (the grad-fraction cap) is invoked ONLY in
+  experiments/ — NOT in train.py. If use_hebbian_refactor=True is set on the
+  shipped training entrypoint, _scale stays 1.0 and the term runs UNCAPPED at
+  base_lr. Do not enable on a real run without wiring recalibrate() into the
+  loop first. compute_loss() emits a one-time warning if called un-recalibrated.
 """
 
 from __future__ import annotations
@@ -43,11 +55,13 @@ if TYPE_CHECKING:
 class HebbianPlasticity(nn.Module):
     """Refactored Hebbian co-activation regularizer (loss-term form).
 
-    Stage 0 scaffold: holds the decoupled hyper-parameters from config and
-    exposes the public surface (`compute_loss`, `last_stats`) that the model and
-    the staged tests build against, but performs NO computation yet
-    (`compute_loss` returns None). This guarantees that opting in via
-    `use_hebbian_refactor=True` is a no-op until Stage 2 wires the real term in.
+    Stages 1+2 LANDED (status corrected 2026-07-12): holds the decoupled hyper-
+    parameters plus the Stage-1 LAVI gate params (gate_temp, b_lavi), and
+    compute_loss() now returns a REAL in-graph loss term (alpha_eff * raw), NOT
+    None. The old "no-op until Stage 2" contract is STALE — use_hebbian_refactor=
+    True is now an ACTIVE loss term. It is also NOT yet validated as helpful (the
+    ablation shows it hurts) and its grad-fraction cap only engages if the
+    training loop calls recalibrate(). See the module docstring safety note.
     """
 
     def __init__(self, config: "MTLNNConfig"):
@@ -88,6 +102,11 @@ class HebbianPlasticity(nn.Module):
         # knob, never learned and never checkpointed.
         self._scale: float = 1.0
         self._eps: float = 1e-12
+        # Safety tracking: the grad-fraction cap only engages once the training
+        # loop calls recalibrate(). If compute_loss() ever produces a real term
+        # without that ever happening, the term runs UNCAPPED — warn once.
+        self._recalibrated: bool = False
+        self._warned_uncapped: bool = False
 
     # ---- Stage 1 internals ---------------------------------------------------
 
@@ -171,18 +190,33 @@ class HebbianPlasticity(nn.Module):
     def compute_loss(self, model: "MTLNNModel") -> Optional[torch.Tensor]:
         """Return the Hebbian loss term to add to the total loss, or None.
 
-        Stage 0: always returns None (verified no-op). The signature matches the
-        legacy HebbianRegularizer.compute_loss so the model integration and the
-        finiteness guard (`_aux_or_skip`) work unchanged once Stage 2 lands.
+        Stages 1+2 LANDED: returns a REAL in-graph term (alpha_eff * raw_loss)
+        whenever a training forward stashed block sequences; returns None only
+        when nothing was stashed (eval, or use_hebbian_refactor off). The old
+        "Stage 0 always returns None" contract is STALE (corrected 2026-07-12).
+        The signature still matches the legacy HebbianRegularizer.compute_loss so
+        the model integration and the finiteness guard (`_aux_or_skip`) are
+        unchanged.
+
+        SAFETY: alpha_eff = base_lr * _scale, and _scale is only shrunk below 1.0
+        by recalibrate(). If the training loop never calls recalibrate() the term
+        runs UNCAPPED at base_lr — a one-time warning fires here in that case.
         """
-        # Stage 1: compute_signal() builds the dedicated-LAVI-gated, within-
-        # sequence lagged co-activation signal.
-        # Stage 2: wrap it into a loss term scaled by alpha_eff = base_lr*_scale,
-        # where _scale (<=1) is set by recalibrate() from the gradient-norm ratio
-        # so the Hebbian gradient share <= grad_frac_cap (hard safety bound).
         raw = self.raw_loss(model)
         if raw is None:
             return None
+        if not self._recalibrated and not self._warned_uncapped:
+            import warnings
+            warnings.warn(
+                "HebbianPlasticity.compute_loss() is producing an ACTIVE loss "
+                "term but recalibrate() has never been called, so the "
+                "grad-fraction cap is not engaged and the term runs UNCAPPED at "
+                f"base_lr={self.base_lr}. Wire recalibrate() into the training "
+                "loop (see experiments/) before trusting this path. NOTE the "
+                "current ablation shows this term HURTS val PPL.",
+                RuntimeWarning, stacklevel=2,
+            )
+            self._warned_uncapped = True
         alpha_eff = self.base_lr * self._scale
         self._last_stats["alpha_eff"] = alpha_eff
         return alpha_eff * raw
@@ -214,6 +248,7 @@ class HebbianPlasticity(nn.Module):
         denom = self.base_lr * g_hebb_raw_norm + self._eps
         scale = min(1.0, self.grad_frac_cap * g_main_norm / denom)
         self._scale = float(scale)
+        self._recalibrated = True   # cap is now engaged (silences the warning)
         # projected post-scale gradient fraction (for monitoring / asserting cap)
         self._last_stats["g_main_norm"] = float(g_main_norm)
         self._last_stats["g_hebb_raw_norm"] = float(g_hebb_raw_norm)

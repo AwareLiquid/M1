@@ -39,13 +39,22 @@ import torch
 
 import datasets as _datasets  # noqa: F401  (Windows DLL-order guard)
 
-ARCHS = ["transformer", "lnn", "mt_lnn", "mamba"]
+ARCHS = ["transformer", "lnn", "mt_lnn", "mamba", "mt_lnn_mtp"]
 
 
 # Mamba config, set from CLI in main() so build() (which only sees d_model/
 # n_layers, the SHARED width for the matched-width archs) can size Mamba to its
 # own natural ~130M shape independently. Default = standard Mamba-130m.
 _MAMBA = {"hidden": 768, "layers": 24}
+
+# MTP ablation knobs, set from CLI in main(). The "mt_lnn_mtp" arch is IDENTICAL
+# to "mt_lnn" except it turns on the multi-token-prediction lookahead heads + aux
+# loss. Because the MTP heads are registered LAST in MTLNNModel.__init__ (after
+# the whole trunk + lm_head), the shared trunk's init RNG draws are unchanged, so
+# at a matched seed the two variants start from a byte-identical trunk and differ
+# ONLY by the MTP aux gradient — a clean controlled A/B for "does MTP-as-
+# regularizer lower val PPL on the proven core?".
+_MTP = {"k": 3, "weight": 0.1}
 
 
 def count_params(m):
@@ -76,6 +85,9 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
         m = (SimpleCausalTransformer(cfg) if arch == "transformer"
              else SimpleCausalLNN(cfg))
     else:
+        # "mt_lnn" = lean core; "mt_lnn_mtp" = lean core + MTP regularizer (the
+        # only difference is the aux heads/loss — see _MTP note above).
+        mtp_on = arch == "mt_lnn_mtp"
         from mt_lnn.config import MTLNNConfig
         from mt_lnn.model import MTLNNModel
         cfg = MTLNNConfig(
@@ -91,6 +103,10 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
             # PPL-neutral and cost throughput, so the fair MT-LNN is core-only.
             use_predictive_coding=False, use_competitive_gwtb=False,
             use_world_model=False, use_hebbian=False, use_rhythm=False,
+            # MTP ablation: the aux heads only when arch == "mt_lnn_mtp".
+            use_mtp_heads=mtp_on,
+            mtp_lookahead=_MTP["k"],
+            mtp_loss_weight=(_MTP["weight"] if mtp_on else 0.0),
         )
         m = MTLNNModel(cfg)
     return m.to(device=device, dtype=dtype)
@@ -232,6 +248,22 @@ def train_arch(arch, args, device, dtype, seed=0):
 
     torch.manual_seed(seed)   # reproducible weight init per seed
     m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, dtype)
+    if arch == "mt_lnn_mtp":
+        # Controlled A/B: the extra MTP-head Linear params draw init RNG DURING
+        # MTLNNModel.__init__ *before* its self.apply(init_weights) pass, which
+        # shifts the RNG and perturbs the whole trunk's init (verified maxdiff
+        # ~0.13 vs plain mt_lnn). Overwrite the shared trunk (params + buffers)
+        # with a same-seed plain mt_lnn so the two variants start from a byte-
+        # identical trunk and differ ONLY by the freshly-init MTP heads + the aux
+        # gradient — otherwise a PPL delta could be init luck, not MTP.
+        torch.manual_seed(seed)
+        _base = build("mt_lnn", args.d_model, args.n_layers, args.vocab,
+                      args.seq_len, device, dtype)
+        _bsd = _base.state_dict()
+        _msd = m.state_dict()
+        m.load_state_dict({k: (_bsd[k] if k in _bsd else v)
+                           for k, v in _msd.items()}, strict=True)
+        del _base
     n_params = count_params(m)
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr, betas=(0.9, 0.95))
     scaler = (torch.amp.GradScaler("cuda")
@@ -283,7 +315,12 @@ def train_arch(arch, args, device, dtype, seed=0):
             with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
                 out = m(ids, labels=ids)
             n = ids.shape[0] * (ids.shape[1] - 1)
-            nll += out["loss"].float().item() * n
+            # PPL from the PURE next-token CE (lm_loss), never the training
+            # objective (out["loss"] folds in the MTP aux term for mt_lnn_mtp).
+            # Baselines/Mamba have no "lm_loss" key → fall back to out["loss"],
+            # which for them IS the pure CE.
+            ce = out.get("lm_loss", out["loss"])
+            nll += ce.float().item() * n
             ntok += n
     # Guard exp() for exactly the divergence this benchmark exists to measure:
     # a diverged-but-finite model (mean CE > ~709) would raise OverflowError
@@ -317,6 +354,10 @@ def main():
                     help="train mode: comma seeds for error bars")
     ap.add_argument("--mamba_hidden", type=int, default=768)
     ap.add_argument("--mamba_layers", type=int, default=24)
+    ap.add_argument("--mtp_k", type=int, default=3,
+                    help="mt_lnn_mtp: MTP lookahead K (default 3)")
+    ap.add_argument("--mtp_weight", type=float, default=0.1,
+                    help="mt_lnn_mtp: MTP aux-loss weight λ (default 0.1)")
     ap.add_argument("--wikitext", default="wikitext-103-raw-v1",
                     help="wikitext-2-raw-v1 for a cheap smoke")
     ap.add_argument("--profile_lens", default="512,1024,2048,4096")
@@ -326,6 +367,7 @@ def main():
     args = ap.parse_args()
 
     _MAMBA["hidden"], _MAMBA["layers"] = args.mamba_hidden, args.mamba_layers
+    _MTP["k"], _MTP["weight"] = args.mtp_k, args.mtp_weight
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = (torch.bfloat16 if device == "cuda" and torch.cuda.is_bf16_supported()
              else (torch.float16 if device == "cuda" else torch.float32))

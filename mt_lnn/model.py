@@ -106,6 +106,12 @@ class MTLNNBlock(nn.Module):
         # biases this block via a ZERO-INIT-GATED residual adapter, injected after
         # attention and before the LNN sub-layer. Built only when use_top_down is
         # set, so the default model has byte-identical params (zero regression).
+        # RESEARCH — NOT WIRED (architecture audit 2026-07-12): this is a complete
+        # RECEIVER with no TRANSMITTER — no module in the architecture produces the
+        # top_down goal vector, train.py never passes top_down=, and the demos feed
+        # torch.randn. Which signal should drive it (higher-layer state vs external
+        # goal vs world model) is an undecided design question. ARCHIVE until a
+        # concrete goal-source module and a goal-conditioned task exist.
         #     x = x + tanh(gate) · proj(LayerNorm(top_down))
         # * top_down_norm  -- the init/runtime insurance: bounds an arbitrary-scale
         #   goal so the residual can't blow up once the gate learns to open.
@@ -376,7 +382,16 @@ class MTLNNModel(nn.Module):
         self.target_norm = nn.LayerNorm(config.d_model)
         self.target_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         
-        # Phase 2 & 3: Causal Chain and Self-Monitor Heads
+        # Phase 2 & 3: Causal Chain and Self-Monitor Heads.
+        # RESEARCH — NOT WIRED (architecture audit 2026-07-12). Both emit
+        # vocab-space logits that NO training loss consumes (grep: zero readers in
+        # train.py / this forward's loss block) — enabling them only bloats the
+        # checkpoint with dead vocab-sized params. The blocker is a definable
+        # LABEL, not the wiring: the causal head needs a counterfactual/cause-
+        # effect dataset the repo does not contain, and "what a model should say
+        # about its own internal state" has no ground truth at all, so no honest
+        # CE target is writable for the self-monitor head. Roadmap-only (see
+        # BRAIN_INSPIRED_ROADMAP.md Phases 2–3). Do NOT enable in a trained config.
         if getattr(config, "use_causal_head", False):
             self.causal_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         if getattr(config, "use_self_monitor_head", False):
@@ -632,19 +647,35 @@ class MTLNNModel(nn.Module):
         if use_cache:
             result["cache"] = new_cache
 
-        # MTP lookahead heads. The draft branch runs only when speculative
-        # decoding is enabled — otherwise the heads stay built but idle, so a
-        # normal training/generation forward pays zero draft compute and adds
-        # no aux loss. (The draft→verify consumer is a separate future iteration;
-        # producing draft logits that nothing reads is pure waste until then.)
+        # MTP lookahead heads. The K draft-logit stack has TWO distinct consumers,
+        # decoupled 2026-07-12 (previously both were gated behind
+        # enable_speculative_decoding, which made the training regularizer
+        # unreachable from any normal recipe — the mis-gating bug the audit found):
+        #   (1) TRAINING aux loss — the DeepSeek-V3-style multi-token-prediction
+        #       regularizer folded in below. It needs the draft stack on any
+        #       training forward that has labels and a positive mtp_loss_weight,
+        #       INDEPENDENT of the speculative flag. This is the wired, evidence-
+        #       track use-case: enable it with use_mtp_heads=True alone.
+        #   (2) INFERENCE speculative decoding — surfaces result["mtp_draft_logits"]
+        #       for a draft→verify decode loop. That consumer is NOT built
+        #       (RESEARCH — not wired; needs a verify loop + O(1)-cache rollback),
+        #       so the draft is only exposed when enable_speculative_decoding is
+        #       explicitly set.
+        # use_mtp_heads=False (default) → mtp_heads is None → this block is skipped
+        # entirely → forward is bit-identical to the pre-MTP model (zero regression).
         _mtp_draft: Optional[torch.Tensor] = None
-        if self.mtp_heads is not None and getattr(
-            self.config, "enable_speculative_decoding", False
-        ):
-            # Stack K draft logits: (B, T_new, K, vocab_size)
-            drafts = [head(x) for head in self.mtp_heads]
-            _mtp_draft = torch.stack(drafts, dim=2)
-            result["mtp_draft_logits"] = _mtp_draft
+        if self.mtp_heads is not None:
+            _spec = getattr(self.config, "enable_speculative_decoding", False)
+            _need_for_loss = (
+                self.training and labels is not None
+                and self.config.mtp_loss_weight > 0.0
+            )
+            if _spec or _need_for_loss:
+                # Stack K draft logits: (B, T_new, K, vocab_size)
+                drafts = [head(x) for head in self.mtp_heads]
+                _mtp_draft = torch.stack(drafts, dim=2)
+                if _spec:
+                    result["mtp_draft_logits"] = _mtp_draft
 
         if direct_target_labels is not None:
             target_len = direct_target_labels.shape[1]

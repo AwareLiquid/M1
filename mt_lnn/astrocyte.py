@@ -1,6 +1,18 @@
 """
 mt_lnn/astrocyte.py — slow astrocytic (glial) gating of Hebbian consolidation.
 
+╔══════════════════════════════════════════════════════════════════════════╗
+║ RESEARCH — NOT WIRED (architecture audit 2026-07-12).                     ║
+║ AstrocyteGate.modulate/consolidation_scale have ZERO live callers — only  ║
+║ tests/ and __init__ re-export. It gates a Hebbian term that the ablations ║
+║ show is inert-or-harmful: legacy HebbianRegularizer contributes ~8e-5 of  ║
+║ the gradient (|ΔPPL|<noise); the refactor HebbianPlasticity path HURTS    ║
+║ (val PPL rises monotonically with its share, +9~18) and runs UNCAPPED in  ║
+║ train.py (recalibrate() lives only in experiments/). Gating an inert-or-  ║
+║ harmful loss adds no value. Decision: ARCHIVE — revisit only if/after     ║
+║ Hebbian consolidation is first proven to help. Do not assume it's active. ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
 Why this module exists
 ----------------------
 Synapses are not just neuron-to-neuron: the *tripartite synapse* adds an
