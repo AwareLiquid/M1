@@ -152,10 +152,43 @@ def test_param_budget_at_tinyllama_width():
           f"({pct:.3f}% of TinyLlama)  OK")
 
 
+def test_delta_write_rule_stays_finite_at_realistic_scale():
+    """Regression test for the 2026-07-12 Kaggle postmortem: at realistic
+    d_mem (>=32) the unnormalised elu(x)+1 feature map gives ||k_t||^2 ~ d_mem,
+    so the per-step delta-write contraction eigenvalue (lam - eta*||k_t||^2)
+    was ~ -32 at init -- F blew up ~32x/STEP and hit fp32 overflow (NaN) within
+    ~20 sequential steps, well inside a single 512-token training batch. This
+    was invisible in earlier tiny-tensor smoke tests (small d_mem, few steps)
+    and only surfaced burning a real GPU run. The fix L2-normalises the write
+    key so the eigenvalue is exactly (lam - eta), guaranteed in (-1, 1) for any
+    lam, eta in (0,1) (both sigmoid-parameterised) regardless of d_mem or input
+    scale. This test pins that guarantee at the scale that actually broke."""
+    torch.manual_seed(0)
+    B, T, Dm, Dmem, Hh = 1, 512, 2048, 64, 1     # matches the TinyLlama-1.1B adapter config
+    mem = FastWeightMemoryV2(Dm, d_mem=Dmem, n_heads=Hh, init_decay=0.95,
+                             write_rule="delta")
+    x = torch.randn(B, T, Dm) * 0.1              # matches --state_scale_init 0.1
+
+    out, (F, z) = mem(x)
+    assert torch.isfinite(out).all(), f"delta output non-finite, max={out.abs().max()}"
+    assert torch.isfinite(F).all(), f"delta F non-finite, max={F.abs().max()}"
+    # Not just finite -- bounded to a sane scale, not merely "not yet overflowed".
+    assert F.abs().max().item() < 10.0, f"F growing unbounded: max={F.abs().max().item():.3e}"
+
+    # Gradient still flows through the normalised path.
+    x2 = torch.randn(B, 32, Dm, requires_grad=True) * 0.1
+    out2, _ = mem(x2)
+    out2.sum().backward()
+    assert torch.isfinite(mem.eta_raw.grad).all()
+    assert torch.isfinite(mem.W_k.weight.grad).all()
+    print("[6/6] delta write rule stable at realistic d_mem/scale (F bounded, grads finite)  OK")
+
+
 if __name__ == "__main__":
     test_fast_weight_chunked_matches_sequential()
     test_v2_adapter_grad_flow_on_tiny_llama()
     test_param_budget_at_tinyllama_width()
     test_selective_decay_init_equivalence()
     test_peft_does_not_wrap_v2_internals()
+    test_delta_write_rule_stays_finite_at_realistic_scale()
     print("all v2 tests passed")

@@ -170,11 +170,26 @@ class FastWeightMemoryV2(nn.Module):
             # v directly, so no q·z denominator). Sequential — F appears in its
             # own write, so the closed-form chunk scan does not hold. zvec is
             # carried unchanged (kept for the (F,z) snapshot/restore contract).
+            #
+            # STABILITY FIX (2026-07-12 — GPU decisive-experiment postmortem):
+            # F_t = (lam*I - eta*k_t k_t^T) F_{t-1} + eta*k_t v_t^T, so the
+            # per-step contraction eigenvalue along k_t is (lam - eta*||k_t||^2).
+            # The shared elu(x)+1 feature map (kept for the OUTER branch's
+            # positive q·z denominator) is UNNORMALISED — at d_mem=64 on real
+            # TinyLlama activations ||k_t||^2 ~ 64 typically, giving eigenvalue
+            # ~ -32: F blows up ~32x/step and hits fp32 overflow within ~20
+            # sequential steps (verified numerically; the Kaggle run was NaN by
+            # its first logged checkpoint). L2-normalising k_t to unit norm makes
+            # the eigenvalue exactly (lam - eta), which is GUARANTEED in (-1, 1)
+            # for any lam, eta in (0,1) (both sigmoid-parameterised) — bounded
+            # regardless of input scale or d_mem. q_t is left unnormalised
+            # (read-only; once F is bounded, q^T F is bounded too).
+            k_hat = k / (k.norm(dim=-1, keepdim=True) + 1e-6)
             eta = torch.sigmoid(self.eta_raw).to(x.dtype).view(1, H, 1, 1)
             lam_d = lam.view(1, H, 1, 1)
             reads = []
             for t in range(T):
-                kt, qt, vt = k[:, :, t], q[:, :, t], v[:, :, t]      # (B,H,D)
+                kt, qt, vt = k_hat[:, :, t], q[:, :, t], v[:, :, t]   # (B,H,D)
                 pred = torch.einsum("bhd,bhde->bhe", kt, Fmat)        # k^T F  (B,H,D)
                 err = pred - vt                                       # (B,H,D)
                 Fmat = lam_d * Fmat - eta * (kt.unsqueeze(-1) * err.unsqueeze(-2))
