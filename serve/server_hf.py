@@ -628,6 +628,72 @@ class CompletionRequest(BaseModel):
     # on whenever a store is loaded; True/False -> force. A no-op when no store is
     # loaded or the store has no hit above the score floor (never fabricates).
     use_memory: Optional[bool] = None
+    # Cross-session fast-weight memory: when FW_SESSION_STORE=1 AND a session_id
+    # is supplied, the adapter's (F,z) recurrent state is RESTORED from the prior
+    # turn of this session before generating and SNAPSHOTTED back after — the
+    # "M1 remembers this conversation across requests" feature, built on the
+    # lossless snapshot/restore proven in benchmarks/cross_session_recall.py.
+    # A no-op when the store is off or the session_id is unseen.
+    session_id: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Cross-session fast-weight memory (env-gated; default off -> zero regression)
+# ---------------------------------------------------------------------------
+
+_FW_KEY_DIM = 256
+
+
+def _fw_store():
+    """Lazily create the (F,z) session store on first use. FW_SESSION_STORE=1
+    enables it; otherwise every session call is a clean per-request reset (the
+    unchanged default)."""
+    if _STATE.get("fw_store_init"):
+        return _STATE.get("fw_store")
+    _STATE["fw_store_init"] = True
+    _STATE["fw_store"] = None
+    if os.environ.get("FW_SESSION_STORE", "0").lower() in ("1", "true", "yes"):
+        try:
+            from mt_lnn.fast_weight_store import FastWeightSessionStore
+            path = os.environ.get("FW_SESSION_DB", "fw_sessions.sqlite")
+            _STATE["fw_store"] = FastWeightSessionStore(db_path=path, key_dim=_FW_KEY_DIM)
+            print(f"[serve] cross-session fast-weight store ENABLED at {path}")
+        except Exception as e:      # never let memory wiring break generation
+            print(f"[serve] fast-weight store init failed ({e}); disabled")
+    return _STATE.get("fw_store")
+
+
+def _session_enter(model, req) -> None:
+    """Restore this session's fast-weight (F,z) if stored, else a clean reset.
+    Always leaves the adapters in a valid state for a fresh generation."""
+    from mt_lnn.llama_adapter import (reset_adapter_streams,
+                                      restore_adapter_streams)
+    reset_adapter_streams(model)
+    store = _fw_store()
+    sid = getattr(req, "session_id", None)
+    if store is not None and sid:
+        try:
+            from mt_lnn.fast_weight_store import id_key
+            hits = store.recall_session(id_key(sid, _FW_KEY_DIM),
+                                        expected_session_id=sid, center=False)
+            if hits:
+                restore_adapter_streams(model, hits[0][0])
+        except Exception as e:
+            print(f"[serve] session restore failed for {sid!r}: {e}")
+
+
+def _session_exit(model, req) -> None:
+    """Snapshot this session's fast-weight state so a later request resumes it."""
+    store = _fw_store()
+    sid = getattr(req, "session_id", None)
+    if store is not None and sid:
+        try:
+            from mt_lnn.fast_weight_store import id_key
+            from mt_lnn.llama_adapter import snapshot_adapter_streams
+            store.write_session(sid, id_key(sid, _FW_KEY_DIM),
+                                snapshot_adapter_streams(model))
+        except Exception as e:
+            print(f"[serve] session snapshot failed for {sid!r}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -879,10 +945,9 @@ def completions(req: CompletionRequest):
     ids = _build_input_ids(aug_prompt)
     t0 = time.time()
 
-    # New request = new sequence: zero the adapters' streaming state so this
-    # generation starts from a clean recurrent state.
-    from mt_lnn.llama_adapter import reset_adapter_streams
-    reset_adapter_streams(model)
+    # Restore this session's carried (F,z) state if a session_id is supplied
+    # and the store is on; otherwise a clean per-request reset (the default).
+    _session_enter(model, req)
 
     # Self-thinking decode path (mt_lnn.thinking) -- per-request `think`
     # overrides the server default. Routes each token through the deliberation
@@ -913,6 +978,7 @@ def completions(req: CompletionRequest):
         )
         dt = time.time() - t0
         n_new = len(trace.steps)
+        _session_exit(model, req)   # persist this turn's (F,z) for the session
         return {
             "text": text,
             "tokens": [s.token_id for s in trace.steps if s.token_id >= 0],
@@ -939,6 +1005,7 @@ def completions(req: CompletionRequest):
     new_ids = out[0, ids.shape[1]:]
     text = tok.decode(new_ids, skip_special_tokens=True)
     dt = time.time() - t0
+    _session_exit(model, req)   # persist this turn's (F,z) for the session
     return {
         "text": text,
         "tokens": new_ids.tolist(),
