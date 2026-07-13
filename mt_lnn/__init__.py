@@ -162,8 +162,6 @@ from .sleep_consolidation import (
     ConsolidationReport,
 )
 from .recipes import (
-    set_effort_level,
-    compare_effort_avp,
     apply_efficient_recipe,
     EFFORT_LEVELS,
 )
@@ -186,10 +184,11 @@ try:
 except ImportError:
     PYPHI_AVAILABLE = False
 
-try:
-    from .quantum_coupling import QuantumLateralCoupling, PENNYLANE_AVAILABLE
-except ImportError:
-    PENNYLANE_AVAILABLE = False
+# quantum_coupling.py removed 2026-07-13 (dead research code: a variational
+# quantum-circuit drop-in for LateralCoupling that nothing ever swapped in — see
+# the architecture audit). PENNYLANE_AVAILABLE kept as a stable False so any
+# downstream `mt_lnn.PENNYLANE_AVAILABLE` check still resolves.
+PENNYLANE_AVAILABLE = False
 
 __all__ = [
     "MTLNNConfig",
@@ -359,8 +358,6 @@ __all__ = [
     "DownscaleResult",
     "ConsolidationReport",
     # Effort-level runtime API (GLM-5.2 style tiered compute intensity)
-    "set_effort_level",
-    "compare_effort_avp",
     "apply_efficient_recipe",
     "EFFORT_LEVELS",
     "OracleClient",
@@ -380,5 +377,3 @@ if PYPHI_AVAILABLE:
         "compute_iit_phi_from_model",
         "iit_phi_anesthesia_sweep",
     ])
-if PENNYLANE_AVAILABLE:
-    __all__.append("QuantumLateralCoupling")
