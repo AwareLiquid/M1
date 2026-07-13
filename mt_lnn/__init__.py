@@ -81,6 +81,11 @@ from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer, SteerResult
 from .world_model import PredictiveStateHead
+# Hard-constraint physics-informed head (Hamiltonian NN + symplectic integrator).
+# RESEARCH / off the served-LM path: a continuous-state (q,p) trajectory
+# component, NOT a language module — a physics prior is PPL-neutral on tokens.
+# Validated only on physics metrics (benchmarks/physics_rollout_eval.py).
+from .hamiltonian_head import HamiltonianHead, MLPFieldHead
 from .predictive_coding import (
     HierarchicalPredictiveCoder,
     PredictiveCodingResult,
@@ -282,6 +287,8 @@ __all__ = [
     "CausalActivationSteerer",
     "SteerResult",
     "PredictiveStateHead",
+    "HamiltonianHead",
+    "MLPFieldHead",
     # Hierarchical predictive coding: top-down prediction + per-layer error spectrum
     "HierarchicalPredictiveCoder",
     "PredictiveCodingResult",

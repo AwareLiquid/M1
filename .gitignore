@@ -57,6 +57,11 @@ kaggle/_sft_out2/
 # API / SFT scratch output dirs (machine-generated, not source)
 _apiout/
 
+# Benchmark run outputs (JSON results are regenerated; keep the .py harness)
+benchmarks/physics_out/
+benchmarks/scaling_out/
+benchmarks/recall_out/
+
 # Training run output dirs (checkpoints, logs — large, not source)
 m2_out_v7/
 m2_out_*/

@@ -291,6 +291,36 @@ trunk. Shipped/lean configs should run `core` (pass
 `--no_predictive_coding`); the five modules are archived as negative
 results at this scale, retained behind flags for larger-scale retests.
 
+## Physics-informed head — structure helps, but OFF the LM path (2026-07-13)
+
+`benchmarks/physics_rollout_eval.py` + `mt_lnn/hamiltonian_head.py`. The
+honest, scoped test of physics-informed ML (the PINN investigation's one
+real applicability boundary): a HARD-CONSTRAINT Hamiltonian head — learns a
+scalar energy `H(q,p)=T(p)+V(q)` and advances state with a velocity-Verlet
+**symplectic** integrator, so energy is conserved BY CONSTRUCTION — vs an
+unstructured MLP-field control (same budget class, plain Euler). Both trained
+on 1-step MSE; scored on **physics metrics only** (k-step rollout MSE, energy
+drift), never perplexity. This is a continuous-state (q,p) trajectory
+component, deliberately **not** wired into the language model — a physics
+prior is a category error for token hallucination and PPL-neutral on language.
+
+| system | metric | Hamiltonian (hard-constraint) | MLP-field control | advantage |
+|---|---|---|---|---|
+| spring (analytic) | 150-step energy drift | **9.4e-3** | 3.0e-2 | 3.2× |
+| spring (analytic) | 150-step rollout MSE | **2.3e-2** | 5.5e-2 | 2.4× |
+| orbit (via `physics_ops`) | 100-step energy drift | **6.2** | 37.8 | 6.0× |
+| orbit (via `physics_ops`) | 100-step rollout MSE | **2.8e-3** | 6.6e-2 | 23.8× |
+
+At **matched 1-step training fit** (loss ~5e-6 both), the symplectic structure
+cuts long-horizon energy drift 3–6× and rollout error 2–24×. Architectural
+proof pinned in `tests/test_hamiltonian_head.py`: symplectic energy drift
+4e-6 vs forward-Euler 2e-3 on the *same* field, and the integrator is exactly
+time-reversible (reversal error 0.0). Honest scope: this is a world-model /
+trajectory-prediction win on continuous physics-governed state; it says
+**nothing** about language hallucination or the −31% PPL result, and none of
+these tasks are in the served-LM path (CPU-runnable, off by default, not
+wired into `model.py`).
+
 `mt_lnn/arr.py` + `benchmarks/distill_arr.py`: ALL 22 TinyLlama
 self-attention blocks replaced by MT-v2s recurrent mixers (79.5M trainable;
 pretrained MLPs/embeddings frozen — zero token-to-token attention, no KV
