@@ -223,7 +223,9 @@ class MTLNNConfig:
     #   use_mtp_heads=True with mtp_loss_weight=0.0 → heads present, no aux loss.
     #   The main CE loss (result["lm_loss"]) is never affected — MTP is additive.
     #
-    # Training: loss += mtp_loss_weight * mean(CE(h[t+k], label[t+k]) for k in 1..K)
+    # Training: loss += mtp_loss_weight * mean(CE(draft_k[t], label[t+1+k]) for k in 1..K)
+    # (head k predicts t+1+k — the main head owns t+1, DeepSeek-V3 convention;
+    #  labels[t+k] would make head k=1 duplicate the main CE exactly)
     # Inference: result["mtp_draft_logits"] → Tensor(B, T, K, vocab_size)
     use_mtp_heads: bool = False
     mtp_lookahead: int = 3            # K: number of future tokens to predict
@@ -317,6 +319,28 @@ class MTLNNConfig:
     world_model_ema_decay: float = 0.99     # EMA momentum for the target projector
     world_model_use_ema_target: bool = True # False → trainable stop-grad target (ablation)
     world_model_warmup_steps: int = 1000    # EMA warm-up (gentler decay early in training)
+
+    # Physics-informed world model (Hamiltonian head, 2026-07-14). A structured,
+    # conservation-biased ALTERNATIVE to PredictiveStateHead: predicts the next
+    # hidden latent through a symplectic phase-space bottleneck (see
+    # mt_lnn/hamiltonian_head.py HamiltonianWorldModelHead). It reads the liquid
+    # core's hidden state, decodes a physical phase state (q,p), evolves it with a
+    # velocity-Verlet symplectic step whose potential is CONDITIONED on the liquid
+    # core (the "liquid ODE is the physics substrate" claim, realized in code),
+    # then re-encodes the predicted next latent. Self-supervised (trains on any
+    # sequence), folded into the aux loss like the world model.
+    #   Honest scope: a structural inductive bias; expected PPL-neutral on
+    #   language (like every physics/bio module in the switch-matrix), with real
+    #   value only on continuous-state / trajectory prediction (physics metrics,
+    #   see benchmarks/physics_rollout_eval.py). Does NOT reduce hallucination.
+    # Zero-regression: default False → head not built → forward bit-identical.
+    use_hamiltonian_world_model: bool = False
+    hamiltonian_loss_weight: float = 0.01    # small: LM loss always dominates
+    hamiltonian_phase_dim: int = 32          # dim of each of q, p decoded from d_model
+    hamiltonian_hidden: int = 64             # energy-MLP hidden width
+    hamiltonian_dt: float = 0.1              # symplectic step size
+    hamiltonian_condition_on_context: bool = True   # liquid core sets the potential landscape
+    hamiltonian_context_dim: int = 32        # width of the context that conditions V
 
     # Causal consistency checker (Phase B). The checker is a stateless
     # inference-time monitor (not part of the model graph), but its defaults

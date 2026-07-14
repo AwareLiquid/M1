@@ -178,6 +178,7 @@ class MTLNNBlock(nn.Module):
             self.lnn_norm(x), h_prev,
             position_offset=position_offset,
             use_scan=use_lnn_recurrence,
+            pad_mask=pad_mask[:, -x.shape[1]:] if pad_mask is not None else None,
         )
         x = x + lnn_out
 
@@ -189,6 +190,7 @@ class MTLNNBlock(nn.Module):
                 past_kv=past_gwtb_kv,
                 position_offset=position_offset,
                 use_cache=use_cache,
+                pad_mask=pad_mask,
             )
 
         new_cache: Optional[LayerCache] = (
@@ -255,6 +257,26 @@ class MTLNNModel(nn.Module):
             )
         else:
             self.world_model_head = None
+
+        # Physics-informed world model (Hamiltonian head, 2026-07-14). A
+        # conservation-biased alternative to the PredictiveStateHead: predicts the
+        # next hidden latent through a symplectic phase-space bottleneck whose
+        # potential is conditioned on the liquid core. Runs on x_normed like the
+        # world model and contributes an aux loss. Independent of use_world_model
+        # (both may be on). Active only when use_hamiltonian_world_model=True
+        # (default False → not built → bit-identical forward).
+        if getattr(config, "use_hamiltonian_world_model", False):
+            from .hamiltonian_head import HamiltonianWorldModelHead
+            self.hamiltonian_world_model = HamiltonianWorldModelHead(
+                config.d_model,
+                phase_dim=getattr(config, "hamiltonian_phase_dim", 32),
+                hidden_dim=getattr(config, "hamiltonian_hidden", 64),
+                dt=getattr(config, "hamiltonian_dt", 0.1),
+                condition_on_context=getattr(config, "hamiltonian_condition_on_context", True),
+                context_dim=getattr(config, "hamiltonian_context_dim", 32),
+            )
+        else:
+            self.hamiltonian_world_model = None
 
         # P3.1 multi-source GWT: when the competitive workspace AND the predictive
         # world model are both active and gwtb_external_bids is set, the world
@@ -416,6 +438,12 @@ class MTLNNModel(nn.Module):
         self.apply(lambda m: init_weights(m, config))
         nn.init.normal_(self.target_queries, mean=0.0, std=0.02)
         init_mt_params(self, config)
+        # The global init_weights pass above re-initialises EVERY nn.Linear to
+        # N(0, 0.02) — including CompetitiveGWTBLayer's zero-initialised bid /
+        # score projections, silently breaking its 'bid ≡ x, uniform competition
+        # at init' invariant. Restore those zero-inits after the global pass.
+        if self.gwtb is not None and hasattr(self.gwtb, "reset_zero_init"):
+            self.gwtb.reset_zero_init()
 
     # ------------------------------------------------------------------
     # Graceful degradation (P3.2)
@@ -614,18 +642,20 @@ class MTLNNModel(nn.Module):
                 x, gwtb_new_kv = self.gwtb(
                     x, past_kv=gwtb_past, position_offset=position_offset,
                     use_cache=use_cache, external_bids=external_bids,
+                    pad_mask=pad_mask,
                 )
             else:
                 x, gwtb_new_kv = self.gwtb(
                     x, past_kv=gwtb_past, position_offset=position_offset,
-                    use_cache=use_cache,
+                    use_cache=use_cache, pad_mask=pad_mask,
                 )
             if use_cache:
                 new_cache.gwtb_kv = gwtb_new_kv
 
         coh_past = cache.coherence_kv if cache is not None else None
         x, coh_new_kv = self.coherence(
-            x, past_kv=coh_past, position_offset=position_offset, use_cache=use_cache
+            x, past_kv=coh_past, position_offset=position_offset, use_cache=use_cache,
+            pad_mask=pad_mask,
         )
         if use_cache:
             new_cache.coherence_kv = coh_new_kv
@@ -633,11 +663,23 @@ class MTLNNModel(nn.Module):
         x = self.final_norm(x)
 
         # Predictive State Head (Phase C): runs on normed x.
-        # During training (compute_loss=True, T>1): accumulates L_wm.
-        # During inference (T=1): updates last_pred_error buffer only.
+        # During training (compute_loss=True, T>1): accumulates L_wm and updates
+        # the last_pred_error surprise buffer.
+        # During inference (compute_loss=False): the buffer is NOT updated — the
+        # LAVI linkage reads the last TRAINING-time surprise (persisted in the
+        # checkpoint now that the buffer is persistent). Live inference-time
+        # surprise would need next-token targets, which don't exist mid-decode.
         _world_model_loss: Optional[torch.Tensor] = None
         if self.world_model_head is not None:
             _, _world_model_loss = self.world_model_head(
+                x, compute_loss=(self.training and T_new > 1)
+            )
+
+        # Physics-informed world model (Hamiltonian head): self-supervised
+        # next-latent prediction through a symplectic phase-space bottleneck.
+        _hamiltonian_loss: Optional[torch.Tensor] = None
+        if self.hamiltonian_world_model is not None:
+            _, _hamiltonian_loss = self.hamiltonian_world_model(
                 x, compute_loss=(self.training and T_new > 1)
             )
 
@@ -744,6 +786,14 @@ class MTLNNModel(nn.Module):
                     loss = loss + wm_weight * wm_ok
                     result["world_model_loss"] = wm_ok.detach()
 
+            # Physics-informed world model (Hamiltonian head) aux loss.
+            if _hamiltonian_loss is not None:
+                ham_ok = self._aux_or_skip("hamiltonian_loss", _hamiltonian_loss)
+                if ham_ok is not None:
+                    ham_weight = getattr(self.config, "hamiltonian_loss_weight", 0.01)
+                    loss = loss + ham_weight * ham_ok
+                    result["hamiltonian_loss"] = ham_ok.detach()
+
             # Phase D: Hebbian co-activation loss (training only)
             if self.hebbian_reg is not None and self.training:
                 hebb_loss = self._aux_or_skip(
@@ -776,18 +826,21 @@ class MTLNNModel(nn.Module):
                     result["ortho_penalty"] = ortho.detach()
 
             # MTP auxiliary loss: CE at each lookahead step k=1..K.
-            # Uses the same shift-by-1 convention as the main CE but shifts by k.
+            # DeepSeek-V3 convention: the MAIN head at position t owns t+1, so
+            # MTP head k predicts token t+1+k. (The old target labels[t+k] made
+            # head k=1 an exact duplicate of the main CE — zero lookahead value
+            # for drafting and a wasted 1/K of the MTP parameters/loss.)
             # Labels come from the input sequence itself (unsupervised), so no
-            # extra annotations required. Only computed when T_new > K.
+            # extra annotations required. Only computed when T_new > K + 1.
             if (_mtp_draft is not None
                 and self.config.mtp_loss_weight > 0.0
-                and T_new > self.config.mtp_lookahead):
+                and T_new > self.config.mtp_lookahead + 1):
                 K = self.config.mtp_lookahead
                 mtp_losses = []
                 for k in range(1, K + 1):
-                    # Predict position t+k from position t: valid for t in [0, T-k-1]
-                    pred = _mtp_draft[:, :T_new - k, k - 1, :]  # (B, T-k, V)
-                    tgt = labels[:, k:T_new]                     # (B, T-k)
+                    # Predict position t+1+k from position t: valid for t in [0, T-k-2]
+                    pred = _mtp_draft[:, :T_new - k - 1, k - 1, :]  # (B, T-k-1, V)
+                    tgt = labels[:, k + 1:T_new]                     # (B, T-k-1)
                     if tgt.numel() == 0:
                         continue
                     mtp_k = F.cross_entropy(
