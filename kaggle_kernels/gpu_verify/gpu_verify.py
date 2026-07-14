@@ -150,46 +150,64 @@ model = MTLNNModel(cfg).to(DEV)
 n_params = sum(p.numel() for p in model.parameters()) / 1e6
 print(f"params: {n_params:.1f}M | d_model={cfg.d_model} layers={cfg.n_layers}", flush=True)
 
-for T in (512, 1024, 2048):
-    B = 4
-    try:
-        torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats()
-        model.train()
-        x = torch.randint(0, cfg.vocab_size, (B, T), device=DEV)
-        for _ in range(2):  # warmup
-            out = model(x, labels=x)
-            out["loss"].backward()
-            model.zero_grad(set_to_none=True)
-        torch.cuda.synchronize()
-        t0 = time.perf_counter()
-        iters = 6
-        for _ in range(iters):
-            out = model(x, labels=x)
-            out["loss"].backward()
-            model.zero_grad(set_to_none=True)
-        torch.cuda.synchronize()
-        dt = time.perf_counter() - t0
-        tput = B * T * iters / dt
-        mem = torch.cuda.max_memory_allocated() / 2**20
-        perf[f"train T={T}"] = f"{tput:,.0f} tok/s, peak {mem:,.0f} MB"
-        print(f"  train B={B} T={T}: {tput:,.0f} tok/s | peak mem {mem:,.0f} MB", flush=True)
-    except torch.cuda.OutOfMemoryError:
-        perf[f"train T={T}"] = "OOM"
-        print(f"  train B={B} T={T}: OOM", flush=True)
-        model.zero_grad(set_to_none=True)
-        torch.cuda.empty_cache()
+import gc
 
-# decode throughput: prefill 512, decode 128 with cache
-try:
-    # Drop every training-phase reference (out still pins the T=512 autograd
-    # graph, several GB) so the decode peak-memory number measures DECODE.
-    out = x = None
-    import gc
-    gc.collect()
+
+def train_bench(model, B, T):
+    """One (B, T) training-throughput measurement. Returns (tok/s, peak MB)."""
+    model.train()
+    x = torch.randint(0, cfg.vocab_size, (B, T), device=DEV)
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
+    for _ in range(2):  # warmup
+        out = model(x, labels=x)
+        out["loss"].backward()
+        model.zero_grad(set_to_none=True)
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    iters = 6
+    for _ in range(iters):
+        out = model(x, labels=x)
+        out["loss"].backward()
+        model.zero_grad(set_to_none=True)
+    torch.cuda.synchronize()
+    return B * T * iters / (time.perf_counter() - t0), torch.cuda.max_memory_allocated() / 2**20
+
+
+for T in (512, 1024, 2048):
+    for B in (4, 1):
+        oomed = False
+        try:
+            tput, mem = train_bench(model, B, T)
+            perf[f"train T={T}"] = f"B={B}: {tput:,.0f} tok/s, peak {mem:,.0f} MB"
+            print(f"  train B={B} T={T}: {tput:,.0f} tok/s | peak mem {mem:,.0f} MB", flush=True)
+            break
+        except torch.cuda.OutOfMemoryError:
+            perf[f"train T={T}"] = f"OOM at B={B}" + ("" if B > 1 else " (unusable)")
+            print(f"  train B={B} T={T}: OOM", flush=True)
+            oomed = True
+        # Recovery must happen OUTSIDE the except block: while the exception is
+        # live, its traceback frames pin train_bench's locals (x, out, the
+        # partial forward graph) AND module attrs hold aux tensors with graphs
+        # (resonance.last_pred_error, _hebb_signal...). Only after the except
+        # scope closes are those references dropped - v4 rebuilt the model
+        # inside the handler and OOMed on the rebuild itself.
+        if oomed:
+            model.zero_grad(set_to_none=True)
+            del model
+            gc.collect()
+            torch.cuda.empty_cache()
+            model = MTLNNModel(cfg).to(DEV)
+
+# decode throughput: prefill 512, decode 128 with cache - on a FRESH eval
+# model so no training-phase allocation can contaminate the peak-mem reading.
+try:
+    del model
+    gc.collect()
+    torch.cuda.empty_cache()
+    model = MTLNNModel(cfg).to(DEV)
     model.eval()
+    torch.cuda.reset_peak_memory_stats()
     x = torch.randint(0, cfg.vocab_size, (1, 512), device=DEV)
     with torch.no_grad():
         out = model(x, use_cache=True)
@@ -223,9 +241,17 @@ r = subprocess.run(
 )
 lines = (r.stdout + r.stderr).strip().splitlines()
 print("\n".join(lines[-30:]), flush=True)
-missing = sorted({ln.strip() for ln in lines if "No module named" in ln})
-if missing:
-    print("missing modules on this image:", *missing[:10], sep="\n  ", flush=True)
+# Env-noise diagnosis: the v2/v3 runs showed ModuleNotFound failures that do
+# not reproduce locally - print ONE full traceback to identify the module.
+if lines and " failed" in lines[-1]:
+    r2 = subprocess.run(
+        [sys.executable, "-m", "pytest", "tests/test_streaming_state.py", "-x", "-q",
+         "-p", "no:cacheprovider"],
+        capture_output=True, text=True, timeout=600,
+    )
+    tb = (r2.stdout + r2.stderr).strip().splitlines()
+    print("\n--- first failing traceback (env diagnosis) ---", flush=True)
+    print("\n".join(tb[-25:]), flush=True)
 
 # ---------------------------------------------------------------- summary
 print("\n" + "=" * 60)

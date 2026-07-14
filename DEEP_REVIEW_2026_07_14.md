@@ -152,3 +152,29 @@ parallel_scan 结合律与增量一致性（9e-8）、FastWeightMemoryV2 分块�
 - **GlobalCoherence** collapse gate 改 per-sample；`decay_rate` 使用时 clamp 到 (1e-4, 1−1e-4)（不改参数化，旧 checkpoint 兼容）。
 - **decay_wm 的 for-t Python 循环**（疑似训练 1.6× 减速主因之一）**未**向量化——属性能优化非正确性 bug，留待后续。
 - **未修的架构级问题**（R1 tau_max 天花板、R3 attention bias 物化、R6 基线问题）是设计决策，不在本次 bug 修复范围。
+
+---
+
+## 七、GPU 实测验证（2026-07-15，Kaggle P100-16GB，kernel `muningan/mt-lnn-gpu-verify` v5）
+
+**正确性（全绿）**：19 项修复验证套件在 Kaggle 上 19/19；GPU 专项 6/6——forward/backward/generate、hamiltonian no_grad、sparse prefill==增量（1.6e-06）、pad_mask parity（0.00）、fp16 autocast。本地全套件 **1200 passed / 0 failed**。
+
+**GPU 实测中新发现并当场修复的 bug**：
+- `global_coherence.py` 4 处 `masked_fill(-1e9)` 在 `autocast('cuda', fp16)` 下溢出 Half（±65504）直接 RuntimeError——存量 bug，说明该代码从未在 fp16 AMP 下跑通过。已改 `torch.finfo(dtype).min`（commit 57b995b）。
+- 基准脚本层面确认了一个健壮性隐患：OOM 中断的训练 forward 会把带 autograd 图的 aux 张量（`resonance.last_pred_error`、`_hebb_signal`）残留在模块属性上，钉住整个部分前向的激活（实测 ~15GB 无法通过 `empty_cache` 回收，必须重建模型/触发新前向覆盖）。生产训练循环里做 OOM 恢复时要注意。
+
+**性能基准（129.3M 参数默认配置，fp32）**：
+
+| 场景 | 吞吐 | 峰值显存 |
+|---|---|---|
+| 训练 B=4 T=512 | 3,068 tok/s | 7,969 MB |
+| 训练 B=4 T=1024/2048 | **OOM** | >16 GB |
+| 训练 B=1 T=1024 | 1,252 tok/s | 4,818 MB |
+| 训练 B=1 T=2048 | 983 tok/s | 10,536 MB |
+| 增量 decode（prefill 512 + 128 新） | 28.4 tok/s | **968 MB** |
+| （参考）本地 CPU 24 线程 | 训练 213 tok/s / decode 18.6 tok/s | — |
+
+**解读**：
+- 训练显存随 T 的超线性增长（B=1: 1024→2048 显存 2.2×、吞吐 -21%）与 R3（O(T²) bias 物化）+ R1（5 组 per-scale 状态物化）的评审判断一致。T=2048 在 16GB 上勉强可训（B=1），T=4096 无望——**不改 attention bias 实现，长上下文训练就是天花板**。
+- decode 968 MB 的常驻足迹健康（混合架构带 KV cache），但 **28.4 tok/s 的解码速度太慢**（仅为本地 CPU 的 1.5 倍）——瓶颈不是算力而是每 token 的 Python/调度开销（decay_wm 逐 token 循环、每步 KV 重拼、13 个小 einsum），需要 kernel 融合或 CUDA graph 才有质变。
+- Kaggle 运行注意事项：P100 是 sm_60，Kaggle 预装 torch 只支持 sm_70+，kernel 里必须先装 `torch==2.4.1 --index-url .../cu121`。Phase 5 在该镜像上有 16 个依赖性失败（本地全过，torch 降级引发的环境噪音），不影响结论。
