@@ -42,7 +42,12 @@ from mt_lnn import MTLNNConfig, MTLNNModel                          # noqa: E402
 
 
 def _config(**overrides):
-    """Tiny but multi-scale config (n_time_scales defaults to 5, so S > 1)."""
+    """Tiny but multi-scale config (n_time_scales defaults to 5, so S > 1).
+
+    This file TESTS the predictive-coding feature, so the flag is enabled here
+    explicitly — since E4 (2026-07-15) the shipped default is
+    use_predictive_coding=False (the switch-matrix ablation measured it
+    PPL-negative), and a feature under test must opt in, not rely on defaults."""
     base = dict(
         vocab_size=200,
         max_seq_len=64,
@@ -51,6 +56,7 @@ def _config(**overrides):
         n_heads=4,
         n_kv_heads=2,
         d_head=32,
+        use_predictive_coding=True,
         dropout=0.0,            # deterministic
         attention_dropout=0.0,
     )

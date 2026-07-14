@@ -175,7 +175,12 @@ class MTLNNConfig:
     
     # Working memory / exponential decay in Global Coherence KV.
     # Set to True to replace persistent KV cache with an O(1) state buffer.
-    use_decay_wm: bool = True
+    # DEFAULT OFF since 2026-07-15 (E4, ITERATION_PRINCIPLES.md): the decay-WM
+    # branch runs a per-token Python loop inside every training forward (T
+    # small-op dispatches), the prime suspect in the measured 1.6x training
+    # slowdown, and its O(1)-memory benefit only matters for very long
+    # streaming decode. Opt back in explicitly for streaming deployments.
+    use_decay_wm: bool = False
     wm_decay_rate_init: float = 0.99
 
     # Endogenous Compute Skipping (Hard gating threshold)
@@ -190,7 +195,11 @@ class MTLNNConfig:
     tie_embeddings: bool = True
 
     # Predictive Coding across tau channels
-    use_predictive_coding: bool = True
+    # DEFAULT OFF since 2026-07-15 (E4, ITERATION_PRINCIPLES.md): the O1
+    # switch-matrix ablation (BENCHMARKS.md) measured it PPL-NEUTRAL trending
+    # NEGATIVE (+0.65 val PPL) at 48M while costing throughput on every
+    # training step. A default must earn its cost; this one measurably didn't.
+    use_predictive_coding: bool = False
     predictive_loss_weight: float = 0.05
 
     # Direct target extraction head. This auxiliary head reads the final

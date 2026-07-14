@@ -47,6 +47,11 @@ def cfg_competitive(K=3, noise=0.5, ortho=0.01):
         use_world_model=False,
         use_predictive_coding=False,
         use_hebbian=False,
+        # Pin the coherence branch these empirical-dynamics tests were
+        # calibrated under: E4 (2026-07-15) flipped the shipped default to
+        # use_decay_wm=False, which changes the coherence forward and shifts
+        # the fixed-seed 100-step loss trajectories these tests assert on.
+        use_decay_wm=True,
         dynamic_scale_gates=True,
         dropout=0.0,
         attention_dropout=0.0,
@@ -328,6 +333,9 @@ def test_p0_fixes_dont_break_training_loop():
         use_rhythm=False,
         use_world_model=False,
         use_predictive_coding=False,
+        # Pin the pre-E4 coherence branch this fixed-seed convergence check
+        # was calibrated under (see cfg_competitive for the full rationale).
+        use_decay_wm=True,
         dynamic_scale_gates=True,
         dropout=0.0,
         attention_dropout=0.0,

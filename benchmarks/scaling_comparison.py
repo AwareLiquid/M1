@@ -224,7 +224,14 @@ def profile_arch(arch, args, device, dtype):
 
 def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1"):
     from datasets import load_dataset
-    ds = load_dataset("wikitext", wikitext, split=split)
+    # datasets>=3 removed script-based datasets; the canonical hub id is now
+    # "Salesforce/wikitext" and the bare "wikitext" name only resolves from a
+    # pre-existing local cache (fresh machines - e.g. Kaggle kernels - crash
+    # with HfUriError). Try the canonical id first, fall back for old caches.
+    try:
+        ds = load_dataset("Salesforce/wikitext", wikitext, split=split)
+    except Exception:
+        ds = load_dataset("wikitext", wikitext, split=split)
     texts = [t for t in ds["text"] if t]
     ids = []
     for i in range(0, len(texts), 1000):
