@@ -182,6 +182,11 @@ for T in (512, 1024, 2048):
 
 # decode throughput: prefill 512, decode 128 with cache
 try:
+    # Drop every training-phase reference (out still pins the T=512 autograd
+    # graph, several GB) so the decode peak-memory number measures DECODE.
+    out = x = None
+    import gc
+    gc.collect()
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
     model.eval()
@@ -216,8 +221,11 @@ r = subprocess.run(
      "-p", "no:cacheprovider"],
     capture_output=True, text=True, timeout=3600,
 )
-pytest_tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-6:])
-print(pytest_tail, flush=True)
+lines = (r.stdout + r.stderr).strip().splitlines()
+print("\n".join(lines[-30:]), flush=True)
+missing = sorted({ln.strip() for ln in lines if "No module named" in ln})
+if missing:
+    print("missing modules on this image:", *missing[:10], sep="\n  ", flush=True)
 
 # ---------------------------------------------------------------- summary
 print("\n" + "=" * 60)

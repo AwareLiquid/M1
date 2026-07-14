@@ -57,15 +57,19 @@ class GlobalCoherenceLayer(nn.Module):
         Apply causal mask (using absolute positions) then keep only top-k entries per row.
         """
         # Causal mask: keep entries where k_pos[j] ≤ q_pos[i]
+        # dtype-aware fill: a hardcoded -1e9 overflows fp16 (max ±65504) and
+        # crashes under torch.autocast('cuda', float16); finfo.min is the same
+        # "effectively -inf after softmax" for every dtype.
+        neg = torch.finfo(scores.dtype).min
         causal = (k_pos[None, :] <= q_pos[:, None])                    # (T_q, T_k) bool
-        scores = scores.masked_fill(~causal[None, None, :, :], -1e9)
+        scores = scores.masked_fill(~causal[None, None, :, :], neg)
 
         # Sparse top-k retention
         T_k = scores.shape[-1]
         k = max(1, int(T_k * self.sparsity))
         topk_vals, _ = torch.topk(scores, k=min(k, T_k), dim=-1)
         threshold = topk_vals[..., -1:].detach()
-        scores = scores.masked_fill(scores < threshold, -1e9)
+        scores = scores.masked_fill(scores < threshold, neg)
         return scores
 
     @staticmethod
@@ -124,7 +128,10 @@ class GlobalCoherenceLayer(nn.Module):
             if key_pad is not None:
                 # Mask pad keys BEFORE the sparse top-k so pads cannot occupy
                 # top-k slots. None → bit-identical to the original path.
-                scores = scores.masked_fill(~key_pad[:, None, None, :].bool(), -1e9)
+                # (finfo.min, not -1e9: -1e9 overflows fp16 under autocast.)
+                scores = scores.masked_fill(
+                    ~key_pad[:, None, None, :].bool(), torch.finfo(scores.dtype).min
+                )
 
             q_pos = torch.arange(position_offset, position_offset + T_new, device=device)
             k_pos = torch.arange(0, T_total, device=device)
@@ -147,7 +154,9 @@ class GlobalCoherenceLayer(nn.Module):
 
             key_pad = query_pad                                            # keys == current chunk
             if key_pad is not None:
-                scores = scores.masked_fill(~key_pad[:, None, None, :].bool(), -1e9)
+                scores = scores.masked_fill(
+                    ~key_pad[:, None, None, :].bool(), torch.finfo(scores.dtype).min
+                )
 
             q_pos = torch.arange(position_offset, position_offset + T_new, device=device)
             k_pos = torch.arange(position_offset, position_offset + T_new, device=device)
