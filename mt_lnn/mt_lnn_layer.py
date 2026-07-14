@@ -120,9 +120,12 @@ class VectorizedMultiScaleResonance(nn.Module):
         self.register_buffer("last_lavi_mean", torch.zeros(()), persistent=False)
 
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor,
-                use_scan: bool = True, lavi: torch.Tensor = None):
+                use_scan: bool = True, lavi: torch.Tensor = None,
+                pad_mask: torch.Tensor = None):
         """
         x:        (B, T, P, D)
+        pad_mask: optional (B, T) bool, True = valid token. Only used to mask
+                  the predictive-coding statistics; None → behaviour unchanged.
         h_prev:   real-mode:    (B, P, S, D)  — per-scale recurrent state
                   legacy mode:  (B, T, P, D)  — broadcast h_prev (no recurrence)
                   None:         treated as zeros
@@ -158,8 +161,18 @@ class VectorizedMultiScaleResonance(nn.Module):
                     active_idx = self._forced_active_idx.to(device=x.device)
                     self._last_computed_active_idx = None
                 else:
-                    gate_mean = dynamic_kappa.detach().mean(dim=(0, 1, 2))  # (S,)
-                    active_idx = torch.topk(gate_mean, k=top_k).indices.sort().values
+                    # Scale selection must NOT depend on the current window's
+                    # content: the old dynamic_kappa.mean(dim=(0,1,2)) top-k
+                    # (a) averaged over the FULL time window (future leakage),
+                    # (b) averaged over the batch (cross-sample leakage), and
+                    # (c) made prefill vs token-by-token decode pick different
+                    # scales (measured divergence ~0.2). Select from the STATIC
+                    # learnable gate bias instead: deterministic, causal,
+                    # batch-independent, and identical in prefill and decode.
+                    # (kappa_gate.bias is exactly the gate's input-independent
+                    # component: sigmoid(bias) is each scale's baseline opening.)
+                    gate_static = self.kappa_gate.bias.detach()             # (S,)
+                    active_idx = torch.topk(gate_static, k=top_k).indices.sort().values
                     self._last_computed_active_idx = active_idx              # leader: export
 
                 sparse_scale_mask = torch.zeros(S, device=x.device, dtype=torch.bool)
@@ -314,10 +327,17 @@ class VectorizedMultiScaleResonance(nn.Module):
                 # Predict faster channel (idx :-1) from slower channel (idx 1:)
                 predictor = h_per_scale[:, :, :, 1:, :]                     # (B,T,P,S-1,D)
                 target = h_per_scale[:, :, :, :-1, :].detach()              # (B,T,P,S-1,D)
-                pred = torch.einsum("btpse,psed->btpsd", predictor, self.W_pred) 
-                
-                # mse loss of prediction vs target
-                self.last_pred_error = F.mse_loss(pred, target)
+                pred = torch.einsum("btpse,psed->btpsd", predictor, self.W_pred)
+
+                # mse loss of prediction vs target (pad positions excluded when
+                # a pad_mask is supplied; None → identical to plain mse_loss)
+                if pad_mask is not None:
+                    m = pad_mask.to(pred.dtype).view(B, T, 1, 1, 1)          # (B,T,1,1,1)
+                    per_elem = (pred - target).pow(2) * m
+                    denom = (m.sum() * pred.shape[2] * pred.shape[3] * pred.shape[4]).clamp_min(1.0)
+                    self.last_pred_error = per_elem.sum() / denom
+                else:
+                    self.last_pred_error = F.mse_loss(pred, target)
             else:
                 self.last_pred_error.zero_()
 
@@ -520,10 +540,15 @@ class MTLNNLayer(nn.Module):
         h_prev: torch.Tensor = None,           # (B,P,S,D) [real] or (B,P,D) [legacy] or None
         position_offset: int = 0,
         use_scan: bool = True,
+        pad_mask: torch.Tensor = None,         # (B, T) bool, True = valid; None = no masking
     ):
         """
         use_scan=True (default): real recurrence via parallel scan.
         use_scan=False         : legacy parallel mode (h_prev broadcast across T).
+
+        pad_mask (optional) masks pad positions out of the predictive-coding
+        loss and the Hebbian covariance statistics. None → bit-identical to the
+        unmasked behaviour.
 
         Returns (out, h_last_per_scale) where h_last_per_scale: (B, P, S, D) is
         the per-scale recurrent state to cache for the next forward.
@@ -548,7 +573,7 @@ class MTLNNLayer(nn.Module):
         # 2. Run the resonance bank. It accepts h_prev in either form and
         # returns the per-scale state we need to cache.
         h_stack, h_last_per_scale = self.resonance(
-            x_split, h_prev, use_scan=use_scan, lavi=lavi
+            x_split, h_prev, use_scan=use_scan, lavi=lavi, pad_mask=pad_mask
         )                                                              # (B,T,P,D), (B,P,S,D)
 
         # 4. Lateral coupling with GTP temporal gate.
@@ -558,11 +583,17 @@ class MTLNNLayer(nn.Module):
         # This mimics microtubule GTP-cap renewal: a fresh cap forms every
         # `gtp_period` steps, lateral coupling refreshes, and the model never
         # loses lateral mixing in long sequences.
-        period = self.gtp_period
+        # Clock arithmetic in float32 (NOT x.dtype): fp16 cannot exactly
+        # represent integers > 2048, so under a pure-fp16 model the position
+        # index (and hence t % period) silently degrades at long offsets.
+        # Compute index/modulo/exp in fp32, cast the final scale to x.dtype.
+        period = self.gtp_period.to(torch.float32)
         t_idx = torch.arange(position_offset, position_offset + T,
-                             device=x.device, dtype=x.dtype)
+                             device=x.device, dtype=torch.float32)
         t_local = t_idx % period                                       # (T,)
-        gtp_scale = torch.exp(-self.gtp_gamma.clamp(min=1e-4) * t_local)
+        gtp_scale = torch.exp(
+            -self.gtp_gamma.clamp(min=1e-4).to(torch.float32) * t_local
+        ).to(x.dtype)
         gtp_scale = gtp_scale.view(1, T, 1, 1)
         h_lateral = self.lateral(h_stack)                              # (B,T,P,D)
         h_coupled = h_stack + gtp_scale * (h_lateral - h_stack)
@@ -589,9 +620,20 @@ class MTLNNLayer(nn.Module):
         # neuroscience-inspired learning (Oja 1989, Földiák 1990).
         # Subtract over (batch, time) dims while keeping the feature dim.
         if self.use_hebbian:
-            out_centered = out - out.mean(dim=(0, 1), keepdim=True)
-            x_centered = x - x.mean(dim=(0, 1), keepdim=True)
-            self._hebb_signal = (out_centered * x_centered).mean()
+            if pad_mask is not None:
+                # Pad positions carry no signal: exclude them from BOTH the
+                # centering means and the covariance itself, otherwise a heavily
+                # padded batch biases the statistic toward zero.
+                m = pad_mask.to(out.dtype).view(B, T, 1)                # (B,T,1)
+                denom = m.sum().clamp_min(1.0)
+                out_mean = (out * m).sum(dim=(0, 1), keepdim=True) / denom
+                x_mean = (x * m).sum(dim=(0, 1), keepdim=True) / denom
+                cov = (out - out_mean) * (x - x_mean) * m
+                self._hebb_signal = cov.sum() / (denom * out.shape[-1])
+            else:
+                out_centered = out - out.mean(dim=(0, 1), keepdim=True)
+                x_centered = x - x.mean(dim=(0, 1), keepdim=True)
+                self._hebb_signal = (out_centered * x_centered).mean()
         else:
             self._hebb_signal = None
 

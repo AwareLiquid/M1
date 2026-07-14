@@ -89,8 +89,11 @@ def _top_p(logits: torch.Tensor, p: float) -> torch.Tensor:
         return logits
     sorted_logits, sorted_idx = torch.sort(logits, descending=True, dim=-1)
     probs = F.softmax(sorted_logits, dim=-1)
-    keep = probs.cumsum(dim=-1) <= p
-    keep[..., 0] = True
+    # Shift by one so the token that CROSSES the p boundary is kept (and the
+    # most probable token is always kept) — standard nucleus semantics, same
+    # as serve/server_hf.py's _sample_next_token.
+    remove = probs.cumsum(dim=-1) - probs > p
+    keep = ~remove
     mask = torch.zeros_like(logits, dtype=torch.bool)
     mask.scatter_(-1, sorted_idx, keep)
     return logits.masked_fill(~mask, float("-inf"))

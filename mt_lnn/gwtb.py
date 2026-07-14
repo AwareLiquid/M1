@@ -245,6 +245,7 @@ class GWTBLayer(nn.Module):
         past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]],
         position_offset: int,
         use_cache: bool,
+        pad_mask: Optional[torch.Tensor] = None,      # (B, T_total) bool; True = keep
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         """
         Workspace SA + broadcast.
@@ -270,9 +271,20 @@ class GWTBLayer(nn.Module):
         causal_mask = self._causal[
             position_offset: position_offset + T_new, :T_total
         ]
+        if pad_mask is None:
+            attn_mask = causal_mask.unsqueeze(0).unsqueeze(0)      # original path, bit-identical
+        else:
+            # Key-padding mask: pad positions cannot be attended to. Use a
+            # float bias with finfo.min (same convention as MicrotubuleAttention)
+            # instead of a bool mask so a fully-masked row (a pad query) yields a
+            # uniform softmax rather than NaN.
+            keep = causal_mask.unsqueeze(0).unsqueeze(0) & pad_mask[:, None, None, :T_total].bool()
+            attn_mask = torch.zeros(
+                keep.shape, dtype=Q.dtype, device=Q.device
+            ).masked_fill(~keep, torch.finfo(Q.dtype).min)
         out = F.scaled_dot_product_attention(
             Q, K, V,
-            attn_mask=causal_mask.unsqueeze(0).unsqueeze(0),
+            attn_mask=attn_mask,
             dropout_p=self.dropout.p if self.training else 0.0,
             is_causal=False,
         )
@@ -291,10 +303,13 @@ class GWTBLayer(nn.Module):
         past_kv: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         position_offset: int = 0,
         use_cache: bool = False,
+        pad_mask: Optional[torch.Tensor] = None,                      # (B, T_total) bool
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         z = self.compress_norm(self.compress(x))                      # (B, T_new, d_gw)
         z = self._apply_bandwidth_gate(z)                             # dynamic bandwidth (no-op if off)
-        delta, new_kv = self._run_workspace_pipeline(z, past_kv, position_offset, use_cache)
+        delta, new_kv = self._run_workspace_pipeline(
+            z, past_kv, position_offset, use_cache, pad_mask=pad_mask
+        )
         return x + self.broadcast_gate * delta, new_kv
 
 
@@ -405,6 +420,22 @@ class CompetitiveGWTBLayer(GWTBLayer):
         # Orthogonality penalty (computed in _compete during training, picked up
         # by MTLNNModel.forward and added to total loss). None at eval.
         self._last_ortho_penalty: "Optional[torch.Tensor]" = None
+
+    def reset_zero_init(self) -> None:
+        """Re-apply the zero initialisations that guarantee the 'bid ≡ x /
+        uniform competition at init' invariant.
+
+        MTLNNModel.__init__ runs a GLOBAL ``self.apply(init_weights)`` pass that
+        re-initialises every nn.Linear weight to N(0, 0.02) — silently clobbering
+        the zero-init of each BidProjector.fc2 and of score_head[-1] set in the
+        constructors above. The model calls this method AFTER that global pass so
+        the invariant (CompetitiveGWTBLayer ≡ GWTBLayer at init) actually holds.
+        """
+        for proj in self.bid_projectors:
+            nn.init.zeros_(proj.fc2.weight)
+            nn.init.zeros_(proj.fc2.bias)
+        nn.init.zeros_(self.score_head[-1].weight)
+        nn.init.zeros_(self.score_head[-1].bias)
 
     def _compete(
         self,
@@ -521,6 +552,7 @@ class CompetitiveGWTBLayer(GWTBLayer):
         position_offset: int = 0,
         use_cache: bool = False,
         external_bids: "Optional[List[torch.Tensor]]" = None,
+        pad_mask: Optional[torch.Tensor] = None,                        # (B, T_total) bool
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Competition: which specialist view enters the workspace bottleneck.
         # external_bids (P3.1) let other modules compete for the workspace; None
@@ -533,7 +565,7 @@ class CompetitiveGWTBLayer(GWTBLayer):
 
         # Workspace SA + broadcast (inherited pipeline, reused without modification)
         delta, new_kv = self._run_workspace_pipeline(
-            z, past_kv, position_offset, use_cache
+            z, past_kv, position_offset, use_cache, pad_mask=pad_mask
         )
 
         # Broadcast added to ORIGINAL x — competition determines workspace input,

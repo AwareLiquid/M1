@@ -162,11 +162,26 @@ class PredictiveStateHead(nn.Module):
         self.warmup_steps = int(warmup_steps)
         self._ema_step = 0
 
-        # Diagnostic buffers — updated every forward, no gradient.
+        # Diagnostic buffers — updated on TRAINING passes only (T>1 with
+        # compute_loss), no gradient.
         #   last_pred_error      : normalised surprise ∈ [0, 1]  (LAVI input)
         #   last_pred_error_raw  : raw latent MSE magnitude       (diagnostics)
-        self.register_buffer("last_pred_error", torch.zeros(()), persistent=False)
-        self.register_buffer("last_pred_error_raw", torch.zeros(()), persistent=False)
+        # persistent=True: with persistent=False a checkpointed model spawned in
+        # a fresh INFERENCE process fed the LAVI gate a hardcoded 0 forever (the
+        # buffer is never written at inference). Old checkpoints without these
+        # keys still load under strict=True via _load_from_state_dict below.
+        self.register_buffer("last_pred_error", torch.zeros(()), persistent=True)
+        self.register_buffer("last_pred_error_raw", torch.zeros(()), persistent=True)
+
+    def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
+        # Backward compat: checkpoints saved when these buffers were
+        # persistent=False have no entries for them — seed the defaults so
+        # strict=True loading keeps working.
+        for name in ("last_pred_error", "last_pred_error_raw"):
+            key = prefix + name
+            if key not in state_dict:
+                state_dict[key] = getattr(self, name).detach().clone()
+        super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
 
     @torch.no_grad()
     def _update_target(self) -> None:

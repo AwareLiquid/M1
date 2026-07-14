@@ -20,21 +20,44 @@ Run
 
 The LM-side demo (``demo_awareliquid_v2.py``) still owns
 session.json files directly; the daemon is an *aggregation* layer that
-reads the same directory. No locking — single-writer assumption.
+reads the same directory. ThreadingHTTPServer handles each request on its
+own thread, so the read-modify-write POST paths are serialised behind a
+per-session lock (and saves are atomic via temp-file + os.replace in
+:mod:`mt_lnn.session_state`) — otherwise two concurrent appends to the
+same session could each load the same base state and one append would be
+silently lost.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
+import threading
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 from urllib.parse import parse_qs, urlparse
 
 from mt_lnn.meta_learning import cluster_evidence
 from mt_lnn.session_state import HFSessionState, load_session, save_session
+
+logger = logging.getLogger(__name__)
+
+# Per-session locks so concurrent POSTs to the same session serialise their
+# load -> append -> save cycle. The registry dict itself is guarded by its own
+# lock (dict mutation from multiple threads).
+_LOCKS_GUARD = threading.Lock()
+_SESSION_LOCKS: Dict[str, threading.Lock] = {}
+
+
+def _session_lock(sid: str) -> threading.Lock:
+    with _LOCKS_GUARD:
+        lock = _SESSION_LOCKS.get(sid)
+        if lock is None:
+            lock = _SESSION_LOCKS[sid] = threading.Lock()
+        return lock
 
 
 def _list_sessions(root: Path):
@@ -49,9 +72,20 @@ def _load_or_init(root: Path, sid: str) -> HFSessionState:
 
 
 def _all_evidence(root: Path):
+    """Aggregate evidence across all session files.
+
+    A single corrupt/torn/mid-write JSON file must not 500 the whole
+    /meta/clusters endpoint — it is skipped with a warning and the rest of
+    the sessions still aggregate.
+    """
     rows = []
     for sid in _list_sessions(root):
-        s = load_session(str(root / f"{sid}.json"))
+        path = root / f"{sid}.json"
+        try:
+            s = load_session(str(path))
+        except (json.JSONDecodeError, OSError, KeyError, ValueError) as exc:
+            logger.warning("skipping unreadable session file %s: %s", path, exc)
+            continue
         rows.extend(s.evidence_log)
     return rows
 
@@ -103,18 +137,20 @@ def make_handler(root: Path):
             body = self._read_body()
             if len(parts) == 3 and parts[0] == "sessions" and parts[2] == "evidence":
                 sid = parts[1]
-                s = _load_or_init(root, sid)
-                s.evidence_log.append(body)
-                save_session(s, str(root / f"{sid}.json"))
+                with _session_lock(sid):
+                    s = _load_or_init(root, sid)
+                    s.evidence_log.append(body)
+                    save_session(s, str(root / f"{sid}.json"))
                 return self._send(200, {"ok": True, "n_evidence": len(s.evidence_log)})
             if len(parts) == 3 and parts[0] == "sessions" and parts[2] == "question":
                 sid = parts[1]
                 text = str(body.get("text", "")).strip()
                 if not text:
                     return self._send(400, {"error": "missing text"})
-                s = _load_or_init(root, sid)
-                s.open_questions.append(text)
-                save_session(s, str(root / f"{sid}.json"))
+                with _session_lock(sid):
+                    s = _load_or_init(root, sid)
+                    s.open_questions.append(text)
+                    save_session(s, str(root / f"{sid}.json"))
                 return self._send(200, {"ok": True, "n_open": len(s.open_questions)})
             return self._send(404, {"error": "unknown route"})
 

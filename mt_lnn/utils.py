@@ -208,7 +208,8 @@ def make_param_groups(model: nn.Module, base_lr: float) -> list:
     polarity_names = {"polarity_direction"}
     lateral_names = {"W_lat"}
 
-    ode_params, polarity_params, lateral_params, main_params = [], [], [], []
+    ode_params, polarity_params, lateral_params = [], [], []
+    main_params, no_decay_params = [], []
 
     for name, param in model.named_parameters():
         if not param.requires_grad:
@@ -220,11 +221,17 @@ def make_param_groups(model: nn.Module, base_lr: float) -> list:
             polarity_params.append(param)
         elif base in lateral_names:
             lateral_params.append(param)
+        elif param.ndim < 2 or "embed" in name.lower():
+            # Standard AdamW hygiene: never decay 1-d params (LayerNorm
+            # weight/bias, biases, scalar gates) or embeddings — decaying a
+            # LayerNorm scale toward 0 fights the normalisation itself.
+            no_decay_params.append(param)
         else:
             main_params.append(param)
 
     groups = [
         {"params": main_params,     "lr": base_lr,          "weight_decay": 0.1},
+        {"params": no_decay_params, "lr": base_lr,          "weight_decay": 0.0},
         {"params": ode_params,      "lr": base_lr * 0.33,   "weight_decay": 0.0},
         {"params": polarity_params, "lr": base_lr * 1.67,   "weight_decay": 0.0},
         {"params": lateral_params,  "lr": base_lr * 0.33,   "weight_decay": 0.01},

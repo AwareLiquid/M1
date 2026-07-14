@@ -418,6 +418,16 @@ class MTResidualAdapterV2(nn.Module):
         if streaming:
             if self._stream_h is not None and self._stream_h.shape[0] != B:
                 self.reset_stream()
+            elif self._stream_h is not None and (
+                self._stream_h.device != hidden_states.device
+                or self._stream_h.dtype != hidden_states.dtype
+            ):
+                # Module moved (.to()/.half()/.cuda()) after a stream was
+                # started: residual state would crash on device mismatch or
+                # silently mix dtypes. Migrate it to the input's device/dtype.
+                self._stream_h = self._stream_h.to(
+                    device=hidden_states.device, dtype=hidden_states.dtype
+                )
             h_prev = self._stream_h
 
         normed = self.norm(hidden_states)
@@ -427,6 +437,14 @@ class MTResidualAdapterV2(nn.Module):
             fw_state = self._stream_fw if streaming else None
             if fw_state is not None and fw_state[0].shape[0] != B:
                 fw_state = None
+            elif fw_state is not None and (
+                fw_state[0].device != hidden_states.device
+                or fw_state[0].dtype != hidden_states.dtype
+            ):
+                fw_state = tuple(
+                    t.to(device=hidden_states.device, dtype=hidden_states.dtype)
+                    for t in fw_state
+                )
             fw_out, fw_state = self.fast_weight(normed, state=fw_state)
             out = out + self.fw_scale * fw_out
             if streaming:

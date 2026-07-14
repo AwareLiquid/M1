@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import io
 import sqlite3
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -101,6 +102,12 @@ class SessionMemory:
         self._conn.execute(_PRAGMA)
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+        # One shared sqlite3.Connection (check_same_thread=False) may be hit
+        # from multiple threads (e.g. a threaded server persisting several
+        # sessions). Serialize all execute/commit behind an RLock — the same
+        # pattern PersistentKnowledgeMemory uses — to prevent interleaved
+        # statements on the shared connection.
+        self._lock = threading.RLock()
 
     # ------------------------------------------------------------------
     # Public API
@@ -138,18 +145,19 @@ class SessionMemory:
         blob = _tensors_to_bytes(h_states)
         now = datetime.now(timezone.utc).isoformat()
 
-        self._conn.execute(
-            """
-            INSERT INTO sessions (session_id, token_count, updated_at, h_states)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(session_id) DO UPDATE SET
-                token_count = excluded.token_count,
-                updated_at  = excluded.updated_at,
-                h_states    = excluded.h_states
-            """,
-            (session_id, token_count, now, blob),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO sessions (session_id, token_count, updated_at, h_states)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    token_count = excluded.token_count,
+                    updated_at  = excluded.updated_at,
+                    h_states    = excluded.h_states
+                """,
+                (session_id, token_count, now, blob),
+            )
+            self._conn.commit()
 
     def load(
         self,
@@ -163,10 +171,11 @@ class SessionMemory:
         list[Tensor | None] of length n_layers, or ``None`` if the session
         does not exist in the store.
         """
-        row = self._conn.execute(
-            "SELECT h_states FROM sessions WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT h_states FROM sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
 
         if row is None:
             return None
@@ -203,32 +212,36 @@ class SessionMemory:
 
         Returns ``None`` if the session does not exist.
         """
-        row = self._conn.execute(
-            "SELECT session_id, token_count, updated_at FROM sessions WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT session_id, token_count, updated_at FROM sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
         if row is None:
             return None
         return {"session_id": row[0], "token_count": row[1], "updated_at": row[2]}
 
     def list_sessions(self) -> List[dict]:
         """Return metadata for all stored sessions, newest first."""
-        rows = self._conn.execute(
-            "SELECT session_id, token_count, updated_at FROM sessions ORDER BY updated_at DESC"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT session_id, token_count, updated_at FROM sessions ORDER BY updated_at DESC"
+            ).fetchall()
         return [{"session_id": r[0], "token_count": r[1], "updated_at": r[2]} for r in rows]
 
     def delete(self, session_id: str) -> bool:
         """Delete a stored session.  Returns True if the session existed."""
-        cursor = self._conn.execute(
-            "DELETE FROM sessions WHERE session_id = ?", (session_id,)
-        )
-        self._conn.commit()
-        return cursor.rowcount > 0
+        with self._lock:
+            cursor = self._conn.execute(
+                "DELETE FROM sessions WHERE session_id = ?", (session_id,)
+            )
+            self._conn.commit()
+            return cursor.rowcount > 0
 
     def close(self) -> None:
         """Close the underlying SQLite connection."""
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
 
     # Context-manager support
     def __enter__(self) -> "SessionMemory":
@@ -238,5 +251,6 @@ class SessionMemory:
         self.close()
 
     def __repr__(self) -> str:
-        n = self._conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+        with self._lock:
+            n = self._conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
         return f"SessionMemory(db={self.db_path!r}, sessions={n})"

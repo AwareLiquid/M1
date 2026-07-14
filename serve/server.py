@@ -64,6 +64,7 @@ import io
 import json
 import os
 import sys
+import threading
 import time
 from typing import List, Optional
 
@@ -73,7 +74,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import re
 
 import torch
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -159,6 +160,30 @@ def _build_model(small: bool) -> MTLNNModel:
 
 app = FastAPI(title="MT-LNN Inference Server", version="1.0")
 _STATE: dict = {}
+
+# The served model is a SINGLE shared instance. FastAPI runs the sync endpoints
+# on an anyio threadpool, so without serialization two concurrent requests
+# interleave forwards on the shared model (recurrent LNN state, session
+# save/load, and /v1/sleep's in-place adapter downscaling) and corrupt each
+# other. This lock serializes ALL model-touching work; held across a stream's
+# whole token loop — the shared state cannot be time-shared, so concurrent
+# streams must run one at a time anyway. (Same pattern as serve/server_hf.py.)
+_MODEL_LOCK = threading.Lock()
+
+
+def _gen_lock():
+    """FastAPI yield-dependency that serializes a whole request on the shared
+    model: setup acquires _MODEL_LOCK, teardown releases it AFTER the response
+    (incl. a streaming body) is fully sent. Applied to every endpoint that
+    runs a model forward / generation or mutates live weights, so the shared
+    model state is never touched by two requests at once. (threading.Lock,
+    not asyncio: sync endpoints run on the anyio threadpool; a Lock may be
+    released by a different thread than acquired, which is safe here.)"""
+    _MODEL_LOCK.acquire()
+    try:
+        yield
+    finally:
+        _MODEL_LOCK.release()
 
 # ── Middleware: gzip compression ──────────────────────────────────────────────
 app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -557,6 +582,7 @@ def sleep_consolidate(
     build_graph: bool = False,
     link_threshold: float = 0.55,
     link_quantile: Optional[float] = None,
+    _lock=Depends(_gen_lock),
 ):
     """Run one sleep pass: NREM consolidation, then optional SHY downscaling.
 
@@ -640,7 +666,7 @@ def sleep_consolidate(
 
 
 @app.post("/v1/completions")
-def completions(req: CompletionRequest):
+def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     if req.max_new_tokens > MAX_NEW_CAP:
@@ -674,7 +700,7 @@ def completions(req: CompletionRequest):
 
 
 @app.post("/v1/completions/stream")
-def completions_stream(req: CompletionRequest):
+def completions_stream(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     if req.max_new_tokens > MAX_NEW_CAP:
@@ -688,6 +714,10 @@ def completions_stream(req: CompletionRequest):
         # Prefill, then emit one token per step (greedy/sampled) over the cache.
         # When a session is active, the prefill CONTINUES from the persisted
         # recurrent state and the updated state is written back at the end.
+        # _MODEL_LOCK is held for the whole request by the _gen_lock dependency
+        # (released after the response is fully sent). The try/finally
+        # guarantees the session state write-back runs even on client
+        # disconnect (GeneratorExit), so the turn's state is not lost.
         if session:
             from mt_lnn.model import ModelCacheStruct
             cache = (model.load_state(req.session_id, db_path=_STATE["session_db"],
@@ -701,30 +731,32 @@ def completions_stream(req: CompletionRequest):
         cache = out["cache"]
         logits = out["logits"][:, -1, :]
         n_new = 0
-        for _ in range(req.max_new_tokens):
-            nxt = _sample_next(model, logits, req)
-            tid = int(nxt.item())
-            n_new += 1
-            piece = tok.decode([tid], skip_special_tokens=True)
-            yield f"data: {json.dumps({'token': tid, 'text': piece})}\n\n"
-            if eos is not None and tid == eos:
-                break
-            o = model(nxt, cache=cache, use_cache=True,
-                      use_lnn_recurrence=True) if session else \
-                model(nxt, cache=cache, use_cache=True)
-            cache = o["cache"]
-            logits = o["logits"][:, -1, :]
-        if session:
-            total = prior_tokens + int(ids.shape[1]) + n_new
-            model.save_state(req.session_id, cache,
-                             token_count=total, db_path=_STATE["session_db"])
+        try:
+            for _ in range(req.max_new_tokens):
+                nxt = _sample_next(model, logits, req)
+                tid = int(nxt.item())
+                n_new += 1
+                piece = tok.decode([tid], skip_special_tokens=True)
+                yield f"data: {json.dumps({'token': tid, 'text': piece})}\n\n"
+                if eos is not None and tid == eos:
+                    break
+                o = model(nxt, cache=cache, use_cache=True,
+                          use_lnn_recurrence=True) if session else \
+                    model(nxt, cache=cache, use_cache=True)
+                cache = o["cache"]
+                logits = o["logits"][:, -1, :]
+        finally:
+            if session:
+                total = prior_tokens + int(ids.shape[1]) + n_new
+                model.save_state(req.session_id, cache,
+                                 token_count=total, db_path=_STATE["session_db"])
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(_gen(), media_type="text/event-stream")
 
 
 @app.post("/v1/multimodal/completions")
-def multimodal_completions(req: MultimodalRequest):
+def multimodal_completions(req: MultimodalRequest, _lock=Depends(_gen_lock)):
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     if not _STATE.get("mm_ready"):

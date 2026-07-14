@@ -89,9 +89,14 @@ def _obj_to_bytes(obj: Any) -> bytes:
 
 def _bytes_to_obj(data: bytes) -> Any:
     buf = io.BytesIO(data)
-    # weights_only=False: contents may be arbitrary python objects (str/dict),
-    # not just tensors. The DB is local and written only by this process.
-    return torch.load(buf, weights_only=False, map_location="cpu")
+    # weights_only=True: everything this module stores is plain data — str,
+    # dict/list/tuple of primitives, None, and torch tensors — all on the
+    # weights-only unpickler's safe allowlist. The module docstring encourages
+    # copying/syncing the db file across devices, so its bytes must be treated
+    # as untrusted input: weights_only=False would be an arbitrary-code-
+    # execution surface (pickle) on every query. Custom classes are therefore
+    # NOT supported as content; store primitives/tensors (or pre-serialise).
+    return torch.load(buf, weights_only=True, map_location="cpu")
 
 
 def _key_to_bytes(vec: torch.Tensor) -> bytes:
@@ -148,6 +153,43 @@ class PersistentKnowledgeMemory:
         self._conn.execute(_PRAGMA)
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
+
+        # key_dim guard: a db file created with one embedding dimension must
+        # never be reopened with another (e.g. after swapping the base model
+        # while reusing the same KB_PATH). Without this, every query crashes on
+        # `view(key_dim)` deserialisation, and worse, new writes silently mix
+        # dimensions and permanently poison the store. The dimension is pinned
+        # in a tiny kb_meta table at creation time and checked on every open.
+        self._conn.execute(
+            "CREATE TABLE IF NOT EXISTS kb_meta (key TEXT PRIMARY KEY, value TEXT)"
+        )
+        row = self._conn.execute(
+            "SELECT value FROM kb_meta WHERE key = 'key_dim'"
+        ).fetchone()
+        if row is not None:
+            stored_dim = int(row[0])
+        else:
+            # Legacy db without kb_meta (or a brand-new db): infer the true
+            # dimension from any existing row (migration), else pin the
+            # requested key_dim for a fresh store.
+            first = self._conn.execute(
+                "SELECT key_vec FROM knowledge LIMIT 1"
+            ).fetchone()
+            stored_dim = len(first[0]) // 4 if first is not None else self.key_dim
+            self._conn.execute(
+                "INSERT OR REPLACE INTO kb_meta (key, value) VALUES ('key_dim', ?)",
+                (str(stored_dim),),
+            )
+            self._conn.commit()
+        if stored_dim != self.key_dim:
+            self._conn.close()
+            raise ValueError(
+                f"key_dim mismatch: {self.db_path!r} stores {stored_dim}-d keys "
+                f"but was opened with key_dim={self.key_dim}. This usually means "
+                f"the base/embedding model changed while reusing the same db "
+                f"path. Point this store at a fresh db file (or delete the old "
+                f"one) — mixing key dimensions would corrupt the index."
+            )
 
         # Monotonic recency counter used as the LRU sort key. Resolution-
         # independent (a wall-clock timestamp can collide when many ops land in

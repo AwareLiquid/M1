@@ -24,12 +24,13 @@ Design decisions, each tracing to a scout-flagged failure mode:
   near-universal nearest neighbour. The wrong-session control in
   ``benchmarks/cross_session_recall.py`` exists to catch it if this is too weak.
 
-Append-only with an LRU capacity cap: correct for DISTINCT sessions (different
-conversations -> different keys), which is the cross-session product case and
-the C3 collision test. Per-session UPSERT (dropping a session's stale snapshot
-when it is re-written) needs a KB delete-by-id API the store deliberately does
-not reach into; it is a documented follow-on. Until then, capacity eviction
-bounds stale-snapshot growth and recall returns the best content match.
+Per-session UPSERT with an LRU capacity cap: :meth:`write_session` deletes any
+stale rows carrying the same ``session_id`` (via the KB's ``delete`` API) before
+inserting the fresh snapshot, so each session owns exactly ONE row — the latest.
+This closes the review-flagged failure where an exact-id key produced many
+cosine-1.0 duplicate rows and ``torch.topk``'s lowest-index tie-break restored a
+STALE snapshot for long-lived sessions (and ``touch=True`` kept refreshing the
+old row's recency, making LRU evict the NEW snapshot first).
 """
 
 from __future__ import annotations
@@ -71,10 +72,19 @@ class FastWeightSessionStore:
         ``surprise`` (a salience scalar, e.g. session mean/max token entropy or
         world-model prediction error) is recorded so consolidation can keep
         'what surprised the model' rather than the longest session — see
-        :meth:`consolidate`."""
+        :meth:`consolidate`.
+
+        UPSERT semantics: any previously stored rows for the SAME session_id
+        are deleted first, so each session keeps exactly one (the latest)
+        snapshot. Without this, re-writing a session appended cosine-1.0
+        duplicate rows and recall could resolve ties to the OLDEST row."""
         content = {"session_id": session_id, "snapshot": fw_snapshot}
         full_meta = {"session_id": session_id, "surprise": float(surprise),
                      **(meta or {})}
+        stale_ids = [rid for rid, m in self.kb.all_meta()
+                     if isinstance(m, dict) and m.get("session_id") == session_id]
+        if stale_ids:
+            self.kb.delete(stale_ids)
         return self.kb.write(key_vec, content=content, meta=full_meta)
 
     def consolidate(self, keep_fraction: float = 0.5, min_keep: int = 1) -> dict:
@@ -94,16 +104,32 @@ class FastWeightSessionStore:
         recs = self.kb.all_meta()                       # [(id, meta)]
         if not recs:
             return {"kept": 0, "evicted": 0, "kept_surprise": []}
+        # Defensive per-session dedup BEFORE ranking: write_session UPSERTs, so
+        # normally one row per session — but a legacy (append-only era) db may
+        # still hold duplicates. Keep only the newest row (highest id) per
+        # session_id; stale duplicates join the eviction set so ranking is
+        # genuinely per-SESSION, as documented, not per-row.
+        newest_by_sid: dict = {}
+        keyless: list = []                              # rows without a session_id
+        for rid, m in recs:
+            sid = m.get("session_id") if isinstance(m, dict) else None
+            if sid is None:
+                keyless.append((rid, m))
+            elif sid not in newest_by_sid or rid > newest_by_sid[sid][0]:
+                newest_by_sid[sid] = (rid, m)
+        dedup = list(newest_by_sid.values()) + keyless
+        kept_row_ids = {rid for rid, _ in dedup}
+        dup_ids = [rid for rid, _ in recs if rid not in kept_row_ids]
         ranked = sorted(
-            recs,
+            dedup,
             key=lambda r: (float((r[1] or {}).get("surprise", 0.0)), r[0]),
             reverse=True,
         )
         n_keep = max(min_keep, int(round(len(ranked) * keep_fraction)))
         n_keep = min(n_keep, len(ranked))
-        evict_ids = [rid for rid, _ in ranked[n_keep:]]
+        evict_ids = dup_ids + [rid for rid, _ in ranked[n_keep:]]
         self.kb.delete(evict_ids)
-        return {"kept": len(ranked) - len(evict_ids), "evicted": len(evict_ids),
+        return {"kept": len(ranked[:n_keep]), "evicted": len(evict_ids),
                 "kept_surprise": [float((m or {}).get("surprise", 0.0))
                                   for _, m in ranked[:n_keep]]}
 
@@ -180,12 +206,11 @@ def id_key(session_id: str, dim: int) -> torch.Tensor:
     directions in high dim, so id and e5-text keys can share a db with a
     score_floor separating exact-id hits from semantic ones.
 
-    NOTE: append-only + this exact-id key means N re-writes of the same session
-    produce N cosine-1.0 rows. ``recall_session`` breaks the tie toward the
-    newest row, so RESUME correctly returns the latest snapshot; the remaining
-    cost is storage bloat from stale duplicates, bounded by the store's
-    ``max_entries`` LRU. True per-session UPSERT (deleting the stale rows on
-    rewrite) still needs a KB delete-by-id API and is a documented follow-on.
+    NOTE: ``write_session`` now UPSERTs per session (stale rows with the same
+    session_id are deleted on rewrite), so an exact-id key maps to exactly ONE
+    row and recall unambiguously returns the latest snapshot. The newest-row
+    tie-break in ``recall_session`` remains as defense-in-depth for legacy
+    (append-only era) db files that still contain duplicates.
     """
     import hashlib
 

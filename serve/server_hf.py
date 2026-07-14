@@ -811,8 +811,13 @@ def memory_stats():
 
 
 @app.post("/v1/memory/write")
-def memory_write(req: MemoryWriteRequest):
-    """Store a fact, indexed by its (model-encoded) key. Returns the row id."""
+def memory_write(req: MemoryWriteRequest, _lock=Depends(_gen_lock)):
+    """Store a fact, indexed by its (model-encoded) key. Returns the row id.
+
+    Locked: _encode_key runs a forward on the SHARED model under
+    adapter_streaming_paused, which globally flips/restores the adapters'
+    streaming state — interleaving with a generation (or another memory
+    request) corrupts that state."""
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     kb = _STATE.get("kb")
@@ -826,9 +831,12 @@ def memory_write(req: MemoryWriteRequest):
 
 
 @app.post("/v1/memory/query")
-def memory_query(req: MemoryQueryRequest):
+def memory_query(req: MemoryQueryRequest, _lock=Depends(_gen_lock)):
     """Retrieve the top-k stored facts most similar to the query (centered,
-    anisotropy-robust scoring). Empty list when the store is empty."""
+    anisotropy-robust scoring). Empty list when the store is empty.
+
+    Locked: same reason as /v1/memory/write — the key encode forward toggles
+    the shared adapters' streaming state."""
     if not _STATE.get("ready"):
         raise HTTPException(503, "model not ready")
     kb = _STATE.get("kb")
