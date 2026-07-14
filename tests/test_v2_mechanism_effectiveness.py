@@ -117,7 +117,15 @@ def test_phase_a_bids_diverge_from_uniform_after_training():
 
 
 def test_phase_a_orthogonality_penalty_is_nonzero_during_training():
-    """When training=True and ortho_weight > 0, _last_ortho_penalty must be set."""
+    """When training=True and ortho_weight > 0, _last_ortho_penalty must be set.
+
+    At init the zero-init invariant (fc2 == 0 -> every bid == x) makes the
+    penalty EXACTLY 0 — identical bids have no pairwise structure to penalise.
+    The old strict `> 0` assertion at step 0 only passed because the global
+    init_weights pass used to clobber the zero-init (fixed 2026-07-14, see
+    CompetitiveGWTBLayer.reset_zero_init). So: at init require presence and
+    >= 0; after the weights move off zero (as any optimizer step does), the
+    penalty must be strictly positive."""
     cfg = cfg_competitive(K=3, noise=0.0, ortho=0.05)
     model = MTLNNModel(cfg)
     model.train()
@@ -125,7 +133,13 @@ def test_phase_a_orthogonality_penalty_is_nonzero_during_training():
     labels = torch.randint(0, cfg.vocab_size, (1, 8))
     out = model(ids, labels=labels)
     assert "ortho_penalty" in out, "ortho_penalty should be in result dict during training"
-    assert out["ortho_penalty"].item() > 0.0
+    assert out["ortho_penalty"].item() >= 0.0
+    # Simulate training moving the projectors off the zero-init.
+    with torch.no_grad():
+        for proj in model.gwtb.bid_projectors:
+            proj.fc2.weight.add_(torch.randn_like(proj.fc2.weight) * 0.02)
+    out2 = model(ids, labels=labels)
+    assert out2["ortho_penalty"].item() > 0.0
 
 
 def test_phase_a_orthogonality_penalty_none_at_eval():
