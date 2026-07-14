@@ -76,3 +76,29 @@ v1 的 62.8M 无选择性 EMA 状态仅 0.002（说明"选择性"是必要条件
 ## 5. 一句话版本
 
 **从"证明微管先验正确"转向"沿着异常进化原则"：现在的证据把紧凑原则空间收缩为 {持久 fast-weight 记忆, 选择性衰减, 时间尺度谱, O(1) 足迹}——下一步不是加模块，而是用 E1 杀验头条、用 E2 打通产品接口。**
+
+---
+
+## 附录 A · "通用智能技术体系"框架对账（2026-07-15）
+
+针对外部流传的 AGI 技术栈框架（时序架构 / 认知核心 / 分层记忆 / 系统级配套）与本项目的逐项对账。
+三档口径：✅ 有且被证明有效 · 🟡 有代码但惰性/未验证 · ❌ 没有。**"有代码"≠"有能力"是本项目最贵的教训。**
+
+| 组件 | 档位 | 证据/位置 |
+|---|---|---|
+| SSM（Mamba/RWKV） | 🟡 有等价物 | v2 selective decay + chunked fast-weight ≈ GLA 一脉；E1 正面对比进行中 |
+| SNN 脉冲网络 | ❌（孤儿代码） | `stdp_ops.py` 无人 import。**决策：不投**（见下） |
+| MoE 稀疏路由 | 🟡 轻量版未验证 | κ-gate sparse resonance + compute skipping + GWTB 竞争路由；吞吐收益从未测量 |
+| 世界模型（next-state） | 🟡 一支有测量 | PredictiveStateHead LM 上中性；`hamiltonian_head` 在物理轨迹任务能量漂移 3–6×/rollout 2–24× 优于 MLP（**除 fast-weight 外唯一有数字的认知模块**，生态位限于连续状态域） |
+| 预测编码 | ❌ 实测有害 | switch-matrix PPL 趋负 +0.65，E4 已默认关闭 |
+| 主动推理/自由能 | ❌ 孤儿代码 | `active_inference.py` 从未接线 |
+| **三层持久记忆** | ✅ **最强项，横跨 M1+Awareness** | 情景=fast_weight_store（跨窗召回 0.56 PROVEN）；语义=knowledge_memory KB + Awareness knowledge cards；程序=Awareness skills 表（30 天半衰期）；自适应遗忘=LRU+skill decay |
+| 神经符号 | ❌ | 无符号引擎 |
+| 具身闭环 | ❌ | 只有感知半边（multimodal/sensory），无行动-反馈环 |
+| 自主目标规划 | ❌ 残迹 | imagination/deliberation 未成体系 |
+
+**优化优先级（证据排序）**：1) 三层记忆＝P1+E2 主线，两仓库拼合即完整分层，全力投入；2) hamiltonian 物理世界模型＝有数字的生态位，视产品方向深化，不指望改善 LM；3) MoE-lite＝E1 后带 kill criterion 排期。
+
+**SNN 明确不投的三个理由**：(a) 能耗收益被神经形态硬件锁死，GPU 上替代梯度训练是质量/吞吐双输，且无相关产品面；(b) 属 P0（生物结构移植）空间的最深赌注，该原则已 REFUTED，按异常晋升规则需极强先验证据，当前为零；(c) SNN 的实用部分（时间稀疏 + 多时间尺度）已由 τ 谱初始化（P2）+ selective decay + compute skipping 在稠密硬件上实现。`stdp_ops.py` 随孤儿模块归档。
+
+**方法论提醒**：该框架的叙事结构与本项目 2024 年的 P0 叙事同构（大而全生物启发清单）。过滤规则不变：任何组件不带可测量声明 + kill criterion 不进主包。
