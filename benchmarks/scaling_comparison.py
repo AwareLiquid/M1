@@ -318,6 +318,15 @@ def train_arch(arch, args, device, dtype, seed=0):
         # windows (and overlapping start indices share batch-1 rows) — the
         # comparison stays fair (same for every arch) but the sampling is
         # autocorrelated, unlike standard shuffled-minibatch SGD.
+        # Gradient accumulation (--grad_accum N): N micro-batches of size
+        # --batch per optimizer step, loss scaled by 1/N. With batch=1,
+        # grad_accum=4 an optimizer step consumes the same 4 permuted rows as
+        # batch=4 — same data, same effective batch, ~1/4 the peak activation
+        # memory. Needed for HF Mamba's sequential fallback, whose TRAINING
+        # memory at B=4 T=512 exceeds a 15 GB T4 (it is an inference path).
+        accum = max(1, args.grad_accum)
+        micro = 0
+        opt.zero_grad(set_to_none=True)
         for b in range(0, len(order), args.batch):
             if step >= args.steps:
                 break
@@ -325,25 +334,30 @@ def train_arch(arch, args, device, dtype, seed=0):
             ids = train_c[sel].to(device)
             if ids.shape[0] < 1:
                 continue
-            opt.zero_grad(set_to_none=True)
-            with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
+            with torch.amp.autocast("cuda", dtype=dtype,
+                                    enabled=device == "cuda" and dtype != torch.float32):
                 out = m(ids, labels=ids)
-                loss = out["loss"]
+                loss = out["loss"] / accum
             if not torch.isfinite(loss):
                 stable = False
                 print(f"  [{arch}] NON-FINITE loss at step {step} — UNSTABLE", flush=True)
                 break
             (scaler.scale(loss).backward() if scaler else loss.backward())
+            micro += 1
+            if micro < accum:
+                continue
+            micro = 0
             if scaler:
                 scaler.unscale_(opt)
             torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
             (scaler.step(opt), scaler.update()) if scaler else opt.step()
-            last = loss.item()
+            opt.zero_grad(set_to_none=True)
+            last = loss.item() * accum
             step += 1
             if step % args.log_every == 0:
                 dt = max(time.time() - t0, 1e-3)
                 print(f"  [{arch:11s}] {step}/{args.steps} loss {last:.4f} "
-                      f"| {args.log_every*args.batch*args.seq_len/dt:.0f} tok/s", flush=True)
+                      f"| {args.log_every*args.batch*accum*args.seq_len/dt:.0f} tok/s", flush=True)
                 t0 = time.time()
         if not stable:
             break
@@ -354,7 +368,8 @@ def train_arch(arch, args, device, dtype, seed=0):
     with torch.no_grad():
         for i in range(0, min(len(test_c), args.eval_chunks or len(test_c)), args.batch):
             ids = test_c[i:i + args.batch].to(device)
-            with torch.amp.autocast("cuda", dtype=dtype, enabled=device == "cuda"):
+            with torch.amp.autocast("cuda", dtype=dtype,
+                                    enabled=device == "cuda" and dtype != torch.float32):
                 out = m(ids, labels=ids)
             n = ids.shape[0] * (ids.shape[1] - 1)
             # PPL from the PURE next-token CE (lm_loss), never the training
@@ -402,6 +417,14 @@ def main():
                     help="mt_lnn_mtp: MTP aux-loss weight λ (default 0.1)")
     ap.add_argument("--wikitext", default="wikitext-103-raw-v1",
                     help="wikitext-2-raw-v1 for a cheap smoke")
+    ap.add_argument("--dtype", choices=["auto", "fp32", "fp16", "bf16"],
+                    default="auto",
+                    help="override autocast dtype (fp32 disables autocast/"
+                         "scaler entirely)")
+    ap.add_argument("--grad_accum", type=int, default=1,
+                    help="micro-batches per optimizer step (batch*accum = "
+                         "effective batch; use batch=1 accum=4 to fit HF "
+                         "Mamba's memory-hungry sequential TRAINING path)")
     ap.add_argument("--train_token_cap", type=int, default=None,
                     help="cap the tokenized TRAIN split at N tokens (identical "
                          "for every arch; 2000-step runs consume ~4M, so 50M "
@@ -420,9 +443,17 @@ def main():
     # is_bf16_supported() returns True on older GPUs via EMULATION, which on a
     # P100 (sm_60) is orders of magnitude slower than fp16 — the 2026-07-15 E1
     # run burned its whole 8h budget without reaching the first logged step.
-    _bf16_hw = device == "cuda" and torch.cuda.get_device_capability(0)[0] >= 8
-    dtype = (torch.bfloat16 if _bf16_hw
-             else (torch.float16 if device == "cuda" else torch.float32))
+    # --dtype overrides: fp32 exists because MT-LNN diverged (non-finite loss,
+    # step 629) under fp16 AMP on a T4 while the Transformer baseline trained
+    # clean — a REAL fp16-robustness gap, recorded as a finding. Until it is
+    # root-caused, same-precision fp32 runs are the fair-comparison fallback.
+    if args.dtype != "auto":
+        dtype = {"fp32": torch.float32, "fp16": torch.float16,
+                 "bf16": torch.bfloat16}[args.dtype]
+    else:
+        _bf16_hw = device == "cuda" and torch.cuda.get_device_capability(0)[0] >= 8
+        dtype = (torch.bfloat16 if _bf16_hw
+                 else (torch.float16 if device == "cuda" else torch.float32))
     archs = ARCHS if args.archs == "all" else [a for a in args.archs.split(",") if a in ARCHS]
     print(f"device={device} dtype={dtype} mode={args.mode} "
           f"d_model={args.d_model} n_layers={args.n_layers} archs={archs}", flush=True)
