@@ -54,7 +54,7 @@ v1 的 62.8M 无选择性 EMA 状态仅 0.002（说明"选择性"是必要条件
 | # | 杀死/验证 | 实验设计 | 成本 | 决策影响 |
 |---|---|---|---|---|
 | **E1** | P4 | 同 setup 加 Mamba-130M + GPT-2-124M 基线，2000 步 ×3 种子 | Kaggle 免费 ~2 天 | 杀死 → 停预训练线，全力 adapter/记忆线；存活 → 才值得投收敛训练 |
-| **E2** | P1 迁移性 | 真实多轮对话记忆 harness（非合成 KV）：N 轮后问前文事实，对照 = 同 budget 的 RAG | ~1 周 | 存活 → M1 成为 Awareness 记忆产品的底层差异化；这是研究线↔产品线的接口实验 |
+| **E2** | P1 迁移性 | 真实多轮对话记忆 harness（非合成 KV）：N 轮后问前文事实，对照 = 同 budget 的 RAG | ~1 周 | 存活 → M1 成为 Awareness 记忆产品的底层差异化；这是研究线↔产品线的接口实验。**状态 2026-07-16：harness 已建成为 PMB v0.1**（benchmarks/persistent_memory/，含防作弊评分 + rag 对照 + fastweight 协议接口），三个 CPU 参照系统已出数（rag/hash 难格 0.78），fastweight 跑分待 GPU adapter 微调产物 |
 | **E3** | P3 | 用已有 3 轮蒸馏数据点拟合 loss-vs-token 曲线，外推到教师水平所需 token | ~0（纯分析） | 曲线不收敛 → O 系列止损；收敛 → 按外推值申请算力 |
 | **E4** | 负资产清理 | `use_decay_wm=False` + `use_predictive_coding=False` 默认，重跑基准 | 1 天 | 已有消融背书（PC 趋负 +0.65 PPL；decay_wm 逐 token Python 循环） |
 | E5 | 工程投资 | fused attention bias（解锁 T≥4096 训练 + 降显存） | 2-4 周 | **仅当 E1/E2 存活后执行** — 工程投入 gated on 原则验证 |
