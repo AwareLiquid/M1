@@ -35,9 +35,12 @@ v1 的 62.8M 无选择性 EMA 状态仅 0.002（说明"选择性"是必要条件
 证据：冻结 τ 得 0.285（46% 效果），可训 τ 0.621；但可学习 log_tau 反而 -7.5% 质量。
 等价于 S4/LRU 的 timescale 谱初始化，无需生物叙事。
 
-### P3 — O(1) 推理状态在同质量下是成本优势 · **状态：UNCERTAIN（前半真，后半未证）**
+### P3 — O(1) 推理状态在同质量下是成本优势 · **状态：UNCERTAIN（已量化边界，2026-07-16 E3）**
 证据：0.381 MB 恒定 vs KV 384 MB@128k 为架构事实；但 O 系列 PPL = 2.15× 教师，"同质量"未达成。
-**待消不确定性**：蒸馏 scaling 曲线是否指向可关闭的差距（见实验 E3）。
+**E3 拟合结果**（`_e3_distill_scaling.py`，修正协议两点：5M→32.9 / 18M→25.4，round 1 坏协议已排除且经 sanity 验证）：
+- 乐观形（log-linear）：**184M token 达 parity**（10× 当前，free-tier 1-2 天可行）
+- 悲观形（幂律 α=0.343，KD 典型区间）：20% 差距需 **3.0B**（165×）、10% 需 22B——MOHAWK 级预算，free-tier 不可行
+- 两形相差 1.5-3 个数量级，两点无法判别——**下一步不是盲跑，是判别实验 E3b**：round 4 跑到累计 ~55M token，log-linear 预测 PPL 18.9、幂律预测 21.1，一次测量（1-2 个免费 GPU 会话）即可锁定指数，再决定 184M 冲刺 vs 止损。注意 round 4 必须沿用 WikiText-2 语料（换 FineWeb 会污染曲线，语料升级放 round 5）。
 
 ### P4 — 混合架构在预训练上优于同参数 Transformer · **状态：UNCERTAIN（高风险）**
 证据：125M −31%，但单种子、2000 步欠训练、自建弱基线、无 Mamba/GPT-2 对照。
@@ -55,7 +58,8 @@ v1 的 62.8M 无选择性 EMA 状态仅 0.002（说明"选择性"是必要条件
 |---|---|---|---|---|
 | **E1** | P4 | 同 setup 加 Mamba-130M + GPT-2-124M 基线，2000 步 ×3 种子 | Kaggle 免费 ~2 天 | 杀死 → 停预训练线，全力 adapter/记忆线；存活 → 才值得投收敛训练 |
 | **E2** | P1 迁移性 | 真实多轮对话记忆 harness（非合成 KV）：N 轮后问前文事实，对照 = 同 budget 的 RAG | ~1 周 | 存活 → M1 成为 Awareness 记忆产品的底层差异化；这是研究线↔产品线的接口实验。**状态 2026-07-16：harness 已建成为 PMB v0.1**（benchmarks/persistent_memory/，含防作弊评分 + rag 对照 + fastweight 协议接口），三个 CPU 参照系统已出数（rag/hash 难格 0.78），fastweight 跑分待 GPU adapter 微调产物 |
-| **E3** | P3 | 用已有 3 轮蒸馏数据点拟合 loss-vs-token 曲线，外推到教师水平所需 token | ~0（纯分析） | 曲线不收敛 → O 系列止损；收敛 → 按外推值申请算力 |
+| **E3** | P3 | 用已有蒸馏数据点拟合 loss-vs-token 曲线，外推到教师水平所需 token | ~0（纯分析） | **已完成 2026-07-16**：乐观 184M / 悲观 3B+，两形无法判别（见 P3）。派生 E3b |
+| **E3b** | P3 判别 | round 4 蒸馏至累计 ~55M token（同 WikiText-2 语料），实测 PPL 落在 18.9（log-linear）还是 21.1（幂律） | 1-2 个免费 GPU 会话 | 锁定 scaling 指数 → 决定 184M 冲刺 or O 系列止损 |
 | **E4** | 负资产清理 | `use_decay_wm=False` + `use_predictive_coding=False` 默认，重跑基准 | 1 天 | 已有消融背书（PC 趋负 +0.65 PPL；decay_wm 逐 token Python 循环） |
 | E5 | 工程投资 | fused attention bias（解锁 T≥4096 训练 + 降显存） | 2-4 周 | **仅当 E1/E2 存活后执行** — 工程投入 gated on 原则验证 |
 

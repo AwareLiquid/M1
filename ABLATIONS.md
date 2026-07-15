@@ -4,7 +4,14 @@ Infrastructure for systematically testing different adapter configurations to un
 
 ## Overview
 
-Phase 5b achieved consistent PPL improvements (-28.5% to -34.4%) across three bases. But **which components matter most**? This ablation suite tests:
+> ⚠️ **Correction (2026-07-04)**: the Phase 5b "−28.5% to −34.4%" gains
+> referenced below were later shown to be **pure LoRA** — the MT adapters
+> were frozen at random init by a PEFT integration bug (BENCHMARKS.md
+> correction note 2026-07-04; controlled attribution: MT adds −0.064 PPL
+> over lora_only, noise-level). The ablation INFRASTRUCTURE in this file
+> remains valid; the motivating numbers do not.
+
+Phase 5b achieved consistent PPL improvements (-28.5% to -34.4%) across three bases — **since retracted, see the correction above**. But **which components matter most**? This ablation suite tests:
 
 1. **Layer Interval**: Does adapter density matter? (every 2 vs 4 vs 8)
 2. **LoRA Rank**: Is it about capacity? (r=4 vs 8 vs 16)

@@ -1,5 +1,15 @@
 # MT-LNN Phase 5b Results Analysis
 
+> ⚠️ **RETRACTED (2026-07-04) — read before citing anything below.**
+> The attribution experiment in BENCHMARKS.md (correction note 2026-07-04)
+> found that PEFT's `get_peft_model()` left the MT adapters **frozen at
+> random initialisation** in every Phase 5/5b run: the −28.5% / −27.7% /
+> −34.4% PPL gains below are **pure LoRA**, not MT. Controlled re-run:
+> lora_only 7.984 vs mt_lora 7.920 — the MT contribution is −0.064 PPL
+> (noise) for +62.8M parameters. This document is preserved as a historical
+> record of the pre-correction analysis; do not cite its numbers.
+> Current evidence ledger: RESULTS.md (PROVEN table) · ITERATION_PRINCIPLES.md.
+
 **Analysis Date**: 2026-05-31  
 **Data Source**: Phase 5 (TinyLlama), Phase 5b (Qwen-1.5B), Track 1A (Qwen-3B)
 
