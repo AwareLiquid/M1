@@ -222,8 +222,12 @@ def profile_arch(arch, args, device, dtype):
     return rows
 
 
-def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1"):
+def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1",
+                 max_tokens=None):
     from datasets import load_dataset
+
+    import numpy as np
+
     # datasets>=3 removed script-based datasets; the canonical hub id is now
     # "Salesforce/wikitext" and the bare "wikitext" name only resolves from a
     # pre-existing local cache (fresh machines - e.g. Kaggle kernels - crash
@@ -233,14 +237,38 @@ def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1"):
     except Exception:
         ds = load_dataset("wikitext", wikitext, split=split)
     texts = [t for t in ds["text"] if t]
-    ids = []
+    # Stream token ids into int32 numpy buffers instead of one giant Python
+    # list: on the full WikiText-103 train split the old code built ~120M
+    # boxed ints (>3 GB) and then torch.tensor() re-walked a nested list of
+    # slices — on a 13 GB Kaggle VM that thrashed for hours producing no
+    # output (the 2026-07-15 E1 timeout). Buffers keep it a few hundred MB.
+    # max_tokens (optional) caps the split — 2000-step runs consume only
+    # ~4M tokens, so a cap slashes tokenization time without changing the
+    # comparison (every arch sees the identical capped corpus).
+    bufs, total = [], 0
+    eos = tok.eos_token_id
+    t0 = time.time()
     for i in range(0, len(texts), 1000):
+        flat = []
         for row in tok(texts[i:i + 1000])["input_ids"]:
-            ids.extend(row)
-            ids.append(tok.eos_token_id)
+            flat.extend(row)
+            flat.append(eos)
+        bufs.append(np.asarray(flat, dtype=np.int32))
+        total += len(flat)
+        if max_tokens is not None and total >= max_tokens:
+            break
+        if i and i % 100_000 == 0:
+            print(f"    [tokenize {split}] {i}/{len(texts)} rows, "
+                  f"{total / 1e6:.1f}M tokens, {time.time() - t0:.0f}s",
+                  flush=True)
+    ids = np.concatenate(bufs) if bufs else np.zeros(0, dtype=np.int32)
+    if max_tokens is not None:
+        ids = ids[:max_tokens]
     n = (len(ids) // seq_len) * seq_len
-    return torch.tensor([ids[i:i + seq_len] for i in range(0, n, seq_len)],
-                        dtype=torch.long)
+    print(f"    [tokenize {split}] done: {len(ids) / 1e6:.1f}M tokens -> "
+          f"{n // seq_len} chunks of {seq_len} ({time.time() - t0:.0f}s)",
+          flush=True)
+    return torch.from_numpy(ids[:n].astype(np.int64)).reshape(-1, seq_len)
 
 
 def train_arch(arch, args, device, dtype, seed=0):
@@ -248,13 +276,20 @@ def train_arch(arch, args, device, dtype, seed=0):
 
     tok = AutoTokenizer.from_pretrained("gpt2")
     tok.pad_token = tok.eos_token
-    train_c = build_chunks(tok, "train", args.seq_len, args.wikitext)
+    train_c = build_chunks(tok, "train", args.seq_len, args.wikitext,
+                           max_tokens=args.train_token_cap)
     test_c = build_chunks(tok, "test", args.seq_len, args.wikitext)
     g = torch.Generator().manual_seed(seed)
     order = torch.randperm(len(train_c), generator=g)
 
     torch.manual_seed(seed)   # reproducible weight init per seed
-    m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, dtype)
+    # AMP recipe: with fp16 COMPUTE the parameters must stay fp32 master
+    # weights — GradScaler.unscale_ refuses fp16 gradients outright
+    # (ValueError at step 1), so a full fp16 model cast can never train.
+    # autocast below still runs the matmuls in fp16. bf16 keeps the
+    # historical full-cast, scaler-free path.
+    param_dtype = torch.float32 if dtype == torch.float16 else dtype
+    m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, param_dtype)
     if arch == "mt_lnn_mtp":
         # Controlled A/B: the extra MTP-head Linear params draw init RNG DURING
         # MTLNNModel.__init__ *before* its self.apply(init_weights) pass, which
@@ -265,7 +300,7 @@ def train_arch(arch, args, device, dtype, seed=0):
         # gradient — otherwise a PPL delta could be init luck, not MTP.
         torch.manual_seed(seed)
         _base = build("mt_lnn", args.d_model, args.n_layers, args.vocab,
-                      args.seq_len, device, dtype)
+                      args.seq_len, device, param_dtype)
         _bsd = _base.state_dict()
         _msd = m.state_dict()
         m.load_state_dict({k: (_bsd[k] if k in _bsd else v)
@@ -367,6 +402,11 @@ def main():
                     help="mt_lnn_mtp: MTP aux-loss weight λ (default 0.1)")
     ap.add_argument("--wikitext", default="wikitext-103-raw-v1",
                     help="wikitext-2-raw-v1 for a cheap smoke")
+    ap.add_argument("--train_token_cap", type=int, default=None,
+                    help="cap the tokenized TRAIN split at N tokens (identical "
+                         "for every arch; 2000-step runs consume ~4M, so 50M "
+                         "keeps sampling diversity while cutting tokenization "
+                         "cost ~15x on constrained VMs). None = full split.")
     ap.add_argument("--profile_lens", default="512,1024,2048,4096")
     ap.add_argument("--profile_batch", type=int, default=2)
     ap.add_argument("--profile_iters", type=int, default=3)
@@ -376,7 +416,12 @@ def main():
     _MAMBA["hidden"], _MAMBA["layers"] = args.mamba_hidden, args.mamba_layers
     _MTP["k"], _MTP["weight"] = args.mtp_k, args.mtp_weight
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = (torch.bfloat16 if device == "cuda" and torch.cuda.is_bf16_supported()
+    # bf16 only where it has HARDWARE support (sm_80+). torch>=2.3's
+    # is_bf16_supported() returns True on older GPUs via EMULATION, which on a
+    # P100 (sm_60) is orders of magnitude slower than fp16 — the 2026-07-15 E1
+    # run burned its whole 8h budget without reaching the first logged step.
+    _bf16_hw = device == "cuda" and torch.cuda.get_device_capability(0)[0] >= 8
+    dtype = (torch.bfloat16 if _bf16_hw
              else (torch.float16 if device == "cuda" else torch.float32))
     archs = ARCHS if args.archs == "all" else [a for a in args.archs.split(",") if a in ARCHS]
     print(f"device={device} dtype={dtype} mode={args.mode} "

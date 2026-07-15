@@ -47,15 +47,47 @@ import torch  # noqa: E402
 assert torch.cuda.is_available(), "no CUDA"
 print(f"torch {torch.__version__} | {torch.cuda.get_device_name(0)}", flush=True)
 
-print("\n=== E1 train: transformer, mt_lnn, mamba | seed 0 ===", flush=True)
-r = subprocess.run(
+print("\n=== preflight: 5-step fp16-AMP smoke (wikitext-2) ===", flush=True)
+# Exercises the EXACT train path (fp32 master weights + fp16 autocast +
+# GradScaler.unscale_ + clip) on this GPU in ~2 min. Any AMP/dtype bug fails
+# HERE, not 8 hours into the paid run. First attempt died to exactly such a
+# class of bug (bf16 emulation on sm_60); the reviewed fix routes P100 to
+# fp16 with fp32 params.
+pf = subprocess.run(
     [sys.executable, "benchmarks/scaling_comparison.py",
-     "--mode", "train", "--steps", "2000", "--seeds", "0",
+     "--mode", "train", "--steps", "5", "--seeds", "0",
      "--archs", "transformer,mt_lnn,mamba",
-     "--out_dir", OUT],
-    timeout=8 * 3600,  # leave margin inside the 9h GPU session
+     "--wikitext", "wikitext-2-raw-v1", "--eval_chunks", "5",
+     "--out_dir", "/tmp/preflight_out"],
+    timeout=1800,
 )
-print(f"harness exit code: {r.returncode}", flush=True)
+if pf.returncode != 0:
+    print(f"PREFLIGHT FAILED (exit {pf.returncode}) - aborting before the "
+          f"expensive run", flush=True)
+    sys.exit(pf.returncode)
+print("preflight OK", flush=True)
+
+print("\n=== E1 train: transformer, mt_lnn, mamba | seed 0 ===", flush=True)
+# --train_token_cap 50M: a 2000-step run consumes ~4M tokens; the full
+# WikiText-103 tokenization was the 8h-timeout culprit of the first attempt
+# (with a build_chunks that also thrashed RAM - both fixed harness-side).
+rc = 0
+try:
+    r = subprocess.run(
+        [sys.executable, "benchmarks/scaling_comparison.py",
+         "--mode", "train", "--steps", "2000", "--seeds", "0",
+         "--archs", "transformer,mt_lnn,mamba",
+         "--train_token_cap", "50000000",
+         "--out_dir", OUT],
+        timeout=8 * 3600,  # leave margin inside the 9h GPU session
+    )
+    rc = r.returncode
+except subprocess.TimeoutExpired:
+    # Still print whatever per-arch JSONs completed (the harness is
+    # resume-safe and writes one file per finished arch).
+    print("harness TIMED OUT - dumping completed archs below", flush=True)
+    rc = 124
+print(f"harness exit code: {rc}", flush=True)
 
 print("\n=== results ===", flush=True)
 if os.path.isdir(OUT):
@@ -64,4 +96,4 @@ if os.path.isdir(OUT):
         if f.endswith(".json"):
             with open(p) as fh:
                 print(f, "->", json.dumps(json.load(fh))[:600], flush=True)
-sys.exit(r.returncode)
+sys.exit(rc)
