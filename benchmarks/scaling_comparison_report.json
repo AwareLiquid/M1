@@ -1,0 +1,51 @@
+{
+  "benchmark": "scaling_comparison",
+  "created_at": "2026-07-16T04:00:00.000000+00:00",
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU (8GB)",
+  "torch": "2.11.0+cu128",
+  "config": {
+    "mode": "train",
+    "steps": 2000,
+    "seeds": [0],
+    "dtype": "fp32",
+    "dataset": "wikitext-103-raw-v1",
+    "train_token_cap": 50000000,
+    "d_model": 832,
+    "n_layers": 12,
+    "mamba_hidden": 768,
+    "mamba_layers": 24,
+    "mamba_backend": "mamba.py (use_mambapy=True; no mamba-ssm CUDA kernel on Windows)"
+  },
+  "results": [
+    {
+      "arch": "transformer",
+      "seed": 0,
+      "params": 142051520,
+      "stable": true,
+      "final_loss": 6.015927791595459,
+      "val_ppl": 370.8075034131951,
+      "steps": 2000,
+      "throughput_tok_s": 7100
+    },
+    {
+      "arch": "mt_lnn",
+      "seed": 0,
+      "params": 126041819,
+      "stable": true,
+      "final_loss": 5.602569580078125,
+      "val_ppl": 257.48219080801954,
+      "steps": 2000,
+      "throughput_tok_s": 1200
+    },
+    {
+      "arch": "mamba",
+      "seed": 0,
+      "params": 129117696,
+      "stable": true,
+      "final_loss": 6.306032180786133,
+      "val_ppl": 413.99974756332546,
+      "steps": 2000,
+      "throughput_tok_s": 1273
+    }
+  ]
+}

@@ -76,7 +76,12 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
         # the PPL comparison is unaffected).
         from transformers import MambaConfig, MambaForCausalLM
         cfg = MambaConfig(vocab_size=vocab, hidden_size=_MAMBA["hidden"],
-                          num_hidden_layers=_MAMBA["layers"], state_size=16)
+                          num_hidden_layers=_MAMBA["layers"], state_size=16,
+                          # mamba.py pscan backend: parallel-scan in pure
+                          # PyTorch — needed on Windows where mamba-ssm's CUDA
+                          # kernel can't build; sequential fallback is ~50x
+                          # slower and unusable for 2000-step runs.
+                          use_mambapy=True)
         return MambaForCausalLM(cfg).to(device=device, dtype=dtype)
     if arch in ("transformer", "lnn"):
         cfg = BaselineConfig(vocab_size=vocab, max_seq_len=seq_len,
