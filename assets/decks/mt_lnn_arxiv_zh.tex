@@ -3,9 +3,9 @@
 % ---- Packages ----
 \usepackage[margin=1in]{geometry}
 \usepackage[UTF8,fontset=none]{ctex}
-\setCJKmainfont[Path=./, Extension=.otf, BoldFont=NotoSC-Bold, ItalicFont=NotoSC]{NotoSC}
-\setCJKsansfont[Path=./, Extension=.otf, BoldFont=NotoSC-Bold]{NotoSC}
-\setCJKmonofont[Path=./, Extension=.otf]{NotoSC}
+\setCJKmainfont[Path=../../, Extension=.otf, BoldFont=NotoSC-Bold, ItalicFont=NotoSC]{NotoSC}
+\setCJKsansfont[Path=../../, Extension=.otf, BoldFont=NotoSC-Bold]{NotoSC}
+\setCJKmonofont[Path=../../, Extension=.otf]{NotoSC}
  % Added for Chinese support
 \usepackage{amsmath,amssymb,amsfonts,amsthm}
 \usepackage{graphicx}
@@ -360,7 +360,7 @@ MT-LNN-nGWT & 0.32 & 0.11 & 65.6\% & 1.19 & 0.41 & 65.5\% & \textcolor{red}{$\ti
 \section{局限性 (Limitations)}
 \label{sec:limitations}
 
-尽管取得显著成果，仍存在一定局限性：当前最大评估参数量为 125M，我们正在向 7B 级别的基准进行规模伸缩（Scaling）；并且当前使用的环境无法完整模拟真实的生物体化学复合作用环境。
+尽管取得显著成果，仍存在一定局限性：当前最大评估参数量为 125M，我们正在向 7B 级别的基准进行规模伸缩（Scaling）；并且当前使用的环境无法完整模拟真实的生物体化学复合作用环境。此外，一次更小预算（2000 步、单一随机种子）的 fp32 复测在 WikiText-103 上补充了与 Mamba \citep{gu2023mamba} 的首次同参数量级对比：MT-LNN 验证集困惑度（257.5）同时低于匹配宽度的 Transformer 基线（370.8）与 Mamba（414.0，126.0M/142.1M/129.1M 参数），与更大训练预算下的主结果方向一致；但 Mamba 的隐藏维度与层数并未与 Transformer/MT-LNN 做宽度-深度匹配，该对比应视为外部参照而非架构受控对照。同一批实验还发现一个孤立的 fp16 数值鲁棒性缺口：在另一次 fp16 自动混合精度实跑中，MT-LNN 的训练损失在第 629 步后发散，而 Transformer 基线在同一配方下全程 2000 步保持稳定；完整 fp32 训练未复现该发散，且 MT-LNN 的困惑度优势得以保留，但 fp16 特有的根因尚未查明。
 
 \section{结论 (Conclusion)}
 \label{sec:conclusion}

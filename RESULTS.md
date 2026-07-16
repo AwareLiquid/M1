@@ -2,13 +2,13 @@
 
 **This file is the single source of truth for what MT-LNN has and has not demonstrated.** Every row maps to a reproducible table in [BENCHMARKS.md](BENCHMARKS.md). If a marketing doc, slide, or README states a number that is not in the "Proven" section below (or is contradicted by the "Retracted / Null" section), that doc is wrong and this file wins.
 
-Last reconciled: 2026-07-11.
+Last reconciled: 2026-07-16.
 
 ---
 
 ## The one-paragraph honest summary
 
-MT-LNN is a streaming-state recurrent architecture with **two independently proven, hard-to-replicate results**: (1) a from-scratch native 125M model beats a matched simple-reference Transformer by **−31% validation PPL** (299 vs 436, single seed, undertrained, ~1.6x slower), and (2) its fast-weight state supports **cross-window / cross-session associative recall** (0.56 mean accuracy) that attention and LoRA score **exactly 0.000** on by construction. A separate attention-free variant (the O-series / ARR) has genuinely **O(1) inference memory** (flat 0.381 MB vs an O(T) KV-cache, up to 1008x smaller at 128k context). The earlier headline "−28–34% PPL adapter" wins were **retracted** (they were plain LoRA — the MT adapter was frozen and adds ≈0 PPL), out-of-window language modeling is a **null result**, and the Orch-OR / Φ̂ / consciousness modules are **inert in the trained path** (with the AVP sign inverted vs theory). We do not sell those.
+MT-LNN is a streaming-state recurrent architecture with **two independently proven, hard-to-replicate results**: (1) a from-scratch native 125M model beats a matched simple-reference Transformer by **−31% validation PPL** (299 vs 436 under fp16 AMP; reconfirmed at −30.6%, 257 vs 371, under full fp32 on a second seed-0 run that also added a first Mamba baseline — see below), and (2) its fast-weight state supports **cross-window / cross-session associative recall** (0.56 mean accuracy) that attention and LoRA score **exactly 0.000** on by construction. A separate attention-free variant (the O-series / ARR) has genuinely **O(1) inference memory** (flat 0.381 MB vs an O(T) KV-cache, up to 1008x smaller at 128k context). The earlier headline "−28–34% PPL adapter" wins were **retracted** (they were plain LoRA — the MT adapter was frozen and adds ≈0 PPL), out-of-window language modeling is a **null result**, and the Orch-OR / Φ̂ / consciousness modules are **inert in the trained path** (with the AVP sign inverted vs theory). We do not sell those.
 
 ---
 
@@ -16,8 +16,9 @@ MT-LNN is a streaming-state recurrent architecture with **two independently prov
 
 | Claim | Number | Status | BENCHMARKS.md section |
 |---|---|---|---|
-| From-scratch native 125M MT-LNN beats a **matched** Transformer on val PPL, at matched data/steps/optimizer | **299.5 vs 435.6 PPL (−31%)**; gap consistent across the curve (step 500: 5.79 vs 6.09; step 1900: 5.34 vs 5.76) | ✅ proven (single seed, undertrained, ~1.6x slower: 1491 vs 2357 tok/s; simple-ref transformer, no Mamba baseline) | "Scaling to ~125M → --mode train" |
-| 125M recurrent/liquid model trains **stably at scale** (the review's central "does it converge at 100x?" fear) | No NaN / no divergence for all three archs (transformer / lnn / mt_lnn) at 125M | ✅ proven | "Scaling to ~125M → --mode train" |
+| From-scratch native 125M MT-LNN beats a **matched** Transformer on val PPL, at matched data/steps/optimizer | fp16 AMP: **299.5 vs 435.6 PPL (−31%)**, gap consistent across the curve (step 500: 5.79 vs 6.09; step 1900: 5.34 vs 5.76). fp32 reconfirmation (2026-07-16, separate run): **257.5 vs 370.8 PPL (−30.6%)** | ✅ proven (single seed each run, undertrained, ~1.6x–6x slower depending on precision/hardware; simple-ref transformer) | "Scaling to ~125M → --mode train" + "fp32 reconfirmation + Mamba baseline (2026-07-16)" |
+| 125M recurrent/liquid model trains **stably at scale** (the review's central "does it converge at 100x?" fear) | No NaN / no divergence for transformer / lnn / mt_lnn (fp16, 2026-07-05) and transformer / mt_lnn / mamba (fp32, 2026-07-16) at 125M | ✅ proven | "Scaling to ~125M → --mode train" + "fp32 reconfirmation + Mamba baseline (2026-07-16)" |
+| First Mamba baseline at matched 125M-class param count | fp32, 2000 steps, WikiText-103, seed 0: MT-LNN **257.5** vs Transformer 370.8 vs Mamba **414.0** PPL (126M/142M/129M params) — MT-LNN beats Mamba by 37.8% | ✅ proven (single seed, budget-limited 2000 steps; Mamba is width/depth-mismatched to the matched transformer/MT-LNN pair — external reference, not an architecture-matched control) | "fp32 reconfirmation + Mamba baseline (2026-07-16)" |
 | Cross-window associative recall through fast-weight state | **0.56 mean** (3-seed 0.621 / 0.434 / 0.621, ±0.09; in-window 0.99–1.00 every seed) | ✅ proven; attention/LoRA are **0.000 by construction** (structural zero-channel) | "Cross-window associative recall" |
 | The fast-weight matrix **is** the memory (not incidental) | Remove fast-weight → cross-window collapses **0.553 → 0.008**; v1's 62.8M EMA state manages only 0.002 | ✅ proven | "Cross-window associative recall" |
 | Cross-session snapshot → disk → fresh process → restore is **lossless** | Round-trip Δ **+0.008 / +0.000**; unit test **bit-exact (max\|diff\| 0.0)**; wrong-session restore = chance; no-restore = chance | ✅ proven | "Cross-session persistence" |
@@ -52,7 +53,8 @@ MT-LNN is a streaming-state recurrent architecture with **two independently prov
 - **We do NOT claim long-context language-modeling gains.** Out-of-window LM is a double null. The state carries **discrete addressable key→value bindings**, not compressed distributed context.
 - **We do NOT claim a working consciousness / integrated-information / Orch-OR result.** Those modules are inert in the trained path and the AVP Φ̂ sign is inverted. Microtubule/Orch-OR framing is **inspiration only**, not evidence.
 - **We do NOT claim the optional bio modules improve quality.** They are PPL-neutral; shipped configs run the lean core.
-- **We do NOT claim a 125M SOTA result.** The 125M win is vs this repo's simple-reference Transformer, single seed, undertrained, no Mamba baseline — a real, consistent, budget-limited signal, not a converged or SOTA-competitive result.
+- **We do NOT claim a 125M SOTA result.** The 125M win is vs this repo's simple-reference Transformer and (as of 2026-07-16) a width/depth-mismatched Mamba baseline, single seed each, undertrained — a real, consistent, budget-limited signal, not a converged or SOTA-competitive result.
+- **We do NOT claim MT-LNN is fp16-robust.** A separate Colab fp16 AMP run (commit `b11e5bc`) showed MT-LNN's loss go non-finite past step 629 while the Transformer baseline stayed stable for the full 2000 steps under the identical recipe — an isolated, unresolved fp16 numerical-robustness gap in MT-LNN's own math (never exposed under bf16's wider dynamic range). Root cause is open; `--dtype fp32` is the current fair-comparison fallback, and full fp32 training does not exhibit the divergence.
 - **We do NOT claim the cloud-inject +13.3% as MT-adapter value.** It is 100% the `[Absorbed fact]` prompt template; the adapter row is identical to baseline.
 
 ---

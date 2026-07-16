@@ -120,3 +120,6 @@ benchmarks/length_out/
 /_kgl_ckpt_dl.log
 /temp_nature_skills
 benchmarks/_needle_smoke.json
+
+# local scaling benchmark run outputs (2026-07-16)
+/scaling_fp32/

@@ -24,7 +24,7 @@
 
 Two independent results, both reproducible at real scale:
 
-1. **From-scratch native MT-LNN (125M) beats a matched Transformer by −31% val PPL** — 299 vs 436, at matched data / steps / optimizer, gap consistent across the whole curve. All three architectures (transformer, lnn, mt_lnn) train **stably** at 125M with no NaN — answering the "does a liquid-recurrent net even converge when scaled 100×?" question. *(Single seed, undertrained, ~1.6× slower wall-clock, simple-reference Transformer, no Mamba baseline yet — a budget-limited signal, not a SOTA claim.)*
+1. **From-scratch native MT-LNN (125M) beats a matched Transformer by ~31% val PPL** — 299 vs 436 under fp16 AMP, reconfirmed at −30.6% (257 vs 371) under full fp32 on a second run, at matched data / steps / optimizer, gap consistent across the whole curve. All three architectures train **stably** at 125M with no NaN in both runs — answering the "does a liquid-recurrent net even converge when scaled 100×?" question. The fp32 run also added a **first Mamba baseline: MT-LNN beats it too** (257 vs 414 val PPL, −37.8%, fewer params). *(Single seed per run, undertrained, ~1.6–6× slower wall-clock depending on precision, simple-reference Transformer, Mamba is width/depth-mismatched — a budget-limited signal, not a SOTA claim.)*
 
 2. **Cross-window / cross-session associative recall that attention and LoRA get 0.000 on by construction.** The fast-weight state stores discrete key→value bindings across a **dropped KV cache**: **0.56 mean recall** (3-seed 0.62 / 0.43 / 0.62) where frozen attention and LoRA are structurally zero. Remove the fast-weight matrix and it collapses to 0.008 — the fast weight *is* the memory. Snapshotting that state to disk and restoring into a fresh process is **bit-exact lossless** — what turns "recall within a session" into "remembers you across sessions."
 
@@ -34,7 +34,8 @@ And, in the attention-free line:
 
 | Result | Number | Caveat |
 |---|---|---|
-| Native 125M vs matched Transformer | −31% val PPL (299 vs 436), stable | single seed, undertrained, ~1.6× slower |
+| Native 125M vs matched Transformer | −31% val PPL fp16 (299 vs 436) / −30.6% fp32 (257 vs 371), stable both | single seed each, undertrained, ~1.6–6× slower |
+| Native 125M vs Mamba (fp32, matched param class) | −37.8% val PPL (257 vs 414), stable | single seed, width/depth-mismatched external baseline |
 | Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete K→V bindings, not long-context LM |
 | Cross-session snapshot/restore | bit-exact, controls at chance | recall task is high-variance |
 | O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k | attention-free ARR only, not the hybrid |

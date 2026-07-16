@@ -239,9 +239,61 @@ Honest caveats: all PPLs are high (2000 steps << 1 epoch of WikiText-103 —
 undertrained; the comparison is relative, at matched budget). MT-LNN costs
 ~1.6x the wall-clock (1491 vs 2357 tok/s), so at matched TIME (not steps) the
 gap narrows. Single seed; the Transformer is this repo's simple reference
-impl, not a SOTA-tuned baseline. No Mamba baseline yet (dependency-free
-comparison). Direction is clear and consistent, but this is a budget-limited
-signal, not a converged result.
+impl, not a SOTA-tuned baseline. No Mamba baseline in this run (added
+2026-07-16, fp32, see below). Direction is clear and consistent, but this is
+a budget-limited signal, not a converged result.
+
+## fp32 reconfirmation + Mamba baseline (2026-07-16)
+
+Same harness (`benchmarks/scaling_comparison.py --mode train`), same
+d_model/n_layers/WikiText-103/2000-step/50M-token-cap budget as the run
+above, but three changes: (1) explicit `--dtype fp32` (autocast/GradScaler
+fully disabled, vs the T4 run above which used `--dtype auto` → fp16 AMP),
+(2) run locally on an RTX 5060 Laptop (8GB) instead of a cloud T4/P100, (3)
+first-time Mamba baseline via `use_mambapy=True` (mamba.py parallel-scan
+backend — mamba-ssm's CUDA kernel doesn't build on Windows, and the
+transformers sequential fallback is ~25-50x too slow for a 2000-step run;
+numerically equivalent to the CUDA kernel path, only trades throughput).
+
+Motivation: a separate Colab T4 fp16 run (commit `b11e5bc`) found **mt_lnn's
+loss went non-finite past step 629** while the **transformer** baseline
+stayed stable for the full 2000 steps under the identical fp16 recipe — a
+real, unresolved fp16 numerical-robustness gap isolated to mt_lnn (never
+exposed under bf16's wider dynamic range). This run checks whether the PPL
+advantage survives a same-precision, divergence-free comparison.
+
+| arch | params | stable | val PPL | tok/s |
+|---|---|---|---|---|
+| transformer | 142.1M | **yes** | 370.81 | ~7100 |
+| **mt_lnn** | 126.0M | **yes** | **257.48** | ~1200 |
+| mamba | 129.1M | **yes** | 414.00 | ~1270 |
+
+Findings:
+1. **fp16 divergence confirmed as a precision issue, not architectural.**
+   All three archs ran the full 2000 steps with `stable: true` in fp32 —
+   mt_lnn does not diverge past step 629 (or anywhere else) once autocast is
+   disabled. Root cause of the fp16-specific fragility is still open;
+   `--dtype fp32` remains the fair-comparison fallback until it lands.
+2. **The ~30% PPL advantage holds under both precisions** — fp16 AMP gave
+   −31% (299.5 vs 435.6, 2026-07-05 run above), fp32 gives −30.6% (257.48 vs
+   370.81, this run). Two independent runs, two precisions, consistent gap:
+   this is not a precision artifact.
+3. **First Mamba data point: mt_lnn beats it too** — 257.48 vs 414.00 PPL
+   (−37.8%), with fewer params (126.0M vs 129.1M). Caveat: Mamba here is
+   HF's default sizing (`hidden=768`, 24 layers) which is NOT width/depth
+   matched to the transformer/mt_lnn pair (`d_model=832`, 12 layers); the
+   param counts land in the same class by construction but this is an
+   external reference point, not an architecture-matched control.
+4. **Mamba's train/val gap is a caution, not a mamba-specific flaw claim.**
+   Mamba's training loss looked competitive mid-run (step 1500: 5.43, ahead
+   of transformer's 5.76 at the same step) but its final val PPL is the
+   worst of the three — a reminder not to read training-loss curves as a
+   proxy for generalization in isolation.
+
+Caveats: single seed (0), no variance estimate. Local single-GPU wall-clock
+(RTX 5060 Laptop, 8GB), not the T4 used in the run above — throughput
+numbers are not cross-hardware comparable, only relative arch-to-arch
+ordering within this run. Full report: `benchmarks/scaling_comparison_report.{json,md}`.
 
 **--mode decode (CARRIED STATE bytes vs context — the real O(1) test):**
 The O(1) claim is an inference-time property (the state you must retain to

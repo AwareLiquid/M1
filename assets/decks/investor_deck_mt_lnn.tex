@@ -421,6 +421,13 @@
         \item \textbf{Commercial Meaning in Plain Terms:} By intelligently skipping redundant computations via bionic sleep, speed actually \textbf{increases by 13\%+}. In plain terms: you can deploy tens of thousands of local smart devices while skipping the extortionate cost of acquiring AI chips.
         \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/sparse_resonance_ablation.py}{\texttt{benchmarks/sparse\_resonance\_ablation.py}}
     \end{itemize}
+    \vspace{0.4em}
+    \item \textbf{4. Language-Modeling Efficiency (from-scratch, matched parameter class)}
+    \begin{itemize}
+        \item \textbf{Testing Baseline:} MT-LNN vs.\ a matched Transformer and a Mamba baseline, all trained from scratch on WikiText-103 under an identical fp32 budget (2000 steps, single seed).
+        \item \textbf{Commercial Meaning in Plain Terms:} At the same $\sim$125M scale, MT-LNN reaches a \textbf{$\sim$31\% lower perplexity than the Transformer} (257 vs 371) and \textbf{$\sim$38\% lower than Mamba} (257 vs 414) with fewer parameters --- the first head-to-head where the architecture beats the current leading efficient-attention alternative. In plain terms: more capability per parameter, which compounds directly into lower training and serving cost. \textit{(Single-seed, budget-limited signal; Mamba is width/depth-mismatched, an external reference rather than an architecture-matched control.)}
+        \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/scaling_comparison.py}{\texttt{benchmarks/scaling\_comparison.py}}
+    \end{itemize}
 \end{itemize}
 \end{frame}
 

@@ -21,9 +21,15 @@ control.
 
 - mt_lnn: **30.6% lower PPL than transformer** with 11.3% fewer params.
 - mt_lnn: **37.8% lower PPL than mamba** with roughly matched params (126M vs 129M).
-- All three archs ran the full 2000 steps with `stable: true` — no NaN/divergence at any
-  point, including the step where an earlier fp16 run had diverged. Confirms the earlier
-  divergence was a precision issue (fp16 dynamic range), not an architectural instability.
+- All three archs ran the full 2000 steps with `stable: true` — no NaN/divergence anywhere,
+  including past step 629, where an earlier Colab T4 **fp16** AMP run saw **mt_lnn's** loss
+  go non-finite while the **transformer** baseline stayed stable for the full 2000 steps
+  under the identical fp16 recipe (commit `b11e5bc`). This fp32 rerun confirms that gap was
+  an fp16 numerical-robustness issue specific to mt_lnn's recurrent/gating math (never
+  exposed under bf16's wider dynamic range) — not an architectural instability — and that
+  mt_lnn's PPL advantage over transformer holds under same-precision (fp32) comparison too.
+  Root cause of the fp16-specific fragility is still open; `--dtype fp32` remains the
+  fair-comparison fallback until it lands.
 - mamba's fp32 train loss looked competitive mid-run (step 1500: 5.43, ahead of transformer's
   5.76) but its final val PPL is the worst of the three — a train/val gap worth flagging
   whenever citing mamba's training-loss curve in isolation.

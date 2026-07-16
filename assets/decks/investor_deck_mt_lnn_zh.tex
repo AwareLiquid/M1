@@ -480,6 +480,13 @@
         \item \textbf{商业意义：} 机器靠“仿生睡眠”主动跳过绝对的无效计算，推理速度直接 \textbf{逆势提升了 13\%+}。这意味着未来企业在铺设几十万台本地智能设备时，可以彻底省去购买昂贵 AI 加速卡的绝大部分天价成本。
         \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/sparse_resonance_ablation.py}{\texttt{benchmarks/sparse\_resonance\_ablation.py}}
     \end{itemize}
+    \vspace{0.4em}
+    \item \textbf{4. 语言建模效率（从零训练，同参数量级）}
+    \begin{itemize}
+        \item \textbf{测试基准：} MT-LNN vs.\ 匹配宽度的 Transformer 与 Mamba 基线，三者在 WikiText-103 上以完全相同的 fp32 预算从零训练（2000 步，单一随机种子）。
+        \item \textbf{商业意义：} 在同为约 125M 的参数规模下，MT-LNN 的困惑度比 Transformer \textbf{低约 31\%}（257 vs 371），比 Mamba \textbf{低约 38\%}（257 vs 414），且参数更少——这是本架构首次在正面对比中战胜当前主流的高效注意力替代方案。换言之：每个参数带来更高的能力密度，直接摊薄训练与推理成本。\textit{（单种子、预算受限的方向性信号；Mamba 未做宽度-深度匹配，属外部参照而非架构受控对照。）}
+        \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/scaling_comparison.py}{\texttt{benchmarks/scaling\_comparison.py}}
+    \end{itemize}
 \end{itemize}
 \end{frame}
 
