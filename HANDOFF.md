@@ -67,17 +67,18 @@ transformer  s0=94.6340, s1=94.5436, s2=93.2441
 
 ## 3. 进行中 / 卡点
 
-- **强 baseline 尚未完成**：当前 transformer 是自建 simple baseline；论文级结论还需要 Mamba-2/GLA/DeltaNet 等现代高效架构对照，最好在 Linux + CUDA kernel + A100 上跑。
+- **P0-3 强 baseline 正在进行中**：当前 transformer 是自建 simple baseline；论文级结论还需要 Mamba-2/GLA/DeltaNet 等现代高效架构对照，最好在 Linux + CUDA kernel + A100 上跑。
+- **当前本地工作区有强 baseline 未提交改动**：`benchmarks/baselines.py`、`benchmarks/scaling_comparison.py` 正在改动中，接手时不要 `reset --hard` / `checkout` 覆盖，先 `git diff` 读清楚。
 - **fp16/AMP 根因未解决**：历史上 MT-LNN 在 fp16 AMP 下出现非有限 loss，需要定位是液态层动态、归一化、激活尺度、梯度尺度还是优化器状态导致。
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 
 ## 4. 下一步（按优先级）
 
-1. **提交归档当前成果**：把 `HANDOFF.md`、`benchmarks/scaling_comparison.py`、seed 1/2 JSON、`scaling_train_20000_summary.txt`、`converge_probe_s012.log` 推送到 `physics-informed-head`；不要提交 checkpoint `.pt`。
-2. **更新结果文档和论文材料**：把 P0-2 三种子结果写入 README/BENCHMARKS/RESULTS/论文草稿/deck，明确标注训练口径和 O1 参考锚限制。
-3. **跑强 baseline**：优先补 Mamba-2/GLA/DeltaNet 或同类高效架构；注意 Windows Mamba 无 CUDA kernel，强 baseline 建议迁到 Linux/A100。
-4. **做 fp16 诊断**：最小复现 fp16 发散，记录 loss scale、梯度范数、激活范围、NaN 首发层，并与 fp32 stable 结果对照。
+1. **P0-2 归档已完成**：`HANDOFF.md`、`benchmarks/scaling_comparison.py`、seed 1/2 JSON、`scaling_train_20000_summary.txt`、`converge_probe_s012.log` 已推送到 `physics-informed-head`；checkpoint `.pt` 仍不提交。
+2. **当前主线任务：跑强 baseline**：优先补 Mamba-2/GLA/DeltaNet 或同类高效架构；注意 Windows Mamba 无 CUDA kernel，强 baseline 建议迁到 Linux/A100。
+3. **强 baseline 结束后更新结果文档和论文材料**：把 P0-2 三种子结果与强 baseline 结果写入 README/BENCHMARKS/RESULTS/论文草稿/deck，明确标注训练口径和 O1 参考锚限制。
+4. **并行待办：做 fp16 诊断**：最小复现 fp16 发散，记录 loss scale、梯度范数、激活范围、NaN 首发层，并与 fp32 stable 结果对照。
 5. **扩 scaling law**：至少 3 个参数规模，固定 tokenizer/data/seq_len/batch/token budget，输出均值±标准差和效率曲线。
 6. **补真实长上下文实验**：用 decode state / memory profile / 长上下文任务证明 O(1) working memory 的实际价值。
 
