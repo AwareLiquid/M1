@@ -1,0 +1,1503 @@
+﻿=======================================================================
+P0-2 CONVERGE PROBE COMBINED LOG | seeds 0,1,2
+Source 1: converge_probe.log (seed 0)
+Source 2: converge_probe_s12.log (seeds 1,2)
+Generated: 2026-07-19 17:22:16 +08:00
+=======================================================================
+
+=======================================================================
+BEGIN converge_probe.log | seed 0
+=======================================================================
+device=cuda dtype=torch.float32 mode=train d_model=832 n_layers=12 archs=['mt_lnn', 'transformer']
+
+=== mt_lnn (train, seed 0) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 5s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 11s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 16s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 21s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 26s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 31s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 36s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 42s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 47s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 52s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 57s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (60s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [mt_lnn] resumed checkpoint: step 10000/20000, cursor 40000
+  [mt_lnn     ] 10100/20000 loss 5.0464 | 13718 tok/s
+  [mt_lnn     ] 10200/20000 loss 5.0141 | 15192 tok/s
+  [mt_lnn     ] 10300/20000 loss 5.1209 | 15281 tok/s
+  [mt_lnn     ] 10400/20000 loss 4.2856 | 15137 tok/s
+  [mt_lnn     ] 10500/20000 loss 4.5406 | 15243 tok/s
+  [mt_lnn] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 10600/20000 loss 5.2133 | 13578 tok/s
+  [mt_lnn     ] 10700/20000 loss 5.0398 | 15305 tok/s
+  [mt_lnn     ] 10800/20000 loss 4.8413 | 15127 tok/s
+  [mt_lnn     ] 10900/20000 loss 4.7350 | 15173 tok/s
+  [mt_lnn     ] 11000/20000 loss 4.8426 | 15305 tok/s
+  [mt_lnn] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 11100/20000 loss 4.4433 | 12230 tok/s
+  [mt_lnn     ] 11200/20000 loss 4.8157 | 13829 tok/s
+  [mt_lnn     ] 11300/20000 loss 4.6287 | 15209 tok/s
+  [mt_lnn     ] 11400/20000 loss 5.0752 | 13020 tok/s
+  [mt_lnn     ] 11500/20000 loss 4.9329 | 13804 tok/s
+  [mt_lnn] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 11600/20000 loss 4.7352 | 11190 tok/s
+  [mt_lnn     ] 11700/20000 loss 4.6227 | 14934 tok/s
+  [mt_lnn     ] 11800/20000 loss 4.9544 | 15194 tok/s
+  [mt_lnn     ] 11900/20000 loss 4.8770 | 15243 tok/s
+  [mt_lnn     ] 12000/20000 loss 4.8383 | 15335 tok/s
+  [mt_lnn] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 12100/20000 loss 5.1769 | 11247 tok/s
+  [mt_lnn     ] 12200/20000 loss 4.7242 | 14288 tok/s
+  [mt_lnn     ] 12300/20000 loss 4.9931 | 13931 tok/s
+  [mt_lnn     ] 12400/20000 loss 4.6982 | 13827 tok/s
+  [mt_lnn     ] 12500/20000 loss 4.2013 | 11633 tok/s
+  [mt_lnn] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 12600/20000 loss 5.0400 | 12146 tok/s
+  [mt_lnn     ] 12700/20000 loss 4.8565 | 12361 tok/s
+  [mt_lnn     ] 12800/20000 loss 4.3300 | 11446 tok/s
+  [mt_lnn     ] 12900/20000 loss 5.2911 | 10951 tok/s
+  [mt_lnn     ] 13000/20000 loss 4.5656 | 11238 tok/s
+  [mt_lnn] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 13100/20000 loss 4.6972 | 12952 tok/s
+  [mt_lnn     ] 13200/20000 loss 4.2447 | 15255 tok/s
+  [mt_lnn     ] 13300/20000 loss 4.8114 | 15166 tok/s
+  [mt_lnn     ] 13400/20000 loss 4.9403 | 15267 tok/s
+  [mt_lnn     ] 13500/20000 loss 4.5356 | 15207 tok/s
+  [mt_lnn] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 13600/20000 loss 5.0781 | 13406 tok/s
+  [mt_lnn     ] 13700/20000 loss 4.3431 | 15146 tok/s
+  [mt_lnn     ] 13800/20000 loss 4.5096 | 15164 tok/s
+  [mt_lnn     ] 13900/20000 loss 4.7688 | 15207 tok/s
+  [mt_lnn     ] 14000/20000 loss 5.4608 | 15238 tok/s
+  [mt_lnn] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 14100/20000 loss 4.9198 | 13473 tok/s
+  [mt_lnn     ] 14200/20000 loss 4.9831 | 15258 tok/s
+  [mt_lnn     ] 14300/20000 loss 3.9727 | 15266 tok/s
+  [mt_lnn     ] 14400/20000 loss 4.9519 | 15265 tok/s
+  [mt_lnn     ] 14500/20000 loss 4.7874 | 15249 tok/s
+  [mt_lnn] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 14600/20000 loss 4.8487 | 13427 tok/s
+  [mt_lnn     ] 14700/20000 loss 4.5583 | 15192 tok/s
+  [mt_lnn     ] 14800/20000 loss 4.6402 | 15188 tok/s
+  [mt_lnn     ] 14900/20000 loss 4.8395 | 15198 tok/s
+  [mt_lnn     ] 15000/20000 loss 4.9858 | 14482 tok/s
+  [mt_lnn] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 15100/20000 loss 4.5988 | 13077 tok/s
+  [mt_lnn     ] 15200/20000 loss 5.2295 | 15222 tok/s
+  [mt_lnn     ] 15300/20000 loss 4.6524 | 15144 tok/s
+  [mt_lnn     ] 15400/20000 loss 4.8587 | 15244 tok/s
+  [mt_lnn     ] 15500/20000 loss 4.9894 | 15190 tok/s
+  [mt_lnn] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 15600/20000 loss 4.7874 | 13423 tok/s
+  [mt_lnn     ] 15700/20000 loss 4.5338 | 15217 tok/s
+  [mt_lnn     ] 15800/20000 loss 4.3302 | 15179 tok/s
+  [mt_lnn     ] 15900/20000 loss 4.6102 | 15153 tok/s
+  [mt_lnn     ] 16000/20000 loss 4.7517 | 15199 tok/s
+  [mt_lnn] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 16100/20000 loss 4.2291 | 13459 tok/s
+  [mt_lnn     ] 16200/20000 loss 4.8427 | 15209 tok/s
+  [mt_lnn     ] 16300/20000 loss 4.5889 | 15226 tok/s
+  [mt_lnn     ] 16400/20000 loss 4.7173 | 15269 tok/s
+  [mt_lnn     ] 16500/20000 loss 5.0683 | 15266 tok/s
+  [mt_lnn] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 16600/20000 loss 4.9629 | 13510 tok/s
+  [mt_lnn     ] 16700/20000 loss 5.1567 | 15333 tok/s
+  [mt_lnn     ] 16800/20000 loss 4.5760 | 15307 tok/s
+  [mt_lnn     ] 16900/20000 loss 4.6997 | 15259 tok/s
+  [mt_lnn     ] 17000/20000 loss 4.7835 | 15293 tok/s
+  [mt_lnn] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 17100/20000 loss 5.1135 | 13546 tok/s
+  [mt_lnn     ] 17200/20000 loss 5.1083 | 15142 tok/s
+  [mt_lnn     ] 17300/20000 loss 5.1750 | 14084 tok/s
+  [mt_lnn     ] 17400/20000 loss 4.6646 | 14484 tok/s
+  [mt_lnn     ] 17500/20000 loss 4.9184 | 13631 tok/s
+  [mt_lnn] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 17600/20000 loss 4.4352 | 13500 tok/s
+  [mt_lnn     ] 17700/20000 loss 5.0059 | 15252 tok/s
+  [mt_lnn     ] 17800/20000 loss 4.4554 | 15296 tok/s
+  [mt_lnn     ] 17900/20000 loss 4.0607 | 15228 tok/s
+  [mt_lnn     ] 18000/20000 loss 4.2785 | 15236 tok/s
+  [mt_lnn] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 18100/20000 loss 4.8391 | 13166 tok/s
+  [mt_lnn     ] 18200/20000 loss 4.7993 | 14695 tok/s
+  [mt_lnn     ] 18300/20000 loss 4.7171 | 15277 tok/s
+  [mt_lnn     ] 18400/20000 loss 4.7696 | 15295 tok/s
+  [mt_lnn     ] 18500/20000 loss 4.4731 | 15311 tok/s
+  [mt_lnn] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 18600/20000 loss 4.9089 | 13509 tok/s
+  [mt_lnn     ] 18700/20000 loss 4.7987 | 15276 tok/s
+  [mt_lnn     ] 18800/20000 loss 4.9156 | 15260 tok/s
+  [mt_lnn     ] 18900/20000 loss 4.9216 | 15292 tok/s
+  [mt_lnn     ] 19000/20000 loss 4.5262 | 15286 tok/s
+  [mt_lnn] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 19100/20000 loss 4.4573 | 13532 tok/s
+  [mt_lnn     ] 19200/20000 loss 5.0074 | 15297 tok/s
+  [mt_lnn     ] 19300/20000 loss 4.1428 | 15224 tok/s
+  [mt_lnn     ] 19400/20000 loss 4.5667 | 15252 tok/s
+  [mt_lnn     ] 19500/20000 loss 4.6085 | 13334 tok/s
+  [mt_lnn] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn     ] 19600/20000 loss 4.7666 | 13493 tok/s
+  [mt_lnn     ] 19700/20000 loss 4.5327 | 15331 tok/s
+  [mt_lnn     ] 19800/20000 loss 4.7239 | 15295 tok/s
+  [mt_lnn     ] 19900/20000 loss 4.4865 | 15315 tok/s
+  [mt_lnn     ] 20000/20000 loss 4.6431 | 15306 tok/s
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s0.pt
+
+=== transformer (train, seed 0) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 5s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 10s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 15s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 20s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 25s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 30s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 35s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 40s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 45s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 50s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 56s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (59s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [transformer] 100/20000 loss 7.0874 | 21636 tok/s
+  [transformer] 200/20000 loss 6.7562 | 21639 tok/s
+  [transformer] 300/20000 loss 6.3799 | 21482 tok/s
+  [transformer] 400/20000 loss 6.5023 | 21467 tok/s
+  [transformer] 500/20000 loss 6.3216 | 21315 tok/s
+  [transformer] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 600/20000 loss 6.3994 | 18988 tok/s
+  [transformer] 700/20000 loss 6.1031 | 21165 tok/s
+  [transformer] 800/20000 loss 5.9695 | 21157 tok/s
+  [transformer] 900/20000 loss 6.2591 | 21263 tok/s
+  [transformer] 1000/20000 loss 6.1037 | 21215 tok/s
+  [transformer] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 1100/20000 loss 6.0035 | 17533 tok/s
+  [transformer] 1200/20000 loss 6.2042 | 21131 tok/s
+  [transformer] 1300/20000 loss 6.1626 | 21260 tok/s
+  [transformer] 1400/20000 loss 6.2146 | 21101 tok/s
+  [transformer] 1500/20000 loss 6.0360 | 20959 tok/s
+  [transformer] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 1600/20000 loss 6.1755 | 17497 tok/s
+  [transformer] 1700/20000 loss 6.1349 | 21282 tok/s
+  [transformer] 1800/20000 loss 6.2877 | 21280 tok/s
+  [transformer] 1900/20000 loss 6.1117 | 21283 tok/s
+  [transformer] 2000/20000 loss 5.8547 | 21246 tok/s
+  [transformer] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 2100/20000 loss 6.1516 | 17433 tok/s
+  [transformer] 2200/20000 loss 5.5008 | 21190 tok/s
+  [transformer] 2300/20000 loss 5.8793 | 21055 tok/s
+  [transformer] 2400/20000 loss 5.9215 | 21056 tok/s
+  [transformer] 2500/20000 loss 6.2870 | 21134 tok/s
+  [transformer] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 2600/20000 loss 5.6727 | 17328 tok/s
+  [transformer] 2700/20000 loss 5.8324 | 20955 tok/s
+  [transformer] 2800/20000 loss 5.7478 | 21062 tok/s
+  [transformer] 2900/20000 loss 5.3306 | 21135 tok/s
+  [transformer] 3000/20000 loss 5.6561 | 21160 tok/s
+  [transformer] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 3100/20000 loss 5.8177 | 17327 tok/s
+  [transformer] 3200/20000 loss 6.1689 | 21044 tok/s
+  [transformer] 3300/20000 loss 6.1376 | 21100 tok/s
+  [transformer] 3400/20000 loss 5.4741 | 21127 tok/s
+  [transformer] 3500/20000 loss 6.0226 | 21132 tok/s
+  [transformer] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 3600/20000 loss 5.4697 | 17508 tok/s
+  [transformer] 3700/20000 loss 5.4582 | 21245 tok/s
+  [transformer] 3800/20000 loss 5.5096 | 21141 tok/s
+  [transformer] 3900/20000 loss 5.4665 | 21242 tok/s
+  [transformer] 4000/20000 loss 5.9377 | 21089 tok/s
+  [transformer] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 4100/20000 loss 5.9300 | 17627 tok/s
+  [transformer] 4200/20000 loss 5.5330 | 21321 tok/s
+  [transformer] 4300/20000 loss 5.5400 | 21293 tok/s
+  [transformer] 4400/20000 loss 5.7953 | 21325 tok/s
+  [transformer] 4500/20000 loss 5.5597 | 21319 tok/s
+  [transformer] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 4600/20000 loss 5.8091 | 17566 tok/s
+  [transformer] 4700/20000 loss 5.6693 | 21095 tok/s
+  [transformer] 4800/20000 loss 5.4892 | 21268 tok/s
+  [transformer] 4900/20000 loss 5.1318 | 21229 tok/s
+  [transformer] 5000/20000 loss 5.3013 | 21242 tok/s
+  [transformer] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 5100/20000 loss 5.7718 | 17391 tok/s
+  [transformer] 5200/20000 loss 5.5215 | 21132 tok/s
+  [transformer] 5300/20000 loss 5.4095 | 21148 tok/s
+  [transformer] 5400/20000 loss 5.0573 | 21039 tok/s
+  [transformer] 5500/20000 loss 5.5600 | 21023 tok/s
+  [transformer] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 5600/20000 loss 5.3571 | 17615 tok/s
+  [transformer] 5700/20000 loss 5.6716 | 21288 tok/s
+  [transformer] 5800/20000 loss 5.6267 | 21122 tok/s
+  [transformer] 5900/20000 loss 5.4179 | 21151 tok/s
+  [transformer] 6000/20000 loss 5.3836 | 21311 tok/s
+  [transformer] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 6100/20000 loss 5.2346 | 17528 tok/s
+  [transformer] 6200/20000 loss 5.4779 | 21220 tok/s
+  [transformer] 6300/20000 loss 5.4152 | 21106 tok/s
+  [transformer] 6400/20000 loss 5.8747 | 21173 tok/s
+  [transformer] 6500/20000 loss 5.1145 | 21221 tok/s
+  [transformer] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 6600/20000 loss 5.1953 | 17433 tok/s
+  [transformer] 6700/20000 loss 5.2639 | 20941 tok/s
+  [transformer] 6800/20000 loss 5.0844 | 21135 tok/s
+  [transformer] 6900/20000 loss 5.3703 | 21125 tok/s
+  [transformer] 7000/20000 loss 5.2387 | 21025 tok/s
+  [transformer] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 7100/20000 loss 5.1152 | 17461 tok/s
+  [transformer] 7200/20000 loss 5.1288 | 21081 tok/s
+  [transformer] 7300/20000 loss 4.7769 | 21025 tok/s
+  [transformer] 7400/20000 loss 5.0355 | 21131 tok/s
+  [transformer] 7500/20000 loss 5.8300 | 21128 tok/s
+  [transformer] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 7600/20000 loss 5.1191 | 17423 tok/s
+  [transformer] 7700/20000 loss 4.9499 | 21139 tok/s
+  [transformer] 7800/20000 loss 5.5662 | 21070 tok/s
+  [transformer] 7900/20000 loss 5.0956 | 21139 tok/s
+  [transformer] 8000/20000 loss 4.8311 | 21058 tok/s
+  [transformer] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 8100/20000 loss 5.0959 | 17370 tok/s
+  [transformer] 8200/20000 loss 4.6651 | 21179 tok/s
+  [transformer] 8300/20000 loss 4.8244 | 21324 tok/s
+  [transformer] 8400/20000 loss 5.6337 | 21321 tok/s
+  [transformer] 8500/20000 loss 5.3081 | 21266 tok/s
+  [transformer] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 8600/20000 loss 5.1618 | 17297 tok/s
+  [transformer] 8700/20000 loss 5.0651 | 21163 tok/s
+  [transformer] 8800/20000 loss 4.8567 | 21254 tok/s
+  [transformer] 8900/20000 loss 5.2259 | 21113 tok/s
+  [transformer] 9000/20000 loss 4.6183 | 21252 tok/s
+  [transformer] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 9100/20000 loss 5.2427 | 17382 tok/s
+  [transformer] 9200/20000 loss 5.3355 | 21128 tok/s
+  [transformer] 9300/20000 loss 5.1411 | 21015 tok/s
+  [transformer] 9400/20000 loss 5.0857 | 21117 tok/s
+  [transformer] 9500/20000 loss 5.0665 | 21001 tok/s
+  [transformer] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 9600/20000 loss 5.1397 | 17348 tok/s
+  [transformer] 9700/20000 loss 5.3766 | 21071 tok/s
+  [transformer] 9800/20000 loss 5.0662 | 21108 tok/s
+  [transformer] 9900/20000 loss 5.2128 | 21180 tok/s
+  [transformer] 10000/20000 loss 4.8539 | 21215 tok/s
+  [transformer] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 10100/20000 loss 5.2208 | 17450 tok/s
+  [transformer] 10200/20000 loss 5.1245 | 21065 tok/s
+  [transformer] 10300/20000 loss 5.3389 | 21104 tok/s
+  [transformer] 10400/20000 loss 4.4698 | 21220 tok/s
+  [transformer] 10500/20000 loss 4.7294 | 21116 tok/s
+  [transformer] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 10600/20000 loss 5.3812 | 17306 tok/s
+  [transformer] 10700/20000 loss 5.2246 | 21070 tok/s
+  [transformer] 10800/20000 loss 5.0693 | 21083 tok/s
+  [transformer] 10900/20000 loss 4.9493 | 21127 tok/s
+  [transformer] 11000/20000 loss 5.0543 | 21205 tok/s
+  [transformer] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 11100/20000 loss 4.6853 | 17454 tok/s
+  [transformer] 11200/20000 loss 5.1442 | 21094 tok/s
+  [transformer] 11300/20000 loss 4.8088 | 21039 tok/s
+  [transformer] 11400/20000 loss 5.2889 | 21043 tok/s
+  [transformer] 11500/20000 loss 5.1729 | 21162 tok/s
+  [transformer] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 11600/20000 loss 4.9101 | 17486 tok/s
+  [transformer] 11700/20000 loss 4.9217 | 21173 tok/s
+  [transformer] 11800/20000 loss 5.0828 | 21100 tok/s
+  [transformer] 11900/20000 loss 5.0626 | 21162 tok/s
+  [transformer] 12000/20000 loss 4.9456 | 21109 tok/s
+  [transformer] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 12100/20000 loss 5.3335 | 17339 tok/s
+  [transformer] 12200/20000 loss 4.9226 | 21118 tok/s
+  [transformer] 12300/20000 loss 5.2553 | 21130 tok/s
+  [transformer] 12400/20000 loss 4.8971 | 21254 tok/s
+  [transformer] 12500/20000 loss 4.4097 | 21116 tok/s
+  [transformer] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 12600/20000 loss 5.1836 | 17549 tok/s
+  [transformer] 12700/20000 loss 5.0577 | 21281 tok/s
+  [transformer] 12800/20000 loss 4.4773 | 21297 tok/s
+  [transformer] 12900/20000 loss 5.4988 | 21290 tok/s
+  [transformer] 13000/20000 loss 4.7065 | 21269 tok/s
+  [transformer] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 13100/20000 loss 4.7918 | 17227 tok/s
+  [transformer] 13200/20000 loss 4.3770 | 21000 tok/s
+  [transformer] 13300/20000 loss 4.9062 | 21129 tok/s
+  [transformer] 13400/20000 loss 5.1193 | 21114 tok/s
+  [transformer] 13500/20000 loss 4.7282 | 21131 tok/s
+  [transformer] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 13600/20000 loss 5.1107 | 17189 tok/s
+  [transformer] 13700/20000 loss 4.4629 | 21280 tok/s
+  [transformer] 13800/20000 loss 4.7275 | 21249 tok/s
+  [transformer] 13900/20000 loss 4.8883 | 21218 tok/s
+  [transformer] 14000/20000 loss 5.6128 | 21236 tok/s
+  [transformer] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 14100/20000 loss 5.0775 | 17570 tok/s
+  [transformer] 14200/20000 loss 5.1160 | 21249 tok/s
+  [transformer] 14300/20000 loss 4.0441 | 21261 tok/s
+  [transformer] 14400/20000 loss 5.0315 | 21257 tok/s
+  [transformer] 14500/20000 loss 5.0590 | 21237 tok/s
+  [transformer] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 14600/20000 loss 4.9568 | 17547 tok/s
+  [transformer] 14700/20000 loss 4.6747 | 21112 tok/s
+  [transformer] 14800/20000 loss 4.7119 | 21021 tok/s
+  [transformer] 14900/20000 loss 4.9586 | 21104 tok/s
+  [transformer] 15000/20000 loss 5.0880 | 21087 tok/s
+  [transformer] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 15100/20000 loss 4.7335 | 17372 tok/s
+  [transformer] 15200/20000 loss 5.3202 | 21045 tok/s
+  [transformer] 15300/20000 loss 4.6868 | 20974 tok/s
+  [transformer] 15400/20000 loss 4.9030 | 21153 tok/s
+  [transformer] 15500/20000 loss 5.1416 | 21141 tok/s
+  [transformer] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 15600/20000 loss 4.8520 | 17397 tok/s
+  [transformer] 15700/20000 loss 4.5268 | 21192 tok/s
+  [transformer] 15800/20000 loss 4.4044 | 21045 tok/s
+  [transformer] 15900/20000 loss 4.7114 | 21121 tok/s
+  [transformer] 16000/20000 loss 4.8741 | 21251 tok/s
+  [transformer] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 16100/20000 loss 4.3304 | 17443 tok/s
+  [transformer] 16200/20000 loss 4.8742 | 21133 tok/s
+  [transformer] 16300/20000 loss 4.7441 | 21108 tok/s
+  [transformer] 16400/20000 loss 4.8136 | 21119 tok/s
+  [transformer] 16500/20000 loss 5.1100 | 21125 tok/s
+  [transformer] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 16600/20000 loss 5.0220 | 17557 tok/s
+  [transformer] 16700/20000 loss 5.2621 | 21126 tok/s
+  [transformer] 16800/20000 loss 4.6610 | 21000 tok/s
+  [transformer] 16900/20000 loss 4.7566 | 21272 tok/s
+  [transformer] 17000/20000 loss 4.8421 | 21237 tok/s
+  [transformer] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 17100/20000 loss 5.1612 | 17359 tok/s
+  [transformer] 17200/20000 loss 5.1233 | 21079 tok/s
+  [transformer] 17300/20000 loss 5.2338 | 21150 tok/s
+  [transformer] 17400/20000 loss 4.7644 | 21065 tok/s
+  [transformer] 17500/20000 loss 4.9598 | 21100 tok/s
+  [transformer] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 17600/20000 loss 4.4915 | 17302 tok/s
+  [transformer] 17700/20000 loss 5.0281 | 21183 tok/s
+  [transformer] 17800/20000 loss 4.5217 | 21222 tok/s
+  [transformer] 17900/20000 loss 4.1525 | 21216 tok/s
+  [transformer] 18000/20000 loss 4.3137 | 21237 tok/s
+  [transformer] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 18100/20000 loss 4.9190 | 17517 tok/s
+  [transformer] 18200/20000 loss 4.8534 | 21249 tok/s
+  [transformer] 18300/20000 loss 4.7928 | 21253 tok/s
+  [transformer] 18400/20000 loss 4.8270 | 21137 tok/s
+  [transformer] 18500/20000 loss 4.5117 | 21230 tok/s
+  [transformer] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 18600/20000 loss 4.9470 | 17290 tok/s
+  [transformer] 18700/20000 loss 4.8493 | 21118 tok/s
+  [transformer] 18800/20000 loss 5.0090 | 21195 tok/s
+  [transformer] 18900/20000 loss 4.9429 | 21033 tok/s
+  [transformer] 19000/20000 loss 4.5535 | 21122 tok/s
+  [transformer] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 19100/20000 loss 4.4824 | 17371 tok/s
+  [transformer] 19200/20000 loss 5.0104 | 21315 tok/s
+  [transformer] 19300/20000 loss 4.1901 | 21264 tok/s
+  [transformer] 19400/20000 loss 4.5857 | 21155 tok/s
+  [transformer] 19500/20000 loss 4.6970 | 21255 tok/s
+  [transformer] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] 19600/20000 loss 4.7897 | 17595 tok/s
+  [transformer] 19700/20000 loss 4.5390 | 21296 tok/s
+  [transformer] 19800/20000 loss 4.7783 | 21280 tok/s
+  [transformer] 19900/20000 loss 4.5041 | 21263 tok/s
+  [transformer] 20000/20000 loss 4.6914 | 21254 tok/s
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s0.pt
+
+========================================================================
+SCALING TRAIN | WikiText-103 | 20000 steps | seeds [0]
+arch               params  stable     val_ppl (mean卤std)   n
+mt_lnn        126,041,819    True       89.28 卤 0.00      1
+transformer   142,051,520    True       94.63 卤 0.00      1
+
+=======================================================================
+BEGIN converge_probe_s12.log | seeds 1,2
+=======================================================================
+device=cuda dtype=torch.float32 mode=train d_model=832 n_layers=12 archs=['mt_lnn', 'transformer']
+
+=== mt_lnn (train, seed 1) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 5s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 10s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 15s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 21s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 26s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 31s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 37s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 42s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 48s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 53s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 59s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (63s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [mt_lnn     ] 100/20000 loss 6.8692 | 11708 tok/s
+  [mt_lnn     ] 200/20000 loss 6.8867 | 11386 tok/s
+  [mt_lnn     ] 300/20000 loss 6.5274 | 12256 tok/s
+  [mt_lnn     ] 400/20000 loss 6.5571 | 12081 tok/s
+  [mt_lnn     ] 500/20000 loss 5.9979 | 12794 tok/s
+  [mt_lnn] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 600/20000 loss 6.2922 | 14407 tok/s
+  [mt_lnn     ] 700/20000 loss 5.8670 | 15210 tok/s
+  [mt_lnn     ] 800/20000 loss 6.0591 | 15770 tok/s
+  [mt_lnn     ] 900/20000 loss 5.9480 | 15895 tok/s
+  [mt_lnn     ] 1000/20000 loss 5.8809 | 15885 tok/s
+  [mt_lnn] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 1100/20000 loss 5.8080 | 11488 tok/s
+  [mt_lnn     ] 1200/20000 loss 5.6608 | 14409 tok/s
+  [mt_lnn     ] 1300/20000 loss 5.7039 | 15881 tok/s
+  [mt_lnn     ] 1400/20000 loss 5.9306 | 15805 tok/s
+  [mt_lnn     ] 1500/20000 loss 5.3181 | 13344 tok/s
+  [mt_lnn] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 1600/20000 loss 5.6637 | 11612 tok/s
+  [mt_lnn     ] 1700/20000 loss 6.0820 | 12417 tok/s
+  [mt_lnn     ] 1800/20000 loss 5.8205 | 14508 tok/s
+  [mt_lnn     ] 1900/20000 loss 5.4782 | 15620 tok/s
+  [mt_lnn     ] 2000/20000 loss 5.5652 | 12327 tok/s
+  [mt_lnn] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 2100/20000 loss 5.6064 | 11693 tok/s
+  [mt_lnn     ] 2200/20000 loss 5.6777 | 12891 tok/s
+  [mt_lnn     ] 2300/20000 loss 4.9507 | 15934 tok/s
+  [mt_lnn     ] 2400/20000 loss 5.7070 | 14211 tok/s
+  [mt_lnn     ] 2500/20000 loss 5.4488 | 15567 tok/s
+  [mt_lnn] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 2600/20000 loss 5.4326 | 14063 tok/s
+  [mt_lnn     ] 2700/20000 loss 5.3263 | 15763 tok/s
+  [mt_lnn     ] 2800/20000 loss 5.5416 | 15924 tok/s
+  [mt_lnn     ] 2900/20000 loss 5.6576 | 15971 tok/s
+  [mt_lnn     ] 3000/20000 loss 5.4634 | 15881 tok/s
+  [mt_lnn] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 3100/20000 loss 5.0297 | 13933 tok/s
+  [mt_lnn     ] 3200/20000 loss 5.2254 | 15885 tok/s
+  [mt_lnn     ] 3300/20000 loss 5.3572 | 15996 tok/s
+  [mt_lnn     ] 3400/20000 loss 5.5699 | 15954 tok/s
+  [mt_lnn     ] 3500/20000 loss 5.1558 | 15956 tok/s
+  [mt_lnn] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 3600/20000 loss 5.5121 | 14071 tok/s
+  [mt_lnn     ] 3700/20000 loss 5.0760 | 14751 tok/s
+  [mt_lnn     ] 3800/20000 loss 5.3044 | 12435 tok/s
+  [mt_lnn     ] 3900/20000 loss 5.2129 | 12415 tok/s
+  [mt_lnn     ] 4000/20000 loss 5.5128 | 15678 tok/s
+  [mt_lnn] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 4100/20000 loss 5.1875 | 14048 tok/s
+  [mt_lnn     ] 4200/20000 loss 5.3178 | 15880 tok/s
+  [mt_lnn     ] 4300/20000 loss 5.1497 | 15946 tok/s
+  [mt_lnn     ] 4400/20000 loss 5.0166 | 15953 tok/s
+  [mt_lnn     ] 4500/20000 loss 5.1338 | 15865 tok/s
+  [mt_lnn] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 4600/20000 loss 4.5722 | 14046 tok/s
+  [mt_lnn     ] 4700/20000 loss 4.8284 | 15952 tok/s
+  [mt_lnn     ] 4800/20000 loss 5.2221 | 15966 tok/s
+  [mt_lnn     ] 4900/20000 loss 5.3383 | 15987 tok/s
+  [mt_lnn     ] 5000/20000 loss 5.8274 | 15926 tok/s
+  [mt_lnn] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 5100/20000 loss 5.4134 | 14030 tok/s
+  [mt_lnn     ] 5200/20000 loss 4.9585 | 15969 tok/s
+  [mt_lnn     ] 5300/20000 loss 4.7174 | 15957 tok/s
+  [mt_lnn     ] 5400/20000 loss 4.9330 | 15931 tok/s
+  [mt_lnn     ] 5500/20000 loss 4.7315 | 15947 tok/s
+  [mt_lnn] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 5600/20000 loss 4.6060 | 14059 tok/s
+  [mt_lnn     ] 5700/20000 loss 5.2180 | 15963 tok/s
+  [mt_lnn     ] 5800/20000 loss 5.1909 | 15951 tok/s
+  [mt_lnn     ] 5900/20000 loss 5.5575 | 15923 tok/s
+  [mt_lnn     ] 6000/20000 loss 5.2413 | 15954 tok/s
+  [mt_lnn] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 6100/20000 loss 5.2360 | 13995 tok/s
+  [mt_lnn     ] 6200/20000 loss 4.9702 | 15976 tok/s
+  [mt_lnn     ] 6300/20000 loss 5.2692 | 15873 tok/s
+  [mt_lnn     ] 6400/20000 loss 5.1727 | 15932 tok/s
+  [mt_lnn     ] 6500/20000 loss 4.6106 | 15945 tok/s
+  [mt_lnn] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 6600/20000 loss 5.4944 | 14057 tok/s
+  [mt_lnn     ] 6700/20000 loss 5.1179 | 15915 tok/s
+  [mt_lnn     ] 6800/20000 loss 5.0942 | 15933 tok/s
+  [mt_lnn     ] 6900/20000 loss 5.2361 | 15946 tok/s
+  [mt_lnn     ] 7000/20000 loss 5.1857 | 15928 tok/s
+  [mt_lnn] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 7100/20000 loss 4.9672 | 14016 tok/s
+  [mt_lnn     ] 7200/20000 loss 4.9919 | 15960 tok/s
+  [mt_lnn     ] 7300/20000 loss 5.3918 | 15902 tok/s
+  [mt_lnn     ] 7400/20000 loss 4.6795 | 15947 tok/s
+  [mt_lnn     ] 7500/20000 loss 4.6716 | 15920 tok/s
+  [mt_lnn] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 7600/20000 loss 4.8347 | 14016 tok/s
+  [mt_lnn     ] 7700/20000 loss 4.6807 | 15968 tok/s
+  [mt_lnn     ] 7800/20000 loss 5.0670 | 15875 tok/s
+  [mt_lnn     ] 7900/20000 loss 4.7983 | 15917 tok/s
+  [mt_lnn     ] 8000/20000 loss 5.2514 | 15889 tok/s
+  [mt_lnn] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 8100/20000 loss 4.8456 | 14047 tok/s
+  [mt_lnn     ] 8200/20000 loss 4.8911 | 15870 tok/s
+  [mt_lnn     ] 8300/20000 loss 4.7081 | 15838 tok/s
+  [mt_lnn     ] 8400/20000 loss 5.1135 | 15921 tok/s
+  [mt_lnn     ] 8500/20000 loss 4.6849 | 15961 tok/s
+  [mt_lnn] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 8600/20000 loss 5.2101 | 13962 tok/s
+  [mt_lnn     ] 8700/20000 loss 5.2245 | 15978 tok/s
+  [mt_lnn     ] 8800/20000 loss 4.4482 | 15948 tok/s
+  [mt_lnn     ] 8900/20000 loss 5.2576 | 15896 tok/s
+  [mt_lnn     ] 9000/20000 loss 5.1121 | 15894 tok/s
+  [mt_lnn] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 9100/20000 loss 5.0212 | 14033 tok/s
+  [mt_lnn     ] 9200/20000 loss 5.1309 | 15896 tok/s
+  [mt_lnn     ] 9300/20000 loss 4.8896 | 15920 tok/s
+  [mt_lnn     ] 9400/20000 loss 4.4707 | 15840 tok/s
+  [mt_lnn     ] 9500/20000 loss 5.2603 | 15885 tok/s
+  [mt_lnn] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 9600/20000 loss 4.9525 | 11400 tok/s
+  [mt_lnn     ] 9700/20000 loss 4.0364 | 12784 tok/s
+  [mt_lnn     ] 9800/20000 loss 4.6242 | 12775 tok/s
+  [mt_lnn     ] 9900/20000 loss 4.5961 | 12832 tok/s
+  [mt_lnn     ] 10000/20000 loss 5.0110 | 14502 tok/s
+  [mt_lnn] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 10100/20000 loss 5.0707 | 13989 tok/s
+  [mt_lnn     ] 10200/20000 loss 5.3227 | 13024 tok/s
+  [mt_lnn     ] 10300/20000 loss 4.5084 | 12790 tok/s
+  [mt_lnn     ] 10400/20000 loss 5.0411 | 12771 tok/s
+  [mt_lnn     ] 10500/20000 loss 4.9607 | 12868 tok/s
+  [mt_lnn] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 10600/20000 loss 5.1838 | 13045 tok/s
+  [mt_lnn     ] 10700/20000 loss 4.3450 | 11670 tok/s
+  [mt_lnn     ] 10800/20000 loss 4.4842 | 11425 tok/s
+  [mt_lnn     ] 10900/20000 loss 4.7816 | 11589 tok/s
+  [mt_lnn     ] 11000/20000 loss 4.8631 | 12803 tok/s
+  [mt_lnn] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 11100/20000 loss 4.9729 | 13476 tok/s
+  [mt_lnn     ] 11200/20000 loss 4.9067 | 15947 tok/s
+  [mt_lnn     ] 11300/20000 loss 4.8287 | 15997 tok/s
+  [mt_lnn     ] 11400/20000 loss 5.3894 | 15894 tok/s
+  [mt_lnn     ] 11500/20000 loss 4.6686 | 15990 tok/s
+  [mt_lnn] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 11600/20000 loss 4.2608 | 14069 tok/s
+  [mt_lnn     ] 11700/20000 loss 4.8841 | 15856 tok/s
+  [mt_lnn     ] 11800/20000 loss 4.3884 | 15976 tok/s
+  [mt_lnn     ] 11900/20000 loss 4.8633 | 15880 tok/s
+  [mt_lnn     ] 12000/20000 loss 4.8513 | 15975 tok/s
+  [mt_lnn] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 12100/20000 loss 4.6649 | 14016 tok/s
+  [mt_lnn     ] 12200/20000 loss 4.7457 | 15875 tok/s
+  [mt_lnn     ] 12300/20000 loss 5.0800 | 15940 tok/s
+  [mt_lnn     ] 12400/20000 loss 4.6299 | 15943 tok/s
+  [mt_lnn     ] 12500/20000 loss 5.0741 | 15954 tok/s
+  [mt_lnn] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 12600/20000 loss 4.9176 | 13514 tok/s
+  [mt_lnn     ] 12700/20000 loss 5.0882 | 15954 tok/s
+  [mt_lnn     ] 12800/20000 loss 4.9107 | 15933 tok/s
+  [mt_lnn     ] 12900/20000 loss 4.6711 | 15917 tok/s
+  [mt_lnn     ] 13000/20000 loss 4.7423 | 15947 tok/s
+  [mt_lnn] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 13100/20000 loss 4.3367 | 13932 tok/s
+  [mt_lnn     ] 13200/20000 loss 4.6271 | 15940 tok/s
+  [mt_lnn     ] 13300/20000 loss 4.6906 | 15875 tok/s
+  [mt_lnn     ] 13400/20000 loss 4.9171 | 15030 tok/s
+  [mt_lnn     ] 13500/20000 loss 5.0350 | 12653 tok/s
+  [mt_lnn] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 13600/20000 loss 4.8749 | 13904 tok/s
+  [mt_lnn     ] 13700/20000 loss 4.8845 | 15917 tok/s
+  [mt_lnn     ] 13800/20000 loss 5.2108 | 15951 tok/s
+  [mt_lnn     ] 13900/20000 loss 4.8343 | 14727 tok/s
+  [mt_lnn     ] 14000/20000 loss 4.4728 | 15046 tok/s
+  [mt_lnn] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 14100/20000 loss 4.6050 | 13994 tok/s
+  [mt_lnn     ] 14200/20000 loss 4.9529 | 15978 tok/s
+  [mt_lnn     ] 14300/20000 loss 5.0377 | 15920 tok/s
+  [mt_lnn     ] 14400/20000 loss 4.2518 | 15911 tok/s
+  [mt_lnn     ] 14500/20000 loss 4.6520 | 15180 tok/s
+  [mt_lnn] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 14600/20000 loss 4.7078 | 12063 tok/s
+  [mt_lnn     ] 14700/20000 loss 4.8486 | 15546 tok/s
+  [mt_lnn     ] 14800/20000 loss 4.7756 | 12761 tok/s
+  [mt_lnn     ] 14900/20000 loss 4.7771 | 12920 tok/s
+  [mt_lnn     ] 15000/20000 loss 4.7982 | 12895 tok/s
+  [mt_lnn] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 15100/20000 loss 4.1920 | 13551 tok/s
+  [mt_lnn     ] 15200/20000 loss 4.9095 | 16026 tok/s
+  [mt_lnn     ] 15300/20000 loss 4.5009 | 15996 tok/s
+  [mt_lnn     ] 15400/20000 loss 4.8602 | 16028 tok/s
+  [mt_lnn     ] 15500/20000 loss 4.5697 | 16006 tok/s
+  [mt_lnn] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 15600/20000 loss 4.2760 | 14091 tok/s
+  [mt_lnn     ] 15700/20000 loss 4.6613 | 15958 tok/s
+  [mt_lnn     ] 15800/20000 loss 4.2572 | 16035 tok/s
+  [mt_lnn     ] 15900/20000 loss 5.0272 | 15973 tok/s
+  [mt_lnn     ] 16000/20000 loss 4.8517 | 16016 tok/s
+  [mt_lnn] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 16100/20000 loss 4.8662 | 14069 tok/s
+  [mt_lnn     ] 16200/20000 loss 4.2436 | 15999 tok/s
+  [mt_lnn     ] 16300/20000 loss 4.3594 | 16063 tok/s
+  [mt_lnn     ] 16400/20000 loss 4.8126 | 16062 tok/s
+  [mt_lnn     ] 16500/20000 loss 4.7012 | 15964 tok/s
+  [mt_lnn] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 16600/20000 loss 5.3478 | 14127 tok/s
+  [mt_lnn     ] 16700/20000 loss 4.7516 | 16027 tok/s
+  [mt_lnn     ] 16800/20000 loss 4.8065 | 15980 tok/s
+  [mt_lnn     ] 16900/20000 loss 4.9161 | 16037 tok/s
+  [mt_lnn     ] 17000/20000 loss 4.9670 | 15977 tok/s
+  [mt_lnn] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 17100/20000 loss 3.9777 | 11664 tok/s
+  [mt_lnn     ] 17200/20000 loss 4.1727 | 13401 tok/s
+  [mt_lnn     ] 17300/20000 loss 4.9001 | 15332 tok/s
+  [mt_lnn     ] 17400/20000 loss 4.7833 | 16081 tok/s
+  [mt_lnn     ] 17500/20000 loss 4.5264 | 16041 tok/s
+  [mt_lnn] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 17600/20000 loss 4.2910 | 14118 tok/s
+  [mt_lnn     ] 17700/20000 loss 4.9088 | 16000 tok/s
+  [mt_lnn     ] 17800/20000 loss 4.8128 | 16029 tok/s
+  [mt_lnn     ] 17900/20000 loss 4.0860 | 16071 tok/s
+  [mt_lnn     ] 18000/20000 loss 4.3385 | 16002 tok/s
+  [mt_lnn] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 18100/20000 loss 4.8425 | 14190 tok/s
+  [mt_lnn     ] 18200/20000 loss 4.5061 | 16010 tok/s
+  [mt_lnn     ] 18300/20000 loss 4.4780 | 16086 tok/s
+  [mt_lnn     ] 18400/20000 loss 4.6151 | 16004 tok/s
+  [mt_lnn     ] 18500/20000 loss 4.4344 | 16060 tok/s
+  [mt_lnn] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 18600/20000 loss 4.6188 | 14164 tok/s
+  [mt_lnn     ] 18700/20000 loss 4.2536 | 16071 tok/s
+  [mt_lnn     ] 18800/20000 loss 4.4268 | 16053 tok/s
+  [mt_lnn     ] 18900/20000 loss 4.5364 | 15990 tok/s
+  [mt_lnn     ] 19000/20000 loss 4.8008 | 16026 tok/s
+  [mt_lnn] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 19100/20000 loss 4.5783 | 14147 tok/s
+  [mt_lnn     ] 19200/20000 loss 4.5497 | 16036 tok/s
+  [mt_lnn     ] 19300/20000 loss 4.5682 | 15990 tok/s
+  [mt_lnn     ] 19400/20000 loss 4.8083 | 13173 tok/s
+  [mt_lnn     ] 19500/20000 loss 4.7508 | 12431 tok/s
+  [mt_lnn] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn     ] 19600/20000 loss 3.8795 | 11921 tok/s
+  [mt_lnn     ] 19700/20000 loss 4.6716 | 15957 tok/s
+  [mt_lnn     ] 19800/20000 loss 4.3024 | 16002 tok/s
+  [mt_lnn     ] 19900/20000 loss 4.5953 | 16077 tok/s
+  [mt_lnn     ] 20000/20000 loss 4.7303 | 16007 tok/s
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s1.pt
+
+=== mt_lnn (train, seed 2) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 6s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 12s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 17s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 23s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 28s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 34s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 39s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 45s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 50s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 56s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 62s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (65s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [mt_lnn     ] 100/20000 loss 6.7703 | 13347 tok/s
+  [mt_lnn     ] 200/20000 loss 6.5776 | 15919 tok/s
+  [mt_lnn     ] 300/20000 loss 6.3830 | 15975 tok/s
+  [mt_lnn     ] 400/20000 loss 6.3634 | 16050 tok/s
+  [mt_lnn     ] 500/20000 loss 6.2206 | 15944 tok/s
+  [mt_lnn] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 600/20000 loss 6.0976 | 14999 tok/s
+  [mt_lnn     ] 700/20000 loss 6.0236 | 14394 tok/s
+  [mt_lnn     ] 800/20000 loss 6.0752 | 12359 tok/s
+  [mt_lnn     ] 900/20000 loss 5.8888 | 12377 tok/s
+  [mt_lnn     ] 1000/20000 loss 5.9861 | 12409 tok/s
+  [mt_lnn] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 1100/20000 loss 5.7579 | 11432 tok/s
+  [mt_lnn     ] 1200/20000 loss 5.6166 | 13439 tok/s
+  [mt_lnn     ] 1300/20000 loss 5.9058 | 15916 tok/s
+  [mt_lnn     ] 1400/20000 loss 5.8915 | 15948 tok/s
+  [mt_lnn     ] 1500/20000 loss 5.8415 | 16009 tok/s
+  [mt_lnn] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 1600/20000 loss 5.6926 | 14240 tok/s
+  [mt_lnn     ] 1700/20000 loss 5.8753 | 16042 tok/s
+  [mt_lnn     ] 1800/20000 loss 5.6022 | 15955 tok/s
+  [mt_lnn     ] 1900/20000 loss 5.7515 | 16035 tok/s
+  [mt_lnn     ] 2000/20000 loss 5.9043 | 15935 tok/s
+  [mt_lnn] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 2100/20000 loss 5.3098 | 14215 tok/s
+  [mt_lnn     ] 2200/20000 loss 5.4577 | 15996 tok/s
+  [mt_lnn     ] 2300/20000 loss 5.3626 | 16028 tok/s
+  [mt_lnn     ] 2400/20000 loss 5.7530 | 16013 tok/s
+  [mt_lnn     ] 2500/20000 loss 5.3864 | 16062 tok/s
+  [mt_lnn] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 2600/20000 loss 5.7340 | 14139 tok/s
+  [mt_lnn     ] 2700/20000 loss 5.3007 | 15988 tok/s
+  [mt_lnn     ] 2800/20000 loss 4.9018 | 16011 tok/s
+  [mt_lnn     ] 2900/20000 loss 5.7650 | 16014 tok/s
+  [mt_lnn     ] 3000/20000 loss 5.7436 | 15963 tok/s
+  [mt_lnn] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 3100/20000 loss 5.5584 | 14154 tok/s
+  [mt_lnn     ] 3200/20000 loss 5.8887 | 16033 tok/s
+  [mt_lnn     ] 3300/20000 loss 5.3822 | 15995 tok/s
+  [mt_lnn     ] 3400/20000 loss 5.3723 | 16015 tok/s
+  [mt_lnn     ] 3500/20000 loss 5.1218 | 15984 tok/s
+  [mt_lnn] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 3600/20000 loss 5.2966 | 14200 tok/s
+  [mt_lnn     ] 3700/20000 loss 5.3879 | 16066 tok/s
+  [mt_lnn     ] 3800/20000 loss 5.3900 | 16042 tok/s
+  [mt_lnn     ] 3900/20000 loss 5.6972 | 16041 tok/s
+  [mt_lnn     ] 4000/20000 loss 5.4644 | 15993 tok/s
+  [mt_lnn] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 4100/20000 loss 5.0054 | 14181 tok/s
+  [mt_lnn     ] 4200/20000 loss 5.4456 | 16024 tok/s
+  [mt_lnn     ] 4300/20000 loss 5.0233 | 16053 tok/s
+  [mt_lnn     ] 4400/20000 loss 5.1931 | 16033 tok/s
+  [mt_lnn     ] 4500/20000 loss 5.1812 | 16015 tok/s
+  [mt_lnn] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 4600/20000 loss 5.3251 | 14236 tok/s
+  [mt_lnn     ] 4700/20000 loss 5.0811 | 15953 tok/s
+  [mt_lnn     ] 4800/20000 loss 5.2422 | 16059 tok/s
+  [mt_lnn     ] 4900/20000 loss 5.2448 | 15979 tok/s
+  [mt_lnn     ] 5000/20000 loss 5.6213 | 15995 tok/s
+  [mt_lnn] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 5100/20000 loss 5.1066 | 14208 tok/s
+  [mt_lnn     ] 5200/20000 loss 5.1345 | 14242 tok/s
+  [mt_lnn     ] 5300/20000 loss 5.1378 | 12571 tok/s
+  [mt_lnn     ] 5400/20000 loss 5.2225 | 12588 tok/s
+  [mt_lnn     ] 5500/20000 loss 5.4262 | 12622 tok/s
+  [mt_lnn] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 5600/20000 loss 5.3944 | 10458 tok/s
+  [mt_lnn     ] 5700/20000 loss 5.2227 | 11857 tok/s
+  [mt_lnn     ] 5800/20000 loss 5.6061 | 12039 tok/s
+  [mt_lnn     ] 5900/20000 loss 5.3977 | 12562 tok/s
+  [mt_lnn     ] 6000/20000 loss 5.2347 | 12603 tok/s
+  [mt_lnn] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 6100/20000 loss 5.0041 | 13041 tok/s
+  [mt_lnn     ] 6200/20000 loss 5.4066 | 15968 tok/s
+  [mt_lnn     ] 6300/20000 loss 5.1074 | 16028 tok/s
+  [mt_lnn     ] 6400/20000 loss 5.1633 | 15981 tok/s
+  [mt_lnn     ] 6500/20000 loss 4.7607 | 16067 tok/s
+  [mt_lnn] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 6600/20000 loss 4.6788 | 14226 tok/s
+  [mt_lnn     ] 6700/20000 loss 5.3558 | 15959 tok/s
+  [mt_lnn     ] 6800/20000 loss 4.6351 | 15917 tok/s
+  [mt_lnn     ] 6900/20000 loss 4.8554 | 16069 tok/s
+  [mt_lnn     ] 7000/20000 loss 5.0802 | 15900 tok/s
+  [mt_lnn] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 7100/20000 loss 5.1256 | 14197 tok/s
+  [mt_lnn     ] 7200/20000 loss 5.2562 | 16045 tok/s
+  [mt_lnn     ] 7300/20000 loss 5.4450 | 16006 tok/s
+  [mt_lnn     ] 7400/20000 loss 5.0667 | 16009 tok/s
+  [mt_lnn     ] 7500/20000 loss 5.3287 | 16031 tok/s
+  [mt_lnn] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 7600/20000 loss 5.7454 | 11760 tok/s
+  [mt_lnn     ] 7700/20000 loss 5.1825 | 15149 tok/s
+  [mt_lnn     ] 7800/20000 loss 5.0634 | 15996 tok/s
+  [mt_lnn     ] 7900/20000 loss 5.4147 | 16004 tok/s
+  [mt_lnn     ] 8000/20000 loss 4.9198 | 16018 tok/s
+  [mt_lnn] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 8100/20000 loss 4.6245 | 14244 tok/s
+  [mt_lnn     ] 8200/20000 loss 5.2863 | 14544 tok/s
+  [mt_lnn     ] 8300/20000 loss 4.8722 | 13262 tok/s
+  [mt_lnn     ] 8400/20000 loss 5.4008 | 16032 tok/s
+  [mt_lnn     ] 8500/20000 loss 5.0248 | 15944 tok/s
+  [mt_lnn] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 8600/20000 loss 4.8974 | 14258 tok/s
+  [mt_lnn     ] 8700/20000 loss 5.0256 | 15983 tok/s
+  [mt_lnn     ] 8800/20000 loss 5.1841 | 15937 tok/s
+  [mt_lnn     ] 8900/20000 loss 5.0005 | 16019 tok/s
+  [mt_lnn     ] 9000/20000 loss 4.8812 | 15989 tok/s
+  [mt_lnn] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 9100/20000 loss 4.8313 | 14196 tok/s
+  [mt_lnn     ] 9200/20000 loss 4.8538 | 16039 tok/s
+  [mt_lnn     ] 9300/20000 loss 5.2705 | 16034 tok/s
+  [mt_lnn     ] 9400/20000 loss 4.5527 | 15994 tok/s
+  [mt_lnn     ] 9500/20000 loss 4.4542 | 16008 tok/s
+  [mt_lnn] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 9600/20000 loss 4.7371 | 14220 tok/s
+  [mt_lnn     ] 9700/20000 loss 4.7265 | 16042 tok/s
+  [mt_lnn     ] 9800/20000 loss 5.2003 | 16043 tok/s
+  [mt_lnn     ] 9900/20000 loss 4.5850 | 16005 tok/s
+  [mt_lnn     ] 10000/20000 loss 5.2294 | 16073 tok/s
+  [mt_lnn] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 10100/20000 loss 4.5516 | 14250 tok/s
+  [mt_lnn     ] 10200/20000 loss 5.1082 | 16058 tok/s
+  [mt_lnn     ] 10300/20000 loss 4.8769 | 15936 tok/s
+  [mt_lnn     ] 10400/20000 loss 4.5133 | 16029 tok/s
+  [mt_lnn     ] 10500/20000 loss 4.7081 | 16053 tok/s
+  [mt_lnn] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 10600/20000 loss 4.6867 | 11617 tok/s
+  [mt_lnn     ] 10700/20000 loss 4.8663 | 12773 tok/s
+  [mt_lnn     ] 10800/20000 loss 5.2003 | 15016 tok/s
+  [mt_lnn     ] 10900/20000 loss 4.6128 | 15882 tok/s
+  [mt_lnn     ] 11000/20000 loss 4.2203 | 14179 tok/s
+  [mt_lnn] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 11100/20000 loss 5.2580 | 13831 tok/s
+  [mt_lnn     ] 11200/20000 loss 5.3072 | 14948 tok/s
+  [mt_lnn     ] 11300/20000 loss 5.0424 | 15835 tok/s
+  [mt_lnn     ] 11400/20000 loss 4.5352 | 15961 tok/s
+  [mt_lnn     ] 11500/20000 loss 4.9159 | 13704 tok/s
+  [mt_lnn] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 11600/20000 loss 4.6461 | 13381 tok/s
+  [mt_lnn     ] 11700/20000 loss 4.7888 | 13077 tok/s
+  [mt_lnn     ] 11800/20000 loss 4.9680 | 12844 tok/s
+  [mt_lnn     ] 11900/20000 loss 4.8507 | 15222 tok/s
+  [mt_lnn     ] 12000/20000 loss 4.9101 | 15971 tok/s
+  [mt_lnn] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 12100/20000 loss 4.2593 | 14045 tok/s
+  [mt_lnn     ] 12200/20000 loss 4.7978 | 15896 tok/s
+  [mt_lnn     ] 12300/20000 loss 4.7420 | 15892 tok/s
+  [mt_lnn     ] 12400/20000 loss 4.5362 | 15888 tok/s
+  [mt_lnn     ] 12500/20000 loss 4.6293 | 15890 tok/s
+  [mt_lnn] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 12600/20000 loss 4.9371 | 14074 tok/s
+  [mt_lnn     ] 12700/20000 loss 5.1683 | 15887 tok/s
+  [mt_lnn     ] 12800/20000 loss 4.8359 | 15901 tok/s
+  [mt_lnn     ] 12900/20000 loss 5.0542 | 15850 tok/s
+  [mt_lnn     ] 13000/20000 loss 4.8223 | 15876 tok/s
+  [mt_lnn] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 13100/20000 loss 4.9155 | 14102 tok/s
+  [mt_lnn     ] 13200/20000 loss 4.3134 | 15932 tok/s
+  [mt_lnn     ] 13300/20000 loss 4.2177 | 15889 tok/s
+  [mt_lnn     ] 13400/20000 loss 4.7491 | 15913 tok/s
+  [mt_lnn     ] 13500/20000 loss 5.1391 | 15867 tok/s
+  [mt_lnn] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 13600/20000 loss 4.9342 | 14050 tok/s
+  [mt_lnn     ] 13700/20000 loss 4.7650 | 15907 tok/s
+  [mt_lnn     ] 13800/20000 loss 4.4947 | 15882 tok/s
+  [mt_lnn     ] 13900/20000 loss 4.6825 | 15962 tok/s
+  [mt_lnn     ] 14000/20000 loss 5.2082 | 15928 tok/s
+  [mt_lnn] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 14100/20000 loss 4.5424 | 14116 tok/s
+  [mt_lnn     ] 14200/20000 loss 4.8291 | 15912 tok/s
+  [mt_lnn     ] 14300/20000 loss 4.8550 | 15871 tok/s
+  [mt_lnn     ] 14400/20000 loss 4.4913 | 15810 tok/s
+  [mt_lnn     ] 14500/20000 loss 4.6369 | 15955 tok/s
+  [mt_lnn] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 14600/20000 loss 4.6187 | 14051 tok/s
+  [mt_lnn     ] 14700/20000 loss 4.3589 | 15945 tok/s
+  [mt_lnn     ] 14800/20000 loss 4.5726 | 13965 tok/s
+  [mt_lnn     ] 14900/20000 loss 5.1870 | 12428 tok/s
+  [mt_lnn     ] 15000/20000 loss 4.8243 | 12661 tok/s
+  [mt_lnn] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 15100/20000 loss 4.9182 | 14146 tok/s
+  [mt_lnn     ] 15200/20000 loss 4.8908 | 15847 tok/s
+  [mt_lnn     ] 15300/20000 loss 4.5543 | 15919 tok/s
+  [mt_lnn     ] 15400/20000 loss 4.4400 | 15969 tok/s
+  [mt_lnn     ] 15500/20000 loss 4.8335 | 15959 tok/s
+  [mt_lnn] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 15600/20000 loss 4.8652 | 13991 tok/s
+  [mt_lnn     ] 15700/20000 loss 5.1487 | 15845 tok/s
+  [mt_lnn     ] 15800/20000 loss 4.7697 | 15953 tok/s
+  [mt_lnn     ] 15900/20000 loss 4.6660 | 15944 tok/s
+  [mt_lnn     ] 16000/20000 loss 5.0220 | 15846 tok/s
+  [mt_lnn] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 16100/20000 loss 4.7343 | 14029 tok/s
+  [mt_lnn     ] 16200/20000 loss 4.6828 | 15910 tok/s
+  [mt_lnn     ] 16300/20000 loss 4.2869 | 15887 tok/s
+  [mt_lnn     ] 16400/20000 loss 4.6054 | 15871 tok/s
+  [mt_lnn     ] 16500/20000 loss 4.3796 | 15896 tok/s
+  [mt_lnn] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 16600/20000 loss 4.5774 | 14098 tok/s
+  [mt_lnn     ] 16700/20000 loss 4.7200 | 15805 tok/s
+  [mt_lnn     ] 16800/20000 loss 5.0753 | 15868 tok/s
+  [mt_lnn     ] 16900/20000 loss 4.4907 | 15919 tok/s
+  [mt_lnn     ] 17000/20000 loss 4.8569 | 15942 tok/s
+  [mt_lnn] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 17100/20000 loss 4.7738 | 13883 tok/s
+  [mt_lnn     ] 17200/20000 loss 4.8297 | 15779 tok/s
+  [mt_lnn     ] 17300/20000 loss 4.5886 | 15815 tok/s
+  [mt_lnn     ] 17400/20000 loss 4.0112 | 15879 tok/s
+  [mt_lnn     ] 17500/20000 loss 4.3650 | 15846 tok/s
+  [mt_lnn] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 17600/20000 loss 4.8194 | 13982 tok/s
+  [mt_lnn     ] 17700/20000 loss 4.8586 | 15829 tok/s
+  [mt_lnn     ] 17800/20000 loss 3.5415 | 15891 tok/s
+  [mt_lnn     ] 17900/20000 loss 4.4582 | 15921 tok/s
+  [mt_lnn     ] 18000/20000 loss 4.7622 | 15743 tok/s
+  [mt_lnn] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 18100/20000 loss 5.0628 | 12102 tok/s
+  [mt_lnn     ] 18200/20000 loss 4.8515 | 15310 tok/s
+  [mt_lnn     ] 18300/20000 loss 4.9522 | 15301 tok/s
+  [mt_lnn     ] 18400/20000 loss 4.5244 | 14077 tok/s
+  [mt_lnn     ] 18500/20000 loss 4.7846 | 15892 tok/s
+  [mt_lnn] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 18600/20000 loss 4.6513 | 13929 tok/s
+  [mt_lnn     ] 18700/20000 loss 4.6982 | 15882 tok/s
+  [mt_lnn     ] 18800/20000 loss 4.6246 | 15885 tok/s
+  [mt_lnn     ] 18900/20000 loss 4.9042 | 15920 tok/s
+  [mt_lnn     ] 19000/20000 loss 4.1520 | 15882 tok/s
+  [mt_lnn] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 19100/20000 loss 4.9892 | 13972 tok/s
+  [mt_lnn     ] 19200/20000 loss 4.4325 | 15815 tok/s
+  [mt_lnn     ] 19300/20000 loss 4.9148 | 15858 tok/s
+  [mt_lnn     ] 19400/20000 loss 4.5392 | 13714 tok/s
+  [mt_lnn     ] 19500/20000 loss 4.5981 | 14995 tok/s
+  [mt_lnn] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn     ] 19600/20000 loss 5.0377 | 12477 tok/s
+  [mt_lnn     ] 19700/20000 loss 4.8355 | 15918 tok/s
+  [mt_lnn     ] 19800/20000 loss 4.7870 | 15927 tok/s
+  [mt_lnn     ] 19900/20000 loss 5.1129 | 15930 tok/s
+  [mt_lnn     ] 20000/20000 loss 4.5012 | 15873 tok/s
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+  [mt_lnn] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_mt_lnn_s2.pt
+
+=== transformer (train, seed 1) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 6s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 11s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 17s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 22s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 27s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 33s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 38s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 44s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 49s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 54s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 60s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (63s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [transformer] 100/20000 loss 6.8951 | 21724 tok/s
+  [transformer] 200/20000 loss 7.0032 | 21670 tok/s
+  [transformer] 300/20000 loss 6.6756 | 21462 tok/s
+  [transformer] 400/20000 loss 6.7215 | 21402 tok/s
+  [transformer] 500/20000 loss 6.2411 | 21251 tok/s
+  [transformer] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 600/20000 loss 6.5426 | 18799 tok/s
+  [transformer] 700/20000 loss 6.1849 | 21120 tok/s
+  [transformer] 800/20000 loss 6.3328 | 21289 tok/s
+  [transformer] 900/20000 loss 6.2520 | 21304 tok/s
+  [transformer] 1000/20000 loss 6.2145 | 21188 tok/s
+  [transformer] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 1100/20000 loss 6.1588 | 17421 tok/s
+  [transformer] 1200/20000 loss 5.9855 | 21127 tok/s
+  [transformer] 1300/20000 loss 6.0527 | 21105 tok/s
+  [transformer] 1400/20000 loss 6.3130 | 21312 tok/s
+  [transformer] 1500/20000 loss 5.7543 | 21274 tok/s
+  [transformer] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 1600/20000 loss 6.0374 | 17547 tok/s
+  [transformer] 1700/20000 loss 6.3656 | 21077 tok/s
+  [transformer] 1800/20000 loss 6.1651 | 21259 tok/s
+  [transformer] 1900/20000 loss 5.8811 | 21290 tok/s
+  [transformer] 2000/20000 loss 5.9723 | 21252 tok/s
+  [transformer] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 2100/20000 loss 6.0423 | 17479 tok/s
+  [transformer] 2200/20000 loss 6.0694 | 21029 tok/s
+  [transformer] 2300/20000 loss 5.4066 | 21100 tok/s
+  [transformer] 2400/20000 loss 6.0356 | 21109 tok/s
+  [transformer] 2500/20000 loss 5.8710 | 21076 tok/s
+  [transformer] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 2600/20000 loss 5.7977 | 17208 tok/s
+  [transformer] 2700/20000 loss 5.7091 | 20950 tok/s
+  [transformer] 2800/20000 loss 5.8973 | 21087 tok/s
+  [transformer] 2900/20000 loss 6.0289 | 20942 tok/s
+  [transformer] 3000/20000 loss 5.8551 | 21079 tok/s
+  [transformer] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 3100/20000 loss 5.4573 | 17536 tok/s
+  [transformer] 3200/20000 loss 5.6024 | 21088 tok/s
+  [transformer] 3300/20000 loss 5.7106 | 21073 tok/s
+  [transformer] 3400/20000 loss 5.9253 | 21066 tok/s
+  [transformer] 3500/20000 loss 5.5558 | 21038 tok/s
+  [transformer] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 3600/20000 loss 5.8542 | 17393 tok/s
+  [transformer] 3700/20000 loss 5.4406 | 21137 tok/s
+  [transformer] 3800/20000 loss 5.6383 | 21071 tok/s
+  [transformer] 3900/20000 loss 5.5589 | 21116 tok/s
+  [transformer] 4000/20000 loss 5.8592 | 21107 tok/s
+  [transformer] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 4100/20000 loss 5.5318 | 17493 tok/s
+  [transformer] 4200/20000 loss 5.6130 | 21104 tok/s
+  [transformer] 4300/20000 loss 5.5116 | 21130 tok/s
+  [transformer] 4400/20000 loss 5.4029 | 20944 tok/s
+  [transformer] 4500/20000 loss 5.4556 | 21115 tok/s
+  [transformer] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 4600/20000 loss 4.9697 | 17407 tok/s
+  [transformer] 4700/20000 loss 5.1704 | 21141 tok/s
+  [transformer] 4800/20000 loss 5.6081 | 21119 tok/s
+  [transformer] 4900/20000 loss 5.6170 | 21150 tok/s
+  [transformer] 5000/20000 loss 6.1024 | 21039 tok/s
+  [transformer] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 5100/20000 loss 5.7745 | 17480 tok/s
+  [transformer] 5200/20000 loss 5.2966 | 21123 tok/s
+  [transformer] 5300/20000 loss 5.0847 | 21063 tok/s
+  [transformer] 5400/20000 loss 5.2677 | 21229 tok/s
+  [transformer] 5500/20000 loss 5.0330 | 21196 tok/s
+  [transformer] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 5600/20000 loss 4.9333 | 17341 tok/s
+  [transformer] 5700/20000 loss 5.5429 | 21103 tok/s
+  [transformer] 5800/20000 loss 5.4964 | 21122 tok/s
+  [transformer] 5900/20000 loss 5.8092 | 21119 tok/s
+  [transformer] 6000/20000 loss 5.4893 | 21085 tok/s
+  [transformer] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 6100/20000 loss 5.5204 | 17327 tok/s
+  [transformer] 6200/20000 loss 5.2812 | 21071 tok/s
+  [transformer] 6300/20000 loss 5.5895 | 21079 tok/s
+  [transformer] 6400/20000 loss 5.5097 | 21132 tok/s
+  [transformer] 6500/20000 loss 4.9154 | 21078 tok/s
+  [transformer] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 6600/20000 loss 5.7442 | 17359 tok/s
+  [transformer] 6700/20000 loss 5.3157 | 21037 tok/s
+  [transformer] 6800/20000 loss 5.3885 | 21049 tok/s
+  [transformer] 6900/20000 loss 5.5292 | 21056 tok/s
+  [transformer] 7000/20000 loss 5.4240 | 20957 tok/s
+  [transformer] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 7100/20000 loss 5.2322 | 17216 tok/s
+  [transformer] 7200/20000 loss 5.2291 | 21089 tok/s
+  [transformer] 7300/20000 loss 5.6087 | 21121 tok/s
+  [transformer] 7400/20000 loss 4.8904 | 21068 tok/s
+  [transformer] 7500/20000 loss 4.9536 | 21095 tok/s
+  [transformer] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 7600/20000 loss 5.0752 | 17454 tok/s
+  [transformer] 7700/20000 loss 5.0144 | 21108 tok/s
+  [transformer] 7800/20000 loss 5.3015 | 21180 tok/s
+  [transformer] 7900/20000 loss 5.1405 | 21258 tok/s
+  [transformer] 8000/20000 loss 5.5370 | 21284 tok/s
+  [transformer] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 8100/20000 loss 5.2109 | 17285 tok/s
+  [transformer] 8200/20000 loss 5.1511 | 21052 tok/s
+  [transformer] 8300/20000 loss 4.9550 | 21105 tok/s
+  [transformer] 8400/20000 loss 5.3665 | 21071 tok/s
+  [transformer] 8500/20000 loss 4.8935 | 21054 tok/s
+  [transformer] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 8600/20000 loss 5.4825 | 17415 tok/s
+  [transformer] 8700/20000 loss 5.4330 | 21054 tok/s
+  [transformer] 8800/20000 loss 4.7523 | 21080 tok/s
+  [transformer] 8900/20000 loss 5.5345 | 21087 tok/s
+  [transformer] 9000/20000 loss 5.4150 | 21093 tok/s
+  [transformer] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 9100/20000 loss 5.2061 | 17638 tok/s
+  [transformer] 9200/20000 loss 5.3048 | 21085 tok/s
+  [transformer] 9300/20000 loss 5.1794 | 21114 tok/s
+  [transformer] 9400/20000 loss 4.7353 | 21212 tok/s
+  [transformer] 9500/20000 loss 5.5098 | 21074 tok/s
+  [transformer] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 9600/20000 loss 5.1938 | 17534 tok/s
+  [transformer] 9700/20000 loss 4.2898 | 21097 tok/s
+  [transformer] 9800/20000 loss 4.9190 | 21195 tok/s
+  [transformer] 9900/20000 loss 4.8473 | 21210 tok/s
+  [transformer] 10000/20000 loss 5.2160 | 21189 tok/s
+  [transformer] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 10100/20000 loss 5.3457 | 17550 tok/s
+  [transformer] 10200/20000 loss 5.5066 | 21244 tok/s
+  [transformer] 10300/20000 loss 4.7228 | 21208 tok/s
+  [transformer] 10400/20000 loss 5.2008 | 20991 tok/s
+  [transformer] 10500/20000 loss 5.2312 | 21118 tok/s
+  [transformer] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 10600/20000 loss 5.3256 | 17392 tok/s
+  [transformer] 10700/20000 loss 4.5476 | 21135 tok/s
+  [transformer] 10800/20000 loss 4.7225 | 21098 tok/s
+  [transformer] 10900/20000 loss 4.9276 | 21087 tok/s
+  [transformer] 11000/20000 loss 5.0655 | 21117 tok/s
+  [transformer] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 11100/20000 loss 5.1196 | 17479 tok/s
+  [transformer] 11200/20000 loss 5.1040 | 21042 tok/s
+  [transformer] 11300/20000 loss 5.0899 | 21111 tok/s
+  [transformer] 11400/20000 loss 5.6008 | 21081 tok/s
+  [transformer] 11500/20000 loss 4.8907 | 21072 tok/s
+  [transformer] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 11600/20000 loss 4.4968 | 17245 tok/s
+  [transformer] 11700/20000 loss 5.0809 | 20909 tok/s
+  [transformer] 11800/20000 loss 4.5687 | 20950 tok/s
+  [transformer] 11900/20000 loss 5.0624 | 20820 tok/s
+  [transformer] 12000/20000 loss 5.0560 | 20935 tok/s
+  [transformer] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 12100/20000 loss 4.8007 | 17461 tok/s
+  [transformer] 12200/20000 loss 4.8997 | 21235 tok/s
+  [transformer] 12300/20000 loss 5.2899 | 21300 tok/s
+  [transformer] 12400/20000 loss 4.8689 | 21203 tok/s
+  [transformer] 12500/20000 loss 5.2913 | 21178 tok/s
+  [transformer] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 12600/20000 loss 5.1085 | 17441 tok/s
+  [transformer] 12700/20000 loss 5.2276 | 20969 tok/s
+  [transformer] 12800/20000 loss 5.0630 | 21102 tok/s
+  [transformer] 12900/20000 loss 4.8856 | 21194 tok/s
+  [transformer] 13000/20000 loss 4.8765 | 21178 tok/s
+  [transformer] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 13100/20000 loss 4.5668 | 17515 tok/s
+  [transformer] 13200/20000 loss 4.7854 | 21206 tok/s
+  [transformer] 13300/20000 loss 4.7982 | 21150 tok/s
+  [transformer] 13400/20000 loss 5.1205 | 21259 tok/s
+  [transformer] 13500/20000 loss 5.2108 | 21256 tok/s
+  [transformer] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 13600/20000 loss 4.9991 | 17389 tok/s
+  [transformer] 13700/20000 loss 4.9897 | 21064 tok/s
+  [transformer] 13800/20000 loss 5.3523 | 21091 tok/s
+  [transformer] 13900/20000 loss 5.0097 | 20939 tok/s
+  [transformer] 14000/20000 loss 4.6129 | 21034 tok/s
+  [transformer] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 14100/20000 loss 4.7604 | 17692 tok/s
+  [transformer] 14200/20000 loss 5.1160 | 21250 tok/s
+  [transformer] 14300/20000 loss 5.1740 | 21266 tok/s
+  [transformer] 14400/20000 loss 4.3523 | 21153 tok/s
+  [transformer] 14500/20000 loss 4.7604 | 21089 tok/s
+  [transformer] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 14600/20000 loss 4.7866 | 17535 tok/s
+  [transformer] 14700/20000 loss 5.0209 | 21086 tok/s
+  [transformer] 14800/20000 loss 4.9108 | 21157 tok/s
+  [transformer] 14900/20000 loss 4.9581 | 21207 tok/s
+  [transformer] 15000/20000 loss 4.9452 | 21157 tok/s
+  [transformer] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 15100/20000 loss 4.3137 | 17532 tok/s
+  [transformer] 15200/20000 loss 5.0398 | 21238 tok/s
+  [transformer] 15300/20000 loss 4.5950 | 21165 tok/s
+  [transformer] 15400/20000 loss 4.9760 | 21181 tok/s
+  [transformer] 15500/20000 loss 4.6445 | 21166 tok/s
+  [transformer] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 15600/20000 loss 4.3721 | 17421 tok/s
+  [transformer] 15700/20000 loss 4.8165 | 21028 tok/s
+  [transformer] 15800/20000 loss 4.3227 | 21074 tok/s
+  [transformer] 15900/20000 loss 5.1879 | 21007 tok/s
+  [transformer] 16000/20000 loss 4.9643 | 21082 tok/s
+  [transformer] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 16100/20000 loss 4.9127 | 17494 tok/s
+  [transformer] 16200/20000 loss 4.3049 | 21035 tok/s
+  [transformer] 16300/20000 loss 4.4858 | 21033 tok/s
+  [transformer] 16400/20000 loss 4.9446 | 21078 tok/s
+  [transformer] 16500/20000 loss 4.7743 | 21078 tok/s
+  [transformer] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 16600/20000 loss 5.4296 | 15832 tok/s
+  [transformer] 16700/20000 loss 4.8480 | 20872 tok/s
+  [transformer] 16800/20000 loss 4.9143 | 21019 tok/s
+  [transformer] 16900/20000 loss 4.9883 | 21000 tok/s
+  [transformer] 17000/20000 loss 5.0685 | 21068 tok/s
+  [transformer] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 17100/20000 loss 4.0671 | 17384 tok/s
+  [transformer] 17200/20000 loss 4.2199 | 21220 tok/s
+  [transformer] 17300/20000 loss 5.0031 | 21209 tok/s
+  [transformer] 17400/20000 loss 4.8336 | 21142 tok/s
+  [transformer] 17500/20000 loss 4.6795 | 21106 tok/s
+  [transformer] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 17600/20000 loss 4.3534 | 17581 tok/s
+  [transformer] 17700/20000 loss 5.0571 | 21187 tok/s
+  [transformer] 17800/20000 loss 4.8929 | 21159 tok/s
+  [transformer] 17900/20000 loss 4.1347 | 20924 tok/s
+  [transformer] 18000/20000 loss 4.3894 | 21191 tok/s
+  [transformer] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 18100/20000 loss 4.9164 | 17485 tok/s
+  [transformer] 18200/20000 loss 4.5402 | 21108 tok/s
+  [transformer] 18300/20000 loss 4.5264 | 21132 tok/s
+  [transformer] 18400/20000 loss 4.6708 | 21012 tok/s
+  [transformer] 18500/20000 loss 4.5003 | 21059 tok/s
+  [transformer] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 18600/20000 loss 4.7000 | 17584 tok/s
+  [transformer] 18700/20000 loss 4.3186 | 21088 tok/s
+  [transformer] 18800/20000 loss 4.4916 | 21071 tok/s
+  [transformer] 18900/20000 loss 4.6091 | 21079 tok/s
+  [transformer] 19000/20000 loss 4.8781 | 21044 tok/s
+  [transformer] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 19100/20000 loss 4.6113 | 17527 tok/s
+  [transformer] 19200/20000 loss 4.6199 | 21154 tok/s
+  [transformer] 19300/20000 loss 4.6393 | 21144 tok/s
+  [transformer] 19400/20000 loss 4.8373 | 21086 tok/s
+  [transformer] 19500/20000 loss 4.8773 | 21082 tok/s
+  [transformer] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] 19600/20000 loss 3.9298 | 17449 tok/s
+  [transformer] 19700/20000 loss 4.7255 | 21163 tok/s
+  [transformer] 19800/20000 loss 4.3405 | 21211 tok/s
+  [transformer] 19900/20000 loss 4.6522 | 21187 tok/s
+  [transformer] 20000/20000 loss 4.7245 | 21208 tok/s
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s1.pt
+
+=== transformer (train, seed 2) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 5s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 11s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 16s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 21s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] 500000/1165029 rows, 51.0M tokens, 27s
+    [tokenize train] 600000/1165029 rows, 61.5M tokens, 32s
+    [tokenize train] 700000/1165029 rows, 71.6M tokens, 38s
+    [tokenize train] 800000/1165029 rows, 81.9M tokens, 43s
+    [tokenize train] 900000/1165029 rows, 92.1M tokens, 48s
+    [tokenize train] 1000000/1165029 rows, 102.4M tokens, 54s
+    [tokenize train] 1100000/1165029 rows, 112.6M tokens, 59s
+    [tokenize train] done: 119.1M tokens -> 232588 chunks of 512 (63s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [transformer] 100/20000 loss 6.8848 | 21726 tok/s
+  [transformer] 200/20000 loss 6.7659 | 21526 tok/s
+  [transformer] 300/20000 loss 6.5940 | 21433 tok/s
+  [transformer] 400/20000 loss 6.5871 | 21303 tok/s
+  [transformer] 500/20000 loss 6.4359 | 21168 tok/s
+  [transformer] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 600/20000 loss 6.3133 | 18960 tok/s
+  [transformer] 700/20000 loss 6.2674 | 21088 tok/s
+  [transformer] 800/20000 loss 6.3483 | 21082 tok/s
+  [transformer] 900/20000 loss 6.1767 | 21093 tok/s
+  [transformer] 1000/20000 loss 6.2922 | 21318 tok/s
+  [transformer] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 1100/20000 loss 6.1092 | 17507 tok/s
+  [transformer] 1200/20000 loss 5.9790 | 21119 tok/s
+  [transformer] 1300/20000 loss 6.2599 | 21207 tok/s
+  [transformer] 1400/20000 loss 6.2228 | 21303 tok/s
+  [transformer] 1500/20000 loss 6.1506 | 21103 tok/s
+  [transformer] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 1600/20000 loss 6.0370 | 17471 tok/s
+  [transformer] 1700/20000 loss 6.1940 | 21168 tok/s
+  [transformer] 1800/20000 loss 5.9434 | 21138 tok/s
+  [transformer] 1900/20000 loss 6.1003 | 21085 tok/s
+  [transformer] 2000/20000 loss 6.2664 | 21071 tok/s
+  [transformer] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 2100/20000 loss 5.7501 | 17478 tok/s
+  [transformer] 2200/20000 loss 5.8261 | 21117 tok/s
+  [transformer] 2300/20000 loss 5.7443 | 21158 tok/s
+  [transformer] 2400/20000 loss 6.1463 | 21052 tok/s
+  [transformer] 2500/20000 loss 5.7502 | 21106 tok/s
+  [transformer] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 2600/20000 loss 6.0790 | 17603 tok/s
+  [transformer] 2700/20000 loss 5.7355 | 21211 tok/s
+  [transformer] 2800/20000 loss 5.3951 | 21203 tok/s
+  [transformer] 2900/20000 loss 6.0486 | 21079 tok/s
+  [transformer] 3000/20000 loss 6.0890 | 21238 tok/s
+  [transformer] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 3100/20000 loss 5.9062 | 17336 tok/s
+  [transformer] 3200/20000 loss 6.2240 | 21017 tok/s
+  [transformer] 3300/20000 loss 5.7349 | 21099 tok/s
+  [transformer] 3400/20000 loss 5.7513 | 21118 tok/s
+  [transformer] 3500/20000 loss 5.5261 | 21055 tok/s
+  [transformer] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 3600/20000 loss 5.6768 | 17331 tok/s
+  [transformer] 3700/20000 loss 5.7467 | 21111 tok/s
+  [transformer] 3800/20000 loss 5.7317 | 21085 tok/s
+  [transformer] 3900/20000 loss 6.0308 | 21106 tok/s
+  [transformer] 4000/20000 loss 5.8173 | 21035 tok/s
+  [transformer] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 4100/20000 loss 5.3617 | 17566 tok/s
+  [transformer] 4200/20000 loss 5.7648 | 21055 tok/s
+  [transformer] 4300/20000 loss 5.4173 | 21101 tok/s
+  [transformer] 4400/20000 loss 5.5655 | 21089 tok/s
+  [transformer] 4500/20000 loss 5.5223 | 21072 tok/s
+  [transformer] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 4600/20000 loss 5.6544 | 17183 tok/s
+  [transformer] 4700/20000 loss 5.4318 | 20982 tok/s
+  [transformer] 4800/20000 loss 5.5211 | 21058 tok/s
+  [transformer] 4900/20000 loss 5.6294 | 21095 tok/s
+  [transformer] 5000/20000 loss 5.9279 | 21118 tok/s
+  [transformer] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 5100/20000 loss 5.4130 | 17246 tok/s
+  [transformer] 5200/20000 loss 5.4208 | 21004 tok/s
+  [transformer] 5300/20000 loss 5.4900 | 21072 tok/s
+  [transformer] 5400/20000 loss 5.5497 | 21068 tok/s
+  [transformer] 5500/20000 loss 5.7585 | 20991 tok/s
+  [transformer] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 5600/20000 loss 5.6549 | 17609 tok/s
+  [transformer] 5700/20000 loss 5.5541 | 21326 tok/s
+  [transformer] 5800/20000 loss 5.8802 | 21305 tok/s
+  [transformer] 5900/20000 loss 5.6494 | 21298 tok/s
+  [transformer] 6000/20000 loss 5.4763 | 21261 tok/s
+  [transformer] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 6100/20000 loss 5.3100 | 17604 tok/s
+  [transformer] 6200/20000 loss 5.6759 | 21082 tok/s
+  [transformer] 6300/20000 loss 5.4051 | 21069 tok/s
+  [transformer] 6400/20000 loss 5.4307 | 21037 tok/s
+  [transformer] 6500/20000 loss 5.1069 | 21081 tok/s
+  [transformer] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 6600/20000 loss 4.9829 | 17461 tok/s
+  [transformer] 6700/20000 loss 5.5550 | 21115 tok/s
+  [transformer] 6800/20000 loss 4.9608 | 21241 tok/s
+  [transformer] 6900/20000 loss 5.1805 | 21107 tok/s
+  [transformer] 7000/20000 loss 5.3518 | 21224 tok/s
+  [transformer] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 7100/20000 loss 5.3373 | 17515 tok/s
+  [transformer] 7200/20000 loss 5.5130 | 21071 tok/s
+  [transformer] 7300/20000 loss 5.6745 | 21128 tok/s
+  [transformer] 7400/20000 loss 5.3248 | 21238 tok/s
+  [transformer] 7500/20000 loss 5.5766 | 21104 tok/s
+  [transformer] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 7600/20000 loss 5.9301 | 17409 tok/s
+  [transformer] 7700/20000 loss 5.3960 | 21114 tok/s
+  [transformer] 7800/20000 loss 5.3064 | 21055 tok/s
+  [transformer] 7900/20000 loss 5.6737 | 21156 tok/s
+  [transformer] 8000/20000 loss 5.1537 | 20923 tok/s
+  [transformer] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 8100/20000 loss 4.8102 | 17197 tok/s
+  [transformer] 8200/20000 loss 5.4933 | 20928 tok/s
+  [transformer] 8300/20000 loss 5.0800 | 20925 tok/s
+  [transformer] 8400/20000 loss 5.6862 | 21024 tok/s
+  [transformer] 8500/20000 loss 5.2077 | 21110 tok/s
+  [transformer] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 8600/20000 loss 5.1625 | 17347 tok/s
+  [transformer] 8700/20000 loss 5.3611 | 21147 tok/s
+  [transformer] 8800/20000 loss 5.5587 | 20998 tok/s
+  [transformer] 8900/20000 loss 5.2397 | 21050 tok/s
+  [transformer] 9000/20000 loss 5.0442 | 21054 tok/s
+  [transformer] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 9100/20000 loss 5.0431 | 17401 tok/s
+  [transformer] 9200/20000 loss 5.1126 | 21379 tok/s
+  [transformer] 9300/20000 loss 5.6391 | 21304 tok/s
+  [transformer] 9400/20000 loss 4.8311 | 21328 tok/s
+  [transformer] 9500/20000 loss 4.7390 | 21299 tok/s
+  [transformer] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 9600/20000 loss 4.9773 | 17435 tok/s
+  [transformer] 9700/20000 loss 5.0231 | 21291 tok/s
+  [transformer] 9800/20000 loss 5.4107 | 21122 tok/s
+  [transformer] 9900/20000 loss 4.8217 | 21271 tok/s
+  [transformer] 10000/20000 loss 5.4718 | 21045 tok/s
+  [transformer] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 10100/20000 loss 4.6922 | 17390 tok/s
+  [transformer] 10200/20000 loss 5.3995 | 21090 tok/s
+  [transformer] 10300/20000 loss 5.1579 | 21017 tok/s
+  [transformer] 10400/20000 loss 4.7793 | 21030 tok/s
+  [transformer] 10500/20000 loss 4.9368 | 21105 tok/s
+  [transformer] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 10600/20000 loss 4.9549 | 17427 tok/s
+  [transformer] 10700/20000 loss 5.1462 | 21146 tok/s
+  [transformer] 10800/20000 loss 5.3534 | 21220 tok/s
+  [transformer] 10900/20000 loss 4.9646 | 21232 tok/s
+  [transformer] 11000/20000 loss 4.4837 | 21223 tok/s
+  [transformer] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 11100/20000 loss 5.3962 | 17371 tok/s
+  [transformer] 11200/20000 loss 5.7353 | 21111 tok/s
+  [transformer] 11300/20000 loss 5.1930 | 21118 tok/s
+  [transformer] 11400/20000 loss 4.7218 | 21046 tok/s
+  [transformer] 11500/20000 loss 5.1008 | 21116 tok/s
+  [transformer] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 11600/20000 loss 4.8662 | 17416 tok/s
+  [transformer] 11700/20000 loss 4.9579 | 21129 tok/s
+  [transformer] 11800/20000 loss 5.2582 | 21226 tok/s
+  [transformer] 11900/20000 loss 5.0876 | 21169 tok/s
+  [transformer] 12000/20000 loss 5.0627 | 21093 tok/s
+  [transformer] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 12100/20000 loss 4.5027 | 17436 tok/s
+  [transformer] 12200/20000 loss 4.9604 | 21050 tok/s
+  [transformer] 12300/20000 loss 4.9545 | 21034 tok/s
+  [transformer] 12400/20000 loss 4.7544 | 21123 tok/s
+  [transformer] 12500/20000 loss 4.8049 | 21146 tok/s
+  [transformer] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 12600/20000 loss 5.1523 | 17173 tok/s
+  [transformer] 12700/20000 loss 5.3043 | 20988 tok/s
+  [transformer] 12800/20000 loss 4.9591 | 19431 tok/s
+  [transformer] 12900/20000 loss 5.2272 | 10373 tok/s
+  [transformer] 13000/20000 loss 4.9702 | 10185 tok/s
+  [transformer] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 13100/20000 loss 5.0399 | 9380 tok/s
+  [transformer] 13200/20000 loss 4.4707 | 10420 tok/s
+  [transformer] 13300/20000 loss 4.3601 | 10467 tok/s
+  [transformer] 13400/20000 loss 4.9543 | 10450 tok/s
+  [transformer] 13500/20000 loss 5.2442 | 10455 tok/s
+  [transformer] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 13600/20000 loss 5.0198 | 9347 tok/s
+  [transformer] 13700/20000 loss 4.8948 | 10458 tok/s
+  [transformer] 13800/20000 loss 4.5990 | 10415 tok/s
+  [transformer] 13900/20000 loss 4.7793 | 10442 tok/s
+  [transformer] 14000/20000 loss 5.3227 | 10451 tok/s
+  [transformer] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 14100/20000 loss 4.6906 | 9410 tok/s
+  [transformer] 14200/20000 loss 5.0354 | 10380 tok/s
+  [transformer] 14300/20000 loss 5.0414 | 10412 tok/s
+  [transformer] 14400/20000 loss 4.5972 | 10464 tok/s
+  [transformer] 14500/20000 loss 4.7280 | 10446 tok/s
+  [transformer] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 14600/20000 loss 4.7170 | 9274 tok/s
+  [transformer] 14700/20000 loss 4.4903 | 10412 tok/s
+  [transformer] 14800/20000 loss 4.7047 | 10383 tok/s
+  [transformer] 14900/20000 loss 5.3275 | 10389 tok/s
+  [transformer] 15000/20000 loss 5.0088 | 10396 tok/s
+  [transformer] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 15100/20000 loss 5.0856 | 9366 tok/s
+  [transformer] 15200/20000 loss 5.1048 | 10472 tok/s
+  [transformer] 15300/20000 loss 4.6653 | 10441 tok/s
+  [transformer] 15400/20000 loss 4.5241 | 10346 tok/s
+  [transformer] 15500/20000 loss 4.9173 | 10396 tok/s
+  [transformer] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 15600/20000 loss 5.0104 | 9421 tok/s
+  [transformer] 15700/20000 loss 5.2149 | 10450 tok/s
+  [transformer] 15800/20000 loss 4.9414 | 10370 tok/s
+  [transformer] 15900/20000 loss 4.7201 | 10465 tok/s
+  [transformer] 16000/20000 loss 5.0921 | 10450 tok/s
+  [transformer] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 16100/20000 loss 4.8069 | 9348 tok/s
+  [transformer] 16200/20000 loss 4.8202 | 10466 tok/s
+  [transformer] 16300/20000 loss 4.3964 | 10438 tok/s
+  [transformer] 16400/20000 loss 4.6947 | 10412 tok/s
+  [transformer] 16500/20000 loss 4.4162 | 10397 tok/s
+  [transformer] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 16600/20000 loss 4.7210 | 9366 tok/s
+  [transformer] 16700/20000 loss 4.8447 | 10381 tok/s
+  [transformer] 16800/20000 loss 5.1584 | 10348 tok/s
+  [transformer] 16900/20000 loss 4.5376 | 10252 tok/s
+  [transformer] 17000/20000 loss 4.9254 | 10257 tok/s
+  [transformer] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 17100/20000 loss 4.8425 | 9425 tok/s
+  [transformer] 17200/20000 loss 4.9198 | 10317 tok/s
+  [transformer] 17300/20000 loss 4.6461 | 10258 tok/s
+  [transformer] 17400/20000 loss 4.1097 | 10249 tok/s
+  [transformer] 17500/20000 loss 4.4898 | 10340 tok/s
+  [transformer] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 17600/20000 loss 4.8986 | 9389 tok/s
+  [transformer] 17700/20000 loss 4.9840 | 10449 tok/s
+  [transformer] 17800/20000 loss 3.5789 | 10466 tok/s
+  [transformer] 17900/20000 loss 4.5655 | 10466 tok/s
+  [transformer] 18000/20000 loss 4.8459 | 10317 tok/s
+  [transformer] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 18100/20000 loss 5.1652 | 9449 tok/s
+  [transformer] 18200/20000 loss 4.9885 | 10478 tok/s
+  [transformer] 18300/20000 loss 4.9986 | 10471 tok/s
+  [transformer] 18400/20000 loss 4.5475 | 10413 tok/s
+  [transformer] 18500/20000 loss 4.8486 | 10431 tok/s
+  [transformer] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 18600/20000 loss 4.7189 | 9426 tok/s
+  [transformer] 18700/20000 loss 4.7837 | 10394 tok/s
+  [transformer] 18800/20000 loss 4.6231 | 10396 tok/s
+  [transformer] 18900/20000 loss 4.9806 | 10393 tok/s
+  [transformer] 19000/20000 loss 4.1637 | 10462 tok/s
+  [transformer] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 19100/20000 loss 5.0642 | 9318 tok/s
+  [transformer] 19200/20000 loss 4.4604 | 10397 tok/s
+  [transformer] 19300/20000 loss 5.0018 | 10443 tok/s
+  [transformer] 19400/20000 loss 4.6004 | 10435 tok/s
+  [transformer] 19500/20000 loss 4.6429 | 10403 tok/s
+  [transformer] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] 19600/20000 loss 5.0777 | 9419 tok/s
+  [transformer] 19700/20000 loss 4.8825 | 10357 tok/s
+  [transformer] 19800/20000 loss 4.8584 | 10425 tok/s
+  [transformer] 19900/20000 loss 5.1831 | 10359 tok/s
+  [transformer] 20000/20000 loss 4.5275 | 10375 tok/s
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+  [transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/converge_probe/checkpoints/train_transformer_s2.pt
+
+========================================================================
+SCALING TRAIN | WikiText-103 | 20000 steps | seeds [1, 2]
+arch               params  stable     val_ppl (mean卤std)   n
+mt_lnn        126,041,819    True       88.75 卤 0.19      2
+transformer   142,051,520    True       93.89 卤 0.92      2
+
+=======================================================================
+END combined log
+=======================================================================
