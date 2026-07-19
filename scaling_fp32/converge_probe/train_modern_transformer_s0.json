@@ -1,0 +1,9 @@
+{
+  "arch": "modern_transformer",
+  "seed": 0,
+  "params": 144070784,
+  "stable": true,
+  "final_loss": 4.201479434967041,
+  "val_ppl": 79.1464987331495,
+  "steps": 20000
+}

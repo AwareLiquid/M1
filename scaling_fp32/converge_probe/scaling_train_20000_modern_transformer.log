@@ -1,0 +1,404 @@
+﻿========================================================================
+SCALING TRAIN | WikiText-103 | 20000 steps | arch modern_transformer | extracted log
+Source: E:\M1\scaling_fp32\run.log
+Generated: 2026-07-19 23:14:52 +08:00
+========================================================================
+
+device=cuda dtype=torch.float32 mode=train d_model=832 n_layers=12 archs=['modern_transformer']
+[skip] modern_transformer seed 0
+
+=== modern_transformer (train, seed 1) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 7s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 13s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 19s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 25s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] done: 50.0M tokens -> 97656 chunks of 512 (31s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [modern_transformer] resumed checkpoint: step 10500/20000, cursor 42000
+  [modern_transformer] 10600/20000 loss 5.1891 | 18917 tok/s
+  [modern_transformer] 10700/20000 loss 4.6352 | 20319 tok/s
+  [modern_transformer] 10800/20000 loss 4.5029 | 20201 tok/s
+  [modern_transformer] 10900/20000 loss 4.3607 | 20080 tok/s
+  [modern_transformer] 11000/20000 loss 4.7785 | 20010 tok/s
+  [modern_transformer] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 11100/20000 loss 5.2231 | 16497 tok/s
+  [modern_transformer] 11200/20000 loss 4.7994 | 19842 tok/s
+  [modern_transformer] 11300/20000 loss 4.5518 | 19796 tok/s
+  [modern_transformer] 11400/20000 loss 4.9211 | 19782 tok/s
+  [modern_transformer] 11500/20000 loss 5.1255 | 19762 tok/s
+  [modern_transformer] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 11600/20000 loss 4.5610 | 16572 tok/s
+  [modern_transformer] 11700/20000 loss 4.4399 | 19882 tok/s
+  [modern_transformer] 11800/20000 loss 4.9119 | 19852 tok/s
+  [modern_transformer] 11900/20000 loss 5.3227 | 19851 tok/s
+  [modern_transformer] 12000/20000 loss 5.2234 | 19830 tok/s
+  [modern_transformer] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 12100/20000 loss 4.8409 | 16490 tok/s
+  [modern_transformer] 12200/20000 loss 4.5046 | 19772 tok/s
+  [modern_transformer] 12300/20000 loss 4.8707 | 19763 tok/s
+  [modern_transformer] 12400/20000 loss 4.0438 | 19745 tok/s
+  [modern_transformer] 12500/20000 loss 4.5812 | 19743 tok/s
+  [modern_transformer] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 12600/20000 loss 4.3145 | 16481 tok/s
+  [modern_transformer] 12700/20000 loss 4.5660 | 19753 tok/s
+  [modern_transformer] 12800/20000 loss 4.1971 | 19759 tok/s
+  [modern_transformer] 12900/20000 loss 4.8304 | 19748 tok/s
+  [modern_transformer] 13000/20000 loss 4.7052 | 19751 tok/s
+  [modern_transformer] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 13100/20000 loss 4.9900 | 16477 tok/s
+  [modern_transformer] 13200/20000 loss 4.2958 | 19756 tok/s
+  [modern_transformer] 13300/20000 loss 5.0229 | 19749 tok/s
+  [modern_transformer] 13400/20000 loss 4.7824 | 19733 tok/s
+  [modern_transformer] 13500/20000 loss 4.3989 | 19735 tok/s
+  [modern_transformer] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 13600/20000 loss 4.0579 | 16501 tok/s
+  [modern_transformer] 13700/20000 loss 4.3470 | 19747 tok/s
+  [modern_transformer] 13800/20000 loss 4.6876 | 19745 tok/s
+  [modern_transformer] 13900/20000 loss 4.5015 | 19733 tok/s
+  [modern_transformer] 14000/20000 loss 4.8350 | 19736 tok/s
+  [modern_transformer] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 14100/20000 loss 4.5775 | 16400 tok/s
+  [modern_transformer] 14200/20000 loss 4.7494 | 19681 tok/s
+  [modern_transformer] 14300/20000 loss 5.1503 | 19685 tok/s
+  [modern_transformer] 14400/20000 loss 4.5606 | 19669 tok/s
+  [modern_transformer] 14500/20000 loss 4.9273 | 19665 tok/s
+  [modern_transformer] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 14600/20000 loss 4.3694 | 16608 tok/s
+  [modern_transformer] 14700/20000 loss 4.6850 | 19818 tok/s
+  [modern_transformer] 14800/20000 loss 4.5156 | 19811 tok/s
+  [modern_transformer] 14900/20000 loss 5.1476 | 19803 tok/s
+  [modern_transformer] 15000/20000 loss 4.5499 | 19811 tok/s
+  [modern_transformer] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 15100/20000 loss 4.5665 | 16132 tok/s
+  [modern_transformer] 15200/20000 loss 4.4437 | 19438 tok/s
+  [modern_transformer] 15300/20000 loss 4.2727 | 19424 tok/s
+  [modern_transformer] 15400/20000 loss 4.3980 | 19506 tok/s
+  [modern_transformer] 15500/20000 loss 4.2106 | 19738 tok/s
+  [modern_transformer] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 15600/20000 loss 4.4408 | 16417 tok/s
+  [modern_transformer] 15700/20000 loss 4.4074 | 19759 tok/s
+  [modern_transformer] 15800/20000 loss 4.4416 | 19749 tok/s
+  [modern_transformer] 15900/20000 loss 4.6590 | 19742 tok/s
+  [modern_transformer] 16000/20000 loss 4.7397 | 19742 tok/s
+  [modern_transformer] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 16100/20000 loss 4.6787 | 16406 tok/s
+  [modern_transformer] 16200/20000 loss 4.5171 | 19752 tok/s
+  [modern_transformer] 16300/20000 loss 4.2464 | 19754 tok/s
+  [modern_transformer] 16400/20000 loss 4.5363 | 19742 tok/s
+  [modern_transformer] 16500/20000 loss 4.6646 | 19740 tok/s
+  [modern_transformer] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 16600/20000 loss 5.0416 | 16440 tok/s
+  [modern_transformer] 16700/20000 loss 4.6429 | 19757 tok/s
+  [modern_transformer] 16800/20000 loss 4.7737 | 19754 tok/s
+  [modern_transformer] 16900/20000 loss 4.3109 | 19741 tok/s
+  [modern_transformer] 17000/20000 loss 4.7184 | 19740 tok/s
+  [modern_transformer] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 17100/20000 loss 4.1187 | 16485 tok/s
+  [modern_transformer] 17200/20000 loss 4.8620 | 19748 tok/s
+  [modern_transformer] 17300/20000 loss 4.6195 | 19744 tok/s
+  [modern_transformer] 17400/20000 loss 3.7381 | 19740 tok/s
+  [modern_transformer] 17500/20000 loss 4.6339 | 19738 tok/s
+  [modern_transformer] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 17600/20000 loss 4.5665 | 16400 tok/s
+  [modern_transformer] 17700/20000 loss 4.0160 | 19748 tok/s
+  [modern_transformer] 17800/20000 loss 4.6305 | 19749 tok/s
+  [modern_transformer] 17900/20000 loss 4.3481 | 19744 tok/s
+  [modern_transformer] 18000/20000 loss 3.9929 | 19728 tok/s
+  [modern_transformer] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 18100/20000 loss 4.1156 | 16357 tok/s
+  [modern_transformer] 18200/20000 loss 4.1424 | 19757 tok/s
+  [modern_transformer] 18300/20000 loss 4.8474 | 19745 tok/s
+  [modern_transformer] 18400/20000 loss 4.8071 | 19740 tok/s
+  [modern_transformer] 18500/20000 loss 4.6009 | 19737 tok/s
+  [modern_transformer] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 18600/20000 loss 4.6060 | 16414 tok/s
+  [modern_transformer] 18700/20000 loss 4.4581 | 19738 tok/s
+  [modern_transformer] 18800/20000 loss 4.6613 | 19734 tok/s
+  [modern_transformer] 18900/20000 loss 4.6440 | 19738 tok/s
+  [modern_transformer] 19000/20000 loss 4.8200 | 19736 tok/s
+  [modern_transformer] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 19100/20000 loss 4.6354 | 16391 tok/s
+  [modern_transformer] 19200/20000 loss 4.7256 | 19744 tok/s
+  [modern_transformer] 19300/20000 loss 4.4172 | 19730 tok/s
+  [modern_transformer] 19400/20000 loss 4.9096 | 19734 tok/s
+  [modern_transformer] 19500/20000 loss 4.3996 | 19739 tok/s
+  [modern_transformer] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] 19600/20000 loss 4.2801 | 16416 tok/s
+  [modern_transformer] 19700/20000 loss 4.4504 | 19744 tok/s
+  [modern_transformer] 19800/20000 loss 4.5449 | 19732 tok/s
+  [modern_transformer] 19900/20000 loss 4.7511 | 19717 tok/s
+  [modern_transformer] 20000/20000 loss 4.6562 | 19716 tok/s
+  [modern_transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+  [modern_transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s1.pt
+
+=== modern_transformer (train, seed 2) ===
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize train] 100000/1165029 rows, 10.2M tokens, 6s
+    [tokenize train] 200000/1165029 rows, 20.4M tokens, 11s
+    [tokenize train] 300000/1165029 rows, 30.7M tokens, 16s
+    [tokenize train] 400000/1165029 rows, 40.9M tokens, 21s
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (1063 > 1024). Running this sequence through the model will result in indexing errors
+    [tokenize train] done: 50.0M tokens -> 97656 chunks of 512 (25s)
+'[Errno 101] Network is unreachable' thrown while requesting HEAD https://huggingface.co/datasets/Salesforce/wikitext/resolve/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext.py
+Retrying in 1s [Retry 1/5].
+Using the latest cached version of the dataset since Salesforce/wikitext couldn't be found on the Hugging Face Hub
+Found the latest cached dataset configuration 'wikitext-103-raw-v1' at /root/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-103-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3 (last modified on Tue Jul 14 21:17:11 2026).
+    [tokenize test] done: 0.3M tokens -> 558 chunks of 512 (0s)
+  [modern_transformer] 100/20000 loss 7.0031 | 20638 tok/s
+  [modern_transformer] 200/20000 loss 6.5686 | 20478 tok/s
+  [modern_transformer] 300/20000 loss 6.4441 | 20484 tok/s
+  [modern_transformer] 400/20000 loss 6.2537 | 20440 tok/s
+  [modern_transformer] 500/20000 loss 5.8571 | 20317 tok/s
+  [modern_transformer] checkpoint saved at step 500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 600/20000 loss 6.2674 | 17659 tok/s
+  [modern_transformer] 700/20000 loss 5.9117 | 20293 tok/s
+  [modern_transformer] 800/20000 loss 5.9928 | 20405 tok/s
+  [modern_transformer] 900/20000 loss 5.6464 | 20486 tok/s
+  [modern_transformer] 1000/20000 loss 6.0276 | 20487 tok/s
+  [modern_transformer] checkpoint saved at step 1000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 1100/20000 loss 6.0097 | 16847 tok/s
+  [modern_transformer] 1200/20000 loss 5.8619 | 20283 tok/s
+  [modern_transformer] 1300/20000 loss 5.7996 | 20266 tok/s
+  [modern_transformer] 1400/20000 loss 5.4779 | 20261 tok/s
+  [modern_transformer] 1500/20000 loss 5.8555 | 20272 tok/s
+  [modern_transformer] checkpoint saved at step 1500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 1600/20000 loss 5.5582 | 16854 tok/s
+  [modern_transformer] 1700/20000 loss 5.7430 | 20402 tok/s
+  [modern_transformer] 1800/20000 loss 5.6258 | 20369 tok/s
+  [modern_transformer] 1900/20000 loss 5.3102 | 20397 tok/s
+  [modern_transformer] 2000/20000 loss 5.3796 | 20366 tok/s
+  [modern_transformer] checkpoint saved at step 2000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 2100/20000 loss 5.5849 | 16966 tok/s
+  [modern_transformer] 2200/20000 loss 5.6698 | 20484 tok/s
+  [modern_transformer] 2300/20000 loss 5.7303 | 20487 tok/s
+  [modern_transformer] 2400/20000 loss 5.6397 | 20487 tok/s
+  [modern_transformer] 2500/20000 loss 5.7270 | 20486 tok/s
+  [modern_transformer] checkpoint saved at step 2500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 2600/20000 loss 5.0540 | 16740 tok/s
+  [modern_transformer] 2700/20000 loss 5.7948 | 20238 tok/s
+  [modern_transformer] 2800/20000 loss 5.1635 | 20239 tok/s
+  [modern_transformer] 2900/20000 loss 5.8777 | 20278 tok/s
+  [modern_transformer] 3000/20000 loss 5.2514 | 20253 tok/s
+  [modern_transformer] checkpoint saved at step 3000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 3100/20000 loss 5.2729 | 16930 tok/s
+  [modern_transformer] 3200/20000 loss 5.4165 | 20444 tok/s
+  [modern_transformer] 3300/20000 loss 5.0690 | 20441 tok/s
+  [modern_transformer] 3400/20000 loss 4.9825 | 20411 tok/s
+  [modern_transformer] 3500/20000 loss 5.0765 | 20402 tok/s
+  [modern_transformer] checkpoint saved at step 3500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 3600/20000 loss 4.7612 | 16872 tok/s
+  [modern_transformer] 3700/20000 loss 4.7710 | 20208 tok/s
+  [modern_transformer] 3800/20000 loss 5.4517 | 20237 tok/s
+  [modern_transformer] 3900/20000 loss 5.6275 | 20217 tok/s
+  [modern_transformer] 4000/20000 loss 5.5623 | 20254 tok/s
+  [modern_transformer] checkpoint saved at step 4000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 4100/20000 loss 5.4741 | 16835 tok/s
+  [modern_transformer] 4200/20000 loss 5.2529 | 20371 tok/s
+  [modern_transformer] 4300/20000 loss 4.8825 | 20359 tok/s
+  [modern_transformer] 4400/20000 loss 5.1180 | 20357 tok/s
+  [modern_transformer] 4500/20000 loss 4.7824 | 20362 tok/s
+  [modern_transformer] checkpoint saved at step 4500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 4600/20000 loss 5.2173 | 16933 tok/s
+  [modern_transformer] 4700/20000 loss 4.8936 | 20360 tok/s
+  [modern_transformer] 4800/20000 loss 5.1668 | 20367 tok/s
+  [modern_transformer] 4900/20000 loss 5.2899 | 20358 tok/s
+  [modern_transformer] 5000/20000 loss 4.7160 | 20338 tok/s
+  [modern_transformer] checkpoint saved at step 5000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 5100/20000 loss 5.4157 | 16853 tok/s
+  [modern_transformer] 5200/20000 loss 4.7726 | 20388 tok/s
+  [modern_transformer] 5300/20000 loss 5.0322 | 20339 tok/s
+  [modern_transformer] 5400/20000 loss 4.4725 | 20344 tok/s
+  [modern_transformer] 5500/20000 loss 4.7518 | 20332 tok/s
+  [modern_transformer] checkpoint saved at step 5500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 5600/20000 loss 4.8238 | 16957 tok/s
+  [modern_transformer] 5700/20000 loss 4.8253 | 20362 tok/s
+  [modern_transformer] 5800/20000 loss 4.8619 | 20337 tok/s
+  [modern_transformer] 5900/20000 loss 5.0967 | 20349 tok/s
+  [modern_transformer] 6000/20000 loss 4.6366 | 20330 tok/s
+  [modern_transformer] checkpoint saved at step 6000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 6100/20000 loss 5.1322 | 16817 tok/s
+  [modern_transformer] 6200/20000 loss 4.7082 | 20367 tok/s
+  [modern_transformer] 6300/20000 loss 5.1028 | 20353 tok/s
+  [modern_transformer] 6400/20000 loss 4.7682 | 20337 tok/s
+  [modern_transformer] 6500/20000 loss 5.0232 | 20343 tok/s
+  [modern_transformer] checkpoint saved at step 6500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 6600/20000 loss 5.0975 | 16859 tok/s
+  [modern_transformer] 6700/20000 loss 5.0727 | 20281 tok/s
+  [modern_transformer] 6800/20000 loss 5.0389 | 20283 tok/s
+  [modern_transformer] 6900/20000 loss 5.3716 | 20277 tok/s
+  [modern_transformer] 7000/20000 loss 4.7312 | 20258 tok/s
+  [modern_transformer] checkpoint saved at step 7000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 7100/20000 loss 4.8261 | 16731 tok/s
+  [modern_transformer] 7200/20000 loss 5.3853 | 20111 tok/s
+  [modern_transformer] 7300/20000 loss 4.9643 | 20103 tok/s
+  [modern_transformer] 7400/20000 loss 5.0729 | 20104 tok/s
+  [modern_transformer] 7500/20000 loss 5.1243 | 19980 tok/s
+  [modern_transformer] checkpoint saved at step 7500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 7600/20000 loss 5.1079 | 16609 tok/s
+  [modern_transformer] 7700/20000 loss 4.8848 | 20199 tok/s
+  [modern_transformer] 7800/20000 loss 4.9382 | 20169 tok/s
+  [modern_transformer] 7900/20000 loss 5.0532 | 20181 tok/s
+  [modern_transformer] 8000/20000 loss 4.5062 | 20180 tok/s
+  [modern_transformer] checkpoint saved at step 8000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 8100/20000 loss 4.9045 | 16770 tok/s
+  [modern_transformer] 8200/20000 loss 5.1011 | 20194 tok/s
+  [modern_transformer] 8300/20000 loss 4.8920 | 20172 tok/s
+  [modern_transformer] 8400/20000 loss 5.3464 | 20183 tok/s
+  [modern_transformer] 8500/20000 loss 4.8083 | 20175 tok/s
+  [modern_transformer] checkpoint saved at step 8500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 8600/20000 loss 4.9315 | 16881 tok/s
+  [modern_transformer] 8700/20000 loss 4.5820 | 20366 tok/s
+  [modern_transformer] 8800/20000 loss 4.5603 | 20364 tok/s
+  [modern_transformer] 8900/20000 loss 4.7145 | 20362 tok/s
+  [modern_transformer] 9000/20000 loss 4.8508 | 20358 tok/s
+  [modern_transformer] checkpoint saved at step 9000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 9100/20000 loss 5.3522 | 16764 tok/s
+  [modern_transformer] 9200/20000 loss 4.8279 | 20142 tok/s
+  [modern_transformer] 9300/20000 loss 4.5171 | 20187 tok/s
+  [modern_transformer] 9400/20000 loss 4.8319 | 20164 tok/s
+  [modern_transformer] 9500/20000 loss 4.6077 | 20165 tok/s
+  [modern_transformer] checkpoint saved at step 9500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 9600/20000 loss 4.9684 | 16387 tok/s
+  [modern_transformer] 9700/20000 loss 4.5600 | 20157 tok/s
+  [modern_transformer] 9800/20000 loss 4.8927 | 20162 tok/s
+  [modern_transformer] 9900/20000 loss 4.3869 | 20124 tok/s
+  [modern_transformer] 10000/20000 loss 4.7007 | 20117 tok/s
+  [modern_transformer] checkpoint saved at step 10000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 10100/20000 loss 4.5845 | 16634 tok/s
+  [modern_transformer] 10200/20000 loss 4.9301 | 20095 tok/s
+  [modern_transformer] 10300/20000 loss 4.8945 | 20085 tok/s
+  [modern_transformer] 10400/20000 loss 4.9412 | 20096 tok/s
+  [modern_transformer] 10500/20000 loss 4.9041 | 20089 tok/s
+  [modern_transformer] checkpoint saved at step 10500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 10600/20000 loss 4.4586 | 16724 tok/s
+  [modern_transformer] 10700/20000 loss 4.7355 | 20203 tok/s
+  [modern_transformer] 10800/20000 loss 4.8094 | 20172 tok/s
+  [modern_transformer] 10900/20000 loss 4.8000 | 20178 tok/s
+  [modern_transformer] 11000/20000 loss 4.7827 | 20164 tok/s
+  [modern_transformer] checkpoint saved at step 11000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 11100/20000 loss 4.1928 | 16716 tok/s
+  [modern_transformer] 11200/20000 loss 4.0938 | 20180 tok/s
+  [modern_transformer] 11300/20000 loss 4.6837 | 20163 tok/s
+  [modern_transformer] 11400/20000 loss 4.5327 | 20175 tok/s
+  [modern_transformer] 11500/20000 loss 4.8194 | 20171 tok/s
+  [modern_transformer] checkpoint saved at step 11500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 11600/20000 loss 4.3991 | 16972 tok/s
+  [modern_transformer] 11700/20000 loss 5.0459 | 20376 tok/s
+  [modern_transformer] 11800/20000 loss 4.8257 | 20368 tok/s
+  [modern_transformer] 11900/20000 loss 4.3255 | 20371 tok/s
+  [modern_transformer] 12000/20000 loss 4.5975 | 20349 tok/s
+  [modern_transformer] checkpoint saved at step 12000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 12100/20000 loss 4.6627 | 16813 tok/s
+  [modern_transformer] 12200/20000 loss 4.4907 | 20304 tok/s
+  [modern_transformer] 12300/20000 loss 5.0752 | 20262 tok/s
+  [modern_transformer] 12400/20000 loss 4.3903 | 20246 tok/s
+  [modern_transformer] 12500/20000 loss 4.6083 | 20235 tok/s
+  [modern_transformer] checkpoint saved at step 12500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 12600/20000 loss 4.5474 | 16911 tok/s
+  [modern_transformer] 12700/20000 loss 4.8078 | 20396 tok/s
+  [modern_transformer] 12800/20000 loss 4.6454 | 20338 tok/s
+  [modern_transformer] 12900/20000 loss 4.6223 | 20353 tok/s
+  [modern_transformer] 13000/20000 loss 4.6171 | 20360 tok/s
+  [modern_transformer] checkpoint saved at step 13000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 13100/20000 loss 4.6446 | 16690 tok/s
+  [modern_transformer] 13200/20000 loss 4.6658 | 20158 tok/s
+  [modern_transformer] 13300/20000 loss 4.4955 | 20128 tok/s
+  [modern_transformer] 13400/20000 loss 4.5816 | 20126 tok/s
+  [modern_transformer] 13500/20000 loss 4.9867 | 20130 tok/s
+  [modern_transformer] checkpoint saved at step 13500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 13600/20000 loss 4.5772 | 16386 tok/s
+  [modern_transformer] 13700/20000 loss 4.5256 | 20485 tok/s
+  [modern_transformer] 13800/20000 loss 4.4182 | 20286 tok/s
+  [modern_transformer] 13900/20000 loss 4.1081 | 20286 tok/s
+  [modern_transformer] 14000/20000 loss 4.2831 | 20285 tok/s
+  [modern_transformer] checkpoint saved at step 14000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 14100/20000 loss 4.5844 | 16176 tok/s
+  [modern_transformer] 14200/20000 loss 4.2643 | 20404 tok/s
+  [modern_transformer] 14300/20000 loss 4.7333 | 20399 tok/s
+  [modern_transformer] 14400/20000 loss 4.2306 | 20368 tok/s
+  [modern_transformer] 14500/20000 loss 4.7315 | 20398 tok/s
+  [modern_transformer] checkpoint saved at step 14500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 14600/20000 loss 4.4384 | 16940 tok/s
+  [modern_transformer] 14700/20000 loss 4.7432 | 20388 tok/s
+  [modern_transformer] 14800/20000 loss 4.7436 | 20375 tok/s
+  [modern_transformer] 14900/20000 loss 4.8259 | 20367 tok/s
+  [modern_transformer] 15000/20000 loss 4.7005 | 20372 tok/s
+  [modern_transformer] checkpoint saved at step 15000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 15100/20000 loss 4.5829 | 16990 tok/s
+  [modern_transformer] 15200/20000 loss 4.4732 | 20384 tok/s
+  [modern_transformer] 15300/20000 loss 4.8269 | 20334 tok/s
+  [modern_transformer] 15400/20000 loss 4.5049 | 20351 tok/s
+  [modern_transformer] 15500/20000 loss 4.3736 | 20330 tok/s
+  [modern_transformer] checkpoint saved at step 15500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 15600/20000 loss 4.1022 | 16959 tok/s
+  [modern_transformer] 15700/20000 loss 4.5228 | 20367 tok/s
+  [modern_transformer] 15800/20000 loss 4.5265 | 20327 tok/s
+  [modern_transformer] 15900/20000 loss 4.2603 | 20324 tok/s
+  [modern_transformer] 16000/20000 loss 4.8858 | 20357 tok/s
+  [modern_transformer] checkpoint saved at step 16000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 16100/20000 loss 4.5728 | 16958 tok/s
+  [modern_transformer] 16200/20000 loss 4.5482 | 20373 tok/s
+  [modern_transformer] 16300/20000 loss 4.3857 | 20372 tok/s
+  [modern_transformer] 16400/20000 loss 4.4847 | 20352 tok/s
+  [modern_transformer] 16500/20000 loss 4.1524 | 20350 tok/s
+  [modern_transformer] checkpoint saved at step 16500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 16600/20000 loss 4.3885 | 16977 tok/s
+  [modern_transformer] 16700/20000 loss 4.3600 | 20349 tok/s
+  [modern_transformer] 16800/20000 loss 4.4597 | 20332 tok/s
+  [modern_transformer] 16900/20000 loss 4.8023 | 20361 tok/s
+  [modern_transformer] 17000/20000 loss 4.3041 | 20327 tok/s
+  [modern_transformer] checkpoint saved at step 17000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 17100/20000 loss 4.3136 | 16804 tok/s
+  [modern_transformer] 17200/20000 loss 4.6286 | 20116 tok/s
+  [modern_transformer] 17300/20000 loss 4.6406 | 20103 tok/s
+  [modern_transformer] 17400/20000 loss 4.4301 | 20093 tok/s
+  [modern_transformer] 17500/20000 loss 3.8465 | 20080 tok/s
+  [modern_transformer] checkpoint saved at step 17500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 17600/20000 loss 4.0704 | 16846 tok/s
+  [modern_transformer] 17700/20000 loss 3.8510 | 20182 tok/s
+  [modern_transformer] 17800/20000 loss 4.3273 | 20160 tok/s
+  [modern_transformer] 17900/20000 loss 4.5623 | 20152 tok/s
+  [modern_transformer] 18000/20000 loss 4.9670 | 20135 tok/s
+  [modern_transformer] checkpoint saved at step 18000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 18100/20000 loss 4.8190 | 16846 tok/s
+  [modern_transformer] 18200/20000 loss 4.9564 | 20193 tok/s
+  [modern_transformer] 18300/20000 loss 4.8576 | 20145 tok/s
+  [modern_transformer] 18400/20000 loss 4.1872 | 20144 tok/s
+  [modern_transformer] 18500/20000 loss 4.2667 | 20133 tok/s
+  [modern_transformer] checkpoint saved at step 18500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 18600/20000 loss 3.6723 | 17017 tok/s
+  [modern_transformer] 18700/20000 loss 4.9033 | 20396 tok/s
+  [modern_transformer] 18800/20000 loss 4.8237 | 20368 tok/s
+  [modern_transformer] 18900/20000 loss 4.7515 | 20371 tok/s
+  [modern_transformer] 19000/20000 loss 4.4564 | 20272 tok/s
+  [modern_transformer] checkpoint saved at step 19000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 19100/20000 loss 4.8133 | 16209 tok/s
+  [modern_transformer] 19200/20000 loss 4.8502 | 20199 tok/s
+  [modern_transformer] 19300/20000 loss 4.6902 | 20180 tok/s
+  [modern_transformer] 19400/20000 loss 4.5380 | 20180 tok/s
+  [modern_transformer] 19500/20000 loss 4.3240 | 20173 tok/s
+  [modern_transformer] checkpoint saved at step 19500: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] 19600/20000 loss 4.2375 | 16689 tok/s
+  [modern_transformer] 19700/20000 loss 4.2524 | 20195 tok/s
+  [modern_transformer] 19800/20000 loss 4.7658 | 20399 tok/s
+  [modern_transformer] 19900/20000 loss 4.3970 | 20366 tok/s
+  [modern_transformer] 20000/20000 loss 4.3703 | 20359 tok/s
+  [modern_transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+  [modern_transformer] checkpoint saved at step 20000: /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/checkpoints/train_modern_transformer_s2.pt
+
+========================================================================
+SCALING TRAIN | WikiText-103 | 20000 steps | seeds [0, 1, 2]
+arch               params  stable     val_ppl (mean±std)   n
+modern_transformer  144,070,784    True       78.86 ± 0.25      3

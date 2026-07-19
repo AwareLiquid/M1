@@ -39,7 +39,8 @@ import torch
 
 import datasets as _datasets  # noqa: F401  (Windows DLL-order guard)
 
-ARCHS = ["transformer", "lnn", "mt_lnn", "mamba", "mt_lnn_mtp"]
+ARCHS = ["transformer", "modern_transformer", "lnn", "mt_lnn", "mamba",
+         "mt_lnn_mtp"]
 
 
 # Mamba config, set from CLI in main() so build() (which only sees d_model/
@@ -110,7 +111,8 @@ def count_params(m):
 
 def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
     from benchmarks.baselines import (BaselineConfig, SimpleCausalLNN,
-                                       SimpleCausalTransformer)
+                                       SimpleCausalTransformer,
+                                       ModernCausalTransformer)
 
     if arch == "mamba":
         # The reviewer's named SSM baseline. Standard Mamba-130m config
@@ -127,12 +129,23 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
                           # slower and unusable for 2000-step runs.
                           use_mambapy=True)
         return MambaForCausalLM(cfg).to(device=device, dtype=dtype)
-    if arch in ("transformer", "lnn"):
+    if arch in ("transformer", "modern_transformer", "lnn"):
+        # SwiGLU uses three projections (gate/up/down). An 8/3 expansion keeps
+        # its FFN parameter budget close to a 4x GELU FFN while giving the
+        # baseline the modern RoPE/RMSNorm/SwiGLU recipe reviewers expect.
+        d_ff = int(round((8 * d_model / 3) / 256) * 256)
         cfg = BaselineConfig(vocab_size=vocab, max_seq_len=seq_len,
                              d_model=d_model, n_layers=n_layers,
-                             n_heads=13, d_ff=4 * d_model, dropout=0.0)
-        m = (SimpleCausalTransformer(cfg) if arch == "transformer"
-             else SimpleCausalLNN(cfg))
+                             n_heads=13,
+                             d_ff=(d_ff if arch == "modern_transformer"
+                                   else 4 * d_model),
+                             dropout=0.0)
+        if arch == "transformer":
+            m = SimpleCausalTransformer(cfg)
+        elif arch == "modern_transformer":
+            m = ModernCausalTransformer(cfg)
+        else:
+            m = SimpleCausalLNN(cfg)
     else:
         # "mt_lnn" = lean core; "mt_lnn_mtp" = lean core + MTP regularizer (the
         # only difference is the aux heads/loss — see _MTP note above).

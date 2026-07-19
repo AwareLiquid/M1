@@ -1,10 +1,24 @@
-========================================================================
+﻿========================================================================
 SCALING TRAIN | WikiText-103 | 20000 steps | seeds [0, 1, 2]
-arch               params  stable     val_ppl (mean±std)   n
-mt_lnn        126,041,819    True       88.93 ± 0.33      3
-transformer   142,051,520    True       94.14 ± 0.78      3
+Protocol: GPT-2 tokenizer | seq_len=512 | batch=4 | lr=3e-4 | fp32
+========================================================================
+arch                       params  stable     val_ppl (mean±std)   n
+mt_lnn                126,041,819    True       88.93 ± 0.33      3
+transformer           142,051,520    True       94.14 ± 0.78      3
+modern_transformer    144,070,784    True       78.86 ± 0.25      3
 ========================================================================
 
 Per-seed val_ppl:
-mt_lnn       s0=89.2819, s1=88.8849, s2=88.6194
-transformer  s0=94.6340, s1=94.5436, s2=93.2441
+mt_lnn               s0=89.2819, s1=88.8849, s2=88.6194
+transformer          s0=94.6340, s1=94.5436, s2=93.2441
+modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
+
+Key comparisons:
+mt_lnn vs simple transformer: mt_lnn lower PPL by 5.5% (88.93 vs 94.14).
+modern_transformer vs simple transformer: modern_transformer lower PPL by 16.2% (78.86 vs 94.14).
+modern_transformer vs mt_lnn: modern_transformer lower PPL by 11.3% (78.86 vs 88.93).
+
+Notes:
+- transformer = original simple baseline from P0-2.
+- modern_transformer = RoPE + RMSNorm + SwiGLU baseline added for P0-3.
+- Checkpoints (*.pt) are intentionally excluded from this summary and should not be committed.
