@@ -57,6 +57,50 @@ _MAMBA = {"hidden": 768, "layers": 24}
 _MTP = {"k": 3, "weight": 0.1}
 
 
+def _checkpoint_path(args, arch, seed):
+    return os.path.join(args.out_dir, "checkpoints", f"train_{arch}_s{seed}.pt")
+
+
+def _save_checkpoint(path, arch, seed, m, opt, scaler, step, cursor, last,
+                     stable):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ckpt = {
+        "arch": arch,
+        "seed": seed,
+        "step": step,
+        "cursor": cursor,
+        "last": last,
+        "stable": stable,
+        "model": m.state_dict(),
+        "optim": opt.state_dict(),
+        "scaler": scaler.state_dict() if scaler else None,
+        "torch_rng": torch.get_rng_state(),
+        "cuda_rng_all": (torch.cuda.get_rng_state_all()
+                         if torch.cuda.is_available() else None),
+    }
+    tmp = f"{path}.tmp"
+    torch.save(ckpt, tmp)
+    os.replace(tmp, path)
+
+
+def _load_checkpoint(path, m, opt, scaler, device):
+    ckpt = torch.load(path, map_location=device)
+    m.load_state_dict(ckpt["model"])
+    opt.load_state_dict(ckpt["optim"])
+    if scaler and ckpt.get("scaler") is not None:
+        scaler.load_state_dict(ckpt["scaler"])
+    if ckpt.get("torch_rng") is not None:
+        torch.set_rng_state(ckpt["torch_rng"].cpu())
+    if device == "cuda" and ckpt.get("cuda_rng_all") is not None:
+        cuda_rng_all = [s.detach().cpu() for s in ckpt["cuda_rng_all"]]
+        if len(cuda_rng_all) == torch.cuda.device_count():
+            torch.cuda.set_rng_state_all(cuda_rng_all)
+        else:
+            print("  [checkpoint] CUDA RNG device count mismatch; "
+                  "skipping CUDA RNG restore", flush=True)
+    return ckpt
+
+
 def count_params(m):
     """Uniform total-parameter count across archs — the models' own
     get_num_params() disagree (baselines exclude embeddings, MTLNNModel
@@ -315,47 +359,17 @@ def train_arch(arch, args, device, dtype, seed=0):
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr, betas=(0.9, 0.95))
     scaler = (torch.amp.GradScaler("cuda")
               if device == "cuda" and dtype == torch.float16 else None)
-    stable, last, t0, step = True, float("nan"), time.time(), 0
-    # --- resumable checkpoint (opt-in via --ckpt_every) ---
-    # b_resume fast-forwards the shuffled-minibatch stream to where the last
-    # checkpoint stopped: each optimizer step consumes accum*batch permuted
-    # rows, so after `step` steps the cursor sits at b = step*accum*batch.
-    # `order` is regenerated bit-identically from `seed`, so the resumed data
-    # stream matches the uninterrupted one.
-    b_resume = 0
-    ckpt_path = os.path.join(args.out_dir, f"ckpt_{arch}_s{seed}.pt")
-    if getattr(args, "ckpt_every", 0) and os.path.exists(ckpt_path):
-        try:
-            # Load to CPU first so a checkpoint saved on one device context can
-            # always be read (map_location=device crashes when save/load devices
-            # differ, e.g. cuda:0 saved but device_count()==0 on resume).
-            ck = torch.load(ckpt_path, map_location="cpu")
-            if ck.get("steps_target") == args.steps and ck.get("arch") == arch:
-                m.load_state_dict(ck["model"])
-                opt.load_state_dict(ck["opt"])
-                # AdamW moment tensors land on CPU after the cpu-load; move them
-                # to the model's device or opt.step() hits a device mismatch.
-                for _st in opt.state.values():
-                    for _k, _v in _st.items():
-                        if torch.is_tensor(_v):
-                            _st[_k] = _v.to(device)
-                if scaler is not None and ck.get("scaler") is not None:
-                    scaler.load_state_dict(ck["scaler"])
-                step, last, stable = ck["step"], ck["last"], ck["stable"]
-                torch.set_rng_state(ck["rng"])
-                if (device == "cuda" and torch.cuda.is_available()
-                        and ck.get("cuda_rng") is not None):
-                    torch.cuda.set_rng_state(ck["cuda_rng"])
-                b_resume = step * max(1, args.grad_accum) * args.batch
-                print(f"  [{arch}] RESUME from step {step}/{args.steps} "
-                      f"(fast-forward data to b={b_resume})", flush=True)
-            else:
-                print(f"  [{arch}] checkpoint config mismatch — ignored, "
-                      f"fresh start", flush=True)
-        except Exception as e:
-            print(f"  [{arch}] checkpoint load failed ({e}); fresh start",
-                  flush=True)
     m.train()
+    stable, last, t0, step, cursor = True, float("nan"), time.time(), 0, 0
+    ckpt_path = _checkpoint_path(args, arch, seed)
+    if args.resume and os.path.exists(ckpt_path):
+        ckpt = _load_checkpoint(ckpt_path, m, opt, scaler, device)
+        step = int(ckpt.get("step", 0))
+        cursor = int(ckpt.get("cursor", 0))
+        last = float(ckpt.get("last", float("nan")))
+        stable = bool(ckpt.get("stable", True))
+        print(f"  [{arch}] resumed checkpoint: step {step}/{args.steps}, "
+              f"cursor {cursor}", flush=True)
     while step < args.steps:
         # Fancy-index permuted rows into REAL shuffled minibatches. Slicing
         # train_c[idx:idx+batch] would draw `batch` temporally-ADJACENT corpus
@@ -371,7 +385,9 @@ def train_arch(arch, args, device, dtype, seed=0):
         accum = max(1, args.grad_accum)
         micro = 0
         opt.zero_grad(set_to_none=True)
-        for b in range(b_resume, len(order), args.batch):
+        if cursor >= len(order):
+            cursor = 0
+        for b in range(cursor, len(order), args.batch):
             if step >= args.steps:
                 break
             sel = order[b:b + args.batch]
@@ -398,28 +414,26 @@ def train_arch(arch, args, device, dtype, seed=0):
             opt.zero_grad(set_to_none=True)
             last = loss.item() * accum
             step += 1
+            cursor = b + args.batch
             if step % args.log_every == 0:
                 dt = max(time.time() - t0, 1e-3)
                 print(f"  [{arch:11s}] {step}/{args.steps} loss {last:.4f} "
                       f"| {args.log_every*args.batch*accum*args.seq_len/dt:.0f} tok/s", flush=True)
                 t0 = time.time()
-            if getattr(args, "ckpt_every", 0) and step % args.ckpt_every == 0:
-                # atomic write: save to .tmp then os.replace, so a sleep/kill
-                # mid-save can never corrupt the resume file (worst case the
-                # previous good checkpoint survives untouched).
-                _tmp = ckpt_path + ".tmp"
-                torch.save({"arch": arch, "step": step,
-                            "steps_target": args.steps,
-                            "model": m.state_dict(), "opt": opt.state_dict(),
-                            "scaler": scaler.state_dict() if scaler else None,
-                            "last": last, "stable": stable,
-                            "rng": torch.get_rng_state(),
-                            "cuda_rng": (torch.cuda.get_rng_state()
-                                         if device == "cuda" else None)}, _tmp)
-                os.replace(_tmp, ckpt_path)
-        b_resume = 0   # subsequent epochs start from the top of `order`
+            if args.ckpt_every and step % args.ckpt_every == 0:
+                _save_checkpoint(ckpt_path, arch, seed, m, opt, scaler, step,
+                                 cursor, last, stable)
+                print(f"  [{arch}] checkpoint saved at step {step}: "
+                      f"{ckpt_path}", flush=True)
         if not stable:
             break
+        cursor = 0
+
+    if args.ckpt_every and stable:
+        _save_checkpoint(ckpt_path, arch, seed, m, opt, scaler, step, cursor,
+                         last, stable)
+        print(f"  [{arch}] checkpoint saved at step {step}: {ckpt_path}",
+              flush=True)
 
     # held-out PPL
     m.eval()
@@ -448,8 +462,6 @@ def train_arch(arch, args, device, dtype, seed=0):
     del m, opt
     if device == "cuda":
         torch.cuda.empty_cache()
-    if getattr(args, "ckpt_every", 0) and os.path.exists(ckpt_path):
-        os.remove(ckpt_path)   # finished this arch cleanly — drop resume state
     return {"arch": arch, "seed": seed, "params": n_params, "stable": stable,
             "final_loss": last, "val_ppl": ppl, "steps": step}
 
@@ -491,12 +503,13 @@ def main():
                          "for every arch; 2000-step runs consume ~4M, so 50M "
                          "keeps sampling diversity while cutting tokenization "
                          "cost ~15x on constrained VMs). None = full split.")
-    ap.add_argument("--ckpt_every", type=int, default=0,
-                    help="save a resumable checkpoint every N optimizer steps "
-                         "(0 = off, preserves legacy behaviour bit-for-bit). "
-                         "Enables SEGMENTED runs that survive sleep/kill: "
-                         "rerun the identical command and it resumes from the "
-                         "last checkpoint in out_dir (ckpt_<arch>_s<seed>.pt).")
+    ap.add_argument("--ckpt_every", type=int, default=500,
+                    help="train mode: save model/optimizer/step checkpoint "
+                         "every N optimizer steps. 0 disables checkpoints.")
+    ap.add_argument("--resume", action=argparse.BooleanOptionalAction,
+                    default=True,
+                    help="train mode: resume from an existing checkpoint in "
+                         "out_dir/checkpoints when present.")
     ap.add_argument("--profile_lens", default="512,1024,2048,4096")
     ap.add_argument("--profile_batch", type=int, default=2)
     ap.add_argument("--profile_iters", type=int, default=3)
