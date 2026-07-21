@@ -136,6 +136,141 @@ class SimpleCausalTransformer(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# Modern Transformer baseline (RoPE + RMSNorm + SwiGLU)
+# ---------------------------------------------------------------------------
+
+class _RMSNorm(nn.Module):
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        y = x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return y * self.weight
+
+
+def _build_rope_cache(seq_len: int, head_dim: int, device, dtype):
+    if head_dim % 2 != 0:
+        raise ValueError("RoPE requires an even head dimension")
+    inv_freq = 1.0 / (10000.0 ** (
+        torch.arange(0, head_dim, 2, device=device, dtype=torch.float32) / head_dim
+    ))
+    pos = torch.arange(seq_len, device=device, dtype=torch.float32)
+    freqs = torch.outer(pos, inv_freq)
+    cos = freqs.cos().to(dtype=dtype)[None, None, :, :]
+    sin = freqs.sin().to(dtype=dtype)[None, None, :, :]
+    return cos, sin
+
+
+def _apply_rope(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    x1 = x[..., 0::2]
+    x2 = x[..., 1::2]
+    out = torch.empty_like(x)
+    out[..., 0::2] = x1 * cos - x2 * sin
+    out[..., 1::2] = x1 * sin + x2 * cos
+    return out
+
+
+class _ModernSelfAttention(nn.Module):
+    def __init__(self, cfg: BaselineConfig):
+        super().__init__()
+        if cfg.d_model % cfg.n_heads != 0:
+            raise ValueError("d_model must be divisible by n_heads")
+        self.n_heads = cfg.n_heads
+        self.head_dim = cfg.d_model // cfg.n_heads
+        self.q_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.k_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.v_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.o_proj = nn.Linear(cfg.d_model, cfg.d_model, bias=False)
+        self.dropout = cfg.dropout
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, T, C = x.shape
+
+        def _shape(p):
+            return p(x).view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+
+        q, k, v = _shape(self.q_proj), _shape(self.k_proj), _shape(self.v_proj)
+        cos, sin = _build_rope_cache(T, self.head_dim, x.device, q.dtype)
+        q, k = _apply_rope(q, cos, sin), _apply_rope(k, cos, sin)
+        y = F.scaled_dot_product_attention(
+            q, k, v,
+            dropout_p=self.dropout if self.training else 0.0,
+            is_causal=True,
+        )
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        return self.o_proj(y)
+
+
+class _SwiGLU(nn.Module):
+    def __init__(self, cfg: BaselineConfig):
+        super().__init__()
+        self.gate_proj = nn.Linear(cfg.d_model, cfg.d_ff, bias=False)
+        self.up_proj = nn.Linear(cfg.d_model, cfg.d_ff, bias=False)
+        self.down_proj = nn.Linear(cfg.d_ff, cfg.d_model, bias=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.down_proj(F.silu(self.gate_proj(x)) * self.up_proj(x))
+
+
+class _ModernTransformerBlock(nn.Module):
+    def __init__(self, cfg: BaselineConfig):
+        super().__init__()
+        self.norm1 = _RMSNorm(cfg.d_model)
+        self.attn = _ModernSelfAttention(cfg)
+        self.norm2 = _RMSNorm(cfg.d_model)
+        self.ffn = _SwiGLU(cfg)
+        self.drop = nn.Dropout(cfg.dropout)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = x + self.drop(self.attn(self.norm1(x)))
+        x = x + self.drop(self.ffn(self.norm2(x)))
+        return x
+
+
+class ModernCausalTransformer(nn.Module):
+    """Decoder-only Transformer baseline with RoPE, RMSNorm, and SwiGLU."""
+
+    def __init__(self, cfg: BaselineConfig):
+        super().__init__()
+        self.cfg = cfg
+        self.embedding = nn.Embedding(cfg.vocab_size, cfg.d_model)
+        self.blocks = nn.ModuleList(_ModernTransformerBlock(cfg)
+                                    for _ in range(cfg.n_layers))
+        self.final_norm = _RMSNorm(cfg.d_model)
+        self.lm_head = nn.Linear(cfg.d_model, cfg.vocab_size, bias=False)
+        if cfg.tie_embeddings:
+            self.lm_head.weight = self.embedding.weight
+        self.apply(_gpt_init)
+
+    def forward(self, input_ids: torch.Tensor,
+                labels: Optional[torch.Tensor] = None,
+                use_cache: bool = False, **_) -> dict:
+        x = self.embedding(input_ids)
+        for block in self.blocks:
+            x = block(x)
+        logits = self.lm_head(self.final_norm(x))
+
+        out = {"logits": logits}
+        if use_cache:
+            out["cache"] = None
+        if labels is not None:
+            shift_logits = logits[:, :-1, :].contiguous()
+            shift_labels = labels[:, 1:].contiguous()
+            out["loss"] = F.cross_entropy(
+                shift_logits.view(-1, self.cfg.vocab_size),
+                shift_labels.view(-1),
+                ignore_index=-100,
+            )
+        return out
+
+    def get_num_params(self) -> int:
+        return sum(p.numel() for p in self.parameters()
+                    if p is not self.lm_head.weight or not self.cfg.tie_embeddings)
+
+
+# ---------------------------------------------------------------------------
 # Vanilla LNN (closed-form LTC FFN, no microtubule structure)
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,9 @@
+{
+  "arch": "transformer",
+  "seed": 2,
+  "params": 142051520,
+  "stable": true,
+  "final_loss": 4.527485370635986,
+  "val_ppl": 93.24409149587424,
+  "steps": 20000
+}

@@ -1,0 +1,9 @@
+{
+  "arch": "mt_lnn",
+  "seed": 1,
+  "params": 126041819,
+  "stable": true,
+  "final_loss": 4.730297565460205,
+  "val_ppl": 88.88490528588248,
+  "steps": 20000
+}

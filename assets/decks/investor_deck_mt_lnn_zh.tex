@@ -481,10 +481,11 @@
         \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/sparse_resonance_ablation.py}{\texttt{benchmarks/sparse\_resonance\_ablation.py}}
     \end{itemize}
     \vspace{0.4em}
-    \item \textbf{4. 语言建模效率（从零训练，同参数量级）}
+    \item \textbf{4. 收敛后的语言建模质量（我们诚实的位置）}
     \begin{itemize}
-        \item \textbf{测试基准：} MT-LNN vs.\ 匹配宽度的 Transformer 与 Mamba 基线，三者在 WikiText-103 上以完全相同的 fp32 预算从零训练（2000 步，单一随机种子）。
-        \item \textbf{商业意义：} 在同为约 125M 的参数规模下，MT-LNN 的困惑度比 Transformer \textbf{低约 31\%}（257 vs 371），比 Mamba \textbf{低约 38\%}（257 vs 414），且参数更少——这是本架构首次在正面对比中战胜当前主流的高效注意力替代方案。换言之：每个参数带来更高的能力密度，直接摊薄训练与推理成本。\textit{（单种子、预算受限的方向性信号；Mamba 未做宽度-深度匹配，属外部参照而非架构受控对照。）}
+        \item \textbf{测试基准：} MT-LNN vs.\ 匹配宽度的简单 Transformer 与\emph{现代} Transformer（RoPE + RMSNorm + SwiGLU），三者在 WikiText-103 上以完全相同的 fp32 预算从零训练至收敛（20,000 步，\textbf{各 3 个随机种子}）。
+        \item \textbf{诚实的结果：} 现代 Transformer \textbf{78.86 $\pm$ 0.25} $<$ MT-LNN \textbf{88.93 $\pm$ 0.33} $<$ 简单 Transformer \textbf{94.14 $\pm$ 0.78}（验证集困惑度）。MT-LNN 比简单基线好 5.5\%，但\textbf{现代 Transformer 在原始困惑度上比 MT-LNN 好 11.3\%}。此前 2,000 步的实验曾显示 MT-LNN 领先约 31\%，该差距源于\textbf{欠训练 + 基线偏弱}，\textbf{在收敛后并未保持}——我们主动更正而非沿用。
+        \item \textbf{商业含义：} 原始语言建模质量\textbf{目前不是} MT-LNN 的取胜点。其可投资的护城河是上文第 1--3 项的 \textbf{O(1) 恒定内存}与跨会话记忆——这是任何 Transformer 配置都无法消除的结构性差异。缩小困惑度差距是明确的工程目标，而非已完成的主张。
         \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/scaling_comparison.py}{\texttt{benchmarks/scaling\_comparison.py}}
     \end{itemize}
 \end{itemize}

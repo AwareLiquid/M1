@@ -22,9 +22,9 @@
 
 ## What is proven
 
-Two independent results, both reproducible at real scale:
+Results that survive convergence and a modern baseline:
 
-1. **From-scratch native MT-LNN (125M) beats a matched Transformer by ~31% val PPL** — 299 vs 436 under fp16 AMP, reconfirmed at −30.6% (257 vs 371) under full fp32 on a second run, at matched data / steps / optimizer, gap consistent across the whole curve. All three architectures train **stably** at 125M with no NaN in both runs — answering the "does a liquid-recurrent net even converge when scaled 100×?" question. The fp32 run also added a **first Mamba baseline: MT-LNN beats it too** (257 vs 414 val PPL, −37.8%, fewer params). *(Single seed per run, undertrained, ~1.6–6× slower wall-clock depending on precision, simple-reference Transformer, Mamba is width/depth-mismatched — a budget-limited signal, not a SOTA claim.)*
+1. **MT-LNN trains stably at 125M — but a modern Transformer still leads on language-modeling quality.** At **convergence** (20,000 steps, **3 seeds**, fp32, WikiText-103): MT-LNN reaches **88.93 ± 0.33** val PPL, beating the simple matched Transformer (**94.14 ± 0.78**, −5.5%) — but a **modern Transformer baseline (RoPE + RMSNorm + SwiGLU) reaches 78.86 ± 0.25, i.e. 11.3% *better* than MT-LNN**. All architectures train stably with no NaN, which answers the original "does a liquid-recurrent net converge when scaled 100×?" question. ⚠️ **An earlier 2,000-step run reported MT-LNN ahead by ~31% (257 vs 371). That gap did not survive**: it was an artifact of **undertraining plus a weak reference baseline**, and both effects vanish at convergence against a modern baseline. **Perplexity is therefore not currently an MT-LNN advantage** — the architecture's case rests on the memory/efficiency results below.
 
 2. **Cross-window / cross-session associative recall that attention and LoRA get 0.000 on by construction.** The fast-weight state stores discrete key→value bindings across a **dropped KV cache**: **0.56 mean recall** (3-seed 0.62 / 0.43 / 0.62) where frozen attention and LoRA are structurally zero. Remove the fast-weight matrix and it collapses to 0.008 — the fast weight *is* the memory. Snapshotting that state to disk and restoring into a fresh process is **bit-exact lossless** — what turns "recall within a session" into "remembers you across sessions."
 
@@ -34,8 +34,9 @@ And, in the attention-free line:
 
 | Result | Number | Caveat |
 |---|---|---|
-| Native 125M vs matched Transformer | −31% val PPL fp16 (299 vs 436) / −30.6% fp32 (257 vs 371), stable both | single seed each, undertrained, ~1.6–6× slower |
-| Native 125M vs Mamba (fp32, matched param class) | −37.8% val PPL (257 vs 414), stable | single seed, width/depth-mismatched external baseline |
+| **LM quality at convergence** (20K steps, n=3, fp32) | modern Transformer **78.86 ± 0.25** < MT-LNN **88.93 ± 0.33** < simple Transformer **94.14 ± 0.78** | **MT-LNN loses to a modern baseline by 11.3%**; beats only the weak one (−5.5%) |
+| ~~Native 125M "−31% vs Transformer"~~ (2K steps) | **Retracted as a headline claim** — undertrained + weak baseline; does not survive 20K convergence | superseded by the row above |
+| Native 125M vs Mamba | −37.8% val PPL at 2K steps (257 vs 414) | **2K-step only, not re-run at convergence**; width/depth-mismatched external baseline |
 | Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete K→V bindings, not long-context LM |
 | Cross-session snapshot/restore | bit-exact, controls at chance | recall task is high-variance |
 | O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k | attention-free ARR only, not the hybrid |

@@ -422,10 +422,11 @@
         \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/sparse_resonance_ablation.py}{\texttt{benchmarks/sparse\_resonance\_ablation.py}}
     \end{itemize}
     \vspace{0.4em}
-    \item \textbf{4. Language-Modeling Efficiency (from-scratch, matched parameter class)}
+    \item \textbf{4. Language-Modeling Quality at Convergence (where we honestly stand)}
     \begin{itemize}
-        \item \textbf{Testing Baseline:} MT-LNN vs.\ a matched Transformer and a Mamba baseline, all trained from scratch on WikiText-103 under an identical fp32 budget (2000 steps, single seed).
-        \item \textbf{Commercial Meaning in Plain Terms:} At the same $\sim$125M scale, MT-LNN reaches a \textbf{$\sim$31\% lower perplexity than the Transformer} (257 vs 371) and \textbf{$\sim$38\% lower than Mamba} (257 vs 414) with fewer parameters --- the first head-to-head where the architecture beats the current leading efficient-attention alternative. In plain terms: more capability per parameter, which compounds directly into lower training and serving cost. \textit{(Single-seed, budget-limited signal; Mamba is width/depth-mismatched, an external reference rather than an architecture-matched control.)}
+        \item \textbf{Testing Baseline:} MT-LNN vs.\ a simple matched Transformer and a \emph{modern} Transformer (RoPE + RMSNorm + SwiGLU), all trained from scratch on WikiText-103 to convergence under an identical fp32 budget (20,000 steps, \textbf{3 seeds each}).
+        \item \textbf{The Honest Result:} modern Transformer \textbf{78.86 $\pm$ 0.25} $<$ MT-LNN \textbf{88.93 $\pm$ 0.33} $<$ simple Transformer \textbf{94.14 $\pm$ 0.78} val perplexity. MT-LNN beats the simple baseline by 5.5\%, but \textbf{a modern Transformer is 11.3\% better than MT-LNN on raw perplexity}. An earlier 2,000-step run suggested MT-LNN led by $\sim$31\%; that gap was an artifact of undertraining plus a weak baseline and \textbf{did not survive convergence} --- we report it here rather than let it stand.
+        \item \textbf{What This Means Commercially:} raw language-modeling quality is \textbf{not} currently where MT-LNN wins. Its investable edge is the \textbf{O(1) constant memory} and cross-session recall shown above (items 1--3), which no Transformer configuration removes. Closing the perplexity gap is an explicit engineering objective, not a solved claim.
         \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/scaling_comparison.py}{\texttt{benchmarks/scaling\_comparison.py}}
     \end{itemize}
 \end{itemize}
