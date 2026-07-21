@@ -262,6 +262,13 @@ real, unresolved fp16 numerical-robustness gap isolated to mt_lnn (never
 exposed under bf16's wider dynamic range). This run checks whether the PPL
 advantage survives a same-precision, divergence-free comparison.
 
+> ⚠️ **SUPERSEDED (2026-07-19).** The 2000-step numbers below are
+> **undertrained** and were measured against a **weak reference baseline**.
+> Training the same architectures to convergence (20,000 steps, 3 seeds) and
+> adding a **modern** Transformer baseline **reverses the conclusion** — see
+> "20K convergence + modern baseline" below. The ~30% advantage reported here
+> **does not survive**. Retained for provenance only.
+
 | arch | params | stable | val PPL | tok/s |
 |---|---|---|---|---|
 | transformer | 142.1M | **yes** | 370.81 | ~7100 |
@@ -274,10 +281,12 @@ Findings:
    mt_lnn does not diverge past step 629 (or anywhere else) once autocast is
    disabled. Root cause of the fp16-specific fragility is still open;
    `--dtype fp32` remains the fair-comparison fallback until it lands.
-2. **The ~30% PPL advantage holds under both precisions** — fp16 AMP gave
-   −31% (299.5 vs 435.6, 2026-07-05 run above), fp32 gives −30.6% (257.48 vs
-   370.81, this run). Two independent runs, two precisions, consistent gap:
-   this is not a precision artifact.
+2. ~~**The ~30% PPL advantage holds under both precisions**~~ — **RETRACTED
+   2026-07-19.** Both runs were 2000-step (undertrained) against a
+   simple-reference Transformer. At convergence the gap shrinks to 5.5%, and a
+   modern Transformer baseline **beats mt_lnn by 11.3%**. The consistency
+   across two precisions was real but measured the same two confounds
+   (undertraining + weak baseline), not a durable architectural advantage.
 3. **First Mamba data point: mt_lnn beats it too** — 257.48 vs 414.00 PPL
    (−37.8%), with fewer params (126.0M vs 129.1M). Caveat: Mamba here is
    HF's default sizing (`hidden=768`, 24 layers) which is NOT width/depth
@@ -294,6 +303,41 @@ Caveats: single seed (0), no variance estimate. Local single-GPU wall-clock
 (RTX 5060 Laptop, 8GB), not the T4 used in the run above — throughput
 numbers are not cross-hardware comparable, only relative arch-to-arch
 ordering within this run. Full report: `benchmarks/scaling_comparison_report.{json,md}`.
+
+## 20K convergence + modern baseline (2026-07-19) — supersedes the 2K runs
+
+Same harness (`benchmarks/scaling_comparison.py --mode train`), same protocol
+(WikiText-103-raw-v1, GPT-2 tokenizer, `seq_len=512`, `batch=4`, `lr=3e-4`,
+`--dtype fp32`), but **trained to convergence (20,000 steps) with 3 seeds per
+arch**, and with a **modern Transformer baseline** added (RoPE + RMSNorm +
+SwiGLU, `ModernCausalTransformer` in `benchmarks/baselines.py`). Run on a
+Linux A100-class remote box, not the 8GB laptop.
+
+| arch | params | stable | val PPL (mean ± std, n=3) |
+|---|---|---|---|
+| **modern_transformer** | 144.1M | **yes** | **78.86 ± 0.25** |
+| mt_lnn | 126.0M | **yes** | 88.93 ± 0.33 |
+| transformer (simple) | 142.1M | **yes** | 94.14 ± 0.78 |
+
+Per-seed: mt_lnn 89.28/88.88/88.62 · transformer 94.63/94.54/93.24 ·
+modern_transformer 79.15/78.66/78.77.
+
+Findings:
+1. **mt_lnn still beats the simple baseline, but only by 5.5%** (88.93 vs
+   94.14) — down from the 30.6% claimed at 2000 steps. **Most of the apparent
+   advantage was undertraining.**
+2. **A modern Transformer beats mt_lnn by 11.3%** (78.86 vs 88.93) at
+   comparable parameter count. The original "simple-reference" Transformer was
+   simply a weak baseline; giving it the standard modern recipe flips the
+   ordering.
+3. **Perplexity is not currently an MT-LNN advantage.** The honest headline is
+   that MT-LNN trains stably at this scale with a *residual gap to close*
+   against modern Transformers. The architecture's un-refuted claims are the
+   O(1) carried state and cross-window/cross-session recall, not LM quality.
+4. All 9 runs `stable: true`, no non-finite loss.
+
+Raw JSON + logs: `scaling_fp32/converge_probe/` (`train_*_s{0,1,2}.json`,
+`scaling_train_20000_*.log`, `scaling_train_20000_summary.txt`).
 
 **--mode decode (CARRIED STATE bytes vs context — the real O(1) test):**
 The O(1) claim is an inference-time property (the state you must retain to

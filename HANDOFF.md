@@ -83,10 +83,11 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 
 1. **当前主线任务：继续跑强 baseline**：P0-3 modern_transformer 阶段成果已推送；下一步优先补 `mamba`，随后补 Mamba-2/GLA/DeltaNet 或同类高效架构；注意 Windows Mamba 无 CUDA kernel，强 baseline 和效率曲线建议迁到 Linux/A100。
 2. **继续归档新 baseline 结果**：Mamba/Mamba-2/GLA/DeltaNet 每跑完一个模型，都同步三 seed JSON、run.log/标准化日志和更新后的 `scaling_train_20000_summary.txt`；checkpoint `.pt` 仍不提交。
-3. **更新结果文档和论文材料**：把 P0-2 三种子结果与 P0-3 modern_transformer 结果写入 README/BENCHMARKS/RESULTS/论文草稿/deck；必须明确标注训练口径、modern_transformer 领先当前 MT-LNN、以及 O1 参考锚限制。
-4. **并行待办：做 fp16 诊断**：最小复现 fp16 发散，记录 loss scale、梯度范数、激活范围、NaN 首发层，并与 fp32 stable 结果对照。
-5. **扩 scaling law**：至少 3 个参数规模，固定 tokenizer/data/seq_len/batch/token budget，输出均值±标准差和效率曲线。
-6. **补真实长上下文实验**：用 decode state / memory profile / 长上下文任务证明 O(1) working memory 的实际价值。
+3. **更新结果文档和论文材料**（2026-07-19 已完成第一轮）：P0-2 三种子 + P0-3 modern_transformer 结果已写入 README/BENCHMARKS/RESULTS/中英文论文/中英文 deck，并已明确标注 modern_transformer 领先 MT-LNN 11.3%、2K 旧结论已撤回、O1 参考锚限制。
+4. **⚠️ 验证论文摘要的 14.7% 主张**（新增，重要）：论文摘要/结论的「比同参数 Transformer 低 14.7% PPL」来自大预算（100K 步 A100）实验，但**几乎肯定也是对着同一个 simple-reference 弱基线测的**。已先加限定语（"vs simple-reference，非现代基线"）作为止血，但**需要在大预算下补一轮 `modern_transformer` 对照**才能确认这个头号主张是否成立。若同样反转，摘要必须重写。建议在 AutoDL 上与其他强 baseline 一起排队。
+5. **并行待办：做 fp16 诊断**：最小复现 fp16 发散，记录 loss scale、梯度范数、激活范围、NaN 首发层，并与 fp32 stable 结果对照。
+6. **扩 scaling law**：至少 3 个参数规模，固定 tokenizer/data/seq_len/batch/token budget，输出均值±标准差和效率曲线。
+7. **补真实长上下文实验**：用 decode state / memory profile / 长上下文任务证明 O(1) working memory 的实际价值。
 
 ## 5. ⚠️ 要避免的坑（血泪教训）
 

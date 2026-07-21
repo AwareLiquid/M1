@@ -63,7 +63,7 @@
 
 % ---- Abstract ----
 \begin{abstract}
-我们引入了 \textbf{MT-LNN} (\textbf{M}icro\textbf{t}ubule-Inspired \textbf{L}iquid \textbf{N}eural \textbf{N}etwork, 受微管启发的液态神经网络)，该架构彻底打破了传统的“下一个词预测 (Next-Token Prediction)”范式，交付了一个基于生物启发的\emph{预测编码系统 (Predictive Coding System)}。融合了神经元微管 (MTs)、闭式液态时间常数网络 (CfLTC) 以及意识的全局工作区理论 (GWT)，MT-LNN 将标准 Transformer 中的前馈网络 (FFN) 替换为\emph{微管动态层} (MT-DL) —— 13 个平行的 CfLTC 通道，具有多尺度共振与动态 $\kappa$ 门控实现的内源性计算跳过。MT-LNN 的核心是一个统一的\emph{多尺度预测编码损失}，较慢的 $\tau$ 抽象通道通过尺度内 MSE 自我监督较快的感知通道。为打破 $O(T)$ 的上下文内存墙，该架构通过指数衰减状态引入了 \emph{$O(1)$ 工作记忆缓存} 机制。此外，状态表示可以通过内置的\emph{因果链 (Causal Chain)} 和\emph{自我监控 (Self-Monitor)} 提取头映射为具有强解释性的符号日志。经由我们首创的\emph{麻醉验证协议} (AVP) 测试，MT-LNN 在 125M 参数级别相比同等 Transformer 困惑度降低了 $\approx$14.7\%，信息整合度 ($\hat{\Phi}$) 提高了 $2.2\times$ 倍，并且凭借跳过门控与内存界限在推理芯片上实现了指数级的成本耗能节约。
+我们引入了 \textbf{MT-LNN} (\textbf{M}icro\textbf{t}ubule-Inspired \textbf{L}iquid \textbf{N}eural \textbf{N}etwork, 受微管启发的液态神经网络)，该架构彻底打破了传统的“下一个词预测 (Next-Token Prediction)”范式，交付了一个基于生物启发的\emph{预测编码系统 (Predictive Coding System)}。融合了神经元微管 (MTs)、闭式液态时间常数网络 (CfLTC) 以及意识的全局工作区理论 (GWT)，MT-LNN 将标准 Transformer 中的前馈网络 (FFN) 替换为\emph{微管动态层} (MT-DL) —— 13 个平行的 CfLTC 通道，具有多尺度共振与动态 $\kappa$ 门控实现的内源性计算跳过。MT-LNN 的核心是一个统一的\emph{多尺度预测编码损失}，较慢的 $\tau$ 抽象通道通过尺度内 MSE 自我监督较快的感知通道。为打破 $O(T)$ 的上下文内存墙，该架构通过指数衰减状态引入了 \emph{$O(1)$ 工作记忆缓存} 机制。此外，状态表示可以通过内置的\emph{因果链 (Causal Chain)} 和\emph{自我监控 (Self-Monitor)} 提取头映射为具有强解释性的符号日志。经由我们首创的\emph{麻醉验证协议} (AVP) 测试，MT-LNN 在 125M 参数级别相比同等参数量的\emph{简单参照} Transformer 困惑度降低了 $\approx$14.7\%，信息整合度 ($\hat{\Phi}$) 提高了 $2.2\times$ 倍，并且凭借跳过门控与内存界限在推理芯片上实现了指数级的成本耗能节约。需强调：该对比针对朴素 post-LN/GELU 基线；在独立的收敛实验中，\emph{现代} Transformer 基线（RoPE、RMSNorm、SwiGLU）困惑度反超 MT-LNN 达 $11.3\%$，故此项不应被解读为针对当代 Transformer 实践的主张（见第~\ref{sec:limitations} 节）。
 
 \medskip
 \noindent\textbf{关键词:} 预测编码, 液态神经网络, 微管, $O(1)$ 内存, 计算跳过, 全局工作区理论.
@@ -278,7 +278,7 @@ Transformer 和普通的 LNN 缺乏 MT 相干参数，在 AVP 下表现出几乎
 \label{fig:experiments}
 \end{figure*}
 
-在 125M 级别，MT-LNN 的 PPL 比基线 Transformer 低 14.7\%，而其信息整合度 $\phihat$ 则提高了 $2.2 \times$ 以上。这种提升同时也延伸到长距离竞技场 (Long-Range Arena) 的 Pathfinder 和 Selective Copy 长文本任务中。
+在 125M 级别，MT-LNN 的 PPL 比\emph{简单参照} Transformer 基线低 14.7\%，而其信息整合度 $\phihat$ 则提高了 $2.2 \times$ 以上。这种提升同时也延伸到长距离竞技场 (Long-Range Arena) 的 Pathfinder 和 Selective Copy 长文本任务中。需要强调：该对比针对的是朴素 post-LN/GELU 基线；在另一组收敛实验中，\emph{现代} Transformer 基线（RoPE、RMSNorm、SwiGLU）在困惑度上反超 MT-LNN 达 $11.3\%$，因此该结果不应被解读为对当代 Transformer 实践的普遍主张（见第~\ref{sec:limitations} 节）。
 
 \begin{table}[h]
 \centering
@@ -360,7 +360,7 @@ MT-LNN-nGWT & 0.32 & 0.11 & 65.6\% & 1.19 & 0.41 & 65.5\% & \textcolor{red}{$\ti
 \section{局限性 (Limitations)}
 \label{sec:limitations}
 
-尽管取得显著成果，仍存在一定局限性：当前最大评估参数量为 125M，我们正在向 7B 级别的基准进行规模伸缩（Scaling）；并且当前使用的环境无法完整模拟真实的生物体化学复合作用环境。此外，一次更小预算（2000 步、单一随机种子）的 fp32 复测在 WikiText-103 上补充了与 Mamba \citep{gu2023mamba} 的首次同参数量级对比：MT-LNN 验证集困惑度（257.5）同时低于匹配宽度的 Transformer 基线（370.8）与 Mamba（414.0，126.0M/142.1M/129.1M 参数），与更大训练预算下的主结果方向一致；但 Mamba 的隐藏维度与层数并未与 Transformer/MT-LNN 做宽度-深度匹配，该对比应视为外部参照而非架构受控对照。同一批实验还发现一个孤立的 fp16 数值鲁棒性缺口：在另一次 fp16 自动混合精度实跑中，MT-LNN 的训练损失在第 629 步后发散，而 Transformer 基线在同一配方下全程 2000 步保持稳定；完整 fp32 训练未复现该发散，且 MT-LNN 的困惑度优势得以保留，但 fp16 特有的根因尚未查明。
+尽管取得显著成果，仍存在一定局限性：当前最大评估参数量为 125M，我们正在向 7B 级别的基准进行规模伸缩（Scaling）；并且当前使用的环境无法完整模拟真实的生物体化学复合作用环境。更重要的是，MT-LNN 表面上的困惑度优势在收敛后面对现代基线时并未保持。一次短预算（2000 步、单种子）fp32 实验曾显示 MT-LNN 大幅领先匹配宽度的 Transformer（257.5 vs 370.8，Mamba \citep{gu2023mamba} 首个数据点为 414.0）。但将相同架构训练至收敛（20{,}000 步、各 3 个随机种子、完全相同的 fp32 配方）后结论反转：MT-LNN 验证集困惑度为 $88.93 \pm 0.33$，优于简单匹配 Transformer 的 $94.14 \pm 0.78$（残余优势 $5.5\%$），但现代 Transformer 基线（RoPE、RMSNorm、SwiGLU）达到 $78.86 \pm 0.25$，在可比参数量下（144.1M/126.0M/142.1M）\emph{反超} MT-LNN 达 $11.3\%$。因此短预算下的差距是欠训练叠加基线偏弱造成的假象，我们据此\textbf{撤回}将其作为困惑度优势的证据。三种架构均训练稳定、无非有限损失。我们将语言建模质量列为\textbf{尚待缩小的差距而非优势}：本架构剩余的立论基础在于恒定内存与跨会话记忆特性——这是任何 Transformer 配置都无法消除的。另外，fp16 特有的鲁棒性缺口仍未解决：在 fp16 自动混合精度下 MT-LNN 的损失在第 629 步后发散，而 Transformer 基线在同一配方下保持稳定；完整 fp32 训练未复现该发散，但根因尚未查明。
 
 \section{结论 (Conclusion)}
 \label{sec:conclusion}
