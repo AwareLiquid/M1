@@ -276,11 +276,10 @@ advantage survives a same-precision, divergence-free comparison.
 | mamba | 129.1M | **yes** | 414.00 | ~1270 |
 
 Findings:
-1. **fp16 divergence confirmed as a precision issue, not architectural.**
-   All three archs ran the full 2000 steps with `stable: true` in fp32 —
-   mt_lnn does not diverge past step 629 (or anywhere else) once autocast is
-   disabled. Root cause of the fp16-specific fragility is still open;
-   `--dtype fp32` remains the fair-comparison fallback until it lands.
+1. **fp16 divergence: ROOT-CAUSED AND FIXED (2026-07-19).** Originally a
+   precision-only issue (fp32 stable, fp16 non-finite past step 629). Now
+   diagnosed and repaired — see "fp16 divergence root cause" below.
+   `--dtype fp32` is no longer required as a divergence workaround.
 2. ~~**The ~30% PPL advantage holds under both precisions**~~ — **RETRACTED
    2026-07-19.** Both runs were 2000-step (undertrained) against a
    simple-reference Transformer. At convergence the gap shrinks to 5.5%, and a
@@ -1145,3 +1144,60 @@ full-causal forward (the benchmark reports `div.max ~ 0.34` at 8 wraps). The O(1
 result is a *memory* guarantee, not a claim of bit-identical long-context logits.
 The `--fixed_window` flag was added precisely so the benchmark can run this
 regime; by default it grows the window to fit the stream (avoiding any wrap).
+
+## fp16 divergence root cause (2026-07-19) — RESOLVED
+
+MT-LNN's fp16-only training divergence is fixed. Reproduction, diagnosis and
+verification below; diagnostic tool is `benchmarks/diagnose_fp16_divergence.py`.
+
+**Reproduction.** `--dtype fp16 --steps 2000 --train_token_cap 50000000`,
+seed 0: non-finite loss at **step 875** (`stable: false`, `val_ppl: Infinity`).
+The exact step is data-order dependent — 629 on the original Colab T4, 875/896
+locally — so a shorter cap (20M) does not trigger it at all. Matching the
+original token cap is required to reproduce.
+
+**Diagnosis.** Forward hooks on every leaf module (loss trajectory stayed
+healthy — loss 5.75 and grad-norm 1.07 at step 895, NaN at 896, no gradual
+buildup, no gradient explosion). Two findings ruled out the obvious causes:
+
+| hypothesis | verdict |
+|---|---|
+| gradient explosion | ❌ grad-norm ~1.1 right up to failure |
+| activation overflow | ❌ peak activation **67.4** vs fp16 ceiling **65504** |
+| GradScaler misbehaviour | ❌ scale pinned at 65536, loss went non-finite in the **forward** pass |
+
+The first non-finite module output was `coherence.dropout`, but its *inputs
+were already non-finite* — i.e. it propagated, not created. The creator was a
+functional op (no module hook): the attention score computation in
+`mt_lnn/global_coherence.py`.
+
+**Root cause.** The layer computed `(Q @ K.transpose(-2,-1)) / self.scale` —
+the `d_head=64` accumulation happens **before** the down-scaling. Measured
+projection peaks were `k_proj` 60.8 and `q_proj` 52.8, so the intermediate
+product reaches ~2e5, **overflowing fp16 inside the matmul itself**. The
+resulting `Inf` then meets the causal mask's zeros in `_gate_energy`'s
+`raw * valid`, and **`Inf * 0 = NaN`**; that NaN flows through
+`sigmoid()` into the collapse gate and poisons the whole layer output.
+fp32 never trips this (ceiling 3.4e38), which is exactly why it was
+precision-specific. It appears mid-training rather than at step 0 because the
+Q/K projections have to grow first — hence the sudden onset after ~900 healthy
+steps and the drift in the failing step across machines.
+
+**Fix** (`mt_lnn/global_coherence.py`):
+1. `(Q / self.scale) @ K.transpose(-2,-1)` at all 4 sites — algebraically
+   identical, but holds the accumulation `sqrt(d_head)`× lower.
+2. `_gate_energy`: `torch.where(valid > 0, raw, 0)` instead of `raw * valid`
+   (removes the `Inf * 0` path), fp32 accumulation, and `clamp_min(1e-6)`
+   replacing a literal `1e-9` epsilon that **underflows to exactly 0 in fp16**
+   and so provided no guard at all.
+
+**Verification.** The identical recipe that failed at step 896:
+
+| | before fix | after fix |
+|---|---|---|
+| step 896 | non-finite | passes (loss 5.51 @ 900) |
+| `stable` | **false** | **true** |
+| val PPL | Infinity | 341.36 |
+| steps completed | 875 | **1000** |
+
+fp32 regression re-checked: unchanged, trains normally.

@@ -88,10 +88,24 @@ class GlobalCoherenceLayer(nn.Module):
         if query_mask is not None:
             valid = valid * query_mask[:, None, :, None]
         H = raw.shape[1]
-        energy = (raw * valid).sum(dim=(1, 2, 3))             # (B,)
+        # fp16 hardening. Two hazards live in this reduction and both are
+        # invisible in fp32:
+        #   1. `raw` can hold a non-finite entry under autocast; `raw * valid`
+        #      then evaluates Inf * 0 = NaN at every masked position, which the
+        #      sum spreads to the whole sample. Select-then-zero instead of
+        #      multiply so masked entries contribute an exact 0.
+        #   2. The sum runs over H*T_q*T_k (~1e6 entries at T=512), which
+        #      overflows fp16's 65504 ceiling on the way back to storage.
+        #      Accumulate in fp32 explicitly rather than relying on autocast.
+        raw32 = raw.float()
+        valid32 = valid.float()
+        masked = torch.where(valid32 > 0, raw32, torch.zeros_like(raw32))
+        energy = masked.sum(dim=(1, 2, 3))                    # (B,) fp32
         # `valid` has a broadcast head dim of size 1 → multiply the count by H.
-        count = valid.expand(raw.shape[0], 1, -1, -1).sum(dim=(1, 2, 3)) * H
-        return energy / (count + 1e-9)
+        count = valid32.expand(raw.shape[0], 1, -1, -1).sum(dim=(1, 2, 3)) * H
+        # A literal 1e-9 underflows to exactly 0 in fp16, so the guard it was
+        # meant to provide silently disappears; clamp in fp32 instead.
+        return energy / count.clamp_min(1e-6)
 
     def forward(
         self,
@@ -122,7 +136,7 @@ class GlobalCoherenceLayer(nn.Module):
             T_total = K.shape[2]
             new_kv = (K, V) if use_cache else None
 
-            scores = (Q @ K.transpose(-2, -1)) / self.scale                # (B,H,T_new,T_total)
+            scores = (Q / self.scale) @ K.transpose(-2, -1)                # (B,H,T_new,T_total)
 
             key_pad = pad_mask[:, :T_total] if pad_mask is not None else None
             if key_pad is not None:
@@ -139,7 +153,7 @@ class GlobalCoherenceLayer(nn.Module):
 
             # Collapse gate based on raw (pre-sparse) energy mean — per sample.
             with torch.no_grad():
-                raw = (Q @ K.transpose(-2, -1)) / self.scale
+                raw = (Q / self.scale) @ K.transpose(-2, -1)
                 causal = (k_pos[None, :] <= q_pos[:, None]).float()
                 mean_energy = self._gate_energy(
                     raw, causal,
@@ -150,7 +164,7 @@ class GlobalCoherenceLayer(nn.Module):
             # Working Memory Decay Mode: Constant O(1) space across sequence length.
             # We don't cat K, V over history. We just do self-attention on the current chunk.
             T_total = T_new
-            scores = (Q @ K.transpose(-2, -1)) / self.scale
+            scores = (Q / self.scale) @ K.transpose(-2, -1)
 
             key_pad = query_pad                                            # keys == current chunk
             if key_pad is not None:
@@ -164,7 +178,7 @@ class GlobalCoherenceLayer(nn.Module):
 
             # Collapse gate on local chunk — per sample.
             with torch.no_grad():
-                raw = (Q @ K.transpose(-2, -1)) / self.scale
+                raw = (Q / self.scale) @ K.transpose(-2, -1)
                 causal = (k_pos[None, :] <= q_pos[:, None]).float()
                 mean_energy = self._gate_energy(
                     raw, causal,
