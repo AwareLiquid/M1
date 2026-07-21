@@ -75,7 +75,7 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 
 - **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。
 - **P0-3 modern_transformer 阶段成果已推送**：`benchmarks/baselines.py` 增加 `ModernCausalTransformer`；`benchmarks/scaling_comparison.py` 增加 `modern_transformer` arch；`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` 已更新为三模型对比；modern_transformer 三个 JSON 与三份标准化日志已上传到 `physics-informed-head`。接手时仍需先 `git status` 确认本地是否有新实验结果或远端同步差异。
-- ~~**fp16/AMP 根因未解决**~~ → **已解决（2026-07-19）**：根因是 `mt_lnn/global_coherence.py` 的注意力缩放顺序 `(Q@K)/scale`——在 d_head=64 维累加**之后**才缩放，Q/K 增大后中间乘积 ~2e5 在矩阵乘内部溢出 fp16（上限 65504），产生的 Inf 与因果掩码零相遇触发 `Inf*0=NaN`，经 sigmoid 污染整层。修复：改为 `(Q/scale)@K`（4 处）+ `_gate_energy` 用 where 代替乘法、fp32 累加、`clamp_min(1e-6)` 替换在 fp16 下下溢成 0 的 `1e-9`。**验证**：原本第 896 步发散的同配方现已跑满 1000 步 `stable: true`。诊断工具：`benchmarks/diagnose_fp16_divergence.py`。
+- ~~**fp16/AMP 根因未解决**~~ → **已解决（2026-07-19）**：根因是 `mt_lnn/global_coherence.py` 的注意力缩放顺序 `(Q@K)/scale`——在 d_head=64 维累加**之后**才缩放，Q/K 增大后中间乘积 ~2e5 在矩阵乘内部溢出 fp16（上限 65504），产生的 Inf 与因果掩码零相遇触发 `Inf*0=NaN`，经 sigmoid 污染整层。修复：改为 `(Q/scale)@K`（4 处）+ `_gate_energy` 用 where 代替乘法、fp32 累加、`clamp_min(1e-6)` 替换在 fp16 下下溢成 0 的 `1e-9`。**验证**：原本第 875 步发散的同配方现已跑满 **2000 步** `stable: true`，val PPL **257.91**，与同配方 fp32 的 257.48 相差仅 0.17%（远小于 ±4.89 种子方差）——fp16 已恢复到 fp32 同等质量。审计确认：其余注意力实现均用 SDPA，coherence 是唯一手写的。诊断工具：`benchmarks/diagnose_fp16_divergence.py`。
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 

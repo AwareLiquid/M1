@@ -1193,11 +1193,25 @@ steps and the drift in the failing step across machines.
 
 **Verification.** The identical recipe that failed at step 896:
 
+Run at the original failing length (2000 steps, 50M cap, seed 0):
+
 | | before fix | after fix |
 |---|---|---|
-| step 896 | non-finite | passes (loss 5.51 @ 900) |
+| divergence | step 875 non-finite | **none, full run** |
 | `stable` | **false** | **true** |
-| val PPL | Infinity | 341.36 |
-| steps completed | 875 | **1000** |
+| val PPL | **Infinity** | **257.91** |
+| steps completed | 875 | **2000** |
+
+**fp16 is restored to fp32 parity, not merely made non-crashing:** 257.91 (fp16)
+vs 257.48 (fp32, same recipe) — a 0.17% difference, well inside the ±4.89
+seed-to-seed variance measured at this budget. A wrong fix would typically cost
+quality; this one does not.
 
 fp32 regression re-checked: unchanged, trains normally.
+
+**Audit.** Every other attention surface (`mt_attention.py`, `gwtb.py`,
+`mt_lnn_layer.py`, `mt_lnn_v2.py`) delegates to
+`F.scaled_dot_product_attention`, which handles scaling safely.
+`global_coherence.py` was the only hand-rolled score computation in the
+codebase — which is exactly why the failure was isolated to it. No other site
+carries this pattern.
