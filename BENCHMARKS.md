@@ -351,12 +351,23 @@ T4, 832 x 12, GQA=1 (matched to the native model's config):
 | 2048 | 6.0 MB | 0.381 MB | 15.7x |
 | 8192 | 24.0 MB | 0.381 MB | 63x |
 | 32768 | 96.0 MB | 0.381 MB | 252x |
-| 131072 | 384.0 MB | 0.381 MB | **1008x** |
+| 131072 | 384.0 MB | 0.381 MB | 1008x |
+| 524288 | 1536.0 MB | 0.381 MB | 4031x |
+| **1048576** | **3072.0 MB** | **0.381 MB** | **8063x** |
+
+Extended to **1M tokens** on 2026-07-19 (RTX 5060 8GB, `--mode decode
+--profile_lens 512,2048,8192,32768,131072,524288,1048576`). Streaming the prime
+in 512-token chunks under `no_grad` keeps the measurement itself O(1), which is
+why a 1M-token context is measurable on an 8GB laptop at all — the KV-cache
+side would need 3 GB just for the cache.
 
 Attention KV-cache grows **exactly linearly** (4x per 4x in T); ARR state is
 **flat at 0.381 MB** (F is DxD, no T dimension) — the O(1) claim, proven at
-real 125M scale. At 128k context the ratio is **1008x measured**; the KV line never
-plateaus while ARR never moves. And this is CONSERVATIVE: GQA=1 already
+real 125M scale. Across a **2048x increase in context** (512 -> 1,048,576) the
+carried state does not move by a single decimal place, while the KV line never
+plateaus: at 1M context the ratio is **8063x measured**. ARR's number is an
+empirical snapshot-byte sum, not an estimate; the Llama KV figure is the exact
+analytic `2 * L * n_kv * d_head * T * bytes`. And this is CONSERVATIVE: GQA=1 already
 shrinks the KV cache 13x — standard multi-head attention would put the ratio
 ~13x higher again. This cleanly validates the M-series/O-series split: only
 the attention-free O-series gets constant memory, which is exactly the

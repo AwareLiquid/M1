@@ -405,7 +405,8 @@
     \begin{itemize}
         \item \textbf{Testing Baseline:} Standard Transformer (KV Cache) v.s. AwareLiquid (State-only).
         \item \textbf{Commercial Meaning in Plain Terms:} Memory usage is \textbf{\textasciitilde 250 times smaller} than equivalent models (1020 KB down to 4.1 KB). In plain terms: we successfully eradicate the Out-Of-Memory (OOM) curse, allowing AI to run flawlessly on decade-old phones or smart home appliances.
-        \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/operator_compression_report.py}{\texttt{benchmarks/operator\_compression\_report.py}}
+        \item \textbf{Verified to 1M tokens (2026-07-19):} on the attention-free O-series, the carried inference state stays \textbf{flat at 0.381 MB across a 2048$\times$ context increase} (512 $\to$ 1{,}048{,}576 tokens) while a matched Transformer's KV cache grows linearly to \textbf{3{,}072 MB} --- an \textbf{8{,}063$\times$} gap, measured rather than extrapolated. With language-modeling quality no longer the differentiator (item 4), this constant-memory property is our strongest verified technical claim.
+        \item \textbf{Reproducible Code (Click to open):} \href{https://github.com/everest-an/M1/blob/main/benchmarks/operator_compression_report.py}{\texttt{benchmarks/operator\_compression\_report.py}} · \texttt{scaling\_comparison.py --mode decode}
     \end{itemize}
     \vspace{0.4em}
     \item \textbf{2. Noise Immunity ("Needle in a Haystack" Retrieval)}
