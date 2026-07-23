@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AwareLiquid — Bio-inspired Cognitive AI Framework | M1 · O1 · Continual Learning</title>
-<meta name="description" content="AwareLiquid: bio-inspired cognitive AI framework. M1 (GWT + sleep consolidation + EWC): −85% catastrophic forgetting, −28.5% PPL. O1: liquid-ODE edge inference. Beyond next-token prediction — towards cognitive artificial life.">
+<meta name="description" content="AwareLiquid: bio-inspired cognitive AI framework. O-series edge models keep O(1) constant inference memory — 0.381 MB flat state, 8063× smaller than a KV-cache at 1M tokens — plus cross-window/cross-session recall that attention cannot express. Open, reproducible, falsifiable.">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://awareliquid.ai/">
 <meta property="og:title" content="AwareLiquid — Beyond Next-Token Prediction. Towards Cognitive Artificial Life.">
-<meta property="og:description" content="Bio-inspired cognitive AI framework. M1: GWT + sleep consolidation, −85% forgetting. O1: liquid-ODE edge inference. Open research, reproducible experiments.">
+<meta property="og:description" content="Bio-inspired cognitive AI framework. O-series edge models: O(1) constant inference memory (8063× smaller than a KV-cache at 1M tokens) + cross-session recall attention cannot express. Open, reproducible.">
 <meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -20,9 +20,9 @@
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="AwareLiquid — Cognitive AI Beyond Next-Token Prediction">
-<meta name="twitter:description" content="M1: GWT + sleep consolidation, −85% forgetting. O1: liquid-ODE edge. Bio-inspired framework for cognitive artificial life.">
+<meta name="twitter:description" content="O-series edge models with O(1) constant inference memory — 8063× smaller than a KV-cache at 1M tokens — plus cross-session recall attention cannot express. Bio-inspired, open, reproducible.">
 <meta name="twitter:image" content="https://awareliquid.ai/static/og-image.png">
-<meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — EWC −85% forgetting reduction">
+<meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — O(1) constant-memory edge inference">
 <!-- Canonical & crawl -->
 <link rel="canonical" href="https://awareliquid.ai/">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
@@ -49,7 +49,7 @@
   "@type": "SoftwareApplication",
   "name": "AwareLiquid",
   "alternateName": "MT-LNN",
-  "description": "AwareLiquid is a bio-inspired cognitive AI framework. M-Series (M1): GWT + sleep consolidation + EWC continual learning — slow thinking cognitive engine. O-Series (O1): liquid-ODE constant-memory fast inference for edge. EWC reduces catastrophic forgetting by 85% (SNR 4.14, 3/3 seeds).",
+  "description": "AwareLiquid is a bio-inspired cognitive AI framework. M-Series (M1): GWT + sleep consolidation + adapter recall — cognitive engine. O-Series (O1): liquid-ODE constant-memory fast inference for edge, with O(1) carried state (0.381 MB flat, 8063x smaller than a KV-cache at 1M tokens) and cross-session associative recall attention cannot express.",
   "url": "https://awareliquid.ai",
   "codeRepository": "https://github.com/everest-an/M1",
   "applicationCategory": "AIApplication",
@@ -548,7 +548,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   <div class="container">
     <a class="pill" href="/research">
       <span class="pill-dot"></span>
-      M1 · EWC −85% forgetting &nbsp;·&nbsp; adapter −28.5% PPL
+      O-series · 8063× less inference memory at 1M tokens · O(1) constant state
       <span class="pill-arrow">→</span>
     </a>
     <h1 class="hero-title">Beyond Next-Token Prediction.<br><span class="accent">Towards Cognitive Artificial Life.</span></h1>
@@ -577,23 +577,23 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 <section class="stats-strip">
   <div class="container stats-inner">
     <div class="stat-item">
-      <span class="stat-n">−85%</span>
-      <span class="stat-l">Cross-domain forgetting<br>EWC vs. dense baseline</span>
+      <span class="stat-n">8063×</span>
+      <span class="stat-l">Less inference memory at 1M tokens<br>O-series state vs. KV-cache</span>
     </div>
     <div class="stat-div"></div>
     <div class="stat-item">
-      <span class="stat-n">4.14</span>
-      <span class="stat-l">Signal-to-noise ratio<br>3 / 3 seeds consistent</span>
+      <span class="stat-n">0.381 MB</span>
+      <span class="stat-l">Constant carried state<br>flat from 512 to 1M tokens</span>
     </div>
     <div class="stat-div"></div>
     <div class="stat-item">
-      <span class="stat-n">−28.5%</span>
-      <span class="stat-l">WikiText-2 perplexity<br>MT-LNN adapter</span>
+      <span class="stat-n">0.56 / 0.00</span>
+      <span class="stat-l">Cross-window recall<br>fast-weight vs. attention/LoRA</span>
     </div>
     <div class="stat-div"></div>
     <div class="stat-item">
       <span class="stat-n">48M</span>
-      <span class="stat-l">From-scratch parameters<br>live browser inference</span>
+      <span class="stat-l">From-scratch edge model<br>live browser inference</span>
     </div>
   </div>
 </section>
@@ -650,21 +650,23 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <table>
           <thead><tr><th>Experiment</th><th>Result</th><th>Status</th></tr></thead>
           <tbody>
-            <tr class="highlight-row"><td>EWC forgetting reduction</td><td class="good">−85% (SNR 4.14)</td><td>✓ Early Signal</td></tr>
-            <tr><td>MT-LNN adapter PPL</td><td class="good">−28.5% on WikiText-2</td><td>✓ Built</td></tr>
-            <tr><td>Context injection accuracy</td><td class="good">+13.3 pp (83→97%)</td><td>✓ Built</td></tr>
-            <tr><td>Needle-in-haystack (within 2048 window)</td><td class="good">base 0.87–1.0 · adapter 1.0</td><td>✓ Re-tested (chat template)</td></tr>
+            <tr class="highlight-row"><td>O(1) inference memory (O-series)</td><td class="good">0.381 MB flat → 8063× smaller @1M</td><td>✓ Proven (measured)</td></tr>
+            <tr class="highlight-row"><td>Cross-window associative recall</td><td class="good">0.56 vs 0.000 (attention/LoRA)</td><td>✓ Proven (3 seeds)</td></tr>
+            <tr><td>Cross-session snapshot → restore</td><td class="good">bit-exact lossless</td><td>✓ Proven (unit test)</td></tr>
+            <tr><td>Stable training at 125M scale</td><td class="good">no NaN, 20K steps, 3 seeds</td><td>✓ Proven</td></tr>
+            <tr><td>EWC vs. dense forgetting</td><td>−85% relative, but both still forget A</td><td>⚠ Weak signal — not yet a solved claim</td></tr>
+            <tr><td>Prompt-template fact injection</td><td>+13.3 pp (template, not the model)</td><td>✓ Template only</td></tr>
           </tbody>
         </table>
-        <p class="table-note">3 seeds · Kaggle P100 GPU · WikiText-103 → TinyStories domain shift.</p>
+        <p class="table-note">Every number reconciled against <a href="https://github.com/everest-an/M1/blob/main/RESULTS.md" target="_blank" rel="noopener noreferrer">RESULTS.md</a> (canonical evidence base). Retracted claims — including an earlier “−28.5% adapter PPL” that was plain LoRA — are listed there, not here.</p>
       </div>
       <a class="btn btn-ghost" style="margin-top:20px;display:inline-flex" href="/research">Full methodology & results →</a>
     </div>
     <figure class="chart-fig">
-      <img src="/static/charts/ewc_forgetting.svg"
-           alt="Bar chart: EWC reduces forgetting from 10,562 to 1,633 PPL rise — an 85% reduction vs dense baseline"
+      <img src="/static/charts/memory_scaling.svg"
+           alt="Line chart: Transformer KV-cache grows linearly O(n) with context length while the recurrent O-series state stays flat — constant memory regardless of context"
            loading="lazy">
-      <figcaption>Forgetting (PPL rise on domain A after B training). Lower is better. Real GPU run · 3 seeds · 60.7M model.</figcaption>
+      <figcaption>Inference memory vs. context length. The KV-cache grows O(n); the O-series carried state is flat. Measured to 1M tokens: 0.381 MB state vs. 3,072 MB KV-cache — 8063× smaller.</figcaption>
     </figure>
   </div>
 </section>
@@ -881,7 +883,7 @@ const I18N={
   en:{
     'nav.demo':'Demo','nav.research':'Research','nav.about':'About','nav.paper':'Paper','nav.github':'GitHub',
     'nav.try':'Try Demo',
-    'hero.pill':'M1 · EWC −85% forgetting · adapter −28.5% PPL',
+    'hero.pill':'O-series · 8063× less inference memory at 1M tokens · O(1) constant state',
     'hero.title':'Beyond Next-Token Prediction.',
     'hero.accent':'Towards Cognitive Artificial Life.',
     'hero.sub':'AwareLiquid is a bio-inspired cognitive AI framework — continuous-time liquid dynamics layered with global workspace theory, sleep-based memory consolidation, and online continual learning.',
@@ -914,7 +916,7 @@ const I18N={
   zh:{
     'nav.demo':'演示','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
     'nav.try':'试用演示',
-    'hero.pill':'M1 · EWC 遗忘减少 −85% · 适配器 PPL −28.5%',
+    'hero.pill':'O 系列 · 100 万 token 推理内存省 8063× · O(1) 恒定状态',
     'hero.title':'超越下一个词的预测。',
     'hero.accent':'迈向认知人工生命。',
     'hero.sub':'AwareLiquid 是一个仿生认知 AI 框架——连续时间液态动力学，融合全局工作空间理论、基于睡眠的记忆巩固与在线持续学习。',
