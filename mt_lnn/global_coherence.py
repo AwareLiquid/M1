@@ -194,7 +194,9 @@ class GlobalCoherenceLayer(nn.Module):
         attn = F.softmax(scores, dim=-1)
         attn = self.dropout(attn)
         out = attn @ V                                                  # (B,H,T_new,D)
-        out = out.transpose(1, 2).contiguous().view(B, T_new, self.d_model)
+        # reshape, not contiguous().view() — see mt_attention.py: view() on the
+        # transposed tensor blocks torch.export/ONNX (browser deployment path).
+        out = out.transpose(1, 2).reshape(B, T_new, self.d_model)
         out = self.out_proj(out)
 
         if not self.use_decay_wm:

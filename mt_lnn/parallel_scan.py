@@ -66,6 +66,11 @@ def pscan_sequential(A: torch.Tensor, X: torch.Tensor,
 # ---------------------------------------------------------------------------
 
 def _next_pow2(n: int) -> int:
+    # Tracers (torch.jit / torch.onnx) hand this a 0-dim Tensor rather than a
+    # Python int, and Tensor has no .bit_length(). The scan depth is a function
+    # of the sequence length, which is static whenever we are tracing, so
+    # coercing to int here is safe and is what makes ONNX export possible.
+    n = int(n)
     return 1 << (max(n, 1) - 1).bit_length()
 
 
