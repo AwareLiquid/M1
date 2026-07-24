@@ -410,5 +410,9 @@ class MicrotubuleAttention(nn.Module):
             is_causal=False,                     # causal already encoded in attn_bias
         )                                         # (B,H_q,T_new,D)
 
-        out = out.transpose(1, 2).contiguous().view(B, T_new, H_q * D)
+        # reshape, not contiguous().view(): identical semantics, but view() on
+        # the transposed tensor fails under torch.export (the tracer sees the
+        # non-contiguous strides and refuses), which blocks ONNX export and
+        # therefore the browser/WebGPU deployment path.
+        out = out.transpose(1, 2).reshape(B, T_new, H_q * D)
         return self.resid_dropout(self.out_proj(out)), new_kv

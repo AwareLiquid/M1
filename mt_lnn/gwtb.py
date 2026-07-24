@@ -288,7 +288,9 @@ class GWTBLayer(nn.Module):
             dropout_p=self.dropout.p if self.training else 0.0,
             is_causal=False,
         )
-        out = out.transpose(1, 2).contiguous().view(B, T_new, self.d_gw)
+        # reshape, not contiguous().view() — see mt_attention.py: view() on the
+        # transposed tensor blocks torch.export/ONNX (browser deployment path).
+        out = out.transpose(1, 2).reshape(B, T_new, self.d_gw)
         z_attn = self.workspace_norm(z + self.attn_out(out))
         delta = self.broadcast(z_attn)                               # (B,T_new,d_model)
         return delta, new_kv

@@ -76,7 +76,8 @@ import re
 import torch
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, StreamingResponse, HTMLResponse
+from fastapi.responses import (FileResponse, StreamingResponse, HTMLResponse,
+                               RedirectResponse, JSONResponse)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -263,6 +264,82 @@ def terms():
 @app.get("/demo")
 def demo():
     return _static_page("demo")
+
+
+# ---------------------------------------------------------------------------
+# Partner referral tracking
+# ---------------------------------------------------------------------------
+# A partner (e.g. clawhunt) links to /partners/<name>. Each hit is counted
+# SERVER-SIDE — reliable, unlike a client JS beacon that ad-blockers drop — then
+# the visitor is 302'd to the homepage with ?ref=<name> so downstream analytics
+# and the client can attribute the session too. Counts persist to a JSONL file
+# (one line per visit) plus an aggregate JSON, so a restart never loses history.
+
+_PARTNER_DIR = os.environ.get(
+    "PARTNER_DATA_DIR",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                 "data", "partners"))
+_PARTNER_LOCK = threading.Lock()
+# Only allow a conservative slug so the path can never be abused for traversal
+# or injected into the redirect target.
+_PARTNER_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+
+def _record_partner_hit(name: str, request: "Request") -> None:
+    os.makedirs(_PARTNER_DIR, exist_ok=True)
+    entry = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "partner": name,
+        # Referrer/UA are useful for spotting bots vs real clicks; no PII beyond
+        # what any web server already logs.
+        "referer": request.headers.get("referer", ""),
+        "ua": request.headers.get("user-agent", "")[:300],
+        "ip": (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+               or (request.client.host if request.client else "")),
+    }
+    with _PARTNER_LOCK:
+        with open(os.path.join(_PARTNER_DIR, "hits.jsonl"), "a",
+                  encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        agg_path = os.path.join(_PARTNER_DIR, "counts.json")
+        try:
+            with open(agg_path, encoding="utf-8") as f:
+                agg = json.load(f)
+        except (FileNotFoundError, ValueError):
+            agg = {}
+        agg[name] = int(agg.get(name, 0)) + 1
+        with open(agg_path, "w", encoding="utf-8") as f:
+            json.dump(agg, f, indent=2)
+
+
+@app.get("/partners/{name}")
+def partner_referral(name: str, request: Request):
+    """Count an inbound partner click, then redirect to the site homepage."""
+    slug = name.lower()
+    if not _PARTNER_RE.match(slug):
+        # Unknown/malformed slug: don't count it, just send them home.
+        return RedirectResponse(url="/", status_code=302)
+    try:
+        _record_partner_hit(slug, request)
+    except Exception:
+        # Tracking must never break the redirect the visitor came for.
+        pass
+    return RedirectResponse(url=f"/?ref={slug}", status_code=302)
+
+
+@app.get("/partners")
+def partner_stats(request: Request):
+    """Aggregate referral counts. Optionally gate with PARTNER_STATS_TOKEN."""
+    token = os.environ.get("PARTNER_STATS_TOKEN")
+    if token and request.query_params.get("token") != token:
+        raise HTTPException(401, "stats token required")
+    agg_path = os.path.join(_PARTNER_DIR, "counts.json")
+    try:
+        with open(agg_path, encoding="utf-8") as f:
+            counts = json.load(f)
+    except (FileNotFoundError, ValueError):
+        counts = {}
+    return JSONResponse({"counts": counts, "total": sum(counts.values())})
 
 
 def _text_file(name: str, media_type: str = "text/plain") -> FileResponse:

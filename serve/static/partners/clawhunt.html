@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>AwareLiquid — redirecting…</title>
+<!--
+  Static fallback for the clawhunt partner link.
+
+  Preferred path: serve/server.py handles GET /partners/clawhunt itself — it
+  counts the hit server-side (reliable) and 302s to /?ref=clawhunt. This file is
+  only reached when the site is served as PURE STATIC (e.g. Caddy file_server
+  with no FastAPI backend), where a server-side counter is not available. In that
+  mode we still (a) fire a best-effort tracking beacon and (b) redirect, so the
+  visitor always lands on the homepage.
+-->
+<meta http-equiv="refresh" content="1; url=/?ref=clawhunt">
+<style>
+  html,body{height:100%;margin:0}
+  body{display:flex;align-items:center;justify-content:center;
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+       color:#0d0d0d;background:#fff}
+  @media (prefers-color-scheme:dark){body{color:#e6e6e6;background:#0d0d0d}}
+  .box{text-align:center}
+  a{color:#1f75fe}
+</style>
+</head>
+<body>
+  <div class="box">
+    <p>Redirecting to <strong>AwareLiquid</strong>…</p>
+    <p><a href="/?ref=clawhunt">Continue &rarr;</a></p>
+  </div>
+<script>
+  (function () {
+    var PARTNER = 'clawhunt';
+    // Best-effort client-side count for the pure-static deployment. The
+    // server route is authoritative when it exists; this is a fallback and is
+    // allowed to fail silently (ad-blockers, offline, etc.).
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon('/partners/' + PARTNER + '?beacon=1');
+      }
+    } catch (e) {}
+    // Redirect promptly (the <meta refresh> is the no-JS backstop).
+    try {
+      sessionStorage.setItem('ref', PARTNER);
+    } catch (e) {}
+    location.replace('/?ref=' + PARTNER);
+  })();
+</script>
+</body>
+</html>

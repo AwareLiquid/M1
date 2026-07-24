@@ -276,11 +276,10 @@ advantage survives a same-precision, divergence-free comparison.
 | mamba | 129.1M | **yes** | 414.00 | ~1270 |
 
 Findings:
-1. **fp16 divergence confirmed as a precision issue, not architectural.**
-   All three archs ran the full 2000 steps with `stable: true` in fp32 —
-   mt_lnn does not diverge past step 629 (or anywhere else) once autocast is
-   disabled. Root cause of the fp16-specific fragility is still open;
-   `--dtype fp32` remains the fair-comparison fallback until it lands.
+1. **fp16 divergence: ROOT-CAUSED AND FIXED (2026-07-19).** Originally a
+   precision-only issue (fp32 stable, fp16 non-finite past step 629). Now
+   diagnosed and repaired — see "fp16 divergence root cause" below.
+   `--dtype fp32` is no longer required as a divergence workaround.
 2. ~~**The ~30% PPL advantage holds under both precisions**~~ — **RETRACTED
    2026-07-19.** Both runs were 2000-step (undertrained) against a
    simple-reference Transformer. At convergence the gap shrinks to 5.5%, and a
@@ -352,12 +351,23 @@ T4, 832 x 12, GQA=1 (matched to the native model's config):
 | 2048 | 6.0 MB | 0.381 MB | 15.7x |
 | 8192 | 24.0 MB | 0.381 MB | 63x |
 | 32768 | 96.0 MB | 0.381 MB | 252x |
-| 131072 | 384.0 MB | 0.381 MB | **1008x** |
+| 131072 | 384.0 MB | 0.381 MB | 1008x |
+| 524288 | 1536.0 MB | 0.381 MB | 4031x |
+| **1048576** | **3072.0 MB** | **0.381 MB** | **8063x** |
+
+Extended to **1M tokens** on 2026-07-19 (RTX 5060 8GB, `--mode decode
+--profile_lens 512,2048,8192,32768,131072,524288,1048576`). Streaming the prime
+in 512-token chunks under `no_grad` keeps the measurement itself O(1), which is
+why a 1M-token context is measurable on an 8GB laptop at all — the KV-cache
+side would need 3 GB just for the cache.
 
 Attention KV-cache grows **exactly linearly** (4x per 4x in T); ARR state is
 **flat at 0.381 MB** (F is DxD, no T dimension) — the O(1) claim, proven at
-real 125M scale. At 128k context the ratio is **1008x measured**; the KV line never
-plateaus while ARR never moves. And this is CONSERVATIVE: GQA=1 already
+real 125M scale. Across a **2048x increase in context** (512 -> 1,048,576) the
+carried state does not move by a single decimal place, while the KV line never
+plateaus: at 1M context the ratio is **8063x measured**. ARR's number is an
+empirical snapshot-byte sum, not an estimate; the Llama KV figure is the exact
+analytic `2 * L * n_kv * d_head * T * bytes`. And this is CONSERVATIVE: GQA=1 already
 shrinks the KV cache 13x — standard multi-head attention would put the ratio
 ~13x higher again. This cleanly validates the M-series/O-series split: only
 the attention-free O-series gets constant memory, which is exactly the
@@ -1145,3 +1155,165 @@ full-causal forward (the benchmark reports `div.max ~ 0.34` at 8 wraps). The O(1
 result is a *memory* guarantee, not a claim of bit-identical long-context logits.
 The `--fixed_window` flag was added precisely so the benchmark can run this
 regime; by default it grows the window to fit the stream (avoiding any wrap).
+
+## fp16 divergence root cause (2026-07-19) — RESOLVED
+
+MT-LNN's fp16-only training divergence is fixed. Reproduction, diagnosis and
+verification below; diagnostic tool is `benchmarks/diagnose_fp16_divergence.py`.
+
+**Reproduction.** `--dtype fp16 --steps 2000 --train_token_cap 50000000`,
+seed 0: non-finite loss at **step 875** (`stable: false`, `val_ppl: Infinity`).
+The exact step is data-order dependent — 629 on the original Colab T4, 875/896
+locally — so a shorter cap (20M) does not trigger it at all. Matching the
+original token cap is required to reproduce.
+
+**Diagnosis.** Forward hooks on every leaf module (loss trajectory stayed
+healthy — loss 5.75 and grad-norm 1.07 at step 895, NaN at 896, no gradual
+buildup, no gradient explosion). Two findings ruled out the obvious causes:
+
+| hypothesis | verdict |
+|---|---|
+| gradient explosion | ❌ grad-norm ~1.1 right up to failure |
+| activation overflow | ❌ peak activation **67.4** vs fp16 ceiling **65504** |
+| GradScaler misbehaviour | ❌ scale pinned at 65536, loss went non-finite in the **forward** pass |
+
+The first non-finite module output was `coherence.dropout`, but its *inputs
+were already non-finite* — i.e. it propagated, not created. The creator was a
+functional op (no module hook): the attention score computation in
+`mt_lnn/global_coherence.py`.
+
+**Root cause.** The layer computed `(Q @ K.transpose(-2,-1)) / self.scale` —
+the `d_head=64` accumulation happens **before** the down-scaling. Measured
+projection peaks were `k_proj` 60.8 and `q_proj` 52.8, so the intermediate
+product reaches ~2e5, **overflowing fp16 inside the matmul itself**. The
+resulting `Inf` then meets the causal mask's zeros in `_gate_energy`'s
+`raw * valid`, and **`Inf * 0 = NaN`**; that NaN flows through
+`sigmoid()` into the collapse gate and poisons the whole layer output.
+fp32 never trips this (ceiling 3.4e38), which is exactly why it was
+precision-specific. It appears mid-training rather than at step 0 because the
+Q/K projections have to grow first — hence the sudden onset after ~900 healthy
+steps and the drift in the failing step across machines.
+
+**Fix** (`mt_lnn/global_coherence.py`):
+1. `(Q / self.scale) @ K.transpose(-2,-1)` at all 4 sites — algebraically
+   identical, but holds the accumulation `sqrt(d_head)`× lower.
+2. `_gate_energy`: `torch.where(valid > 0, raw, 0)` instead of `raw * valid`
+   (removes the `Inf * 0` path), fp32 accumulation, and `clamp_min(1e-6)`
+   replacing a literal `1e-9` epsilon that **underflows to exactly 0 in fp16**
+   and so provided no guard at all.
+
+**Verification.** The identical recipe that failed at step 896:
+
+Run at the original failing length (2000 steps, 50M cap, seed 0):
+
+| | before fix | after fix |
+|---|---|---|
+| divergence | step 875 non-finite | **none, full run** |
+| `stable` | **false** | **true** |
+| val PPL | **Infinity** | **257.91** |
+| steps completed | 875 | **2000** |
+
+**fp16 is restored to fp32 parity, not merely made non-crashing:** 257.91 (fp16)
+vs 257.48 (fp32, same recipe) — a 0.17% difference, well inside the ±4.89
+seed-to-seed variance measured at this budget. A wrong fix would typically cost
+quality; this one does not.
+
+fp32 regression re-checked: unchanged, trains normally.
+
+**Audit.** Every other attention surface (`mt_attention.py`, `gwtb.py`,
+`mt_lnn_layer.py`, `mt_lnn_v2.py`) delegates to
+`F.scaled_dot_product_attention`, which handles scaling safely.
+`global_coherence.py` was the only hand-rolled score computation in the
+codebase — which is exactly why the failure was isolated to it. No other site
+carries this pattern.
+
+## A2 edge pilot: battery SoH on real NASA cells (2026-07-24)
+
+First real edge deployment case, not a synthetic task. Scripts:
+`benchmarks/battery_soh_edge.py`, `battery_streaming_memory.py`,
+`battery_irregular_sampling.py`.
+
+**Data.** NASA Ames PCoE Li-ion aging set (public, no auth,
+`https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip`), cells
+B0005/6/7/18. Verified against the published description: B0005 has 168
+discharge cycles fading 1.8565 → 1.3251 Ah.
+
+**Protocol.** One sample per discharge cycle: (128, 3) voltage/current/
+temperature → measured capacity in Ah. **An entire cell (B0018) is held out** —
+splitting cycles within a cell leaks the degradation trajectory and flatters
+every model. Features standardised on train statistics only. All archs share
+d_model=65 / 2 layers; parameter counts differ and are reported.
+
+### 1. Accuracy — regular sampling (10 seeds)
+
+| arch | params | val RMSE (Ah) | vs mean baseline |
+|---|---|---|---|
+| transformer | 111,866 | 0.0972 ± 0.0070 | −38% |
+| **mt_lnn** | **42,474** | 0.0986 ± 0.0171 | −37% |
+| lstm | 69,096 | 0.1034 ± 0.0180 | −34% |
+| gru | 51,936 | 0.1048 ± 0.0110 | −33% |
+| *(predict train mean)* | — | *0.1572* | — |
+
+All four beat the constant-predictor baseline, so the task is learnable and the
+setup is sound. **Every pairwise Welch |t| < 1 — on regular sampling the four
+architectures are statistically indistinguishable on accuracy.** MT-LNN reaches
+that parity with the fewest parameters (2.6× fewer than the transformer), which
+is the only accuracy-side claim the data supports.
+
+> An earlier 3-seed run showed mt_lnn apparently best at 0.0813. It did not
+> survive 10 seeds (0.0986, transformer ahead on the mean). Reported here as a
+> reminder that n=3 on this task is noise.
+
+### 2. Streaming memory — carried state vs stream length
+
+Bytes of state that must be retained to keep predicting (measured, CPU):
+
+| stream | lstm | gru | mt_lnn | transformer KV |
+|---|---|---|---|---|
+| 128 | 1,040 B | 520 B | 2,600 B | 133,120 B |
+| 32,768 | 1,040 B | 520 B | **2,600 B** | **34,078,720 B** |
+
+**MT-LNN is flat at 2.6 KB across a 256× increase in stream length — 13,107×
+smaller than the attention KV cache at 32K.** Note honestly that **O(1) state is
+not unique to the liquid core**: LSTM and GRU are also flat, and in fact carry
+less. Constant memory is a property of recurrence, not of this architecture.
+
+### 3. Irregular sampling — where the liquid core does differentiate
+
+Real BMS controllers wake on events, drop samples under load, and vary duty
+cycle, so the stream is not on a fixed grid. Timesteps are randomly dropped;
+**Δt is supplied as an input feature to every architecture** so the RNNs are not
+handicapped by construction, and train/test share the regime.
+
+| drop | kept | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|---|
+| 0% | 128 | 0.1027 | 0.0996 | 0.1018 | 0.0970 |
+| 30% | 90 | 0.0930 | 0.1136 | 0.1182 | 0.0913 |
+| 60% | 51 | 0.1057 | 0.1236 | 0.1555 | 0.1010 |
+| 80% | 26 | 0.1106 | 0.1306 | 0.1352 | 0.0969 |
+
+Degradation from regular to 80% dropped:
+
+| arch | Δ RMSE | verdict |
+|---|---|---|
+| **mt_lnn** | **+7.7%** | robust |
+| lstm | +31.1% | degrades |
+| gru | +32.8% | degrades |
+| transformer | −0.1% | robust |
+
+At 80% drop (10 seeds): **mt_lnn vs lstm t=+2.40, vs gru t=+2.63 — both
+significant.** vs transformer t=−1.94, within noise.
+
+### What this pilot does and does not establish
+
+**Establishes.** On a real battery-management task, MT-LNN is the only
+architecture tested that is *both* robust to irregular sampling (+7.7% vs the
+RNNs' +31–33%) *and* constant-memory in streaming (2.6 KB vs the transformer's
+34 MB at 32K). The transformer matches its accuracy but cannot fit the memory
+budget of an MCU; the RNNs fit the budget but degrade when samples are dropped.
+That combination is the deployable niche.
+
+**Does not establish.** No accuracy advantage on regularly-sampled data (all
+four tie). No advantage over the transformer on irregular sampling either — the
+transformer is equally robust there and its edge is only excluded by memory, not
+by accuracy. Single dataset, single held-out cell, 128-step windows.

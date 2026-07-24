@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MT-LNN Research: EWC −85% Forgetting, Continual Learning Experiments | AwareLiquid</title>
-<meta name="description" content="MT-LNN research results: EWC reduces catastrophic forgetting 85% (PPL 10,562→1,633, SNR 4.14, 3/3 seeds). Adapter −28.5% PPL. Context injection +13.3pp. Hebbian ablation, needle-in-haystack near-perfect within the 2048 window (re-tested with chat template), reproducible GPU experiments.">
+<title>MT-LNN Research: O(1) Constant-Memory Inference & Cross-Session Recall | AwareLiquid</title>
+<meta name="description" content="MT-LNN research results: O-series O(1) inference memory (0.381 MB flat state, 8063× smaller than a KV-cache at 1M tokens); cross-window/cross-session associative recall (0.56 vs 0.000) attention cannot express; stable 125M training. EWC continual-learning is an honestly-labelled early signal. Reproducible GPU experiments, reconciled against RESULTS.md.">
 <!-- Open Graph -->
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://awareliquid.ai/research">
 <meta property="og:title" content="Research · AwareLiquid — MT-LNN Experiments & Results">
-<meta property="og:description" content="EWC reduces cross-domain forgetting by 85% (SNR 4.14, 3/3 seeds). Hebbian ablation, sparse resonance benchmarks, spatial computing experiments.">
+<meta property="og:description" content="O-series O(1) inference memory (8063× smaller than a KV-cache at 1M tokens), cross-session recall attention cannot express, and honestly-reported continual-learning early signals. Reproducible GPU experiments.">
 <meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AwareLiquid M1 research: EWC −85% forgetting (SNR 4.14), M1 adapter −28.5% PPL, context injection +13.3pp, needle near-perfect within 2048 window">
+<meta property="og:image:alt" content="AwareLiquid research: O(1) constant-memory inference (8063× vs KV-cache at 1M tokens) and cross-session recall attention cannot express">
 <meta property="og:site_name" content="AwareLiquid">
 <meta property="og:article:published_time" content="2026-02-01T00:00:00Z">
 <meta property="og:article:modified_time" content="2026-06-22T00:00:00Z">
@@ -24,10 +24,10 @@
 <meta property="og:article:tag" content="EWC">
 <meta property="og:article:tag" content="liquid neural networks">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="MT-LNN Research — EWC −85% Forgetting | AwareLiquid">
-<meta name="twitter:description" content="Reproducible continual learning: EWC −85% forgetting (SNR 4.14), adapter −28.5% PPL, needle near-perfect within the 2048 window (chat-template re-test). Full data.">
+<meta name="twitter:title" content="MT-LNN Research — O(1) Constant-Memory Inference | AwareLiquid">
+<meta name="twitter:description" content="O-series O(1) inference memory (8063× smaller than a KV-cache at 1M tokens), cross-session recall attention cannot express, and honestly-labelled continual-learning early signals. Full data.">
 <meta name="twitter:image" content="https://awareliquid.ai/static/og-image.png">
-<meta name="twitter:image:alt" content="MT-LNN research: EWC reduces catastrophic forgetting 85%">
+<meta name="twitter:image:alt" content="MT-LNN research: O(1) constant-memory edge inference">
 <link rel="canonical" href="https://awareliquid.ai/research">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 <meta name="keywords" content="AwareLiquid M1, continual learning, catastrophic forgetting, EWC, elastic weight consolidation, GWT, global workspace theory, sleep consolidation, NREM, Hebbian plasticity, liquid neural networks, MT-LNN, M-Series, O-Series, lifelong learning, anti-forgetting">
@@ -47,7 +47,7 @@
   "@type": "ScholarlyArticle",
   "name": "AwareLiquid M1: Bio-inspired Continual Learning with Global Workspace, Sleep Consolidation, and EWC",
   "headline": "Continual Learning and Anti-Forgetting in Liquid Time-Constant Neural Networks — AwareLiquid M1",
-  "description": "EWC reduces cross-domain catastrophic forgetting by 85% (SNR 4.14, 3/3 seeds). MT-LNN adapter reduces perplexity 28.5%. Context injection +13.3pp accuracy. Architecture: continuous-time RNN with neuroscience-inspired liquid core modules.",
+  "description": "O-series models keep O(1) inference memory (0.381 MB flat carried state, 8063x smaller than a KV-cache at 1M tokens) and cross-window/cross-session associative recall (0.56 vs 0.000) that attention cannot express. EWC continual-learning is reported as an early signal, not a solved claim. Architecture: continuous-time RNN with neuroscience-inspired liquid core modules.",
   "url": "https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf",
   "codeRepository": "https://github.com/everest-an/M1",
   "datePublished": "2026-02-01",
@@ -405,14 +405,14 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 
       <h2 id="demo-model">2 · Live Demo: AwareLiquid O1 + M1</h2>
       <p>The demo offers two distinct models. <strong>M1</strong> (the large, cognitive model) wraps a <strong>frozen TinyLlama-1.1B-Chat</strong> base with a trained residual liquid-core adapter — only a fraction of a percent of the weights are ours (GWT broadcast + EWC continual-learning layers), general language comes from the base. It handles Q&amp;A in English and Chinese and carries <strong>persistent episodic memory</strong> — session recall tagged with typed cards (identity / preference / emotion / plan / relationship / health / detail). <strong>O1</strong> (the small, edge model) is the opposite pole — 48M parameters trained end-to-end from scratch, no base model, the native liquid architecture for hardware / always-on inference, a pure research artifact for short English text continuation.</p>
-      <div class="note">Honest note on the base: the live M1 demo runs on a <strong>TinyLlama-1.1B-Chat</strong> base with a step-1000 adapter checkpoint. The <strong>−28.5% perplexity</strong> result below was measured on TinyLlama-1.1B with the validated phase-5b adapter recipe; the live checkpoint differs, so its interactive quality is not a direct stand-in for that number.</div>
+      <div class="note"><strong>⚠ Retraction (2026-07):</strong> the previously advertised <strong>“−28.5% adapter PPL”</strong> is <strong>withdrawn</strong>. A controlled ablation showed that run had the MT adapter <em>frozen</em> by PEFT and trained <em>LoRA only</em>: <code>lora_only 7.984</code> vs <code>mt_lora 7.920</code> — the MT adapter contributes <strong>≈0 PPL</strong>. The number below measured plain LoRA fine-tuning, not the liquid mechanism. Full detail in <a href="https://github.com/everest-an/M1/blob/main/RESULTS.md" target="_blank" rel="noopener noreferrer">RESULTS.md</a>. The M1 adapter’s real, un-retracted value is <strong>cross-window / cross-session recall</strong> (0.56 vs 0.000), not perplexity.</div>
       <div class="card">
         <table style="margin:0">
           <thead><tr><th>Metric</th><th>Value</th><th>Notes</th></tr></thead>
           <tbody>
             <tr><td>From-scratch params</td><td class="num">~48M</td><td>Full MT-LNN pre-training</td></tr>
             <tr><td>Validation <abbr title="Perplexity">PPL</abbr> (scratch)</td><td class="num">~136</td><td>Clean M2 run, 5,000 steps</td></tr>
-            <tr><td>Adapter PPL gain (M1)</td><td class="num">−28.5%</td><td>WikiText-2, vs. base (TinyLlama-1.1B, phase-5b recipe)</td></tr>
+            <tr><td>Adapter PPL gain (M1)</td><td class="num" style="text-decoration:line-through;opacity:.55">−28.5%</td><td><strong>Retracted</strong> — was LoRA-only; MT adapter adds ≈0 PPL (7.984 → 7.920)</td></tr>
             <tr><td>Inference</td><td class="num">CPU</td><td>2–4 cores, ~2–15 tok/s</td></tr>
           </tbody>
         </table>
@@ -421,20 +421,20 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <p><span class="tag built">Built</span> End-to-end pre-training + native serving. <span class="tag target">Target</span> Larger, higher-quality model (see demo disclaimer).</p>
 
       <h3>Adapter Benchmark Results</h3>
-      <p>Independent GPU run on Kaggle (P100) verifying the MT-LNN adapter PPL claim, plus a context-injection accuracy test and a needle-in-haystack retrieval test (re-run 2026-06-26 with the chat template; near-perfect within the base's 2048-token window).</p>
+      <p>The adapter PPL result shown here is <strong>retracted</strong> (see the note above — it measured LoRA, not the MT mechanism). The context-injection uplift is a <strong>prompt-template</strong> effect (identical with vs. without the adapter), and the needle-in-haystack retrieval test was re-run 2026-06-26 with the chat template (near-perfect within the base's 2048-token window). We keep the charts below for provenance, clearly labelled.</p>
 
       <figure class="chart-fig">
         <img src="/static/charts/ppl_ablation.svg"
-             alt="Bar chart: Base LLM PPL 9.161 vs MT-LNN adapter 6.553, −28.5% reduction"
+             alt="Bar chart (retracted): Base LLM PPL 9.161 vs 6.553 — the gain was later traced to plain LoRA, not the MT-LNN adapter"
              loading="lazy">
-        <figcaption>Fig. 2a — Language modelling perplexity before and after MT-LNN adapter attachment. −28.5% improvement over the base LLM on 38,400 tokens (Kaggle P100 · TinyLlama-1.1B).</figcaption>
+        <figcaption><strong>⚠ Retracted.</strong> Fig. 2a showed a −28.5% PPL drop attributed to the MT-LNN adapter, but a controlled ablation traced that gain to plain LoRA (MT adapter frozen, adds ≈0 PPL). Kept for provenance; see the retraction note above and RESULTS.md.</figcaption>
       </figure>
 
       <figure class="chart-fig">
         <img src="/static/charts/context_needle.svg"
-             alt="Left: context injection lifts accuracy from 83.3% to 96.7%, +13.3pp. Right: needle-in-haystack — within TinyLlama's 2048 window retrieval is near-perfect (base 0.87-1.0, adapter 1.0); 4096 collapses for both as it exceeds the base RoPE window."
+             alt="Left: a prompt template that injects the fact lifts accuracy from 83.3% to 96.7% (+13.3pp) — this is the template's effect, identical with vs without the adapter. Right: needle-in-haystack — within TinyLlama's 2048 window retrieval is near-perfect (base 0.87-1.0, adapter 1.0); 4096 collapses for both as it exceeds the base RoPE window."
              loading="lazy">
-        <figcaption>Fig. 2b — Left: context injection via MT-LNN adapter raises QA accuracy by +13.3 pp (30 questions, Qwen-3B). Right: needle-in-haystack re-tested 2026-06-26 with the chat template — within the 2048 window both base and adapter retrieve near-perfectly; the earlier "0%" was a broken-harness artefact, now retracted.</figcaption>
+        <figcaption>Fig. 2b — Left: a <strong>prompt-template</strong> that injects the absorbed fact raises QA accuracy by +13.3 pp (30 questions, Qwen-1.5B) — this is the template's effect and is <strong>identical with vs. without the MT adapter</strong>, so it is not an adapter capability. Right: needle-in-haystack re-tested 2026-06-26 with the chat template — within the 2048 window both base and adapter retrieve near-perfectly; the earlier "0%" was a broken-harness artefact, now retracted.</figcaption>
       </figure>
 
       <div class="note"><strong>Correction (2026-06-26).</strong> The earlier "needle 0% for both variants" claim was a <em>harness artefact</em>, not a model limit: the old script concatenated raw tokens without the instruct chat template, which always scores 0.0 on an instruct-tuned base. Re-tested with the chat template and a faithful adapter rebuild (MT adapter + LoRA, 374/374 tensors verified): within TinyLlama-1.1B's 2048-token window, retrieval is near-perfect — base 0.867 (1K) / 1.000 (2K), adapter 1.000 / 1.000. At 4096 tokens both collapse to 0.000 because that exceeds the base's 2048 RoPE training window — a genuine base-model limit the frozen base never had, not an adapter failure. The adapter is at parity with the base in-window; with only 5 samples/cell and the base near saturation, a measurable retrieval <em>uplift</em> stays inconclusive. Harness: <code>bench_needle_m1_faithful.py</code>.</div>
@@ -458,7 +458,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <p>3 seeds · 60.7M model · 1,200 steps per domain. <em>Forgetting</em> = PPL rise on domain A after B training (lower is better).</p>
 
       <div class="stat-row">
-        <div class="stat-block"><span class="n">−85%</span><span class="l">Forgetting reduction<br>EWC vs. dense baseline</span></div>
+        <div class="stat-block"><span class="n">−85%</span><span class="l">Forgetting reduction vs. dense<br><em>early signal — both still forget A</em></span></div>
         <div class="stat-block"><span class="n">4.14</span><span class="l">Signal-to-noise ratio<br>mean / std deviation</span></div>
         <div class="stat-block"><span class="n">3 / 3</span><span class="l">Seeds with<br>consistent direction</span></div>
       </div>
@@ -625,7 +625,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="cl-version">v2.1</span>
           <time class="cl-date" datetime="2026-06">June 2026</time>
           <div class="cl-body">
-            <strong>Adapter benchmarks &amp; UX.</strong> Added Kaggle P100 GPU PPL ablation (−28.5%), 30-question context injection uplift (+13.3 pp), and a needle-in-haystack retrieval test (re-run 2026-06-26 with the chat template — near-perfect within the 2048 window; the earlier 0% was a broken-harness artefact). New charts: <code>ppl_ablation.svg</code>, <code>context_needle.svg</code>. Dark/light mode toggle across all pages. Scroll-to-top, copy reply, clear chat, retry on offline.
+            <strong>Adapter benchmarks &amp; UX.</strong> Added Kaggle P100 GPU PPL ablation (−28.5% <em>— later retracted 2026-07: was LoRA-only, MT adapter adds ≈0 PPL</em>), 30-question context-injection uplift (+13.3 pp <em>— prompt-template effect, not the adapter</em>), and a needle-in-haystack retrieval test (re-run 2026-06-26 with the chat template — near-perfect within the 2048 window; the earlier 0% was a broken-harness artefact). New charts: <code>ppl_ablation.svg</code>, <code>context_needle.svg</code>. Dark/light mode toggle across all pages. Scroll-to-top, copy reply, clear chat, retry on offline.
           </div>
         </div>
         <div class="cl-entry">
@@ -639,7 +639,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="cl-version">v1.2</span>
           <time class="cl-date" datetime="2026-04">Apr 2026</time>
           <div class="cl-body">
-            <strong>EWC validated.</strong> Three-arm GPU experiment (dense / liquid / EWC) with 3 seeds × 60.7M model. EWC reduces forgetting by 85%, SNR 4.14. Hebbian ablation: term inert at current scale. Spatial computing section added.
+            <strong>EWC early signal.</strong> Three-arm GPU experiment (dense / liquid / EWC) with 3 seeds × 60.7M model. EWC reduces the forgetting delta by 85% (SNR 4.14) — but both arms still catastrophically forget domain A, so this is an early signal, not a validated success. Hebbian ablation: term inert at current scale. Spatial computing section added.
           </div>
         </div>
         <div class="cl-entry">

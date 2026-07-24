@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>About AwareLiquid | Open Research on Continual Learning in Liquid Neural Networks</title>
-<meta name="description" content="AwareLiquid (MT-LNN) is an open research prototype on continual learning in liquid neural networks. Orthogonal to Liquid AI LFM: same MIT lineage, different axis — online weight updates vs frozen-weight inference. EWC −85% forgetting.">
+<meta name="description" content="AwareLiquid (MT-LNN) is an open research prototype in liquid neural networks. Orthogonal to Liquid AI LFM: same MIT lineage, different axis — online weight updates vs frozen-weight inference. Proven results: O(1) constant inference memory (8063× smaller than a KV-cache at 1M tokens) and cross-session recall attention cannot express.">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://awareliquid.ai/about">
@@ -13,16 +13,16 @@
 <meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="AwareLiquid MT-LNN — EWC −85% forgetting, −28.5% PPL, 48M parameters">
+<meta property="og:image:alt" content="AwareLiquid MT-LNN — O(1) constant-memory edge inference, cross-session recall, 48M from-scratch model">
 <meta property="og:site_name" content="AwareLiquid">
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="zh_CN">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="About AwareLiquid — MT-LNN Research Project">
-<meta name="twitter:description" content="Open research on continual learning in liquid neural networks. EWC −85% forgetting. Orthogonal to commercial LFMs.">
+<meta name="twitter:description" content="Open research in liquid neural networks: O(1) constant inference memory (8063× smaller than a KV-cache at 1M tokens) and cross-session recall attention cannot express. Orthogonal to commercial LFMs.">
 <meta name="twitter:image" content="https://awareliquid.ai/static/og-image.png">
-<meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — EWC −85% forgetting reduction">
+<meta name="twitter:image:alt" content="AwareLiquid MT-LNN social card — O(1) constant-memory edge inference">
 <link rel="canonical" href="https://awareliquid.ai/about">
 <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1">
 <meta name="keywords" content="AwareLiquid, M1, O1, M-Series, O-Series, MT-LNN, liquid neural networks, continual learning, GWT, global workspace theory, sleep consolidation, EWC, cognitive AI, bio-inspired AI, open research, lifelong learning, catastrophic forgetting">
@@ -44,7 +44,7 @@
   "@type": "ResearchProject",
   "name": "AwareLiquid",
   "alternateName": ["MT-LNN","M1","O1"],
-  "description": "AwareLiquid is an open research framework building bio-inspired cognitive AI. M-Series (M1): GWT global workspace broadcast + NREM sleep consolidation + EWC continual learning. O-Series (O1): liquid ODE constant-memory edge inference. Key result: EWC reduces catastrophic forgetting by 85% (SNR 4.14). Not affiliated with Liquid AI, Inc.",
+  "description": "AwareLiquid is an open research framework building bio-inspired cognitive AI. M-Series (M1): GWT global workspace broadcast + NREM sleep consolidation + adapter recall. O-Series (O1): liquid ODE constant-memory edge inference. Key result: O(1) inference memory — 0.381 MB flat carried state, 8063x smaller than a KV-cache at 1M tokens — plus cross-session associative recall attention cannot express. Not affiliated with Liquid AI, Inc.",
   "url": "https://awareliquid.ai",
   "sameAs": ["https://github.com/everest-an/M1"],
   "founder": {"@id": "https://awareliquid.ai/#author"},
@@ -371,7 +371,7 @@ a.text-link:hover{text-decoration-color:var(--fg)}
         <div class="row"><span class="label">M-Series</span><span class="val">M1 · GWT + Sleep · Slow Thinking</span></div>
         <div class="row"><span class="label">O-Series</span><span class="val">O1 · Liquid ODE · Fast Thinking</span></div>
         <div class="row"><span class="label">Model sizes</span><span class="val">48M – 60.7M params</span></div>
-        <div class="row"><span class="label">Key result</span><span class="val">EWC −85% forgetting</span></div>
+        <div class="row"><span class="label">Key result</span><span class="val">O(1) memory — 8063× smaller @1M tokens</span></div>
         <div class="row"><span class="label">License</span><span class="val">Open (see GitHub)</span></div>
         <div class="row"><span class="label">Paper</span><span class="val">arXiv preprint (PDF)</span></div>
       </div>

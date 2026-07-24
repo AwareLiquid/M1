@@ -464,7 +464,8 @@
     \begin{itemize}
         \item \textbf{测试基准：} 传统 Transformer (KV 缓存) v.s. AwareLiquid (状态流)。
         \item \textbf{商业意义：} 相比同级别模型，运行内存 \textbf{减少了近 250 倍} (1020 KB 降至 4.1 KB)。这意味着我们清除了阻碍 AI 落地的最大门槛——“内存耗尽(OOM)”问题。产品完全可以常驻运行在旧款手机或旧路由器级设备上。
-        \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/operator_compression_report.py}{\texttt{benchmarks/operator\_compression\_report.py}}
+        \item \textbf{已验证至 100 万 Tokens（2026-07-19）：} 在无注意力的 O 系列上，推理携带状态在\textbf{上下文增长 2048 倍}（512 $\to$ 1{,}048{,}576）的条件下\textbf{恒定为 0.381 MB}，而同等 Transformer 的 KV 缓存线性增长至 \textbf{3{,}072 MB}——差距 \textbf{8{,}063 倍}，为实测而非外推。在语言建模质量已不再是差异化优势（见第 4 条）的情况下，这一恒定内存特性是我们最强的、经过验证的技术主张。
+        \item \textbf{验证代码 (可点击)：} \href{https://github.com/everest-an/M1/blob/main/benchmarks/operator_compression_report.py}{\texttt{benchmarks/operator\_compression\_report.py}} · \texttt{scaling\_comparison.py --mode decode}
     \end{itemize}
     \vspace{0.4em}
     \item \textbf{2. 极端噪音下金线索提取（大海捞针盲测）}

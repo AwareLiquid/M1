@@ -34,6 +34,8 @@
 - 本地 GPU：RTX 5060 Laptop **8GB**，torch 2.11.0+cu128，Python `E:\Python311`（`py -3.11`）。
 - 远程训练目录：`/root/autodl-tmp/M1`（SSH：`root@tulong91.imwork.net -p 54511`）；结果已同步回本地 `E:\M1\scaling_fp32`。
 
+> **分工现状（2026-07-19）**：本地 8GB 能做的高价值项**已做完**（P0-4 fp16 根因修复、O(1) 证据扩展到 1M、文档全面更正）。剩余项**都需要 AutoDL/A100**：P0-3 剩余强 baseline（Mamba/Mamba-2/GLA/DeltaNet）、大预算验证摘要的 14.7%、scaling law 三规模、真实长上下文任务。本地不要再尝试 20K 级长跑——8GB + 会话中断 + 与 O1 抢卡，实测反复失败。
+
 ## 2. 已完成（真实验证过）
 
 | 项 | 结果 / 位置 |
@@ -44,6 +46,10 @@
 | **P0-2/P0-3 日志与汇总整理** | 已将日志统一放入 `scaling_fp32/converge_probe/`：`scaling_train_20000_mt_lnn.log`、`scaling_train_20000_transformer.log`、`scaling_train_20000_modern_transformer.log`；三模型汇总表：`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` |
 | **checkpoint/resume** | `benchmarks/scaling_comparison.py` 已加入 `--ckpt_every N` 与 `--resume/--no-resume`；默认每 500 step 保存 `model + optim + scaler + step + cursor + RNG`，中断后可从 `out_dir/checkpoints/` 恢复 |
 | **P0 训练口径固定** | WikiText-103-raw-v1，GPT-2 tokenizer，vocab 50257，seq_len=512，batch=4，lr=3e-4，`--dtype fp32` 关闭 autocast/scaler |
+| **P0-4 fp16 发散根因（已修复）** | 根因：`global_coherence.py` 的 `(Q@K)/scale` 在 d_head=64 累加**之后**才缩放 → 中间乘积 ~2e5 溢出 fp16(65504) → `Inf×0`(因果掩码) = NaN → sigmoid 污染整层。修复：`(Q/scale)@K`×4 处 + `_gate_energy` 用 where/fp32累加/clamp_min。**验证**：原失败的 2000 步配方跑满，`stable: true`，val PPL **257.91** vs 同配方 fp32 **257.48**（差 0.17%，在 ±4.89 种子方差内）→ fp16 已回到 fp32 同等质量。审计：其余注意力全用 SDPA，coherence 是唯一手写的。工具：`benchmarks/diagnose_fp16_divergence.py` |
+| **A2 端侧 pilot：NASA 电池 SoH（2026-07-24）** | 真实公开数据（NASA PCoE，B0005/6/7/18，与文献吻合），整块电池 B0018 留出。**三个发现**：① 规则采样下四架构精度**统计打平**（pairwise \|t\|<1，n=10），mt_lnn 用 **2.6× 更少参数**达到同等精度；② 流式状态 mt_lnn 恒定 **2.6 KB** vs transformer **34 MB@32K**（13,107×），但 **O(1) 非液态独有**，LSTM/GRU 也恒定且更小；③ **不规则采样是唯一真差异化**：80% 丢弃下 mt_lnn 仅退化 **+7.7%**，lstm **+31.1%**、gru **+32.8%**，**t=+2.40/+2.63 显著**（且已给所有架构喂 Δt，不是让 RNN 蒙眼）。**可卖定位**：唯一同时"抗不规则采样 + 内存恒定"的架构（transformer 精度追得上但内存爆，RNN 内存够但一遇丢采样就垮）。脚本：`benchmarks/battery_{soh_edge,streaming_memory,irregular_sampling}.py` |
+| **ONNX 导出打通（B2 浏览器 demo 前提）** | 修了两个真实阻塞：`.contiguous().view()`→`.reshape()`（3 处 attention head-merge）+ `parallel_scan._next_pow2` 强制 int。验证：export/ORT 运行/数值 **3.58e-07** 全过；48M 投影 **~66 MB int8**，可浏览器下发。**注意**：必须用 `dynamo=False`（新导出器仍拒绝）；序列长度固定，浏览器 pad/截断。脚本：`benchmarks/check_onnx_webgpu_feasibility.py`、`export_o1_for_browser.py` |
+| **O(1) 恒定内存证据扩展到 1M** | `--mode decode`：上下文 512→1,048,576（**增长 2048×**），ARR 携带状态**恒定 0.381 MB**，llama KV 线性增长到 **3,072 MB** → **8,063×**。ARR 为实测快照字节，KV 为精确解析式。**边界**：推理携带状态、仅无注意力 O 系列（非训练内存、非 hybrid）|
 
 ### P0-2/P0-3 20K 收敛结果
 
@@ -75,7 +81,8 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 
 - **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。
 - **P0-3 modern_transformer 阶段成果已推送**：`benchmarks/baselines.py` 增加 `ModernCausalTransformer`；`benchmarks/scaling_comparison.py` 增加 `modern_transformer` arch；`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` 已更新为三模型对比；modern_transformer 三个 JSON 与三份标准化日志已上传到 `physics-informed-head`。接手时仍需先 `git status` 确认本地是否有新实验结果或远端同步差异。
-- **fp16/AMP 根因未解决**：历史上 MT-LNN 在 fp16 AMP 下出现非有限 loss，需要定位是液态层动态、归一化、激活尺度、梯度尺度还是优化器状态导致。
+- ~~**fp16/AMP 根因未解决**~~ → **已解决（2026-07-19）**：根因是 `mt_lnn/global_coherence.py` 的注意力缩放顺序 `(Q@K)/scale`——在 d_head=64 维累加**之后**才缩放，Q/K 增大后中间乘积 ~2e5 在矩阵乘内部溢出 fp16（上限 65504），产生的 Inf 与因果掩码零相遇触发 `Inf*0=NaN`，经 sigmoid 污染整层。修复：改为 `(Q/scale)@K`（4 处）+ `_gate_energy` 用 where 代替乘法、fp32 累加、`clamp_min(1e-6)` 替换在 fp16 下下溢成 0 的 `1e-9`。**验证**：原本第 875 步发散的同配方现已跑满 **2000 步** `stable: true`，val PPL **257.91**，与同配方 fp32 的 257.48 相差仅 0.17%（远小于 ±4.89 种子方差）——fp16 已恢复到 fp32 同等质量。审计确认：其余注意力实现均用 SDPA，coherence 是唯一手写的。诊断工具：`benchmarks/diagnose_fp16_divergence.py`。
+- **⛔ O1 48M 权重找不到（阻塞浏览器 demo）**：本地仓库只有 M1 adapter；HuggingFace `EverestAn/MT-LNN` 也只有 `llama_mt_adapter_000500.pt`（4.11 MB）+ PDF，**没有 O1 48M**。`checkpoints/` 和 `*.pt` 被 gitignore。最可能在**已被禁用的 Modal workspace**（`ac-ESq0Y6MGgrCtt67tOwrcDS`，官网 demo 的 `/adapter/v1/model` 因此 404）或服务器上。**拿到权重后一条命令即可**：`py -3.11 benchmarks/export_o1_for_browser.py --ckpt <path> --int8`
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 
@@ -85,7 +92,7 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 2. **继续归档新 baseline 结果**：Mamba/Mamba-2/GLA/DeltaNet 每跑完一个模型，都同步三 seed JSON、run.log/标准化日志和更新后的 `scaling_train_20000_summary.txt`；checkpoint `.pt` 仍不提交。
 3. **更新结果文档和论文材料**（2026-07-19 已完成第一轮）：P0-2 三种子 + P0-3 modern_transformer 结果已写入 README/BENCHMARKS/RESULTS/中英文论文/中英文 deck，并已明确标注 modern_transformer 领先 MT-LNN 11.3%、2K 旧结论已撤回、O1 参考锚限制。
 4. **⚠️ 验证论文摘要的 14.7% 主张**（新增，重要）：论文摘要/结论的「比同参数 Transformer 低 14.7% PPL」来自大预算（100K 步 A100）实验，但**几乎肯定也是对着同一个 simple-reference 弱基线测的**。已先加限定语（"vs simple-reference，非现代基线"）作为止血，但**需要在大预算下补一轮 `modern_transformer` 对照**才能确认这个头号主张是否成立。若同样反转，摘要必须重写。建议在 AutoDL 上与其他强 baseline 一起排队。
-5. **并行待办：做 fp16 诊断**：最小复现 fp16 发散，记录 loss scale、梯度范数、激活范围、NaN 首发层，并与 fp32 stable 结果对照。
+5. ~~**并行待办：做 fp16 诊断**~~ → **已完成（2026-07-19）**：根因定位 + 修复 + 2000 步验证 + 全仓库审计，见上表。剩余可选：在 AutoDL 上跑 fp16 20K 确认长程（本地已验证 2000 步且与 fp32 质量持平）。
 6. **扩 scaling law**：至少 3 个参数规模，固定 tokenizer/data/seq_len/batch/token budget，输出均值±标准差和效率曲线。
 7. **补真实长上下文实验**：用 decode state / memory profile / 长上下文任务证明 O(1) working memory 的实际价值。
 

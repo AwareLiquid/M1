@@ -123,3 +123,12 @@ benchmarks/_needle_smoke.json
 
 # local scaling benchmark run outputs (2026-07-16)
 /scaling_fp32/
+
+# ONNX feasibility scratch output
+benchmarks/_onnx_feasibility.onnx
+benchmarks/_legacy.onnx
+# NASA battery dataset (209 MB, download via the URL in battery_soh_edge.py)
+/data/nasa_battery/
+
+# partner referral runtime counts (not source)
+/data/partners/
