@@ -1329,6 +1329,22 @@ refresh();
 
 <!-- ── Hero liquid canvas animation ── -->
 <script>
+// Partner referral capture. /partners/<name> counts the click server-side and
+// redirects here with ?ref=<name>. We persist it so a later sign-up / demo use
+// can be attributed to the partner, and clean the URL so the ref isn't shared
+// or re-counted on refresh.
+(function(){
+  try{
+    var ref=new URLSearchParams(location.search).get('ref');
+    if(ref && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(ref)){
+      localStorage.setItem('aw_ref', ref);
+      localStorage.setItem('aw_ref_ts', new Date().toISOString());
+      history.replaceState(null,'',location.pathname+location.hash);
+    }
+  }catch(e){}
+})();
+</script>
+<script>
 (function(){
   'use strict';
   if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;

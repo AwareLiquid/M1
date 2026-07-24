@@ -114,3 +114,23 @@ py -3.11 benchmarks/export_o1_for_browser.py --ckpt <o1.pt> --int8
 Feasibility is already proven (`benchmarks/check_onnx_webgpu_feasibility.py`:
 export + run + numerics max|onnx−torch| ≈ 3.6e-07). The front-end wiring for the
 WebGPU path is the remaining work and is gated only on the weights.
+
+## 5. Partner referral links (clawhunt etc.)
+
+`GET /partners/<name>` counts an inbound partner click **server-side** and 302s
+the visitor to `/?ref=<name>`. The homepage stores `aw_ref` in localStorage so a
+later conversion can be attributed, and strips the param from the URL.
+
+- Give the partner this link: `https://awareliquid.ai/partners/clawhunt`
+- Counts persist to `data/partners/counts.json` (aggregate) and
+  `data/partners/hits.jsonl` (one line per visit, with UA/referer/IP for
+  bot-filtering). This directory is gitignored — it is runtime data.
+- Read the totals: `GET /partners` → `{"counts":{...},"total":N}`.
+  Protect it in production by setting `PARTNER_STATS_TOKEN=<secret>` and calling
+  `/partners?token=<secret>`.
+- New partners need no code change — any lowercase slug `[a-z0-9_-]` works and is
+  counted separately; malformed/underscore-abusing slugs are rejected (404, not
+  counted) so the path cannot be used for traversal.
+- Pure-static fallback: `serve/static/partners/clawhunt.html` does a
+  meta-refresh + `sendBeacon` so the link still redirects if the site is ever
+  served without the FastAPI backend (server-side counting is unavailable then).
