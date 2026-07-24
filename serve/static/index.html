@@ -1142,17 +1142,19 @@ async function probe(base,timeoutMs=8000){
     if(!r.ok)return null;return await r.json();
   }catch(e){return null;}
 }
-// Poll /v1/model until the GPU container is warm. Modal scale-to-zero cold
-// starts take ~30-60s (loads TinyLlama onto the T4). Surfaces a "waking" state
-// via onState instead of hanging on a bare "Connecting…" or failing fast.
-// Returns the model info, or null if it can't warm within the budget.
+// Probe /v1/model with a SHORT budget. The self-hosted server (serve/server.py)
+// is always warm, so there is no scale-to-zero cold start to wait out — if the
+// endpoint does not answer in a few seconds it is genuinely offline, and we
+// fail fast to a clean state instead of hanging on a fake "waking" message for
+// minutes (the old Modal-oriented 80s×2 poll produced exactly that when the
+// backend was down: a 160s "Waking GPU…" that never resolved).
 async function ensureWarm(base,onState){
-  const deadline=Date.now()+80000;let waking=false;
+  const deadline=Date.now()+9000;let announced=false;
   while(Date.now()<deadline){
     const m=await probe(base);
     if(m)return m;
-    if(!waking){waking=true;if(onState)onState('waking');}
-    await new Promise(r=>setTimeout(r,2500));
+    if(!announced){announced=true;if(onState)onState('connecting');}
+    await new Promise(r=>setTimeout(r,1500));
   }
   return null;
 }
@@ -1160,23 +1162,33 @@ async function selectModel(base){
   modelReady=false;
   live.className='live';statusText.textContent='Connecting…';
   const m=await ensureWarm(base,state=>{
-    if(state==='waking'){live.className='live warm';statusText.textContent='Waking GPU… (~30s)';}
+    if(state==='connecting'){live.className='live warm';statusText.textContent='Connecting to model…';}
   });
   if(m){API_BASE=base;modelSel.value=base;applyModel(m,base==='/adapter'?'adapter':'scratch');return true;}
   return false;
 }
-async function autoSelect(){
-  if(await selectModel('/adapter'))return;
-  if(await selectModel(''))return;
-  live.className='live err';statusText.textContent='Offline';
+function showOffline(){
+  live.className='live err';statusText.textContent='Demo offline';
   renderWelcome('scratch');
-  // show retry button
+  const welcome=document.getElementById('welcome');
+  // Honest offline copy: the page and its data still work; only the interactive
+  // model backend is down. No perpetual spinner, no fake "waking".
+  const note=document.createElement('div');note.className='offline-note';
+  note.style.cssText='margin-top:10px;color:var(--muted);font-size:13px;line-height:1.5;text-align:center';
+  note.innerHTML='The interactive model backend is not reachable right now. '
+    +'Everything else on the site — the benchmarks, the paper, the results — is live. '
+    +'The demo runs on a self-hosted inference server; if you are the operator, start '
+    +'<code>serve/server.py</code> and retry.';
   const retryWrap=document.createElement('div');retryWrap.className='retry-wrap';
   const rb=document.createElement('button');rb.className='retry-btn';
   rb.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.61"/></svg> Retry connection';
-  rb.onclick=()=>{retryWrap.remove();autoSelect();};
-  retryWrap.appendChild(rb);
-  document.getElementById('welcome').appendChild(retryWrap);
+  rb.onclick=()=>{note.remove();retryWrap.remove();autoSelect();};
+  retryWrap.appendChild(rb);welcome.appendChild(note);welcome.appendChild(retryWrap);
+}
+async function autoSelect(){
+  if(await selectModel('/adapter'))return;
+  if(await selectModel(''))return;
+  showOffline();
 }
 autoSelect();
 modelSel.addEventListener('change',()=>{selectModel(modelSel.value);});
@@ -1237,12 +1249,12 @@ async function send(){
     // show a bogus "[no output]".
     if(!modelReady){
       bot.classList.remove('empty');bot.classList.add('warming');
-      bot.textContent='Waking the GPU… the first request after idle takes ~30s.';
+      bot.textContent='Connecting to the model server…';
       const m=await ensureWarm(API_BASE,state=>{
-        if(state==='waking'){live.className='live warm';statusText.textContent='Waking GPU… (~30s)';}
+        if(state==='connecting'){live.className='live warm';statusText.textContent='Connecting to model…';}
       });
       bot.classList.remove('warming');
-      if(!m){bot.textContent='[GPU unavailable — please retry in a moment]';return;}
+      if(!m){bot.textContent='[Model backend offline — please retry in a moment]';return;}
       applyModel(m,API_BASE==='/adapter'?'adapter':'scratch');
       bot.classList.add('empty');bot.textContent='';
     }

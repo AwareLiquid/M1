@@ -258,7 +258,8 @@ window.addEventListener('load',function(){
 const LANGS={
   en:{
     badge:'Live Demo',back:'Back',clear:'Clear',
-    connecting:'Connecting…',offline:'Offline',
+    connecting:'Connecting…',offline:'Demo offline',
+    offlineNote:'The interactive model backend is not reachable. The rest of the site is live. The demo runs on a self-hosted inference server (serve/server.py).',
     placeholder:'Ask in English or Chinese…',
     retryBtn:'↺ Retry connection',
     note:'AwareLiquid · research prototype · ',
@@ -283,7 +284,8 @@ const LANGS={
   },
   zh:{
     badge:'在线演示',back:'返回',clear:'清除',
-    connecting:'连接中…',offline:'离线',
+    connecting:'连接中…',offline:'演示离线',
+    offlineNote:'交互模型后端暂时无法连接。网站其余部分正常。演示运行在自托管推理服务器上（serve/server.py）。',
     placeholder:'用中文或英文提问…',
     retryBtn:'↺ 重试连接',
     note:'AwareLiquid · 研究原型 · ',
@@ -419,12 +421,15 @@ async function autoSelect(){
   if(await selectModel(''))return;
   live.className='live err';statusText.textContent=t('offline');
   renderWelcome('scratch');
+  const note=document.createElement('div');
+  note.style.cssText='margin-top:10px;color:var(--muted);font-size:13px;line-height:1.5;text-align:center';
+  note.textContent=t('offlineNote');
   const retryWrap=document.createElement('div');retryWrap.className='retry-wrap';
   const rb=document.createElement('button');rb.className='retry-btn';
   rb.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.61"/></svg> '+t('retryBtn');
-  rb.onclick=()=>{retryWrap.remove();autoSelect();};
+  rb.onclick=()=>{note.remove();retryWrap.remove();autoSelect();};
   retryWrap.appendChild(rb);
-  welcome.appendChild(retryWrap);
+  welcome.appendChild(note);welcome.appendChild(retryWrap);
 }
 
 function startThread(){
