@@ -34,6 +34,9 @@ services:
       # Bind-mount the static UI so frontend tweaks deploy with a plain
       # `git pull` + `restart` -- no image rebuild needed for HTML/CSS/JS edits.
       - ../serve/static:/app/serve/static:ro
+      # Partner-referral counts are runtime data; bind-mount so they survive a
+      # container rebuild (`golive.sh` re-creates the container). RW, on the host.
+      - ../data/partners:/app/data/partners
     environment:
       CKPT_PATH: /app/checkpoints/m2_final.pt
       TOKENIZER: gpt2
@@ -42,6 +45,9 @@ services:
       # Cap intra-op threads to the box's vCPU count for steady latency
       # (4 on the upgraded 4 vCPU / 8 GB plan).
       OMP_NUM_THREADS: "4"
+      # Gate GET /partners (referral totals) behind a token. Set the value in a
+      # local .env next to this file (PARTNER_STATS_TOKEN=...) — do NOT commit it.
+      PARTNER_STATS_TOKEN: "${PARTNER_STATS_TOKEN:-}"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
       interval: 30s
@@ -53,8 +59,10 @@ services:
   # AwareLiquid's TRAINED MT-LNN residual adapter + LoRA, served through
   # serve/server_hf.py with the SAME REST API + UI. This is genuinely MT-LNN-
   # powered (server_hf.py refuses to claim the MT-LNN identity unless the
-  # checkpoint tensors actually map onto the graph) and is the validated Track-1
-  # asset (-28.5% PPL on TinyLlama-1.1B). The frontend model menu can target it.
+  # checkpoint tensors actually map onto the graph). The frontend model menu can
+  # target it. NOTE: an earlier "-28.5% PPL" claim for this adapter is RETRACTED
+  # (it was LoRA-only; the MT adapter adds ~0 PPL — see RESULTS.md). Its real,
+  # un-retracted value is cross-window / cross-session recall (0.56 vs 0.000).
   #
   # Profile-gated so it never auto-starts (it pulls ~4 GB of base weights and
   # adds RAM load -- size your box for ~8 GB if running it alongside mtlnn).
