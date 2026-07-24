@@ -1226,3 +1226,94 @@ fp32 regression re-checked: unchanged, trains normally.
 `global_coherence.py` was the only hand-rolled score computation in the
 codebase — which is exactly why the failure was isolated to it. No other site
 carries this pattern.
+
+## A2 edge pilot: battery SoH on real NASA cells (2026-07-24)
+
+First real edge deployment case, not a synthetic task. Scripts:
+`benchmarks/battery_soh_edge.py`, `battery_streaming_memory.py`,
+`battery_irregular_sampling.py`.
+
+**Data.** NASA Ames PCoE Li-ion aging set (public, no auth,
+`https://phm-datasets.s3.amazonaws.com/NASA/5.+Battery+Data+Set.zip`), cells
+B0005/6/7/18. Verified against the published description: B0005 has 168
+discharge cycles fading 1.8565 → 1.3251 Ah.
+
+**Protocol.** One sample per discharge cycle: (128, 3) voltage/current/
+temperature → measured capacity in Ah. **An entire cell (B0018) is held out** —
+splitting cycles within a cell leaks the degradation trajectory and flatters
+every model. Features standardised on train statistics only. All archs share
+d_model=65 / 2 layers; parameter counts differ and are reported.
+
+### 1. Accuracy — regular sampling (10 seeds)
+
+| arch | params | val RMSE (Ah) | vs mean baseline |
+|---|---|---|---|
+| transformer | 111,866 | 0.0972 ± 0.0070 | −38% |
+| **mt_lnn** | **42,474** | 0.0986 ± 0.0171 | −37% |
+| lstm | 69,096 | 0.1034 ± 0.0180 | −34% |
+| gru | 51,936 | 0.1048 ± 0.0110 | −33% |
+| *(predict train mean)* | — | *0.1572* | — |
+
+All four beat the constant-predictor baseline, so the task is learnable and the
+setup is sound. **Every pairwise Welch |t| < 1 — on regular sampling the four
+architectures are statistically indistinguishable on accuracy.** MT-LNN reaches
+that parity with the fewest parameters (2.6× fewer than the transformer), which
+is the only accuracy-side claim the data supports.
+
+> An earlier 3-seed run showed mt_lnn apparently best at 0.0813. It did not
+> survive 10 seeds (0.0986, transformer ahead on the mean). Reported here as a
+> reminder that n=3 on this task is noise.
+
+### 2. Streaming memory — carried state vs stream length
+
+Bytes of state that must be retained to keep predicting (measured, CPU):
+
+| stream | lstm | gru | mt_lnn | transformer KV |
+|---|---|---|---|---|
+| 128 | 1,040 B | 520 B | 2,600 B | 133,120 B |
+| 32,768 | 1,040 B | 520 B | **2,600 B** | **34,078,720 B** |
+
+**MT-LNN is flat at 2.6 KB across a 256× increase in stream length — 13,107×
+smaller than the attention KV cache at 32K.** Note honestly that **O(1) state is
+not unique to the liquid core**: LSTM and GRU are also flat, and in fact carry
+less. Constant memory is a property of recurrence, not of this architecture.
+
+### 3. Irregular sampling — where the liquid core does differentiate
+
+Real BMS controllers wake on events, drop samples under load, and vary duty
+cycle, so the stream is not on a fixed grid. Timesteps are randomly dropped;
+**Δt is supplied as an input feature to every architecture** so the RNNs are not
+handicapped by construction, and train/test share the regime.
+
+| drop | kept | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|---|
+| 0% | 128 | 0.1027 | 0.0996 | 0.1018 | 0.0970 |
+| 30% | 90 | 0.0930 | 0.1136 | 0.1182 | 0.0913 |
+| 60% | 51 | 0.1057 | 0.1236 | 0.1555 | 0.1010 |
+| 80% | 26 | 0.1106 | 0.1306 | 0.1352 | 0.0969 |
+
+Degradation from regular to 80% dropped:
+
+| arch | Δ RMSE | verdict |
+|---|---|---|
+| **mt_lnn** | **+7.7%** | robust |
+| lstm | +31.1% | degrades |
+| gru | +32.8% | degrades |
+| transformer | −0.1% | robust |
+
+At 80% drop (10 seeds): **mt_lnn vs lstm t=+2.40, vs gru t=+2.63 — both
+significant.** vs transformer t=−1.94, within noise.
+
+### What this pilot does and does not establish
+
+**Establishes.** On a real battery-management task, MT-LNN is the only
+architecture tested that is *both* robust to irregular sampling (+7.7% vs the
+RNNs' +31–33%) *and* constant-memory in streaming (2.6 KB vs the transformer's
+34 MB at 32K). The transformer matches its accuracy but cannot fit the memory
+budget of an MCU; the RNNs fit the budget but degrade when samples are dropped.
+That combination is the deployable niche.
+
+**Does not establish.** No accuracy advantage on regularly-sampled data (all
+four tie). No advantage over the transformer on irregular sampling either — the
+transformer is equally robust there and its edge is only excluded by memory, not
+by accuracy. Single dataset, single held-out cell, 128-step windows.
