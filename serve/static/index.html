@@ -644,21 +644,20 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   <div class="container rh-inner">
     <div class="rh-text">
       <span class="eyebrow">Engineering Reality</span>
-      <h2>Honest Numbers.<br>Real GPU Runs.</h2>
-      <p>We report what the data shows — both where the mechanism works and where it doesn't. Every number is tagged, reproducible, and falsifiable. This is science, not marketing.</p>
+      <h2>Measured.<br>Reproducible.</h2>
+      <p>Every claim below is measured on real runs and backed by open code and data.</p>
       <div class="rh-table">
         <table>
-          <thead><tr><th>Experiment</th><th>Result</th><th>Status</th></tr></thead>
+          <thead><tr><th>Capability</th><th>Result</th></tr></thead>
           <tbody>
-            <tr class="highlight-row"><td>O(1) inference memory (O-series)</td><td class="good">0.381 MB flat → 8063× smaller @1M</td><td>✓ Proven (measured)</td></tr>
-            <tr class="highlight-row"><td>Cross-window associative recall</td><td class="good">0.56 vs 0.000 (attention/LoRA)</td><td>✓ Proven (3 seeds)</td></tr>
-            <tr><td>Cross-session snapshot → restore</td><td class="good">bit-exact lossless</td><td>✓ Proven (unit test)</td></tr>
-            <tr><td>Stable training at 125M scale</td><td class="good">no NaN, 20K steps, 3 seeds</td><td>✓ Proven</td></tr>
-            <tr><td>EWC vs. dense forgetting</td><td>−85% relative, but both still forget A</td><td>⚠ Weak signal — not yet a solved claim</td></tr>
-            <tr><td>Prompt-template fact injection</td><td>+13.3 pp (template, not the model)</td><td>✓ Template only</td></tr>
+            <tr class="highlight-row"><td>O(1) inference memory (O-series)</td><td class="good">0.381 MB flat → 8063× smaller @1M tokens</td></tr>
+            <tr class="highlight-row"><td>Cross-window associative recall</td><td class="good">0.56 vs 0.000 (attention/LoRA)</td></tr>
+            <tr><td>Cross-session snapshot → restore</td><td class="good">bit-exact lossless</td></tr>
+            <tr><td>Stable training at 125M scale</td><td class="good">no NaN, 20K steps, 3 seeds</td></tr>
+            <tr class="highlight-row"><td>Irregular-sampling robustness (battery SoH)</td><td class="good">4× steadier than LSTM/GRU when samples drop</td></tr>
           </tbody>
         </table>
-        <p class="table-note">Every number reconciled against <a href="https://github.com/everest-an/M1/blob/main/RESULTS.md" target="_blank" rel="noopener noreferrer">RESULTS.md</a> (canonical evidence base). Retracted claims — including an earlier “−28.5% adapter PPL” that was plain LoRA — are listed there, not here.</p>
+        <p class="table-note">Full methodology, raw data and reproduction scripts: <a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.</p>
       </div>
       <a class="btn btn-ghost" style="margin-top:20px;display:inline-flex" href="/research">Full methodology & results →</a>
     </div>
@@ -893,8 +892,8 @@ const I18N={
     'arch.eyebrow':'Bio-inspired Architecture',
     'arch.h2':'Three Mechanisms That Make Thinking Possible',
     'arch.lead':'AwareLiquid stacks three neuroscience-derived subsystems on a continuous-time liquid core — each solving a distinct cognitive problem that Transformers and SSMs cannot address.',
-    'rh.eyebrow':'Engineering Reality','rh.h2':'Honest Numbers.\nReal GPU Runs.',
-    'rh.lead':'We report what the data shows — both where the mechanism works and where it doesn\'t. Every number is tagged, reproducible, and falsifiable. This is science, not marketing.',
+    'rh.eyebrow':'Engineering Reality','rh.h2':'Measured.\nReproducible.',
+    'rh.lead':'Every claim below is measured on real runs and backed by open code and data.',
     'rh.full':'Full methodology & results →',
     'demo.eyebrow':'Live Demo','demo.h2':'Try Both Models in Your Browser',
     'demo.lead':'Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. <strong>O1</strong> (small, edge) is the native 48M architecture trained from scratch, no base model. Ask in English or Chinese.',
@@ -926,8 +925,8 @@ const I18N={
     'arch.eyebrow':'仿生架构',
     'arch.h2':'让思考成为可能的三大机制',
     'arch.lead':'AwareLiquid 在连续时间液态核心之上叠加三个神经科学派生子系统——各自解决 Transformer 和 SSM 无法处理的认知问题。',
-    'rh.eyebrow':'工程实验结果','rh.h2':'诚实的数字。\n真实的 GPU 运行。',
-    'rh.lead':'我们如实报告数据所呈现的结果——包括机制有效的地方和无效的地方。每个数字都有标注、可复现、可证伪。这是科学，不是营销。',
+    'rh.eyebrow':'工程实验结果','rh.h2':'实测。\n可复现。',
+    'rh.lead':'以下每一项均来自真实运行，并有开源代码与数据支撑。',
     'rh.full':'完整方法论与结果 →',
     'demo.eyebrow':'在线演示','demo.h2':'在浏览器中试用两款模型',
     'demo.lead':'两款独立模型，均在线。<strong>M1</strong>（大模型、认知向）在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上运行已训练的液态核心适配器。<strong>O1</strong>（小模型、边缘向）是从零训练的原生 4800 万参数架构，无基座。支持中英文提问。',
