@@ -212,7 +212,8 @@ a{color:inherit;text-decoration:none}
 .pill:hover{border-color:var(--fg)}
 .pill-dot{width:7px;height:7px;border-radius:50%;background:#10b981;flex:none}
 .pill strong{color:var(--fg)}
-.pill-arrow{color:var(--fg);font-size:12px}
+.pill-text{min-width:0}
+.pill-arrow{color:var(--fg);font-size:12px;flex:none}
 .hero-title{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:20px}
 .hero-title .accent{color:var(--muted)}
 .hero-sub{font-size:17px;color:var(--muted);max-width:560px;margin:0 auto 36px;line-height:1.7}
@@ -548,7 +549,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   <div class="container">
     <a class="pill" href="/research">
       <span class="pill-dot"></span>
-      O-series · 8063× less inference memory at 1M tokens · O(1) constant state
+      <span class="pill-text">O-series · 8063× less inference memory at 1M tokens · O(1) constant state</span>
       <span class="pill-arrow">→</span>
     </a>
     <h1 class="hero-title">Beyond Next-Token Prediction.<br><span class="accent">Towards Cognitive Artificial Life.</span></h1>
@@ -995,7 +996,7 @@ function applyPageLang(lang){
 
   // pill text
   const pill=document.querySelector('.pill');
-  if(pill){const txt=pill.querySelector('.pill-arrow');if(txt)pill.childNodes[1].textContent=ti('hero.pill')+' ';}
+  if(pill){const pt=pill.querySelector('.pill-text');if(pt)pt.textContent=ti('hero.pill');}
 
   // hero title special case
   const heroTitle=document.querySelector('.hero-title');
