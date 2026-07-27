@@ -134,6 +134,73 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
 # ── experiment ───────────────────────────────────────────────────────────────
 
+def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
+                    depths, device, tag=""):
+    """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
+    that same d. Same parameter count across depths (weight-tied iteration) —
+    if accuracy climbs with d, extra latent iterations buy real capability.
+    This avoids the anytime-training failure mode where random-depth sampling
+    teaches the model to be depth-INVARIANT (ignore iterations)."""
+    gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
+    probe = gen(1, np.random.default_rng(0))
+    seq_len = probe.tokens.shape[1]
+    print(f"== FIXED sweep {task} difficulty={difficulty} n_values={n_values} "
+          f"T={seq_len} vocab={vocab} device={device} depths={depths} ==")
+
+    rows = []
+    for seed in seeds:
+        t0 = time.time()
+        accs, final_losses = {}, {}
+        for d in depths:
+            m = build_mtlnn(vocab, seq_len, max(d, 2), seed)  # gate exists even for d=1
+            n_params = m.get_num_params()
+            m.set_core_iterations(d)
+            print(f"  [seed {seed}] mt_lnn depth={d} fixed "
+                  f"({n_params/1e3:.0f}K params)")
+            train_model(m, gen, device, steps, batch, lr, seed,
+                        depth_choices=[d])
+            acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device)
+            accs[d] = acc
+            print(f"    eval depth {d}: acc {acc:.4f}")
+            del m
+            if device == "cuda":
+                torch.cuda.empty_cache()
+
+        tr = build_transformer(vocab, seq_len, seed)
+        tr_params = tr.get_num_params()
+        print(f"  [seed {seed}] transformer {tr_params/1e3:.0f}K params")
+        train_model(tr, gen, device, steps, batch, lr, seed)
+        tr_acc = evaluate(tr, gen, np.random.default_rng(10_000 + seed), device)
+        print(f"    eval: acc {tr_acc:.4f}")
+        del tr
+        if device == "cuda":
+            torch.cuda.empty_cache()
+
+        rows.append({
+            "mode": "fixed_sweep",
+            "task": task, "difficulty": difficulty, "n_values": n_values,
+            "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
+            "lr": lr, "mtlnn_params": n_params, "transformer_params": tr_params,
+            "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
+            "wall_s": round(time.time() - t0, 1), "tag": tag,
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        })
+
+    os.makedirs(os.path.dirname(RESULTS), exist_ok=True)
+    with open(RESULTS, "a", encoding="utf-8") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+
+    print("\n== summary (mean over seeds, each depth = fresh fixed-depth model) ==")
+    for d in depths:
+        vals = [r["mtlnn_acc_by_depth"][d] for r in rows]
+        print(f"  mt_lnn depth {d}: {np.mean(vals):.4f} ± {np.std(vals):.4f}")
+    tvals = [r["transformer_acc"] for r in rows]
+    print(f"  transformer   : {np.mean(tvals):.4f} ± {np.std(tvals):.4f}")
+    print(f"\nresults appended to {RESULTS}")
+    return rows
+
+
 def run(task, difficulty, n_values, seeds, steps, batch, lr, max_depth,
         eval_depths, device, tag=""):
     gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
@@ -216,6 +283,11 @@ def main():
     p.add_argument("--max_depth", type=int, default=8)
     p.add_argument("--eval_depths", type=int, nargs="+", default=[1, 2, 4, 8])
     p.add_argument("--tag", default="")
+    p.add_argument("--mode", choices=["anytime", "fixed"], default="fixed",
+                   help="fixed: fresh model per depth, trained AND evaluated "
+                        "at that depth (HRM-style, the primary P0 claim). "
+                        "anytime: one model, randomized-depth training "
+                        "(known failure mode: learns depth-invariance)")
     p.add_argument("--smoke", action="store_true",
                    help="tiny CPU run to sanity-check the pipeline")
     args = p.parse_args()
@@ -230,9 +302,14 @@ def main():
             device=device, tag="smoke")
         return
 
-    run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
-        args.batch, args.lr, args.max_depth, args.eval_depths, device,
-        tag=args.tag)
+    if args.mode == "fixed":
+        run_fixed_sweep(args.task, args.difficulty, args.n_values, args.seeds,
+                        args.steps, args.batch, args.lr, args.eval_depths,
+                        device, tag=args.tag)
+    else:
+        run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
+            args.batch, args.lr, args.max_depth, args.eval_depths, device,
+            tag=args.tag)
 
 
 if __name__ == "__main__":
