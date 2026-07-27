@@ -65,6 +65,22 @@ class MTLNNConfig:
     # in exchange for the layer-wise ignition semantics the paper prescribes.
     gwtb_per_block: bool = False
 
+    # Latent recurrent depth — "thinking steps" (M2 P0, docs/ROADMAP_M2.md §4).
+    # The liquid-core sub-layer of every block is applied core_iterations times
+    # per forward pass: iteration k re-reads the SAME normed input through the
+    # SAME MTLNNLayer weights, but (a) starts from iteration k-1's final
+    # recurrent state ("re-scan with updated working memory" — this ungated
+    # state threading IS the iteration mechanism), and (b) adds iteration
+    # k-1's output to its input through a zero-init tanh gate (learnable
+    # feedback strength). Weight-tied depth in the Universal-Transformer /
+    # latent-recurrent-depth family, scoped to the LNN sub-layer so attention
+    # KV is computed once. Default 1 = exactly the pre-existing single-pass
+    # code path with a byte-identical parameter set (the gate parameter is
+    # only created when core_iterations > 1). position_offset is held constant
+    # across iterations so the GTP periodic clock does not drift.
+    core_iterations: int = 1
+    core_iter_gate_init: float = 0.0
+
     # Competitive Global Workspace (Phase A, 2026-06-06)
     # When True, the top-level GWTBLayer is replaced with CompetitiveGWTBLayer.
     # K specialist bid projectors (residual init → all bids start as x → zero-
@@ -403,6 +419,12 @@ class MTLNNConfig:
                 f"d_model values (n_protofilaments={self.n_protofilaments}, "
                 f"n_heads={self.n_heads}): {aligned}",
                 RuntimeWarning, stacklevel=2,
+            )
+
+        # core_iterations: weight-tied latent depth must be a positive int.
+        if int(self.core_iterations) < 1:
+            raise ValueError(
+                f"core_iterations must be >= 1; got {self.core_iterations}"
             )
 
         # scale_gate_period constraint: values >4 risk τ-routing rigidity.

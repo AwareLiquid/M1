@@ -95,6 +95,20 @@ class MTLNNBlock(nn.Module):
         self.lnn_norm = nn.LayerNorm(config.d_model)
         self.lnn = MTLNNLayer(config)
 
+        # Latent recurrent depth ("thinking steps", M2 P0). The gate parameter
+        # is created ONLY when the config enables iteration, so the default
+        # (core_iterations=1) model keeps a byte-identical parameter set.
+        # Runtime iteration count is an attribute (not read from config at
+        # forward time) so MTLNNModel.set_core_iterations() can vary depth
+        # per step — train with randomized depth, evaluate at any depth.
+        self.core_iterations = int(getattr(config, "core_iterations", 1))
+        if self.core_iterations > 1:
+            self.core_iter_gate = nn.Parameter(
+                torch.tensor(float(getattr(config, "core_iter_gate_init", 0.0)))
+            )
+        else:
+            self.core_iter_gate = None
+
         if self.has_gwtb:
             self.gwtb_norm = nn.LayerNorm(config.d_model)
             self.gwtb = GWTBLayer(config)
@@ -174,12 +188,38 @@ class MTLNNBlock(nn.Module):
         # cache or use zeros, and (b) whether the resonance bank runs a real
         # parallel scan (True) or the legacy broadcast-h_prev parallel mode
         # (False). The two together preserve cache parity in both modes.
+        #
+        # Latent recurrent depth ("thinking steps"): when core_iterations > 1
+        # the SAME MTLNNLayer re-reads the SAME normed input N times. Two
+        # mechanisms compose per extra iteration:
+        #   1. state threading (ungated — this IS the iteration): pass k
+        #      starts from pass k-1's final state, i.e. "re-scan the sequence
+        #      with updated working memory", letting information propagate one
+        #      more compositional hop per pass;
+        #   2. gated output feedback: pass k-1's output is added to the input
+        #      through a zero-init tanh gate (learnable feedback strength).
+        # position_offset is held CONSTANT across iterations so the GTP
+        # periodic clock (t mod gtp_period) does not drift. NOTE: resonance
+        # aux buffers (last_pred_error / last_lavi_mean) are overwritten each
+        # pass — aux losses therefore see the FINAL iteration only. The cache
+        # stores the final iteration's h_last, so generate()/streaming are
+        # unchanged. N=1 is exactly the pre-existing single-call path.
+        x_normed = self.lnn_norm(x)
+        lnn_pad = pad_mask[:, -x.shape[1]:] if pad_mask is not None else None
         lnn_out, h_last = self.lnn(
-            self.lnn_norm(x), h_prev,
+            x_normed, h_prev,
             position_offset=position_offset,
             use_scan=use_lnn_recurrence,
-            pad_mask=pad_mask[:, -x.shape[1]:] if pad_mask is not None else None,
+            pad_mask=lnn_pad,
         )
+        for _ in range(self.core_iterations - 1):
+            x_iter = x_normed + torch.tanh(self.core_iter_gate) * lnn_out
+            lnn_out, h_last = self.lnn(
+                x_iter, h_last,
+                position_offset=position_offset,
+                use_scan=use_lnn_recurrence,
+                pad_mask=lnn_pad,
+            )
         x = x + lnn_out
 
         # Per-block GWTB (pre-norm, gated residual already inside GWTBLayer)
@@ -873,6 +913,28 @@ class MTLNNModel(nn.Module):
     @classmethod
     def from_config(cls, config: MTLNNConfig) -> "MTLNNModel":
         return cls(config)
+
+    def set_core_iterations(self, n: int) -> None:
+        """Set the latent-recurrent-depth ("thinking steps") of every block.
+
+        Used by the P0 depth study (docs/ROADMAP_M2.md): train with a
+        randomized per-step depth, then evaluate the SAME weights at any
+        depth. Requires the model to have been BUILT with
+        config.core_iterations > 1 when n > 1 (the feedback gate parameter is
+        only created at construction time); raises otherwise rather than
+        silently running gateless.
+        """
+        n = int(n)
+        if n < 1:
+            raise ValueError(f"core_iterations must be >= 1; got {n}")
+        for block in self.blocks:
+            if n > 1 and block.core_iter_gate is None:
+                raise RuntimeError(
+                    "Model was built with core_iterations=1 (no feedback gate). "
+                    "Construct with MTLNNConfig(core_iterations>1) to enable "
+                    "thinking-step iteration."
+                )
+            block.core_iterations = n
 
     def get_mt_diagnostics(self) -> Dict[str, float]:
         """Return a dict of MT health metrics for monitoring during training."""
