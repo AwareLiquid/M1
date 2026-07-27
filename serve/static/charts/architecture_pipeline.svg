@@ -182,18 +182,18 @@ z
 " style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
    </g>
    <g id="text_7">
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #8b3050" x="242.7372" y="127.020337" transform="rotate(-0 242.7372 127.020337)">GWT-B</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #8b3050" x="242.7372" y="122.020337" transform="rotate(-0 242.7372 122.020337)">GWT-B</text>
    </g>
    <g id="text_8">
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(262.421863 121.203056)">World</text>
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(262.113347 127.020337)">Model</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(262.421863 116.203056)">World</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(262.113347 122.020337)">Model</text>
    </g>
    <g id="text_9">
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #8b3050" x="242.7372" y="134.962281" transform="rotate(-0 242.7372 134.962281)">Hebbian</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #8b3050" x="242.7372" y="136.962281" transform="rotate(-0 242.7372 136.962281)">Hebbian</text>
    </g>
    <g id="text_10">
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(263.0303 129.016437)">Pred.</text>
-    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(260.888738 134.914156)">Coding</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(263.0303 131.016437)">Pred.</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #8b3050" transform="translate(260.888738 136.914156)">Coding</text>
    </g>
    <g id="text_11">
     <text style="font-weight: 700; font-size: 8px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: start" x="16.464" y="12.92625" transform="rotate(-0 16.464 12.92625)">MT-LNN architecture pipeline</text>

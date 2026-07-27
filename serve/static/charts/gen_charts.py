@@ -297,7 +297,10 @@ def fig_architecture():
     modules = ["GWT-B", "World\nModel", "Hebbian", "Pred.\nCoding"]
     for i, m in enumerate(modules):
         xm = 4.8 + (i % 2) * 0.58
-        ym = 0.05 if i >= 2 else 0.18
+        # Row gap must exceed the within-label line gap, otherwise the bottom
+        # line of the top row ("Model") collides with the top line of the
+        # bottom row ("Pred."). Push top row up / bottom row down to separate.
+        ym = 0.02 if i >= 2 else 0.26
         ax.text(xm + bw/2 - 0.29, ym, m, ha="center", va="bottom",
                 fontsize=5.5, color=P["ours_dark"], style="italic")
 
