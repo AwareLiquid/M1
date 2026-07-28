@@ -61,12 +61,13 @@ def make_lm_batch(gen, batch, rng, device):
 
 
 @torch.no_grad()
-def evaluate(model, gen, rng, device, batches=20, batch=256):
+def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
+    fwd_kwargs = fwd_kwargs or {}
     model.eval()
     correct = total = 0
     for _ in range(batches):
         ids, labels, ans_pos = make_lm_batch(gen, batch, rng, device)
-        logits = model(ids)["logits"]
+        logits = model(ids, **fwd_kwargs)["logits"]
         # internal shift: answer at ans_pos is predicted from logits[ans_pos-1]
         pred = logits[:, ans_pos - 1, :].argmax(-1)
         correct += (pred == labels[:, ans_pos]).sum().item()
@@ -107,8 +108,9 @@ def build_transformer(vocab, seq_len, seed, d_model=104, n_layers=2):
 # ── training ─────────────────────────────────────────────────────────────────
 
 def train_model(model, gen, device, steps, batch, lr, seed,
-                depth_choices=None, log_every=200):
+                depth_choices=None, log_every=200, fwd_kwargs=None):
     """depth_choices: list of ints to sample per step (MT-LNN), or None."""
+    fwd_kwargs = fwd_kwargs or {}
     model.to(device).train()
     opt = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95),
                             weight_decay=0.01)
@@ -120,7 +122,7 @@ def train_model(model, gen, device, steps, batch, lr, seed,
         if depth_choices is not None:
             model.set_core_iterations(int(depth_rng.choice(depth_choices)))
         ids, labels, _ = make_lm_batch(gen, batch, rng, device)
-        out = model(ids, labels=labels)
+        out = model(ids, labels=labels, **fwd_kwargs)
         loss = out["loss"]
         opt.zero_grad(set_to_none=True)
         loss.backward()
@@ -135,7 +137,8 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 # ── experiment ───────────────────────────────────────────────────────────────
 
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
-                    depths, device, tag=""):
+                    depths, device, tag="", n_layers=2, no_scan=False,
+                    skip_transformer=False):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -147,40 +150,48 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
     print(f"== FIXED sweep {task} difficulty={difficulty} n_values={n_values} "
           f"T={seq_len} vocab={vocab} device={device} depths={depths} ==")
 
+    fwd_kwargs = {"use_lnn_recurrence": False} if no_scan else None
     rows = []
     for seed in seeds:
         t0 = time.time()
-        accs, final_losses = {}, {}
+        accs = {}
         for d in depths:
-            m = build_mtlnn(vocab, seq_len, max(d, 2), seed)  # gate exists even for d=1
+            m = build_mtlnn(vocab, seq_len, max(d, 2), seed,
+                            n_layers=n_layers)  # gate exists even for d=1
             n_params = m.get_num_params()
             m.set_core_iterations(d)
             print(f"  [seed {seed}] mt_lnn depth={d} fixed "
-                  f"({n_params/1e3:.0f}K params)")
+                  f"({n_params/1e3:.0f}K params, n_layers={n_layers}, "
+                  f"scan={'off' if no_scan else 'on'})")
             train_model(m, gen, device, steps, batch, lr, seed,
-                        depth_choices=[d])
-            acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device)
+                        depth_choices=[d], fwd_kwargs=fwd_kwargs)
+            acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device,
+                           fwd_kwargs=fwd_kwargs)
             accs[d] = acc
             print(f"    eval depth {d}: acc {acc:.4f}")
             del m
             if device == "cuda":
                 torch.cuda.empty_cache()
 
-        tr = build_transformer(vocab, seq_len, seed)
-        tr_params = tr.get_num_params()
-        print(f"  [seed {seed}] transformer {tr_params/1e3:.0f}K params")
-        train_model(tr, gen, device, steps, batch, lr, seed)
-        tr_acc = evaluate(tr, gen, np.random.default_rng(10_000 + seed), device)
-        print(f"    eval: acc {tr_acc:.4f}")
-        del tr
-        if device == "cuda":
-            torch.cuda.empty_cache()
+        tr_acc, tr_params = None, None
+        if not skip_transformer:
+            tr = build_transformer(vocab, seq_len, seed)
+            tr_params = tr.get_num_params()
+            print(f"  [seed {seed}] transformer {tr_params/1e3:.0f}K params")
+            train_model(tr, gen, device, steps, batch, lr, seed)
+            tr_acc = evaluate(tr, gen, np.random.default_rng(10_000 + seed),
+                              device)
+            print(f"    eval: acc {tr_acc:.4f}")
+            del tr
+            if device == "cuda":
+                torch.cuda.empty_cache()
 
         rows.append({
             "mode": "fixed_sweep",
             "task": task, "difficulty": difficulty, "n_values": n_values,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
-            "lr": lr, "mtlnn_params": n_params, "transformer_params": tr_params,
+            "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
+            "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -195,8 +206,9 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
     for d in depths:
         vals = [r["mtlnn_acc_by_depth"][d] for r in rows]
         print(f"  mt_lnn depth {d}: {np.mean(vals):.4f} ± {np.std(vals):.4f}")
-    tvals = [r["transformer_acc"] for r in rows]
-    print(f"  transformer   : {np.mean(tvals):.4f} ± {np.std(tvals):.4f}")
+    tvals = [r["transformer_acc"] for r in rows if r["transformer_acc"] is not None]
+    if tvals:
+        print(f"  transformer   : {np.mean(tvals):.4f} ± {np.std(tvals):.4f}")
     print(f"\nresults appended to {RESULTS}")
     return rows
 
@@ -290,6 +302,13 @@ def main():
                         "(known failure mode: learns depth-invariance)")
     p.add_argument("--smoke", action="store_true",
                    help="tiny CPU run to sanity-check the pipeline")
+    p.add_argument("--n_layers", type=int, default=2,
+                   help="MT-LNN block count (ablation knob)")
+    p.add_argument("--no_scan", action="store_true",
+                   help="use_lnn_recurrence=False: liquid recurrence off, LNN "
+                        "degenerates to a gated FFN (isolates whether the "
+                        "recurrent scan impedes in-context lookup learning)")
+    p.add_argument("--skip_transformer", action="store_true")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -305,7 +324,9 @@ def main():
     if args.mode == "fixed":
         run_fixed_sweep(args.task, args.difficulty, args.n_values, args.seeds,
                         args.steps, args.batch, args.lr, args.eval_depths,
-                        device, tag=args.tag)
+                        device, tag=args.tag, n_layers=args.n_layers,
+                        no_scan=args.no_scan,
+                        skip_transformer=args.skip_transformer)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,

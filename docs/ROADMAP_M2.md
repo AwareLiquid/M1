@@ -101,7 +101,22 @@ loss 仅在答案位;MT-LNN 训练时每步随机采样深度 1..8,评估深度 
 **决策**:P0 主声明改为 HRM 式 fixed-depth sweep——每个深度 d 训练一个全新模型
 (参数量相同,权重绑定迭代),d 越大解得越好即命题成立。anytime(一套权重任意深度)
 降级为 P0 之后的进阶目标,需要深监督/截断反传才有希望。
-`benchmarks/reasoning_depth.py --mode fixed` 已实现。第二轮结果待录。
+`benchmarks/reasoning_depth.py --mode fixed` 已实现。
+
+### 2026-07-28 · 第二轮:fixed-depth sweep → 两个更硬的负结果
+
+| 实验 | 结果 | 含义 |
+|---|---|---|
+| mod_chain k=8 fixed sweep(深度 1/2/4/8 各训一个全新模型,6000 步 × 3 seeds) | 0.289 / 0.297 / 0.293 / 0.293 —— **深度全平,差异在噪声内**;transformer 0.302 仍领先 | 即使固定深度训练+评估,只循环 LNN 子层也买不来能力 |
+| pointer_chase 破平台探针(8 节点 k=2,12000 步) | **transformer 破平台:0.9932(基本解决,loss 0.07)**;MT-LNN depth1=0.2494、depth4=0.2498,loss 从 2000 步起钉死 2.0(已收敛,非训练不足) | 任务在此规模可学(transformer 证明);**MT-LNN 的混合栈没学会,且液体核心多迭代 4 次毫无帮助**。上下文关系查找的计算发生在注意力里;疑似 LNN 子层在阻碍注意力形成归纳头 |
+
+**核心教训**:"只循环液体核心 ≠ 思考"。推理任务需要的组合查找由注意力承担,
+把迭代范围限制在 LNN 子层是在错误的部件上加深度。
+
+**第三轮(消融阶梯,进行中)**:同探针任务上跑 (a) `--no_scan`(关液体递归,
+LNN 退化为 gated FFN——若能追上 transformer 则液体递归是阻碍源);
+(b) `--n_layers 4`(更多注意力层能否克服)。之后按结果决定:
+块级循环(注意力+LNN 一起迭代,Universal-Transformer 式)或先修液体子层与注意力的整合。
 
 ## 5. 评测纪律 / Evaluation Discipline
 
