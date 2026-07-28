@@ -246,6 +246,10 @@ class MTLNNModel(nn.Module):
         super().__init__()
         self.config = config
 
+        # Stack-level latent recurrence pass count (runtime attribute so
+        # set_stack_iterations can vary it per step; no parameters involved).
+        self.stack_iterations = int(getattr(config, "stack_iterations", 1))
+
         self.embedding = MTLNNEmbedding(config)
 
         self.blocks = nn.ModuleList()
@@ -597,28 +601,41 @@ class MTLNNModel(nn.Module):
             token_count=position_offset + T_new
         ) if use_cache else None
         _gate_period = getattr(self.config, "scale_gate_period", 1)
-        _shared_active_idx = None
-        for i, block in enumerate(self.blocks):
-            layer_cache = (cache.layers[i] if (cache is not None and i < len(cache.layers)) else None)
-            # Cross-layer scale-gate sharing: leader (i % period == 0) computes the
-            # τ-scale index; followers reuse it without re-running kappa_gate.
-            _is_leader = (_gate_period <= 1) or (i % _gate_period == 0)
-            block.lnn.resonance._forced_active_idx = (
-                None if _is_leader else _shared_active_idx
+        # Stack-level latent recurrence (M2 P0-C′): re-apply the WHOLE block
+        # stack (attention + LNN, weight-tied) stack_iterations times. Depth
+        # for compositional reasoning lives in attention (P0 rounds 1–5), so
+        # this — unlike core_iterations — actually multiplies the number of
+        # attention applications. Single-pass (default 1) is the exact
+        # pre-existing path. Caching is a single-pass concept; guard it.
+        _stack_iters = self.stack_iterations
+        if _stack_iters > 1 and use_cache:
+            raise RuntimeError(
+                "stack_iterations > 1 does not support use_cache "
+                "(weight-tied multi-pass has no single KV timeline)"
             )
-            x, new_layer_cache = block(
-                x,
-                layer_cache=layer_cache,
-                pad_mask=pad_mask,
-                position_offset=position_offset,
-                use_cache=use_cache,
-                use_lnn_recurrence=use_lnn_recurrence,
-                top_down=top_down,
-            )
-            if _is_leader and _gate_period > 1:
-                _shared_active_idx = block.lnn.resonance._last_computed_active_idx
-            if use_cache:
-                new_cache.layers.append(new_layer_cache)
+        for _pass in range(_stack_iters):
+            _shared_active_idx = None
+            for i, block in enumerate(self.blocks):
+                layer_cache = (cache.layers[i] if (cache is not None and i < len(cache.layers)) else None)
+                # Cross-layer scale-gate sharing: leader (i % period == 0) computes the
+                # τ-scale index; followers reuse it without re-running kappa_gate.
+                _is_leader = (_gate_period <= 1) or (i % _gate_period == 0)
+                block.lnn.resonance._forced_active_idx = (
+                    None if _is_leader else _shared_active_idx
+                )
+                x, new_layer_cache = block(
+                    x,
+                    layer_cache=layer_cache,
+                    pad_mask=pad_mask,
+                    position_offset=position_offset,
+                    use_cache=use_cache,
+                    use_lnn_recurrence=use_lnn_recurrence,
+                    top_down=top_down,
+                )
+                if _is_leader and _gate_period > 1:
+                    _shared_active_idx = block.lnn.resonance._last_computed_active_idx
+                if use_cache:
+                    new_cache.layers.append(new_layer_cache)
 
         # Global rhythm correction: aggregate per-layer LAVI means, apply residual.
         # Starts as identity (GlobalRhythmController.scale init = 0).
@@ -935,6 +952,15 @@ class MTLNNModel(nn.Module):
                     "thinking-step iteration."
                 )
             block.core_iterations = n
+
+    def set_stack_iterations(self, n: int) -> None:
+        """Set the stack-level pass count (whole block stack, weight-tied).
+        Unlike core iterations, no parameters are involved, so any depth is
+        valid on any model. use_cache is rejected at forward time when n>1."""
+        n = int(n)
+        if n < 1:
+            raise ValueError(f"stack_iterations must be >= 1; got {n}")
+        self.stack_iterations = n
 
     def get_mt_diagnostics(self) -> Dict[str, float]:
         """Return a dict of MT health metrics for monitoring during training."""

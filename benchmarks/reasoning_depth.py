@@ -113,8 +113,10 @@ def build_transformer(vocab, seq_len, seed, d_model=104, n_layers=2):
 # ── training ─────────────────────────────────────────────────────────────────
 
 def train_model(model, gen, device, steps, batch, lr, seed,
-                depth_choices=None, log_every=200, fwd_kwargs=None):
-    """depth_choices: list of ints to sample per step (MT-LNN), or None."""
+                depth_choices=None, log_every=200, fwd_kwargs=None,
+                depth_setter="core"):
+    """depth_choices: list of ints to sample per step (MT-LNN), or None.
+    depth_setter: 'core' (LNN sub-layer iteration) or 'stack' (whole-block)."""
     fwd_kwargs = fwd_kwargs or {}
     model.to(device).train()
     opt = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95),
@@ -125,7 +127,11 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
     for step in range(steps):
         if depth_choices is not None:
-            model.set_core_iterations(int(depth_rng.choice(depth_choices)))
+            d = int(depth_rng.choice(depth_choices))
+            if depth_setter == "stack":
+                model.set_stack_iterations(d)
+            else:
+                model.set_core_iterations(d)
         ids, labels, _ = make_lm_batch(gen, batch, rng, device)
         out = model(ids, labels=labels, **fwd_kwargs)
         loss = out["loss"]
@@ -143,7 +149,8 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
-                    skip_transformer=False, gamma_init=None, full_mha=False):
+                    skip_transformer=False, gamma_init=None, full_mha=False,
+                    depth_setter="core"):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -161,16 +168,21 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
         t0 = time.time()
         accs = {}
         for d in depths:
-            m = build_mtlnn(vocab, seq_len, max(d, 2), seed,
-                            n_layers=n_layers, gamma_init=gamma_init,
-                            full_mha=full_mha)  # gate exists even for d=1
+            m = build_mtlnn(vocab, seq_len,
+                            2 if depth_setter == "core" else 1,
+                            seed, n_layers=n_layers, gamma_init=gamma_init,
+                            full_mha=full_mha)  # core gate exists when needed
             n_params = m.get_num_params()
-            m.set_core_iterations(d)
-            print(f"  [seed {seed}] mt_lnn depth={d} fixed "
+            if depth_setter == "stack":
+                m.set_stack_iterations(d)
+            else:
+                m.set_core_iterations(d)
+            print(f"  [seed {seed}] mt_lnn {depth_setter}-depth={d} fixed "
                   f"({n_params/1e3:.0f}K params, n_layers={n_layers}, "
                   f"scan={'off' if no_scan else 'on'})")
             train_model(m, gen, device, steps, batch, lr, seed,
-                        depth_choices=[d], fwd_kwargs=fwd_kwargs)
+                        depth_choices=[d], fwd_kwargs=fwd_kwargs,
+                        depth_setter=depth_setter)
             acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device,
                            fwd_kwargs=fwd_kwargs)
             accs[d] = acc
@@ -198,6 +210,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
             "gamma_init": gamma_init, "full_mha": full_mha,
+            "depth_setter": depth_setter,
             "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
@@ -321,6 +334,10 @@ def main():
                         "0.001 makes all heads effectively global)")
     p.add_argument("--full_mha", action="store_true",
                    help="n_kv_heads=n_heads (disable GQA)")
+    p.add_argument("--stack", action="store_true",
+                   help="depth knob = stack_iterations (whole block stack, "
+                        "attention included) instead of core_iterations "
+                        "(LNN sub-layer only)")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -339,7 +356,8 @@ def main():
                         device, tag=args.tag, n_layers=args.n_layers,
                         no_scan=args.no_scan,
                         skip_transformer=args.skip_transformer,
-                        gamma_init=args.gamma_init, full_mha=args.full_mha)
+                        gamma_init=args.gamma_init, full_mha=args.full_mha,
+                        depth_setter="stack" if args.stack else "core")
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,

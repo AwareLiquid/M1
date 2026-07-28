@@ -81,6 +81,15 @@ class MTLNNConfig:
     core_iterations: int = 1
     core_iter_gate_init: float = 0.0
 
+    # Stack-level latent recurrence (M2 P0-C′, docs/ROADMAP_M2.md §4.5).
+    # Re-apply the ENTIRE block stack (attention + LNN, weight-tied) N times
+    # per forward — Universal-Transformer-style depth. P0 rounds 1–5 showed
+    # compositional lookup lives in ATTENTION, so iterating only the LNN
+    # sub-layer (core_iterations) buys no reasoning depth; this knob loops the
+    # attention too. Default 1 = existing single-pass path (zero regression).
+    # No parameters are added; use_cache is not supported when > 1.
+    stack_iterations: int = 1
+
     # Competitive Global Workspace (Phase A, 2026-06-06)
     # When True, the top-level GWTBLayer is replaced with CompetitiveGWTBLayer.
     # K specialist bid projectors (residual init → all bids start as x → zero-
@@ -425,6 +434,10 @@ class MTLNNConfig:
         if int(self.core_iterations) < 1:
             raise ValueError(
                 f"core_iterations must be >= 1; got {self.core_iterations}"
+            )
+        if int(self.stack_iterations) < 1:
+            raise ValueError(
+                f"stack_iterations must be >= 1; got {self.stack_iterations}"
             )
 
         # scale_gate_period constraint: values >4 risk τ-routing rigidity.

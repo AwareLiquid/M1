@@ -122,6 +122,45 @@ def test_config_rejects_bad_depth():
         _cfg(core_iterations=0)
 
 
+def test_stack_iterations_depth1_is_identity_path():
+    """stack_iterations=1 (default) must be the exact single-pass path."""
+    torch.manual_seed(7)
+    m = MTLNNModel(_cfg())
+    assert m.stack_iterations == 1
+    ids = _tokens()
+    m.eval()
+    with torch.no_grad():
+        o1 = m(ids)["logits"]
+        m.set_stack_iterations(1)
+        o1b = m(ids)["logits"]
+    assert torch.equal(o1, o1b)
+
+
+def test_stack_iterations_changes_output_and_flows_grads():
+    torch.manual_seed(7)
+    m = MTLNNModel(_cfg())
+    ids = _tokens()
+    m.eval()
+    with torch.no_grad():
+        o1 = m(ids)["logits"]
+        m.set_stack_iterations(3)
+        o3 = m(ids)["logits"]
+    assert not torch.equal(o1, o3), "3 stack passes should not be a no-op"
+    m.train()
+    out = m(ids, labels=ids)
+    out["loss"].backward()  # must not raise; grads flow through tied passes
+    assert any(p.grad is not None for p in m.parameters())
+
+
+def test_stack_iterations_rejects_cache():
+    torch.manual_seed(7)
+    m = MTLNNModel(_cfg())
+    m.set_stack_iterations(2)
+    ids = _tokens(B=1, T=8)
+    with pytest.raises(RuntimeError):
+        m(ids, use_cache=True)
+
+
 def test_depth_with_cache_generate_smoke():
     """generate() must still work on an iteration-enabled model (cache stores
     only the final iteration's h_last — API unchanged)."""
