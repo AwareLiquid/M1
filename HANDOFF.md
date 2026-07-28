@@ -126,6 +126,41 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 逐个排队跑;#5 需要你找回权重。如果只解锁一项,**先解锁 #1**——它同时打开论文
 (P0-3/scaling law)和 M2-P1(蒸馏)两条线。
 
+## 3.6 分工卡(2026-07-29,按人领任务)
+
+三方并行、互不阻塞。**协作纪律**:所有结果落 repo(JSON+log,不落聊天记录);
+checkpoint `.pt` 不提交;O1 数字绝不进 M1 主表;本地 8GB 归 CC 排队使用,勿并行抢卡。
+
+### 🧑‍💻 技术同事(AutoDL/A100)— 大预算 GPU 线,按序执行
+
+| 序 | 任务 | 怎么跑 | 交付物 |
+|---|---|---|---|
+| T1 | **P0-3 mamba 三种子** | §6 现成命令,SSH 后照抄(Linux 有 CUDA kernel,速度数据才可用于论文) | `train_mamba_s{0,1,2}.json` + `run.log` 同步回 `scaling_fp32/`,格式照 converge_probe 现有文件 |
+| T2 | **14.7% 大预算复核**(头号学术风险) | 100K 步 A100 口径下加跑 `modern_transformer` 对照(同 tokenizer/seq_len/batch/token budget) | 三种子 JSON;若反转,通知全员改摘要 |
+| T3 | Mamba-2 / GLA / DeltaNet | 同 T1 模式逐个补 | 同 T1 |
+| T4 | Scaling law 三规模 | 等 T1-T3 完成后统一口径跑 | 均值±标准差 + 效率曲线数据 |
+
+### 👤 老板(Edwin)— 资源与钥匙,都是只有你能做的
+
+| 序 | 任务 | 说明 |
+|---|---|---|
+| B1 | **算力预算拍板** | AutoDL 充值(P0-3 收尾约 ¥300-500)+ M2-P1 蒸馏预算(首轮约 $300-500) |
+| B2 | **找回 O1 48M 权重** | 最可能在被禁用的 Modal workspace(`ac-ESq0Y6MGgrCtt67tOwrcDS`)或服务器;找到后一条命令导出浏览器 demo(§3 ⛔ 条目) |
+| B3 | 教师 API 选型 | P1 蒸馏的推理轨迹来源(DeepSeek/Qwen API 性价比高);拿到 key 交给 CC 接管线 |
+| B4 | (可选)投稿目标确认 | ICLR/NeurIPS/ICML 哪个 deadline,影响 T2-T4 排期 |
+
+### 🤖 CC(Claude Code)— 本地 GPU + 全部代码,自主排队
+
+| 序 | 任务 | 状态 |
+|---|---|---|
+| C1 | M2-P0 收尾:过夜单环实验 → `n_global_heads` sweep → 结论+曲线图固化 | 进行中 |
+| C2 | 蒸馏数据管线(teacher-trace 采集/清洗/SFT 格式,CPU 先行,等 B3 的 key 接通) | 排队 |
+| C3 | 生物模块 5-seed ablation 补课(GWT/PC/睡眠;Hebbian 改 fast-weights 或删) | 排队 |
+| C4 | 每轮结果同步 README/BENCHMARKS/论文材料 + 本 HANDOFF | 持续 |
+
+**汇合点**:T2 结果决定论文摘要改不改;C1 sweep 结果决定 `n_global_heads` 默认值;
+B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
+
 ## 4. 下一步（按优先级）
 
 0. **M2-P0 收尾(本地,进行中)**:① 等单环过夜实验出"stack 深度 × 跳数"矩阵;
