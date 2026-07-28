@@ -79,9 +79,9 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 # ── models ───────────────────────────────────────────────────────────────────
 
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
-                gamma_init=None, full_mha=False):
+                gamma_init=None, full_mha=False, n_global_heads=0):
     torch.manual_seed(seed)
-    kw = {}
+    kw = {"n_global_heads": n_global_heads}
     if gamma_init is not None:
         kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
     cfg = MTLNNConfig(
@@ -185,7 +185,7 @@ def evaluate_per_k(model, difficulty, n_values, rng, device,
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
                     skip_transformer=False, gamma_init=None, full_mha=False,
-                    depth_setter="core", mix=False):
+                    depth_setter="core", mix=False, n_global_heads=0):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -212,7 +212,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             m = build_mtlnn(vocab, seq_len,
                             2 if depth_setter == "core" else 1,
                             seed, n_layers=n_layers, gamma_init=gamma_init,
-                            full_mha=full_mha)  # core gate exists when needed
+                            full_mha=full_mha,
+                            n_global_heads=n_global_heads)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -266,6 +267,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
             "gamma_init": gamma_init, "full_mha": full_mha,
             "depth_setter": depth_setter, "mix": mix,
+            "n_global_heads": n_global_heads,
             "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
@@ -408,6 +410,9 @@ def main():
     p.add_argument("--mix", action="store_true",
                    help="curriculum mixture: train on k ~ U{1..difficulty} "
                         "(pointer_chase only), evaluate per-k")
+    p.add_argument("--n_global_heads", type=int, default=0,
+                   help="reserve N truly-global heads per layer (架构原则#1); "
+                        "0 = historical all-decaying init")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -428,7 +433,7 @@ def main():
                         skip_transformer=args.skip_transformer,
                         gamma_init=args.gamma_init, full_mha=args.full_mha,
                         depth_setter="stack" if args.stack else "core",
-                        mix=args.mix)
+                        mix=args.mix, n_global_heads=args.n_global_heads)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,

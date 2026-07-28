@@ -1,7 +1,7 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
-> 新会话开始时：**先读这份 HANDOFF.md**，再读 `PUBLICATION_READINESS.md`，即可无缝接续。
-> 最后更新：2026-07-19 · 分支 `physics-informed-head`
+> 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`，即可无缝接续。
+> 最后更新：2026-07-29 · 分支 `main`（physics-informed-head 已并入）
 
 ---
 
@@ -77,6 +77,30 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 - P0-3 的 modern_transformer 是 RoPE + RMSNorm + SwiGLU baseline，结果 **78.86±0.25**，比 simple transformer 低约 **16.2%**，比当前 mt_lnn 低约 **11.3%**。这说明原 simple baseline 偏弱，论文主张不能再写成“MT-LNN 在 PPL 质量上优于强 Transformer baseline”；当前更稳妥的主线应转向“质量差距待优化 + O(1) working memory / 长上下文效率优势”。
 - O1 的 214.8 是 84M/3000步/AMP/不同项目口径，**只能作为参考锚，不能混入 M1 论文主表做直接对比**。
 
+## 2.5 M2 路线:思考深度研究(2026-07-28/29,进行中)
+
+战略文档 `docs/ROADMAP_M2.md`:**2B 推理引擎,四轴对标 70B base**(数学/代码推理、
+长流式记忆、持续学习、端侧延迟)。知识外置 RAG,本体只做推理与记忆控制。
+完整实验日志(六轮,含全部负结果)在该文档 §4.5,**数字以文档为准,勿凭记忆复述**。
+
+### 已落地的代码(全部测试通过,已推 main)
+
+| 机制 | 位置 | 状态 |
+|---|---|---|
+| `core_iterations` 液体核心潜空间循环 | `mt_lnn/model.py` MTLNNBlock + `config.py` | ✅ 零回归,N=1 位等价 |
+| `stack_iterations` 块级循环(注意力+LNN 权重绑定重复) | `mt_lnn/model.py` MTLNNModel | ✅ 零回归,use_cache 守卫 |
+| `n_global_heads` 全局头配额(架构原则 #1) | `mt_lnn/mt_attention.py` + `config.py` | ✅ 默认 0 位等价,待 sweep 定默认值 |
+| 深度敏感基准(单环指针追踪+模运算链) | `benchmarks/reasoning_tasks.py` | ✅ 已封死"抄起点"捷径 |
+| 深度实验框架(fixed/anytime/mix/消融旋钮) | `benchmarks/reasoning_depth.py` | ✅ 结果落 `benchmarks/results/reasoning_depth.jsonl` |
+
+### 核心发现(改变 M2 设计方向)
+
+1. **只循环液体核心 ≠ 思考**:组合查找的计算在注意力里,LNN 子层迭代深度全平
+2. **GTP 距离衰减 init 是关系推理的阻断器**(主因)+ GQA 协同:修复后 8 节点
+   指针追踪 0.25 → **1.0000 满分**(transformer 对照 0.9932)。液体子层本身无罪
+3. **随机深度训练教模型无视迭代**;固定深度或深监督才可能起作用
+4. **基准必须做作弊者分析**:随机置换图存在 f^k(s)=s 捷径(理论/实测逐位吻合),已改单环封死
+
 ## 3. 进行中 / 卡点
 
 - **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。
@@ -86,8 +110,29 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 
+## 3.5 资源缺口分析(2026-07-29 — 回答"M1 目前缺哪块")
+
+按阻塞程度排序:
+
+| # | 缺口 | 现状 | 需要什么 |
+|---|---|---|---|
+| **1** | **训练算力(最大瓶颈)** | 本地 8GB 只够 200K 级探针实验;P0-3 剩余强 baseline(Mamba-2/GLA/DeltaNet)、14.7% 大预算复核、scaling law 三规模、M2-P1 蒸馏(350M~1B)**全部堵在这里** | AutoDL/A100 预算(估 P0-3 收尾 ~¥300-500;P1 蒸馏首轮 ~$300-500)或同事的卡 |
+| **2** | **推理训练数据** | M2-P1 蒸馏需要强教师的推理轨迹(数学/代码 CoT),目前管线代码和数据都是零 | 教师模型 API 预算 + `benchmarks/` 下建蒸馏数据管线(CPU 工作,可先行) |
+| **3** | **P0 收尾实验(GPU 排队中)** | 单环任务过夜实验在跑;`n_global_heads` sweep(0/1/2/4)排队——定默认值必需 | 只需本地 GPU 时间,无需外部资源 |
+| **4** | **生物模块 ablation 补课** | GWT/PC/睡眠的贡献未按 5-seed 纪律量化;Hebbian 已知惰性待改 fast-weights 或删 | 本地 GPU + 时间,优先级低于 1-3 |
+| **5** | **O1 48M 权重仍失踪** | 阻塞浏览器 demo(见 §3 ⛔ 条目) | 人工找回(Modal workspace 或服务器) |
+
+**给人类队友的建议分工**:算力(#1)和教师 API(#2)是钱能解决的;#3/#4 我(CC)在本地
+逐个排队跑;#5 需要你找回权重。如果只解锁一项,**先解锁 #1**——它同时打开论文
+(P0-3/scaling law)和 M2-P1(蒸馏)两条线。
+
 ## 4. 下一步（按优先级）
 
+0. **M2-P0 收尾(本地,进行中)**:① 等单环过夜实验出"stack 深度 × 跳数"矩阵;
+   ② 跑 `--n_global_heads` sweep(0/1/2/4,探针任务)定配额默认值;③ 把 P0 完整
+   结论 + 曲线图固化进 `docs/ROADMAP_M2.md` 与 BENCHMARKS;④ 视结果决定
+   深监督(每迭代加 loss)是否立项。命令模板:
+   `py -3.11 benchmarks/reasoning_depth.py --task pointer_chase --difficulty 4 --n_values 8 --steps 30000 --seeds 0 --mode fixed --eval_depths 1 2 4 --stack --mix --n_global_heads 2 --tag quota-sweep`
 1. **当前主线任务：继续跑强 baseline**：P0-3 modern_transformer 阶段成果已推送；下一步优先补 `mamba`，随后补 Mamba-2/GLA/DeltaNet 或同类高效架构；注意 Windows Mamba 无 CUDA kernel，强 baseline 和效率曲线建议迁到 Linux/A100。
 2. **继续归档新 baseline 结果**：Mamba/Mamba-2/GLA/DeltaNet 每跑完一个模型，都同步三 seed JSON、run.log/标准化日志和更新后的 `scaling_train_20000_summary.txt`；checkpoint `.pt` 仍不提交。
 3. **更新结果文档和论文材料**（2026-07-19 已完成第一轮）：P0-2 三种子 + P0-3 modern_transformer 结果已写入 README/BENCHMARKS/RESULTS/中英文论文/中英文 deck，并已明确标注 modern_transformer 领先 MT-LNN 11.3%、2K 旧结论已撤回、O1 参考锚限制。

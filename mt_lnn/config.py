@@ -42,6 +42,14 @@ class MTLNNConfig:
 
     # GTP hydrolysis (lateral coupling in MTLNNLayer)
     gamma_init: float = 0.1
+    # M2 architecture principle #1 (docs/ROADMAP_M2.md §4.5): reserve this many
+    # TRULY global attention heads per layer (γ init ≈ 1e-3, no effective
+    # distance decay); remaining heads keep the biological GTP-decay schedule.
+    # P0 measured the old all-decaying init blocking in-context relational
+    # lookup entirely (0.25 → 1.00 once freed). Default 0 = historical init,
+    # bit-exact. Flip the default only after the --n_global_heads sweep on the
+    # (shortcut-sealed) pointer-chase probe lands.
+    n_global_heads: int = 0
     # GTP cap renewal period — lateral coupling refreshes every gtp_period
     # positions. Without this, the exp(-γ·t) gate vanishes at large t and
     # microtubule mixing silently dies in long contexts.
@@ -438,6 +446,11 @@ class MTLNNConfig:
         if int(self.stack_iterations) < 1:
             raise ValueError(
                 f"stack_iterations must be >= 1; got {self.stack_iterations}"
+            )
+        if not (0 <= int(self.n_global_heads) <= int(self.n_heads)):
+            raise ValueError(
+                f"n_global_heads must be in [0, n_heads={self.n_heads}]; "
+                f"got {self.n_global_heads}"
             )
 
         # scale_gate_period constraint: values >4 risk τ-routing rigidity.

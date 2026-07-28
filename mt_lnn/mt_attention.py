@@ -85,7 +85,10 @@ class MicrotubuleAttention(nn.Module):
         # locally (large γ), others span far context (small γ).
         # Geometric ratio chosen so head 0 has γ ≈ gamma_init * 8 (strongly local)
         # and head (H-1) has γ ≈ gamma_init / 8 (effectively global).
-        gamma_targets = self._build_alibi_gamma(config.n_heads, config.gamma_init)
+        gamma_targets = self._build_alibi_gamma(
+            config.n_heads, config.gamma_init,
+            n_global_heads=getattr(config, "n_global_heads", 0),
+        )
         raw_init = torch.log(torch.expm1(gamma_targets.clamp(min=1e-4)))
         self.gtp_gamma = nn.Parameter(raw_init)
 
@@ -137,17 +140,45 @@ class MicrotubuleAttention(nn.Module):
             return
         self._build_pos_buffers(max(needed, self._pos_len * 2))
 
+    #: γ init for reserved GLOBAL heads: at distance 100 the penalty is only
+    #: 0.1 nats — effectively no decay within any practical context window.
+    _GLOBAL_HEAD_GAMMA = 1e-3
+
     @staticmethod
-    def _build_alibi_gamma(n_heads: int, base_gamma: float) -> torch.Tensor:
+    def _build_alibi_gamma(n_heads: int, base_gamma: float,
+                           n_global_heads: int = 0) -> torch.Tensor:
         """
         Geometric γ schedule: γ_h = base_gamma * 2^(slope_h), where slope_h
         ranges from +3 (head 0 → very local) down to -3 (head H-1 → very global).
         For n_heads = 16 this gives γ ∈ [base/8, base*8] — a 64× spread.
+
+        n_global_heads > 0 reserves that many TRULY global heads (γ≈1e-3,
+        no effective distance decay) at the tail; the remaining heads keep the
+        geometric biological-decay schedule. Motivation (M2 architecture
+        principle #1, docs/ROADMAP_M2.md §4.5): the GTP decay init measurably
+        blocked in-context relational lookup — 8-node pointer chase went from
+        0.25 (stuck) to 1.00 (solved) once heads could see far. NOTE the P0
+        evidence also shows ONE quasi-global head (the old H-1 slope, γ≈0.012
+        at 4 heads) was NOT sufficient — induction circuits need several
+        far-sighted heads composing across layers — so tune this with the
+        `--n_global_heads` sweep in benchmarks/reasoning_depth.py rather than
+        assuming 1 is enough. Default 0 keeps the historical init bit-exact.
         """
-        if n_heads == 1:
-            return torch.tensor([base_gamma])
-        slopes = torch.linspace(3.0, -3.0, n_heads)
-        return base_gamma * (2.0 ** slopes)
+        n_global_heads = max(0, min(int(n_global_heads), n_heads))
+        n_local = n_heads - n_global_heads
+        if n_local == 0:
+            return torch.full((n_heads,),
+                              MicrotubuleAttention._GLOBAL_HEAD_GAMMA)
+        if n_local == 1:
+            local = torch.tensor([base_gamma])
+        else:
+            slopes = torch.linspace(3.0, -3.0, n_local)
+            local = base_gamma * (2.0 ** slopes)
+        if n_global_heads == 0:
+            return local
+        glob = torch.full((n_global_heads,),
+                          MicrotubuleAttention._GLOBAL_HEAD_GAMMA)
+        return torch.cat([local, glob])
 
     def _extract_h_prev_timing(self, h_prev: torch.Tensor) -> torch.Tensor:
         """
