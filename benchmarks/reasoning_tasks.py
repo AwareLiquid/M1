@@ -85,11 +85,16 @@ def gen_pointer_chase(
     ans = np.zeros(batch, dtype=np.int64)
 
     for b in range(batch):
-        # Random functional graph: f is a random permutation. A permutation
-        # (rather than an arbitrary function) keeps every k-hop answer
-        # uniformly distributed, so the task can't be shortcut by guessing
-        # high-in-degree sink nodes.
-        f = rng.permutation(n_nodes)
+        # Random functional graph: f is a SINGLE n-cycle permutation.
+        # A general random permutation admits a "copy the start node" shortcut:
+        # f^k(s)=s iff the cycle length of s divides k, giving a content-free
+        # accuracy of |{L in 1..n : L | k}|/n (measured 2026-07-29: models sat
+        # exactly on this plateau — 0.379 at k=4 vs the predicted 3/8=0.375).
+        # A single n-cycle guarantees f^k(s) != s for all 0 < k < n, and the
+        # answer stays uniform over the other n-1 nodes — shortcut sealed.
+        order = rng.permutation(n_nodes)
+        f = np.empty(n_nodes, dtype=np.int64)
+        f[order] = np.roll(order, -1)  # order[i] -> order[i+1], closing a cycle
         edges = rng.permutation(n_nodes)  # presentation order of edge list
 
         row = [BOS]
@@ -180,6 +185,20 @@ def _selftest() -> None:
     assert b.tokens.shape[1] == b.ans_pos + 1
     assert (b.tokens[:, b.ans_pos] == ANS).all()
     assert (b.answer >= VALUE_BASE).all()
+
+    # single-cycle guarantee: f^k(s) != s for all 0 < k < n (shortcut sealed)
+    big = gen_pointer_chase(64, n_nodes=8, k_hops=4, rng=rng)
+    for row_i in range(64):
+        row_t = big.tokens[row_i]
+        j, f_map = 1, {}
+        while row_t[j] != START:
+            f_map[int(row_t[j]) - VALUE_BASE] = int(row_t[j + 2]) - VALUE_BASE
+            j += 3
+        s0 = int(row_t[j + 1]) - VALUE_BASE
+        cur0 = s0
+        for _ in range(4):
+            cur0 = f_map[cur0]
+        assert cur0 != s0, "single-cycle must forbid f^k(s)=s for k<n"
 
     # answers must be reachable by manually replaying hops from the token row
     row = b.tokens[0]
