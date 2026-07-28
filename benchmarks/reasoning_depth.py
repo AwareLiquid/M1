@@ -78,20 +78,25 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 
 # ── models ───────────────────────────────────────────────────────────────────
 
-def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2):
+def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
+                gamma_init=None, full_mha=False):
     torch.manual_seed(seed)
+    kw = {}
+    if gamma_init is not None:
+        kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
     cfg = MTLNNConfig(
         vocab_size=vocab,
         max_seq_len=seq_len,
         d_model=d_model,          # 104 = 13 protofilaments × 8
         n_layers=n_layers,        # shallow on purpose: depth comes from iteration
         n_heads=4,
-        n_kv_heads=2,
+        n_kv_heads=4 if full_mha else 2,
         d_head=d_model // 4,
         dropout=0.0,
         attention_dropout=0.0,
         gwtb_n_heads=1,           # d_gw = d_model//8 = 13 → single-head workspace
         core_iterations=max_depth,
+        **kw,
     )
     return MTLNNModel(cfg)
 
@@ -138,7 +143,7 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
-                    skip_transformer=False):
+                    skip_transformer=False, gamma_init=None, full_mha=False):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -157,7 +162,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
         accs = {}
         for d in depths:
             m = build_mtlnn(vocab, seq_len, max(d, 2), seed,
-                            n_layers=n_layers)  # gate exists even for d=1
+                            n_layers=n_layers, gamma_init=gamma_init,
+                            full_mha=full_mha)  # gate exists even for d=1
             n_params = m.get_num_params()
             m.set_core_iterations(d)
             print(f"  [seed {seed}] mt_lnn depth={d} fixed "
@@ -191,6 +197,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "task": task, "difficulty": difficulty, "n_values": n_values,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
+            "gamma_init": gamma_init, "full_mha": full_mha,
             "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
@@ -309,6 +316,11 @@ def main():
                         "degenerates to a gated FFN (isolates whether the "
                         "recurrent scan impedes in-context lookup learning)")
     p.add_argument("--skip_transformer", action="store_true")
+    p.add_argument("--gamma_init", type=float, default=None,
+                   help="override GTP distance-decay init (default cfg 0.1; "
+                        "0.001 makes all heads effectively global)")
+    p.add_argument("--full_mha", action="store_true",
+                   help="n_kv_heads=n_heads (disable GQA)")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -326,7 +338,8 @@ def main():
                         args.steps, args.batch, args.lr, args.eval_depths,
                         device, tag=args.tag, n_layers=args.n_layers,
                         no_scan=args.no_scan,
-                        skip_transformer=args.skip_transformer)
+                        skip_transformer=args.skip_transformer,
+                        gamma_init=args.gamma_init, full_mha=args.full_mha)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
