@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mt_lnn import MTLNNConfig, MTLNNModel
 from benchmarks.baselines import BaselineConfig, ModernCausalTransformer
-from benchmarks.reasoning_tasks import make_generator
+from benchmarks.reasoning_tasks import make_generator, gen_pointer_chase
 
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "results", "reasoning_depth.jsonl")
@@ -147,20 +147,61 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
 # ── experiment ───────────────────────────────────────────────────────────────
 
+def make_mix_generator(difficulty, n_values):
+    """Curriculum-style mixture: each batch draws hop count k ~ U{1..difficulty}
+    (k is announced in the input tokens). Composition tasks grok much faster
+    when the model can learn 1-hop lookup first and bootstrap deeper hops —
+    fixed-k training left everyone (incl. transformer) on a shared plateau at
+    k=4 (P0-C′ round 1). Sequence length is constant since only the k token
+    varies."""
+    def gen(batch, rng):
+        k = int(rng.integers(1, difficulty + 1))
+        return gen_pointer_chase(batch, n_values, k, rng)
+    return gen
+
+
+@torch.no_grad()
+def evaluate_per_k(model, difficulty, n_values, rng, device,
+                   batches=8, batch=256, fwd_kwargs=None):
+    """Accuracy at EACH hop count 1..difficulty (mixture-trained models)."""
+    fwd_kwargs = fwd_kwargs or {}
+    model.eval()
+    accs = {}
+    for k in range(1, difficulty + 1):
+        correct = total = 0
+        for _ in range(batches):
+            b = gen_pointer_chase(batch, n_values, k, rng)
+            ids = torch.from_numpy(b.tokens).to(device)
+            ans = torch.from_numpy(b.answer).to(device)
+            logits = model(ids, **fwd_kwargs)["logits"]
+            pred = logits[:, b.ans_pos - 1, :].argmax(-1)
+            correct += (pred == ans).sum().item()
+            total += batch
+        accs[k] = correct / total
+    model.train()
+    return accs
+
+
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
                     skip_transformer=False, gamma_init=None, full_mha=False,
-                    depth_setter="core"):
+                    depth_setter="core", mix=False):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
     This avoids the anytime-training failure mode where random-depth sampling
     teaches the model to be depth-INVARIANT (ignore iterations)."""
-    gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
+    if mix:
+        assert task == "pointer_chase", "--mix only supports pointer_chase"
+        gen = make_mix_generator(difficulty, n_values)
+        _, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
+    else:
+        gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
     probe = gen(1, np.random.default_rng(0))
     seq_len = probe.tokens.shape[1]
     print(f"== FIXED sweep {task} difficulty={difficulty} n_values={n_values} "
-          f"T={seq_len} vocab={vocab} device={device} depths={depths} ==")
+          f"T={seq_len} vocab={vocab} device={device} depths={depths} "
+          f"mix={mix} ==")
 
     fwd_kwargs = {"use_lnn_recurrence": False} if no_scan else None
     rows = []
@@ -183,10 +224,17 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             train_model(m, gen, device, steps, batch, lr, seed,
                         depth_choices=[d], fwd_kwargs=fwd_kwargs,
                         depth_setter=depth_setter)
-            acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device,
-                           fwd_kwargs=fwd_kwargs)
+            if mix:
+                acc = evaluate_per_k(m, difficulty, n_values,
+                                     np.random.default_rng(10_000 + seed),
+                                     device, fwd_kwargs=fwd_kwargs)
+                print(f"    eval depth {d}: " +
+                      "  ".join(f"k={k}:{v:.3f}" for k, v in acc.items()))
+            else:
+                acc = evaluate(m, gen, np.random.default_rng(10_000 + seed),
+                               device, fwd_kwargs=fwd_kwargs)
+                print(f"    eval depth {d}: acc {acc:.4f}")
             accs[d] = acc
-            print(f"    eval depth {d}: acc {acc:.4f}")
             del m
             if device == "cuda":
                 torch.cuda.empty_cache()
@@ -197,9 +245,16 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             tr_params = tr.get_num_params()
             print(f"  [seed {seed}] transformer {tr_params/1e3:.0f}K params")
             train_model(tr, gen, device, steps, batch, lr, seed)
-            tr_acc = evaluate(tr, gen, np.random.default_rng(10_000 + seed),
-                              device)
-            print(f"    eval: acc {tr_acc:.4f}")
+            if mix:
+                tr_acc = evaluate_per_k(tr, difficulty, n_values,
+                                        np.random.default_rng(10_000 + seed),
+                                        device)
+                print("    eval: " +
+                      "  ".join(f"k={k}:{v:.3f}" for k, v in tr_acc.items()))
+            else:
+                tr_acc = evaluate(tr, gen, np.random.default_rng(10_000 + seed),
+                                  device)
+                print(f"    eval: acc {tr_acc:.4f}")
             del tr
             if device == "cuda":
                 torch.cuda.empty_cache()
@@ -210,7 +265,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
             "gamma_init": gamma_init, "full_mha": full_mha,
-            "depth_setter": depth_setter,
+            "depth_setter": depth_setter, "mix": mix,
             "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
@@ -225,10 +280,22 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
     print("\n== summary (mean over seeds, each depth = fresh fixed-depth model) ==")
     for d in depths:
         vals = [r["mtlnn_acc_by_depth"][d] for r in rows]
-        print(f"  mt_lnn depth {d}: {np.mean(vals):.4f} ± {np.std(vals):.4f}")
+        if mix:
+            ks = sorted(vals[0].keys())
+            line = "  ".join(
+                f"k={k}:{np.mean([v[k] for v in vals]):.3f}" for k in ks)
+            print(f"  mt_lnn depth {d}: {line}")
+        else:
+            print(f"  mt_lnn depth {d}: {np.mean(vals):.4f} ± {np.std(vals):.4f}")
     tvals = [r["transformer_acc"] for r in rows if r["transformer_acc"] is not None]
     if tvals:
-        print(f"  transformer   : {np.mean(tvals):.4f} ± {np.std(tvals):.4f}")
+        if mix:
+            ks = sorted(tvals[0].keys())
+            line = "  ".join(
+                f"k={k}:{np.mean([v[k] for v in tvals]):.3f}" for k in ks)
+            print(f"  transformer   : {line}")
+        else:
+            print(f"  transformer   : {np.mean(tvals):.4f} ± {np.std(tvals):.4f}")
     print(f"\nresults appended to {RESULTS}")
     return rows
 
@@ -338,6 +405,9 @@ def main():
                    help="depth knob = stack_iterations (whole block stack, "
                         "attention included) instead of core_iterations "
                         "(LNN sub-layer only)")
+    p.add_argument("--mix", action="store_true",
+                   help="curriculum mixture: train on k ~ U{1..difficulty} "
+                        "(pointer_chase only), evaluate per-k")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -357,7 +427,8 @@ def main():
                         no_scan=args.no_scan,
                         skip_transformer=args.skip_transformer,
                         gamma_init=args.gamma_init, full_mha=args.full_mha,
-                        depth_setter="stack" if args.stack else "core")
+                        depth_setter="stack" if args.stack else "core",
+                        mix=args.mix)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
