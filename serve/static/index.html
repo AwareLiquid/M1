@@ -145,6 +145,18 @@ window.addEventListener('load', function(){
   --tag-built-bg:#e7f6ef; --tag-built-fg:#0a7d55;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial serif for headings. First choices are system faces so we ship
+     no webfont (CSP is font-src 'self'). Weight stays 400 — never bold. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  /* Metadata labels: uppercase, wide tracking, small. */
+  --font-label:var(--mono);
+
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
 }
 @media(prefers-color-scheme:dark){
   html:not([data-theme="light"]){
@@ -153,8 +165,6 @@ window.addEventListener('load', function(){
     --tag-built-bg:#0c3828; --tag-built-fg:#52c48a;
   }
   html:not([data-theme="light"]) .nav{background:rgba(14,14,16,.85)}
-  html:not([data-theme="light"]) .feat-card,
-  html:not([data-theme="light"]) .vs-card,
   html:not([data-theme="light"]) .demo-widget{background:var(--card);border-color:var(--line)}
   html:not([data-theme="light"]) .rh-table table{background:var(--card)}
   html:not([data-theme="light"]) .stats-strip{border-color:var(--line)}
@@ -191,49 +201,124 @@ a{color:inherit;text-decoration:none}
 .nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;transition:color .15s,background .15s}
 .nav-links a:hover{color:var(--fg);background:var(--card)}
 .nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
-.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;letter-spacing:.1px}
+.btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:14px;font-weight:500;border-radius:4px;cursor:pointer;transition:all .3s ease-out;border:1px solid transparent;text-decoration:none;letter-spacing:0}
 .btn-primary{background:var(--fg);color:var(--bg);padding:8px 18px}
 .btn-primary:hover{opacity:.85}
 .btn-ghost{background:transparent;color:var(--fg);border-color:var(--line);padding:8px 18px}
 .btn-ghost:hover{background:var(--card)}
-.btn-lg{font-size:15px;padding:12px 24px;border-radius:12px}
+.btn-lg{font-size:14px;padding:10px 20px;border-radius:4px}
 .nav-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--fg);padding:8px}
 
 /* ── HERO ── */
-.hero{padding:148px 0 96px;text-align:center;position:relative;overflow:hidden}
-#heroCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.55}
-@media(prefers-reduced-motion:reduce){#heroCanvas{display:none}}
-.hero .container{position:relative;z-index:1}
-.pill{
-  display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;
-  border:1px solid var(--line);border-radius:999px;padding:5px 14px 5px 10px;
-  margin-bottom:28px;color:var(--muted);transition:border-color .15s;
-}
-.pill:hover{border-color:var(--fg)}
-.pill-dot{width:7px;height:7px;border-radius:50%;background:#10b981;flex:none}
-.pill strong{color:var(--fg)}
-.pill-text{min-width:0}
-.pill-arrow{color:var(--fg);font-size:12px;flex:none}
-.hero-title{font-size:clamp(38px,6vw,62px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:20px}
-.hero-title .accent{color:var(--muted)}
-.hero-sub{font-size:17px;color:var(--muted);max-width:560px;margin:0 auto 36px;line-height:1.7}
-.hero-ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+/* ══ EDITORIAL DESIGN SYSTEM ══════════════════════════════════════════════
+   Structural language borrowed from liquid.ai: serif headings at weight 400
+   with negative tracking, 1px hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Palette is deliberately NOT theirs —
+   we stay monochrome where they run a single violet accent. */
 
-/* ── MODEL LINEUP ── */
-.model-lineup{display:flex;align-items:center;justify-content:center;gap:20px;margin-top:36px;flex-wrap:wrap}
-.model-badge{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 18px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(255,255,255,.6);transition:border-color .15s}
-.model-badge:hover{border-color:var(--fg)}
-.model-series{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:2px 7px;border-radius:5px;background:var(--card);border:1px solid var(--line)}
-.model-name{font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--fg)}
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.h-display{font-size:clamp(40px,5.4vw,60px);line-height:1.02;letter-spacing:var(--tracking-display)}
+.h2{font-size:clamp(28px,3.4vw,32px);line-height:1.2;letter-spacing:var(--tracking-h2)}
+.h3{font-size:24px;line-height:1.2;letter-spacing:var(--tracking-h3)}
+/* Italic emphasis is the recurring rhetorical move: one phrase per heading,
+   optically enlarged 5% and tightened so it doesn't out-measure the roman. */
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+
+/* Hairline scaffolding — replaces bordered/shadowed cards entirely. */
+.rule-grid{display:grid;position:relative}
+.rule-grid>*{padding:32px 0}
+@media(min-width:900px){
+  .rule-grid{grid-template-columns:repeat(var(--cols,3),1fr);gap:0}
+  .rule-grid>*{padding:48px var(--section-content,32px)}
+  .rule-grid>*:first-child{padding-left:0}
+  .rule-grid>*:last-child{padding-right:0}
+  .rule-v{position:absolute;top:0;bottom:0;width:1px;background:var(--rule);pointer-events:none}
+}
+@media(max-width:899px){
+  .rule-grid>*+*{border-top:1px solid var(--rule)}
+  .rule-v{display:none}
+}
+.rule-t{border-top:1px solid var(--rule)}
+
+/* The one "effect" on the page: a hairline cell lifts a faint wash on hover.
+   Neutral, not tinted — the whole point of staying monochrome. */
+.hov{position:relative;transition:none}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+@media(prefers-color-scheme:dark){html:not([data-theme="light"]) .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}}
+
+.hero{padding:clamp(72px,8vw,96px) 0 var(--section-pad);position:relative}
+.hero-grid{display:grid;gap:0}
+@media(min-width:1000px){
+  .hero-grid{grid-template-columns:2fr 1fr}
+  .hero-aside{border-left:1px solid var(--rule);padding-left:40px;margin-left:40px}
+}
+@media(max-width:999px){.hero-aside{border-top:1px solid var(--rule);margin-top:48px;padding-top:8px}}
+.hero-sub{font-size:16px;line-height:1.6;color:var(--muted);max-width:34em;margin:20px 0 36px}
+.hero-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin:0 0 36px;padding:24px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.hero-metrics .m-v{display:block;font-size:20px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:6px}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+
+/* News rail — dated, hairline-divided, serif headline per row. */
+.rail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px}
+.rail{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.rail li{border-bottom:1px solid var(--rule)}
+.rail a{display:block;padding:20px 12px 20px 0}
+.rail .r-meta{display:flex;gap:12px;align-items:baseline;margin-bottom:6px}
+.rail .r-title{font-family:var(--font-serif);font-size:17px;line-height:1.4;letter-spacing:-.17px}
+.rail a:hover .r-title{text-decoration:underline;text-underline-offset:3px}
+
+/* ── INDUSTRIES ── hairline grid, no borders/shadows/radius on the cells */
+.industries-section{padding-top:var(--section-gap);padding-bottom:var(--section-pad)}
+.ind-head{max-width:760px;margin-bottom:8px}
+.ind-head .h2{margin:14px 0 16px}
+.ind-lead{font-size:16px;line-height:1.6;color:var(--muted);max-width:60ch}
+.ind-grid{display:grid;grid-template-columns:1fr;border-top:1px solid var(--rule);margin-top:40px}
+.ind-cell{display:block;padding:32px 0;border-bottom:1px solid var(--rule);position:relative}
+@media(min-width:760px){
+  .ind-grid{grid-template-columns:repeat(2,1fr)}
+  .ind-cell{padding:36px 32px}
+  .ind-cell:nth-child(odd){padding-left:0;border-right:1px solid var(--rule)}
+  .ind-cell:nth-child(even){padding-right:0}
+}
+@media(min-width:1080px){
+  .ind-grid{grid-template-columns:repeat(3,1fr)}
+  .ind-cell:nth-child(odd),.ind-cell:nth-child(even){padding:40px 32px;border-right:1px solid var(--rule)}
+  .ind-cell:nth-child(3n+1){padding-left:0}
+  .ind-cell:nth-child(3n){padding-right:0;border-right:0}
+}
+.ind-ic{display:block;width:26px;height:26px;color:var(--muted);margin-bottom:18px}
+.ind-ic svg{width:100%;height:100%;stroke-linecap:round;stroke-linejoin:round}
+.ind-cell:hover .ind-ic{color:var(--fg)}
+.ind-t{font-family:var(--font-serif);font-size:20px;line-height:1.3;letter-spacing:-.02em;margin-bottom:10px}
+.ind-d{font-size:14px;line-height:1.6;color:var(--muted);margin-bottom:18px}
+/* Status chip: the only place the two evidence tiers are distinguishable. */
+.ind-s{display:inline-block;font-family:var(--font-label);font-size:10.5px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);
+  border:1px solid var(--rule);padding:3px 9px;margin-bottom:12px}
+.ind-s-on{color:var(--fg);border-color:var(--fg)}
+.ind-m{display:block;font-size:12.5px;line-height:1.55;color:var(--muted);opacity:.8}
+/* ── MODEL LINEUP ── hairline strip, matching the editorial system */
+.model-lineup{display:flex;align-items:stretch;justify-content:flex-start;gap:0;margin-top:0;flex-wrap:wrap;border-top:1px solid var(--rule)}
+.model-badge{display:flex;align-items:baseline;gap:10px;padding:18px 28px 18px 0;transition:none}
+.model-badge+.model-sep+.model-badge{padding-left:28px;border-left:1px solid var(--rule)}
+.model-series{font-family:var(--font-label);font-size:10.5px;font-weight:500;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted)}
+.model-name{font-family:var(--font-serif);font-size:19px;font-weight:400;letter-spacing:-.02em;color:var(--fg)}
 .model-tag{font-size:12px;color:var(--muted);line-height:1.4}
 .model-sep{font-size:20px;color:var(--line);font-weight:300}
 @media(prefers-color-scheme:dark){html:not([data-theme="light"]) .model-badge{background:rgba(22,22,26,.7)}}
 html[data-theme="dark"] .model-badge{background:rgba(22,22,26,.7)}
 
 /* ── GLASS CARD ── */
-.glass-card{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);background:rgba(255,255,255,.75) !important}
-@media(prefers-color-scheme:dark){html:not([data-theme="light"]) .glass-card{background:rgba(22,22,26,.8) !important}}
-html[data-theme="dark"] .glass-card{background:rgba(22,22,26,.8) !important}
+/* .glass-card is retained as a no-op: the editorial system has no translucent
+   panels, and its !important background overrode the hairline cells. */
+.glass-card{background:transparent}
 .feat-model-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:2px 7px;border-radius:5px;background:var(--card);border:1px solid var(--line);margin-bottom:10px}
 
 /* ── MULTI-AGENT FUTURE ── */
@@ -257,19 +342,27 @@ html[data-theme="dark"] .glass-card{background:rgba(22,22,26,.8) !important}
 
 /* ── SECTION COMMON ── */
 .section{padding:96px 0}
-.section-header{text-align:center;max-width:640px;margin:0 auto 56px}
-.eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
-.section-header h2{font-size:clamp(26px,4vw,38px);font-weight:700;letter-spacing:-.03em;line-height:1.15;margin-bottom:14px}
-.section-lead{font-size:16px;color:var(--muted);line-height:1.7}
+.section-header{text-align:left;max-width:760px;margin:0 0 48px}
+.eyebrow{display:inline-block;font-family:var(--font-label);font-size:11px;font-weight:500;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.section-header h2{font-family:var(--font-serif);font-size:clamp(28px,3.4vw,32px);font-weight:400;letter-spacing:var(--tracking-h2);line-height:1.2;margin-bottom:16px}
+.section-lead{font-size:16px;color:var(--muted);line-height:1.6;max-width:60ch}
 
 /* ── FEATURES ── */
-.features-section{background:var(--card)}
-.card-grid.cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-@media(max-width:860px){.card-grid.cols-3{grid-template-columns:1fr}}
-.feat-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);padding:28px}
-.feat-icon{width:42px;height:42px;border-radius:12px;background:#f0f0f5;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
-.feat-card h3{font-size:17px;font-weight:650;margin-bottom:8px;letter-spacing:-.01em}
-.feat-card p{font-size:14.5px;color:var(--muted);line-height:1.7}
+.features-section{background:transparent}
+.card-grid.cols-3{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--rule)}
+.card-grid.cols-3>*{border-right:1px solid var(--rule)}
+.card-grid.cols-3>*:first-child{padding-left:0}
+.card-grid.cols-3>*:last-child{border-right:0;padding-right:0}
+@media(max-width:860px){
+  .card-grid.cols-3{grid-template-columns:1fr}
+  .card-grid.cols-3>*{border-right:0;border-bottom:1px solid var(--rule);padding-left:0;padding-right:0}
+  .card-grid.cols-3>*:last-child{border-bottom:0}
+}
+.feat-card{background:transparent;border:0;border-radius:0;padding:40px 32px;position:relative}
+.feat-icon{width:26px;height:26px;border-radius:0;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:flex-start;margin-bottom:18px}
+.feat-card:hover .feat-icon{color:var(--fg)}
+.feat-card h3{font-family:var(--font-serif);font-size:20px;font-weight:400;margin-bottom:10px;letter-spacing:-.02em}
+.feat-card p{font-size:14px;color:var(--muted);line-height:1.6}
 
 /* ── RESEARCH HIGHLIGHT ── */
 .rh-section{background:var(--bg)}
@@ -283,9 +376,9 @@ html[data-theme="dark"] .glass-card{background:rgba(22,22,26,.8) !important}
 .metric{flex:1;min-width:100px}
 .metric-n{display:block;font-size:22px;font-weight:700;letter-spacing:-.02em}
 .metric-l{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
-.rh-table table{width:100%;border-collapse:collapse;font-size:13.5px;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
-.rh-table th,.rh-table td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
-.rh-table th{font-weight:600;font-size:12px;color:var(--muted);background:var(--card)}
+.rh-table table{width:100%;border-collapse:collapse;font-size:14px;border-radius:0;border:0;border-top:1px solid var(--rule)}
+.rh-table th,.rh-table td{text-align:left;padding:16px 16px 16px 0;border-bottom:1px solid var(--rule)}
+.rh-table th{font-family:var(--font-label);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);background:transparent}
 .rh-table tr:last-child td{border-bottom:none}
 .highlight-row td{background:#f0fdf4;font-weight:500}
 td.bad{color:#dc2626;font-family:var(--mono);font-size:12.5px}
@@ -384,11 +477,11 @@ textarea::placeholder{color:#b4b4c0}
 .vs-section{background:var(--bg)}
 .vs-grid{display:grid;grid-template-columns:1fr 48px 1fr;align-items:center;gap:16px;max-width:800px;margin:0 auto}
 @media(max-width:700px){.vs-grid{grid-template-columns:1fr;gap:20px}.vs-center{display:none}}
-.vs-card{border:1px solid var(--line);border-radius:var(--radius);padding:28px}
+.vs-card{border:0;border-radius:0;padding:32px 32px 32px 0}
 .vs-label{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
 .vs-title{font-size:19px;font-weight:700;letter-spacing:-.02em;line-height:1.25;margin-bottom:16px}
 .vs-card ul{list-style:none;padding:0}
-.vs-card li{font-size:14px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--line);line-height:1.5}
+.vs-card li{font-size:14px;color:var(--muted);padding:10px 0;border-bottom:1px solid var(--rule);line-height:1.5}
 .vs-card li:last-child{border-bottom:none}
 .vs-card li::before{content:'·  ';color:var(--fg)}
 .vs-us{border-color:var(--fg)}
@@ -455,8 +548,6 @@ html[data-theme="dark"]{
   color-scheme:dark
 }
 html[data-theme="dark"] .nav{background:rgba(14,14,16,.85)}
-html[data-theme="dark"] .feat-card,
-html[data-theme="dark"] .vs-card,
 html[data-theme="dark"] .demo-widget{background:var(--card);border-color:var(--line)}
 html[data-theme="dark"] .rh-table table{background:var(--card)}
 html[data-theme="dark"] .stats-strip{border-color:var(--line)}
@@ -483,8 +574,6 @@ html[data-theme="light"]{
   color-scheme:light
 }
 html[data-theme="light"] .nav{background:rgba(255,255,255,.85)}
-html[data-theme="light"] .feat-card,
-html[data-theme="light"] .vs-card,
 html[data-theme="light"] .demo-widget{background:var(--bg);border-color:var(--line)}
 html[data-theme="light"] .rh-table table{background:var(--bg)}
 html[data-theme="light"] .highlight-row td{background:#f0fdf4}
@@ -517,6 +606,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       AwareLiquid
     </a>
     <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
+      <a href="#industries">Industries</a>
       <a href="#demo" aria-current="page">Demo</a>
       <a href="/api">API</a>
       <a href="/research">Research</a>
@@ -547,18 +637,32 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 
 <!-- ── HERO ── -->
 <section class="hero">
-  <canvas id="heroCanvas" aria-hidden="true"></canvas>
   <div class="container">
-    <a class="pill" href="/research">
-      <span class="pill-dot"></span>
-      <span class="pill-text">O-series · 8063× less inference memory at 1M tokens · O(1) constant state</span>
-      <span class="pill-arrow">→</span>
-    </a>
-    <h1 class="hero-title">Beyond Next-Token Prediction.<br><span class="accent">Towards Cognitive Artificial Life.</span></h1>
-    <p class="hero-sub">AwareLiquid is a bio-inspired cognitive AI framework — continuous-time liquid dynamics layered with global workspace theory, sleep-based memory consolidation, and online continual learning.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-primary btn-lg" href="#demo">Try Live Demo</a>
-      <a class="btn btn-ghost btn-lg" href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read the Paper →</a>
+    <div class="hero-grid">
+      <div class="hero-main">
+        <h1 class="h-display">Constant memory.<br><em class="em-italic">Unbounded</em> context.</h1>
+        <p class="hero-sub">AwareLiquid is a bio-inspired cognitive AI framework. The attention-free O-Series carries a fixed-size state instead of a growing KV-cache, so context length stops dictating memory.</p>
+        <div class="hero-metrics">
+          <div><span class="label"><span class="label-sq"></span>Carried state</span><span class="m-v">0.381 MB</span></div>
+          <div><span class="label"><span class="label-sq"></span>Context</span><span class="m-v">1M tokens</span></div>
+          <div><span class="label"><span class="label-sq"></span>vs KV-cache</span><span class="m-v">8063× smaller</span></div>
+        </div>
+        <div class="hero-ctas">
+          <a class="btn btn-primary btn-lg" href="#demo">Try the live demo</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read the paper →</a>
+        </div>
+      </div>
+      <aside class="hero-aside" aria-label="Latest updates">
+        <div class="rail-head">
+          <span class="label"><span class="label-sq"></span>Latest</span>
+          <a class="label" href="/research" style="color:var(--fg)">Read more →</a>
+        </div>
+        <ul class="rail">
+          <li><a class="hov" href="/research#memory"><span class="r-meta"><span class="label">07.19</span><span class="label">Benchmark</span></span><span class="r-title">Constant-memory evidence extended from 128k to 1M tokens</span></a></li>
+          <li><a class="hov" href="/research#battery"><span class="r-meta"><span class="label">07.24</span><span class="label">Edge pilot</span></span><span class="r-title">Battery state-of-health on real NASA cells</span></a></li>
+          <li><a class="hov" href="/research#fp16"><span class="r-meta"><span class="label">07.19</span><span class="label">Engineering</span></span><span class="r-title">Root-causing an fp16-only training divergence</span></a></li>
+        </ul>
+      </aside>
     </div>
     <div class="model-lineup" aria-label="Model lineup">
       <div class="model-badge">
@@ -614,7 +718,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <figcaption>AwareLiquid M1 end-to-end pipeline — continuous-time LTC core + GWT competitive broadcast + sleep consolidation + EWC online learning</figcaption>
     </figure>
     <div class="card-grid cols-3">
-      <div class="feat-card glass-card">
+      <div class="feat-card glass-card hov">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
         </div>
@@ -622,7 +726,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <h3>Global Workspace Theory (GWT)</h3>
         <p>Specialist cortical modules compete for a shared broadcast channel — the "global workspace." The winner propagates its representation to all other modules, enabling selective attention, emergent integration, and conscious-like information routing.</p>
       </div>
-      <div class="feat-card glass-card">
+      <div class="feat-card glass-card hov">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
         </div>
@@ -630,7 +734,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <h3>Sleep Consolidation (NREM Bridge)</h3>
         <p>Synthetic NREM cycles replay short-term session activations and compress them into a persistent graph-memory structure. Synaptic Homeostasis (SHY) downscaling prunes redundant connections, boosting signal-to-noise. The model grows smarter during rest.</p>
       </div>
-      <div class="feat-card glass-card">
+      <div class="feat-card glass-card hov">
         <div class="feat-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         </div>
@@ -638,6 +742,67 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <h3>Liquid ODE Dynamics</h3>
         <p>Hidden state evolves as a continuous-time differential equation with learnable time constants — inspired by microtubule dynamics. No discrete layer stacking, no KV-cache growth. Constant-memory state enables edge deployment at millisecond latency.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── INDUSTRIES ── -->
+<section class="section industries-section" id="industries">
+  <div class="container">
+    <div class="ind-head">
+      <span class="label"><span class="label-sq"></span>Where it fits</span>
+      <h2 class="h2">Built for streams that never stop, on hardware that <em class="em-italic">cannot grow</em>.</h2>
+      <p class="ind-lead">A fixed-size carried state and tolerance for irregular sampling are what these deployments have in common. Each tile states exactly what we have measured and what we have not.</p>
+    </div>
+
+    <div class="ind-grid">
+      <a class="ind-cell hov" href="/research#battery">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="8" width="17" height="9" rx="2"/><path d="M22 11v3"/><path d="M6 11v3M10 11v3"/></svg></span>
+        <h3 class="ind-t">Battery management</h3>
+        <p class="ind-d">State-of-health regression on cell voltage, current and temperature streams, running on the pack controller rather than in the cloud.</p>
+        <span class="ind-s ind-s-on">Measured — NASA PCoE cells</span>
+        <span class="ind-m">+7.7% degradation at 80% sample loss, vs +31.1% LSTM / +32.8% GRU. 2.6 KB streaming state vs 34 MB KV-cache at 32K.</span>
+      </a>
+
+      <a class="ind-cell hov" href="/research">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 13l2-5a3 3 0 0 1 2.8-2h8.4A3 3 0 0 1 19 8l2 5"/><path d="M3 13h18v4a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H6v1a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/></svg></span>
+        <h3 class="ind-t">In-vehicle systems</h3>
+        <p class="ind-d">Long-running cabin and telemetry context on an automotive SoC, where a KV-cache that grows with the drive is not an option.</p>
+        <span class="ind-s">Target application</span>
+        <span class="ind-m">No pilot data yet. Architectural fit: bounded memory across an unbounded session; event-driven, non-uniform sensor sampling.</span>
+      </a>
+
+      <a class="ind-cell hov" href="/research">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18.5h2"/></svg></span>
+        <h3 class="ind-t">On-device assistants</h3>
+        <p class="ind-d">Phone-resident models that keep multi-day conversational context inside a fixed RAM budget instead of truncating history.</p>
+        <span class="ind-s">Target application</span>
+        <span class="ind-m">No pilot data yet. Architectural fit: constant carried state; cross-session snapshot and restore is bit-exact.</span>
+      </a>
+
+      <a class="ind-cell hov" href="/research">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2" y="13" width="4.5" height="7" rx="2"/><rect x="17.5" y="13" width="4.5" height="7" rx="2"/></svg></span>
+        <h3 class="ind-t">Hearables</h3>
+        <p class="ind-d">Always-on audio and biosignal processing under a milliwatt power envelope, where duty-cycling makes the input stream irregular by design.</p>
+        <span class="ind-s">Target application</span>
+        <span class="ind-m">No pilot data yet. Architectural fit: continuous-time dynamics accept non-uniform Δt natively, without resampling.</span>
+      </a>
+
+      <a class="ind-cell hov" href="/research">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 20h18"/><path d="M6 20V9M11 20V5M16 20v-7M21 20V11"/></svg></span>
+        <h3 class="ind-t">Financial time series</h3>
+        <p class="ind-d">Irregularly-spaced tick and event data, where the gaps between observations carry as much signal as the observations.</p>
+        <span class="ind-s">Target application</span>
+        <span class="ind-m">No pilot data yet. Architectural fit: Δt is an input, not an assumption — no forced regridding of an uneven series.</span>
+      </a>
+
+      <a class="ind-cell hov" href="/research">
+        <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="8" width="16" height="11" rx="2.5"/><path d="M12 8V4M9 4h6"/><circle cx="9" cy="13" r="1.2"/><circle cx="15" cy="13" r="1.2"/></svg></span>
+        <h3 class="ind-t">Industrial robotics</h3>
+        <p class="ind-d">Closed-loop control and condition monitoring on embedded controllers with a hard, fixed memory ceiling.</p>
+        <span class="ind-s">Target application</span>
+        <span class="ind-m">No pilot data yet. Architectural fit: deterministic per-step cost and a state that does not grow with uptime.</span>
+      </a>
     </div>
   </div>
 </section>
@@ -888,11 +1053,16 @@ const I18N={
   en:{
     'nav.demo':'Demo','nav.research':'Research','nav.about':'About','nav.paper':'Paper','nav.github':'GitHub',
     'nav.try':'Try Demo',
-    'hero.pill':'O-series · 8063× less inference memory at 1M tokens · O(1) constant state',
-    'hero.title':'Beyond Next-Token Prediction.',
-    'hero.accent':'Towards Cognitive Artificial Life.',
-    'hero.sub':'AwareLiquid is a bio-inspired cognitive AI framework — continuous-time liquid dynamics layered with global workspace theory, sleep-based memory consolidation, and online continual learning.',
-    'hero.cta1':'Try Live Demo','hero.cta2':'Read the Paper →',
+    'hero.title':'Constant memory.',
+    'hero.accent':'Unbounded',
+    'hero.title2':'context.',
+    'hero.sub':'AwareLiquid is a bio-inspired cognitive AI framework. The attention-free O-Series carries a fixed-size state instead of a growing KV-cache, so context length stops dictating memory.',
+    'hero.cta1':'Try the live demo','hero.cta2':'Read the paper →',
+    'hero.m1':'Carried state','hero.m2':'Context','hero.m3':'vs KV-cache',
+    'rail.latest':'Latest','rail.more':'Read more →',
+    'ind.eyebrow':'Where it fits',
+    'ind.h2a':'Built for streams that never stop, on hardware that ','ind.h2b':'cannot grow','ind.h2c':'.',
+    'ind.lead':'A fixed-size carried state and tolerance for irregular sampling are what these deployments have in common. Each tile states exactly what we have measured and what we have not.',
     'm1.tag':'Cognitive · GWT + Sleep · Slow Thinking',
     'o1.tag':'Edge · Liquid ODE · Fast Thinking',
     'arch.eyebrow':'Bio-inspired Architecture',
@@ -922,11 +1092,16 @@ const I18N={
   zh:{
     'nav.demo':'演示','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
     'nav.try':'试用演示',
-    'hero.pill':'O 系列 · 100 万 token 推理内存省 8063× · O(1) 恒定状态',
-    'hero.title':'超越下一个词的预测。',
-    'hero.accent':'迈向认知人工生命。',
-    'hero.sub':'AwareLiquid 是一个仿生认知 AI 框架——连续时间液态动力学，融合全局工作空间理论、基于睡眠的记忆巩固与在线持续学习。',
+    'hero.title':'恒定内存。',
+    'hero.accent':'无界',
+    'hero.title2':'上下文。',
+    'hero.sub':'AwareLiquid 是一个仿生认知 AI 框架。无注意力的 O 系列携带固定大小的状态，而非不断膨胀的 KV 缓存——上下文长度不再决定内存占用。',
     'hero.cta1':'立即试用','hero.cta2':'阅读论文 →',
+    'hero.m1':'携带状态','hero.m2':'上下文','hero.m3':'对比 KV 缓存',
+    'rail.latest':'最新','rail.more':'查看更多 →',
+    'ind.eyebrow':'适用场景',
+    'ind.h2a':'为永不停止的数据流而生，跑在','ind.h2b':'无法扩容','ind.h2c':'的硬件上。',
+    'ind.lead':'这些部署场景的共同点是：固定大小的携带状态，以及对不规则采样的容忍度。每一块都写明我们测过什么、没测过什么。',
     'm1.tag':'认知 · GWT + 睡眠 · 慢思考',
     'o1.tag':'边缘 · 液态 ODE · 快思考',
     'arch.eyebrow':'仿生架构',
@@ -966,11 +1141,13 @@ const I18N_MAP=[
   ['.nav-links a[href*="arxiv.pdf"]','nav.paper','text'],
   ['.nav-links a[href*="github.com"]','nav.github','text'],
   ['.nav-actions .btn-primary','nav.try','text'],
-  ['.pill-dot+*','hero.pill','text'],  // handled separately
-  ['.hero-title','hero.title.accent','html'],  // handled separately
+  // .h-display, .ind-head .h2/.label, .hero-metrics .label and .rail-head .label
+  // are built in applyPageLang() because each wraps a phrase in <em>/<span>.
   ['.hero-sub','hero.sub','text'],
   ['.hero-ctas .btn-primary','hero.cta1','text'],
   ['.hero-ctas .btn-ghost','hero.cta2','text'],
+  ['.rail-head a.label','rail.more','text'],
+  ['.ind-lead','ind.lead','text'],
   ['.features-section .eyebrow','arch.eyebrow','text'],
   ['.features-section .section-header h2','arch.h2','text'],
   ['.features-section .section-lead','arch.lead','text'],
@@ -1002,13 +1179,25 @@ function applyPageLang(lang){
   document.documentElement.lang=lang==='zh'?'zh-CN':'en';
   document.getElementById('langBtn').textContent=lang==='zh'?'EN':'中文';
 
-  // pill text
-  const pill=document.querySelector('.pill');
-  if(pill){const pt=pill.querySelector('.pill-text');if(pt)pt.textContent=ti('hero.pill');}
+  // Hero display line: roman + italic emphasis + roman. Built here rather than
+  // via I18N_MAP because the <em> has to wrap a single translated phrase.
+  const heroTitle=document.querySelector('.h-display');
+  if(heroTitle)heroTitle.innerHTML=ti('hero.title')+'<br><em class="em-italic">'+ti('hero.accent')+'</em>'+(lang==='zh'?'':' ')+ti('hero.title2');
 
-  // hero title special case
-  const heroTitle=document.querySelector('.hero-title');
-  if(heroTitle)heroTitle.innerHTML=ti('hero.title')+'<br><span class="accent">'+ti('hero.accent')+'</span>';
+  // Industries heading carries its own italic emphasis.
+  const indH2=document.querySelector('.ind-head .h2');
+  if(indH2)indH2.innerHTML=ti('ind.h2a')+'<em class="em-italic">'+ti('ind.h2b')+'</em>'+ti('ind.h2c');
+  const indEyebrow=document.querySelector('.ind-head .label');
+  if(indEyebrow)indEyebrow.innerHTML='<span class="label-sq"></span>'+ti('ind.eyebrow');
+
+  // Hero metric labels (square bullet + uppercase caption).
+  document.querySelectorAll('.hero-metrics .label').forEach((el,i)=>{
+    el.innerHTML='<span class="label-sq"></span>'+ti('hero.m'+(i+1));
+  });
+
+  // News rail eyebrow keeps its square bullet.
+  const railLatest=document.querySelector('.rail-head .label');
+  if(railLatest)railLatest.innerHTML='<span class="label-sq"></span>'+ti('rail.latest');
 
   // model lineup tags
   document.querySelectorAll('.model-badge').forEach((b,i)=>{
@@ -1032,7 +1221,10 @@ function applyPageLang(lang){
 
   // all other selectors
   for(const [sel,key,type] of I18N_MAP){
-    if(sel.includes('.hero-title')||sel.includes('.rh-section .rh-text h2')||sel.includes('.pill-dot')||sel.includes('demo.eyebrow')||sel.includes('demo.h2')||sel.includes('demo.lead'))continue;
+    // Only .rh-section h2 needs skipping — it is rebuilt above with a <br>.
+    // (The old list also named .hero-title / .pill-dot, both since removed, and
+    // three demo.* keys that were compared against selectors and never matched.)
+    if(sel==='.rh-section .rh-text h2')continue;
     document.querySelectorAll(sel).forEach(el=>{
       const v=ti(key);
       if(type==='html')el.innerHTML=v;
@@ -1338,7 +1530,7 @@ input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventD
 refresh();
 </script>
 
-<!-- ── Hero liquid canvas animation ── -->
+<!-- ── Partner referral capture ── -->
 <script>
 // Partner referral capture. /partners/<name> counts the click server-side and
 // redirects here with ?ref=<name>. We persist it so a later sign-up / demo use
@@ -1353,113 +1545,6 @@ refresh();
       history.replaceState(null,'',location.pathname+location.hash);
     }
   }catch(e){}
-})();
-</script>
-<script>
-(function(){
-  'use strict';
-  if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
-  const canvas = document.getElementById('heroCanvas');
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
-
-  // Detect dark mode
-  function isDark(){ return window.matchMedia('(prefers-color-scheme:dark)').matches; }
-
-  // Node config
-  const NODE_COUNT = 38;
-  const MAX_DIST   = 160;
-  const nodes = [];
-
-  function resize(){
-    const r = canvas.getBoundingClientRect();
-    canvas.width  = r.width  * devicePixelRatio;
-    canvas.height = r.height * devicePixelRatio;
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-  }
-
-  function rand(min, max){ return Math.random()*(max-min)+min; }
-
-  function initNodes(w, h){
-    nodes.length = 0;
-    for(let i=0; i<NODE_COUNT; i++){
-      nodes.push({
-        x: rand(0, w), y: rand(0, h),
-        vx: rand(-0.22, 0.22), vy: rand(-0.18, 0.18),
-        r: rand(1.5, 3.2),
-        // phase offset for pulsing
-        phase: rand(0, Math.PI*2),
-        speed: rand(0.008, 0.018),
-      });
-    }
-  }
-
-  let w = 0, h = 0, raf = 0, t = 0;
-
-  function init(){
-    resize();
-    w = canvas.width  / devicePixelRatio;
-    h = canvas.height / devicePixelRatio;
-    initNodes(w, h);
-  }
-
-  function draw(){
-    ctx.clearRect(0, 0, w, h);
-    const dark = isDark();
-    const nodeColor  = dark ? 'rgba(120,200,160,' : 'rgba(16,185,129,';
-    const edgeColor  = dark ? 'rgba(120,200,160,' : 'rgba(16,185,129,';
-
-    t += 0.016;
-
-    // update positions
-    for(const n of nodes){
-      n.x += n.vx; n.y += n.vy;
-      if(n.x < 0)  { n.x = 0;  n.vx *= -1; }
-      if(n.x > w)  { n.x = w;  n.vx *= -1; }
-      if(n.y < 0)  { n.y = 0;  n.vy *= -1; }
-      if(n.y > h)  { n.y = h;  n.vy *= -1; }
-    }
-
-    // draw edges
-    for(let i=0; i<nodes.length; i++){
-      for(let j=i+1; j<nodes.length; j++){
-        const a = nodes[i], b = nodes[j];
-        const dx = a.x - b.x, dy = a.y - b.y;
-        const d  = Math.sqrt(dx*dx + dy*dy);
-        if(d < MAX_DIST){
-          const alpha = (1 - d/MAX_DIST) * 0.18;
-          ctx.beginPath();
-          ctx.strokeStyle = edgeColor + alpha + ')';
-          ctx.lineWidth   = 0.7;
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.stroke();
-        }
-      }
-    }
-
-    // draw nodes
-    for(const n of nodes){
-      const pulse = 0.6 + 0.4 * Math.sin(t / n.speed * 0.01 + n.phase);
-      const alpha = 0.25 + 0.35 * pulse;
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r * (0.85 + 0.15*pulse), 0, Math.PI*2);
-      ctx.fillStyle = nodeColor + alpha + ')';
-      ctx.fill();
-    }
-
-    raf = requestAnimationFrame(draw);
-  }
-
-  // debounce resize
-  let resizeTimer;
-  window.addEventListener('resize', ()=>{
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(()=>{ cancelAnimationFrame(raf); init(); draw(); }, 120);
-  });
-
-  init();
-  draw();
 })();
 </script>
 </body>
