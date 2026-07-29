@@ -123,6 +123,14 @@
   --code-bg:#f3f3f5;
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
+
 }
 @media(prefers-color-scheme:dark){
   html:not([data-theme="light"]){
@@ -142,7 +150,7 @@ html{color-scheme:light dark;scroll-behavior:smooth}
 *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;margin:0;padding:0}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.75;word-break:break-word;overflow-x:hidden}
 a{color:var(--fg)}
-.skip-nav{position:absolute;top:-999px;left:8px;background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:14px;font-weight:600;z-index:9999;text-decoration:none}
+.skip-nav{position:absolute;top:-999px;left:8px;background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:4px;font-size:14px;font-weight:600;z-index:9999;text-decoration:none}
 .skip-nav:focus{top:8px}
 
 /* ── CONTAINER ── */
@@ -159,10 +167,10 @@ a{color:var(--fg)}
 .brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:.1px;flex:none;text-decoration:none;color:var(--fg)}
 .logo{width:20px;height:20px;color:var(--fg);flex:none}
 .nav-links{display:flex;align-items:center;gap:2px;margin-left:32px;flex:1}
-.nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;transition:color .15s,background .15s;text-decoration:none}
+.nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:4px;transition:color .15s,background .15s;text-decoration:none}
 .nav-links a:hover,.nav-links a.active{color:var(--fg);background:var(--card)}
 .nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
-.btn{display:inline-flex;align-items:center;font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;padding:8px 18px}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:14px;font-weight:500;border-radius:4px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;padding:8px 18px}
 .btn-primary{background:var(--fg);color:var(--bg)}
 .btn-primary:hover{opacity:.85}
 .btn-ghost{background:transparent;color:var(--fg);border-color:var(--line)}
@@ -178,7 +186,7 @@ a{color:var(--fg)}
 /* ── PAGE HEADER ── */
 .page-hero{padding:120px 0 64px;border-bottom:1px solid var(--line)}
 .page-hero .eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
-.page-hero h1{font-size:clamp(30px,5vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
+.page-hero h1{font-size:clamp(30px,5vw,48px);font-weight:400;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px}
 .page-hero .lead{font-size:17px;color:var(--muted);max-width:580px;line-height:1.7;margin-bottom:28px}
 .status-legend{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted)}
 
@@ -188,28 +196,28 @@ a{color:var(--fg)}
 .sidebar{position:sticky;top:84px}
 .sidebar-nav{list-style:none}
 .sidebar-nav li{margin-bottom:2px}
-.sidebar-nav a{display:block;font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:8px;text-decoration:none;transition:color .15s,background .15s}
+.sidebar-nav a{display:block;font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:4px;text-decoration:none;transition:color .15s,background .15s}
 .sidebar-nav a:hover,.sidebar-nav a.active{color:var(--fg);background:var(--card)}
 .sidebar-nav .section-group{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 10px 5px;margin-top:4px}
 @media(max-width:860px){.sidebar{display:none}}
 
 /* ── PROSE CONTENT ── */
-.content-col h2{font-size:clamp(20px,3vw,26px);font-weight:700;letter-spacing:-.025em;margin:56px 0 12px;padding-top:8px;line-height:1.2}
+.content-col h2{font-size:clamp(20px,3vw,26px);font-weight:400;letter-spacing:-.025em;margin:56px 0 12px;padding-top:8px;line-height:1.2}
 .content-col h2:first-child{margin-top:0}
-.content-col h3{font-size:17px;font-weight:650;margin:28px 0 8px;letter-spacing:-.01em}
+.content-col h3{font-size:17px;font-weight:400;margin:28px 0 8px;letter-spacing:-.01em}
 .content-col p{margin-bottom:14px;font-size:15.5px}
 .content-col ul,.content-col ol{margin-bottom:14px;padding-left:20px}
 .content-col li{margin:5px 0;font-size:15.5px}
 strong{font-weight:650}
 code{font-family:var(--mono);font-size:13px;background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
   .chart-fig{margin:24px 0 8px}
-  .chart-fig img{width:100%;max-width:560px;height:auto;display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
+  .chart-fig img{width:100%;max-width:560px;height:auto;display:block;border:1px solid var(--line);border-radius:0;background:#fff}
   .chart-fig.wide img{max-width:100%}
   .chart-fig figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.55}
   @media(prefers-color-scheme:dark){html:not([data-theme="light"]) .chart-fig img{background:#1a1a20;border-color:var(--line)}}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px 24px;margin:0 0 18px}
+.card{background:transparent;border:0;border-top:1px solid var(--rule);padding:20px 24px;margin:0 0 18px}
 .note{font-size:14px;color:var(--muted);border-left:3px solid var(--line);padding:4px 0 4px 16px;margin:20px 0;line-height:1.65}
-.tag{display:inline-flex;align-items:center;font-size:11.5px;font-weight:650;padding:3px 10px;border-radius:999px;margin-right:6px;vertical-align:middle}
+.tag{display:inline-flex;align-items:center;font-size:11.5px;font-weight:650;padding:3px 10px;border-radius:2px;margin-right:6px;vertical-align:middle}
 .tag.built{background:var(--tag-built-bg);color:var(--tag-built-fg)}
 .tag.signal{background:var(--tag-signal-bg);color:var(--tag-signal-fg)}
 .tag.target{background:var(--tag-target-bg);color:var(--tag-target-fg)}
@@ -222,7 +230,7 @@ td.good{color:#16a34a;font-family:var(--mono)}
 td.warn{color:#d97706;font-family:var(--mono)}
 td.bad{color:#dc2626;font-family:var(--mono)}
 .stat-row{display:flex;gap:14px;margin:0 0 24px;flex-wrap:wrap}
-.stat-block{background:var(--fg);color:var(--bg);border-radius:14px;padding:18px 22px;flex:1;min-width:130px}
+.stat-block{background:var(--fg);color:var(--bg);padding:18px 22px;flex:1;min-width:130px}
 .stat-block .n{display:block;font-size:30px;font-weight:700;letter-spacing:-.04em;line-height:1}
 .stat-block .l{display:block;font-size:11.5px;color:rgba(128,128,128,.7);margin-top:5px;line-height:1.4}
 @media(prefers-color-scheme:dark){
@@ -240,10 +248,10 @@ figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5}
 }
 
 /* ── CITATION BLOCK ── */
-.cite-block{position:relative;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:10px 0 18px;overflow:auto}
+.cite-block{position:relative;background:transparent;border:0;border-top:1px solid var(--rule);padding:16px 20px;margin:10px 0 18px;overflow:auto}
 .cite-block pre{font-family:var(--mono);font-size:13px;color:var(--fg);white-space:pre;margin:0;line-height:1.6}
 .cite-block p{font-size:14px;line-height:1.7}
-.cite-copy-btn{position:absolute;top:10px;right:12px;background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);font:inherit;font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
+.cite-copy-btn{position:absolute;top:10px;right:12px;background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);font:inherit;font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px;transition:all .15s}
 .cite-copy-btn:hover{border-color:var(--fg);color:var(--fg)}
 .cite-copy-btn.copied{color:#10b981;border-color:#10b981}
 
@@ -259,7 +267,7 @@ figcaption{font-size:12.5px;color:var(--muted);margin-top:8px;line-height:1.5}
 .cl-body code{font-size:12px}
 
 /* ── THEME TOGGLE ── */
-.theme-btn{background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
+.theme-btn{background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
 .theme-btn:hover{border-color:var(--fg);color:var(--fg)}
 .lang-toggle{width:auto;padding:0 10px;font-size:11.5px;font-weight:700;letter-spacing:.03em}
 
@@ -290,9 +298,9 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 @media(max-width:480px){.footer-inner{grid-template-columns:1fr;gap:28px}}
 .footer-brand .brand{font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .footer-brand p{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:260px;margin-bottom:16px}
-.footer-gh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:6px 12px;transition:border-color .15s;text-decoration:none}
+.footer-gh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:6px 12px;transition:border-color .15s;text-decoration:none}
 .footer-gh:hover{border-color:var(--fg);color:var(--fg)}
-.footer-col h4{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.footer-col h4{font-size:12px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
 .footer-col a{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px;transition:color .15s;text-decoration:none}
 .footer-col a:hover{color:var(--fg)}
 .footer-bottom{border-top:1px solid var(--line);padding:20px 0}
@@ -300,6 +308,24 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 .footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .footer-legal{display:flex;flex-direction:column;gap:3px;min-width:0}
 .footer-entity{opacity:.7}
+
+/* Wide tables must scroll inside their own box: body{overflow-x:hidden}
+   silently clipped the 5-column results table on narrow viewports. */
+.card table,.data-table,table.wide{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
 </style>
 </head>
 <body>
@@ -773,16 +799,20 @@ themeBtn.addEventListener('click',()=>{const next=isDark()?'light':'dark';docume
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!localStorage.getItem('theme'))applyThemeIcon();});
 
 // ── lang toggle (sync only — full i18n on index.html) ──
+// This page has no translation table, so the toggle only records the
+// site-wide preference (index.html and demo.html read it). It must NOT touch
+// document.documentElement.lang: claiming lang="zh-CN" over English prose makes
+// Chrome offer to translate Chinese into Chinese and makes screen readers
+// switch to a Mandarin voice for English text.
 (function(){
   const lb=document.getElementById('langBtn');if(!lb)return;
   const l=localStorage.getItem('lang')||'en';
   lb.textContent=l==='zh'?'EN':'中文';
-  if(l==='zh')document.documentElement.lang='zh-CN';
+  lb.title='Language applies to the homepage and demo / 语言设置对首页与演示页生效';
   lb.addEventListener('click',()=>{
     const nl=lb.textContent==='中文'?'zh':'en';
     localStorage.setItem('lang',nl);
     lb.textContent=nl==='zh'?'EN':'中文';
-    document.documentElement.lang=nl==='zh'?'zh-CN':'en';
   });
 })();
 
@@ -803,8 +833,17 @@ makeCopyBtn('citeCopy','bibtexBlock');
 makeCopyBtn('citeCopyApa','apaBlock');
 
 // ── sidebar active link on scroll ──
-const sections=document.querySelectorAll('[id]');
+// Observe ONLY the ids the sidebar actually links to. Watching every [id] on
+// the page meant non-section elements (nav, themeBtn, langBtn, citeCopy,
+// bibtexBlock, …) entered the band and, because the callback toggles `active`
+// off for every link that doesn't match, wiped the highlight entirely.
 const sidebarLinks=document.querySelectorAll('.sidebar-nav a');
+const sectionIds=new Set(Array.from(sidebarLinks)
+  .map(a=>(a.getAttribute('href')||'').replace(/^#/,''))
+  .filter(Boolean));
+const sections=Array.from(sectionIds)
+  .map(id=>document.getElementById(id))
+  .filter(Boolean);
 const obs=new IntersectionObserver((entries)=>{
   entries.forEach(e=>{
     if(e.isIntersecting){

@@ -5,12 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>404 — Page Not Found · AwareLiquid</title>
 <meta name="robots" content="noindex, follow">
-<link rel="canonical" href="https://awareliquid.ai/">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;
-  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
+
 }
 @media(prefers-color-scheme:dark){
   :root{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a}
@@ -33,6 +41,20 @@ p{font-size:16px;color:var(--muted);max-width:400px;line-height:1.7;margin-botto
 .btn-primary{background:var(--fg);color:var(--bg)}.btn-primary:hover{opacity:.82}
 .btn-ghost{border-color:var(--line);color:var(--fg)}.btn-ghost:hover{background:var(--card)}
 footer{margin-top:64px;font-size:12px;color:var(--muted)}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
 </style>
 </head>
 <body>

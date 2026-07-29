@@ -6,20 +6,43 @@
 <title>API Access | AwareLiquid M1</title>
 <meta name="description" content="Call the AwareLiquid M1 liquid-recurrence model through an OpenAI-compatible API.">
 <style>
-:root{--bg:#0e0e10;--fg:#ececf1;--muted:#9a9aa5;--card:#17171b;--border:#2a2a31;--accent:#59b0f6}
+:root{--bg:#0e0e10;--fg:#ececf1;--muted:#9a9aa5;--card:#17171b;--border:#2a2a31;--accent:#59b0f6  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--border);
+  --section-gap:80px; --section-pad:128px;
+}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:48px 20px 80px}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:36px 0 10px}
 p,li{color:var(--muted)}strong{color:var(--fg)}
-pre{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55;color:var(--fg)}
+pre{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55;color:var(--fg)}
 code{font-family:ui-monospace,Consolas,monospace}
-.pill{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:2px 12px;font-size:13px;color:var(--muted);margin-right:6px}
+.pill{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:2px;padding:2px 12px;font-size:13px;color:var(--muted);margin-right:6px}
 .back{font-size:14px}
 table{border-collapse:collapse;width:100%;font-size:14px}
 td,th{border:1px solid var(--border);padding:8px 10px;text-align:left}th{color:var(--fg)}td{color:var(--muted)}
 .site-footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted);line-height:1.6}
 .site-footer .entity{opacity:.7}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
 </style>
 </head>
 <body>

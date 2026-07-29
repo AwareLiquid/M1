@@ -16,6 +16,15 @@
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
   --hdr:56px;--ftr:76px;
+
+  /* Editorial serif for headings. System faces only — CSP is font-src 'self',
+     so no webfont may be loaded. Weight stays 400, never bold. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
 }
 @media(prefers-color-scheme:dark){
   html:not([data-theme="light"]){--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;--send-bg:#ebebeb;--send-icon:#111}
@@ -25,9 +34,7 @@
   html:not([data-theme="light"]) .turn.user .bubble{background:#1e1e28}
   html:not([data-theme="light"]) .bubble.md code,
   html:not([data-theme="light"]) .bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}
-  html:not([data-theme="light"]) .example{background:var(--card)}
-  html:not([data-theme="light"]) .example:hover{background:#1e1e28;border-color:#3a3a4a}
-  html:not([data-theme="light"]) select{background:var(--card);color:var(--fg)}
+  html:not([data-theme="light"]) select{background:transparent;color:var(--fg)}
   html:not([data-theme="light"]) .chat-wrap::-webkit-scrollbar-thumb{background:#2c2c3c}
 }
 html[data-theme="dark"]{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;--send-bg:#ebebeb;--send-icon:#111;color-scheme:dark}
@@ -36,12 +43,29 @@ html[data-theme="dark"] .ftr{background:rgba(14,14,16,.95)}
 html[data-theme="dark"] textarea{background:var(--card);color:var(--fg)}
 html[data-theme="dark"] .turn.user .bubble{background:#1e1e28}
 html[data-theme="dark"] .bubble.md code,html[data-theme="dark"] .bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}
-html[data-theme="dark"] .example{background:var(--card)}
-html[data-theme="dark"] .example:hover{background:#1e1e28;border-color:#3a3a4a}
-html[data-theme="dark"] select{background:var(--card);color:var(--fg)}
+html[data-theme="dark"] select{background:transparent;color:var(--fg)}
 html[data-theme="dark"] .chat-wrap::-webkit-scrollbar-thumb{background:#2c2c3c}
 html[data-theme="light"]{--bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;--send-bg:#0d0d0d;--send-icon:#ffffff;color-scheme:light}
 html[data-theme="light"] .hdr{background:rgba(255,255,255,.92)}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══════════════════════════════════════════════
+   Same structural language as index.html: serif headings at weight 400 with
+   negative tracking, 1px hairlines instead of cards, uppercase mono metadata
+   labels, hover-only motion. Monochrome — no accent hue anywhere.
+   Applied to the LAYOUT layer only (header, welcome screen, examples, footer).
+   The conversational controls — bubbles, textarea, send button — keep their
+   radii and fills: legibility of the transcript outranks the grid. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+@media(prefers-color-scheme:dark){html:not([data-theme="light"]) .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}}
 
 html,body{height:100dvh;overflow:hidden;margin:0}
 *{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;margin:0;padding:0}
@@ -57,28 +81,34 @@ html{color-scheme:light dark}
 }
 .hdr-brand{display:flex;align-items:center;gap:7px;font-weight:650;font-size:14px;letter-spacing:.1px;text-decoration:none;color:var(--fg);flex:none}
 .hdr-logo{width:18px;height:18px;color:var(--fg);flex:none}
-.hdr-badge{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:5px;padding:2px 6px;flex:none}
-.hdr-sep{width:1px;height:22px;background:var(--line);flex:none}
+/* Eyebrow, not a chip: mono uppercase on the bare surface (spec §6). */
+.hdr-badge{font-family:var(--font-label);font-size:10.5px;font-weight:500;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);background:transparent;border:0;border-radius:0;padding:0;flex:none}
+.hdr-sep{width:1px;height:22px;background:var(--rule);flex:none}
 .modelsel select{
-  font:inherit;font-size:12px;color:var(--fg);background:transparent;
-  border:1px solid var(--line);border-radius:8px;padding:4px 26px 4px 9px;
+  font-family:var(--font-label);font-size:11px;color:var(--fg);background:transparent;
+  border:1px solid var(--rule);border-radius:0;padding:5px 26px 5px 10px;
+  letter-spacing:.02em;
   cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e8ea0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 9px center;
+  transition:border-color .15s;
 }
-.status-wrap{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);flex:none}
-.live{width:7px;height:7px;border-radius:50%;background:#c0c0cc;flex:none}
-.live.ok{background:#10a37f}
-.live.err{background:#ef4444}
+.modelsel select:hover{border-color:var(--fg)}
+.status-wrap{display:flex;align-items:center;gap:7px;font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);flex:none}
+/* Status indicator is monochrome: filled square = live, hollow = unreachable,
+   faded = still probing. Hue is not available to us to carry meaning. */
+.live{width:7px;height:7px;border-radius:0;background:var(--muted);opacity:.35;flex:none;border:1px solid transparent}
+.live.ok{background:var(--fg);opacity:1}
+.live.err{background:transparent;opacity:1;border-color:var(--fg)}
 .hdr-spacer{flex:1}
 .icon-btn{
-  background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);
+  background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);
   width:32px;height:32px;display:flex;align-items:center;justify-content:center;
-  transition:border-color .15s,color .15s;flex:none;padding:0;
+  transition:all .3s ease-out;flex:none;padding:0;
 }
 .icon-btn:hover{border-color:var(--fg);color:var(--fg)}
-.lang-btn{font-size:11.5px;font-weight:700;width:auto;padding:0 10px;letter-spacing:.03em}
-.back-btn{font-size:12px;font-weight:600;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:5px 10px;transition:border-color .15s,color .15s;flex:none}
+.lang-btn{font-family:var(--font-label);font-size:11px;font-weight:500;width:auto;padding:0 10px;letter-spacing:var(--tracking-label)}
+.back-btn{font-family:var(--font-label);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:4px;padding:6px 10px;transition:all .3s ease-out;flex:none}
 .back-btn:hover{border-color:var(--fg);color:var(--fg)}
 @media(max-width:540px){.hdr-badge,.status-wrap{display:none}.back-btn span{display:none}}
 
@@ -95,18 +125,27 @@ html{color-scheme:light dark}
   min-height:100%;display:flex;flex-direction:column;
   align-items:center;justify-content:center;padding:40px 24px;text-align:center;
 }
+/* The mark stands on the page unframed — the 52px rounded tile was the last
+   piece of card chrome on the welcome screen. */
 .welcome-icon{
-  width:52px;height:52px;border-radius:16px;background:var(--card);
-  border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+  width:40px;height:40px;border-radius:0;background:transparent;
+  border:0;color:var(--fg);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;
 }
-.welcome h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
-.welcome-lead{font-size:14px;color:var(--muted);max-width:440px;margin:0 auto 28px;line-height:1.7}
-.examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;max-width:520px}
-@media(max-width:480px){.examples{grid-template-columns:1fr}}
-.example{border:1px solid var(--line);border-radius:12px;padding:13px 15px;text-align:left;cursor:pointer;background:var(--bg);transition:background .15s,border-color .15s}
-.example:hover{background:var(--card);border-color:#d0d0d8}
-.example .t{font-size:13px;font-weight:600}
-.example .s{font-size:12px;color:var(--muted);margin-top:2px}
+.welcome-icon svg{width:32px;height:32px}
+.welcome h2{font-size:clamp(30px,4.4vw,38px);line-height:1.08;letter-spacing:var(--tracking-display);margin-bottom:14px}
+.welcome-lead{font-size:16px;color:var(--muted);max-width:46ch;margin:0 auto 44px;line-height:1.6}
+/* Hairline grid, not tiles: gap 0, one rule between siblings, flush outer edge. */
+.examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;width:100%;max-width:560px;border-top:1px solid var(--rule)}
+.example{border:0;border-radius:0;border-bottom:1px solid var(--rule);padding:22px 24px;text-align:left;cursor:pointer;background:transparent}
+.example:nth-child(odd){padding-left:0;border-right:1px solid var(--rule)}
+.example:nth-child(even){padding-right:0}
+@media(max-width:480px){
+  .examples{grid-template-columns:1fr}
+  .example,.example:nth-child(odd),.example:nth-child(even){padding:20px 0;border-right:0}
+}
+.example .t{font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.example .s{font-family:var(--font-serif);font-size:15px;font-weight:400;line-height:1.4;letter-spacing:-.015em;color:var(--fg);margin-top:8px}
+.example:hover .s{text-decoration:underline;text-underline-offset:3px}
 
 /* ── THREAD ── */
 .thread{padding:28px 20px 36px;display:flex;flex-direction:column;gap:20px;max-width:780px;margin:0 auto}
@@ -116,9 +155,11 @@ html{color-scheme:light dark}
 .bubble{max-width:90%;border-radius:18px;font-size:15px;line-height:1.65;white-space:pre-wrap;word-wrap:break-word}
 .turn.user .bubble{background:#f4f4f5;padding:10px 16px;border-bottom-right-radius:5px;color:var(--fg)}
 .turn.assistant .bubble{padding:2px 0;max-width:100%}
-.turn.assistant .who{font-size:12.5px;font-weight:600;color:var(--fg);display:flex;align-items:center;gap:6px;margin-bottom:2px}
-.turn.assistant .who .av{width:18px;height:18px;border-radius:50%;background:var(--fg);display:inline-flex;align-items:center;justify-content:center;flex:none}
-.turn.assistant .who .av i{width:6px;height:6px;border-radius:50%;background:var(--bg);display:block}
+.turn.assistant .who{font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.turn.assistant .who .av{width:8px;height:8px;border-radius:0;background:var(--muted);opacity:.4;display:inline-flex;align-items:center;justify-content:center;flex:none}
+/* The avatar collapses into the same 8px square the .label-sq eyebrow uses,
+   so the speaker line reads as metadata rather than a chat-app affordance. */
+.turn.assistant .who .av i{display:none}
 .bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
 @keyframes blink{50%{opacity:0}}
 .meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
@@ -407,15 +448,30 @@ function applyModel(m,kind){
   renderWelcome(kind);
 }
 
-async function probe(base){
-  try{const r=await fetch(`${base}/v1/model`,{cache:'no-store'});if(!r.ok)return null;return await r.json();}
-  catch(e){return null;}
+async function probe(base,timeoutMs=8000){
+  try{
+    const ctl=new AbortController();const tid=setTimeout(()=>ctl.abort(),timeoutMs);
+    const r=await fetch(`${base}/v1/model`,{cache:'no-store',signal:ctl.signal});
+    clearTimeout(tid);
+    if(!r.ok)return null;return await r.json();
+  }catch(e){return null;}
 }
 async function selectModel(base){
   live.className='live';
   statusText.textContent=t('connecting');
   const m=await probe(base);
   if(m){API_BASE=base;modelSel.value=base;applyModel(m,base==='/adapter'?'adapter':'scratch');return true;}
+  return false;
+}
+
+// Manual switch: roll the <select> back to whatever is actually serving, and
+// say so, rather than leaving a label that lies about which model answers.
+async function selectModelInteractive(base){
+  const prev=API_BASE;
+  if(await selectModel(base))return true;
+  modelSel.value=prev;
+  live.className='live';
+  statusText.textContent=t('offline');
   return false;
 }
 async function autoSelect(){
@@ -533,7 +589,7 @@ async function send(){
 
 sendBtn.onclick=send;
 input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
-modelSel.addEventListener('change',()=>selectModel(modelSel.value));
+modelSel.addEventListener('change',()=>selectModelInteractive(modelSel.value));
 
 // apply stored lang then connect
 applyLang(LANG);
