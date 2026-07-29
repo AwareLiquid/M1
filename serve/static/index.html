@@ -409,6 +409,8 @@ textarea::placeholder{color:#b4b4c0}
 .footer-bottom{border-top:1px solid var(--line);padding:20px 0}
 .footer-bottom-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
 .footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.footer-legal{display:flex;flex-direction:column;gap:3px;min-width:0}
+.footer-entity{opacity:.7}
 
 /* ── MOBILE NAV ── */
 @media(max-width:720px){
@@ -813,7 +815,10 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   </div>
   <div class="footer-bottom">
     <div class="container footer-bottom-inner">
-      <span>© 2026 AwareLiquid · open research demo</span>
+      <span class="footer-legal">
+        <span class="footer-copy">© 2026 AwareLiquid · open research demo</span>
+        <span class="footer-entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
+      </span>
       <span>
         <a href="/privacy">Privacy</a> &nbsp;·&nbsp;
         <a href="/terms">Terms</a> &nbsp;·&nbsp;
@@ -911,6 +916,7 @@ const I18N={
     'footer.research':'Research','footer.project':'Project','footer.legal':'Legal',
     'footer.privacy':'Privacy Policy','footer.terms':'Terms of Use',
     'footer.bottom':'© 2026 AwareLiquid · open research demo',
+    'footer.entity':'Shenzhen Santi Anyuan Technology Co., Ltd',
     'footer.built':'Built on',
   },
   zh:{
@@ -944,6 +950,7 @@ const I18N={
     'footer.research':'研究','footer.project':'项目','footer.legal':'法律',
     'footer.privacy':'隐私政策','footer.terms':'使用条款',
     'footer.bottom':'© 2026 AwareLiquid · 开源研究演示',
+    'footer.entity':'深圳三体暗源科技有限公司',
     'footer.built':'基于',
   }
 };
@@ -986,7 +993,8 @@ const I18N_MAP=[
   ['.footer-col:nth-child(4) h4','footer.legal','text'],
   ['.footer-col a[href="/privacy"]','footer.privacy','text'],
   ['.footer-col a[href="/terms"]','footer.terms','text'],
-  ['.footer-bottom-inner span:first-child','footer.bottom','text'],
+  ['.footer-copy','footer.bottom','text'],
+  ['.footer-entity','footer.entity','text'],
 ];
 
 function applyPageLang(lang){
@@ -1242,7 +1250,7 @@ async function send(){
   const bot=addAssistant();
   generating=true;setSendIcon(true);sendBtn.disabled=false;
   abortCtl=null;
-  const t0=performance.now();let ntok=0,acc='';
+  const t0=performance.now();let ntok=0,acc='',errored=false;
   try{
     // Cold-start guard: if the GPU container was scaled to zero, warm it up
     // first (with a friendly notice) so we never stream into a cold box and
@@ -1254,7 +1262,7 @@ async function send(){
         if(state==='connecting'){live.className='live warm';statusText.textContent='Connecting to model…';}
       });
       bot.classList.remove('warming');
-      if(!m){bot.textContent='[Model backend offline — please retry in a moment]';return;}
+      if(!m){errored=true;bot.textContent='[Model backend offline — please retry in a moment]';return;}
       applyModel(m,API_BASE==='/adapter'?'adapter':'scratch');
       bot.classList.add('empty');bot.textContent='';
     }
@@ -1272,7 +1280,7 @@ async function send(){
         method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
         body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
       });
-      if(!res.ok){bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
+      if(!res.ok){errored=true;bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
       const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
       while(true){
         const{value,done}=await reader.read();if(done)break;
@@ -1295,10 +1303,13 @@ async function send(){
       }
     }
   }catch(e){
-    if(e.name!=='AbortError'){bot.classList.remove('empty','warming');bot.textContent=acc+' [connection lost]';}
+    if(e.name!=='AbortError'){errored=true;bot.classList.remove('empty','warming');bot.textContent=acc+' [connection lost]';}
   }finally{
     bot.classList.remove('empty','warming');
-    if(!acc){bot.classList.remove('md');bot.textContent='[no output]';}
+    // Only claim "[no output]" when the stream genuinely produced nothing AND
+    // no error message was written — otherwise this would overwrite the only
+    // diagnostic the user gets (return still runs finally).
+    if(!acc&&!errored){bot.classList.remove('md');bot.textContent='[no output]';}
     const dt=(performance.now()-t0)/1000;
     const meta=document.createElement('div');meta.className='meta';
     meta.textContent=`${ntok} tokens · ${dt.toFixed(1)}s · ${(ntok/dt||0).toFixed(1)} tok/s`;

@@ -266,6 +266,12 @@ def demo():
     return _static_page("demo")
 
 
+@app.get("/api")
+def api_page():
+    # The homepage nav links here (index.html); without this route it 404s.
+    return _static_page("api")
+
+
 # ---------------------------------------------------------------------------
 # Partner referral tracking
 # ---------------------------------------------------------------------------
@@ -359,12 +365,43 @@ def llms_full_txt():
     return _text_file("llms-full.txt", "text/plain; charset=utf-8")
 
 
+@app.get("/robots.txt")
+def robots_txt():
+    # Lives in static/ but StaticFiles is only mounted at /static, so crawlers
+    # hitting the canonical /robots.txt got the 404 page instead.
+    return _text_file("robots.txt", "text/plain; charset=utf-8")
+
+
+@app.get("/sitemap.xml")
+def sitemap_xml():
+    return _text_file("sitemap.xml", "application/xml")
+
+
+def _wants_json(request: Request) -> bool:
+    """True when the caller is an API client rather than a browser.
+
+    Without this, a legitimate API error such as
+    HTTPException(404, "session persistence disabled (set SESSION_DB)") was
+    replaced by the full 404.html page, so every SDK call blew up with
+    "SyntaxError: Unexpected token '<'" and the real reason was lost.
+    """
+    path = request.url.path
+    if path.startswith("/v1/") or path.startswith("/adapter/v1/"):
+        return True
+    accept = request.headers.get("accept", "")
+    return "application/json" in accept and "text/html" not in accept
+
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
-    """Serve the branded 404 page for any unmatched route."""
+    """Serve the branded 404 page to browsers, JSON to API clients."""
+    if _wants_json(request):
+        detail = getattr(exc, "detail", None) or "Not Found"
+        return JSONResponse({"detail": detail}, status_code=404)
     path_404 = os.path.join(_STATIC_DIR, "404.html")
     if os.path.exists(path_404):
-        content = open(path_404, encoding="utf-8").read()
+        with open(path_404, encoding="utf-8") as fh:
+            content = fh.read()
         return HTMLResponse(content=content, status_code=404)
     return HTMLResponse("<h1>404 — Not Found</h1>", status_code=404)
 

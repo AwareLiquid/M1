@@ -77,7 +77,7 @@
     {
       "@type": "Question",
       "name": "Is AwareLiquid production-ready?",
-      "acceptedAnswer": {"@type": "Answer", "text": "No. AwareLiquid is an open research prototype. The 48M from-scratch model produces coherent short stories but is not a general assistant. The MT-LNN adapter improves perplexity but generates repetitive outputs at higher temperatures. Both are research artifacts demonstrating architectural ideas."}
+      "acceptedAnswer": {"@type": "Answer", "text": "No. AwareLiquid is an open research prototype. The 48M from-scratch model produces coherent short stories but is not a general assistant. The MT-LNN adapter generates repetitive outputs at higher temperatures, and a 2026-07 ablation found its own perplexity contribution to be approximately zero over plain LoRA. Both are research artifacts demonstrating architectural ideas."}
     },
     {
       "@type": "Question",
@@ -298,6 +298,8 @@ html[data-theme="light"] .chart-fig img{background:#fff}
 .footer-bottom{border-top:1px solid var(--line);padding:20px 0}
 .footer-bottom-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
 .footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.footer-legal{display:flex;flex-direction:column;gap:3px;min-width:0}
+.footer-entity{opacity:.7}
 </style>
 </head>
 <body>
@@ -659,7 +661,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <p><strong>M1 (M-Series)</strong> is the cognitive slow-thinking engine — it layers GWT competitive broadcast, NREM sleep consolidation with SHY synaptic downscaling, and EWC continual learning on the LTC backbone. It targets episodic memory, agent cognition, and catastrophic forgetting research. <strong>O1 (O-Series)</strong> is the edge fast-thinking engine — pure continuous-time liquid ODE, constant 4 KB memory state regardless of context length, no KV-cache growth, targets CPU/edge deployment at millisecond latency. Both share the MT-LNN backbone; full cognitive module integration into O1 is in progress.</p>
 
       <h3>Is this production-ready?</h3>
-      <p>No. AwareLiquid is an open research framework. <strong>O1</strong> (48M from scratch) produces coherent short stories but is not a general assistant. <strong>M1</strong> (TinyLlama-1.1B + MT adapter) improves perplexity but generates repetitive outputs at higher temperatures. Neither is production-grade — both are research artifacts demonstrating architectural ideas. There is no SLA.</p>
+      <p>No. AwareLiquid is an open research framework. <strong>O1</strong> (48M from scratch) produces coherent short stories but is not a general assistant. <strong>M1</strong> (TinyLlama-1.1B + MT adapter) generates repetitive outputs at higher temperatures, and its MT adapter contributes <strong>≈0 PPL</strong> over plain LoRA (see the 2026-07 retraction in §2). Neither is production-grade — both are research artifacts demonstrating architectural ideas. There is no SLA.</p>
 
       <h3>How is this different from Liquid AI / LFM?</h3>
       <p>Liquid AI builds high-performance models using an SSM + linear attention + MoE hybrid for maximum inference efficiency — targeting industrial time-series, edge signal processing, and autonomous driving. AwareLiquid layers cognitive architecture (GWT awareness, sleep consolidation, EWC online learning) on top of the liquid backbone to study <em>continual learning</em> — can a model acquire new knowledge without erasing the old? Same academic lineage (MIT LNN), orthogonal research axes. <strong>AwareLiquid is not affiliated with Liquid AI, Inc.</strong></p>
@@ -722,7 +724,10 @@ html[data-theme="light"] .chart-fig img{background:#fff}
   </div>
   <div class="footer-bottom">
     <div class="container footer-bottom-inner">
-      <span>© 2026 AwareLiquid · open research demo</span>
+      <span class="footer-legal">
+        <span class="footer-copy">© 2026 AwareLiquid · open research demo</span>
+        <span class="footer-entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
+      </span>
       <span>
         <a href="/privacy">Privacy</a> &nbsp;·&nbsp;
         <a href="/terms">Terms</a> &nbsp;·&nbsp;

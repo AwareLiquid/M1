@@ -156,8 +156,9 @@ textarea::placeholder{color:#b4b4c0}
 .send:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
 .send svg{width:16px;height:16px}
 .send.stop .sq{width:10px;height:10px;background:var(--send-icon);border-radius:2px}
-.ftr-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1}
+.ftr-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.45}
 .ftr-note a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+.ftr-entity{opacity:.7}
 .retry-wrap{display:flex;justify-content:center;margin-top:14px}
 .retry-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;padding:8px 16px;transition:all .15s}
 .retry-btn:hover{border-color:var(--fg);color:var(--fg)}
@@ -229,7 +230,7 @@ textarea::placeholder{color:#b4b4c0}
     </button>
   </div>
   <div class="ftr-note" id="ftrNote">
-    AwareLiquid M1 · research prototype · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+    AwareLiquid M1 · research prototype · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a><br><span class="ftr-entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
   </div>
 </footer>
 
@@ -324,7 +325,8 @@ function applyLang(l){
   document.getElementById('optAdapter').textContent=t('opt_adapter');
   document.getElementById('optScratch').textContent=t('opt_scratch');
   const ftrNote=document.getElementById('ftrNote');
-  ftrNote.innerHTML=t('note')+'<a href="/privacy">'+(l==='zh'?'隐私政策':'Privacy')+'</a> · <a href="/terms">'+(l==='zh'?'使用条款':'Terms')+'</a>';
+  ftrNote.innerHTML=t('note')+'<a href="/privacy">'+(l==='zh'?'隐私政策':'Privacy')+'</a> · <a href="/terms">'+(l==='zh'?'使用条款':'Terms')+'</a>'
+    +'<br><span class="ftr-entity">'+(l==='zh'?'深圳三体暗源科技有限公司':'Shenzhen Santi Anyuan Technology Co., Ltd')+'</span>';
   // re-render welcome if visible
   const kind=API_BASE==='/adapter'?'adapter':'scratch';
   if(document.getElementById('welcome').style.display!=='none')renderWelcome(kind);
@@ -474,13 +476,13 @@ async function send(){
   const bot=addAssistant();
   generating=true;setSendIcon(true);sendBtn.disabled=false;
   abortCtl=new AbortController();
-  const t0=performance.now();let ntok=0,acc='';
+  const t0=performance.now();let ntok=0,acc='',errored=false;
   try{
     const res=await fetch(`${API_BASE}/v1/completions/stream`,{
       method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
       body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
     });
-    if(!res.ok){bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
+    if(!res.ok){errored=true;bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
     const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
     while(true){
       const{value,done}=await reader.read();if(done)break;
@@ -501,10 +503,12 @@ async function send(){
       }
     }
   }catch(e){
-    if(e.name!=='AbortError'){bot.classList.remove('empty');bot.textContent=acc+' [connection lost]';}
+    if(e.name!=='AbortError'){errored=true;bot.classList.remove('empty');bot.textContent=acc+' [connection lost]';}
   }finally{
     bot.classList.remove('empty');
-    if(!acc){bot.classList.remove('md');bot.textContent='[no output]';}
+    // Only claim "[no output]" when nothing streamed AND no error message was
+    // written — return still runs finally, so this would erase the diagnostic.
+    if(!acc&&!errored){bot.classList.remove('md');bot.textContent='[no output]';}
     const dt=(performance.now()-t0)/1000;
     const meta=document.createElement('div');meta.className='meta';
     meta.textContent=`${ntok} tokens · ${dt.toFixed(1)}s · ${(ntok/dt||0).toFixed(1)} tok/s`;

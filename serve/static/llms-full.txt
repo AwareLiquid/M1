@@ -1,5 +1,5 @@
 # AwareLiquid — Full Content Reference for AI Crawlers
-# Generated: 2026-06-25 | Version: 2.2
+# Generated: 2026-07-30 | Version: 2.3 (retractions applied — see EXPERIMENT 2 and 3)
 # This file provides a machine-readable, citation-friendly dump of all
 # key facts, experimental results, and methodology for AI indexing.
 
@@ -64,7 +64,7 @@ Pure LTC-ODE with learnable time constants. No discrete layer stacking, no KV-ca
 ### M1 (adapter demo deployment)
 Residual M1 adapter modules inserted every 4 decoder layers of a FROZEN HuggingFace causal LM. The base supplies general language ability; the adapter adds the liquid-core mechanism. Combined with PEFT LoRA (rank 8) on q/k/v/o projections.
 - Current live demo: TinyLlama-1.1B-Chat base — 2.3M trainable adapter params / 1,172,954,154 total (0.20%), serving a step-1000 adapter checkpoint.
-- The validated PPL-ablation result (Experiment 2, −28.5%) was measured on this same TinyLlama-1.1B base with the phase-5b recipe.
+- The PPL-ablation result once cited here (Experiment 2, −28.5%) has been RETRACTED (2026-07): the adapter was frozen and only LoRA trained, so the MT adapter's own PPL contribution is ≈0. See Experiment 2 below.
 - NOTE: "0.20%" is TRAINABLE-PARAMETER SHARE, not research effort — the 1.1B frozen base is TinyLlama's; a small adapter share is the intended property of the PEFT route.
 
 HONEST M1 ADAPTER INTEGRATION SCOPE: only the LTC resonance core is LIVE in the served M1 adapter forward pass — in_proj → multi-scale resonance bank (5 time scales, learnable τ) → lateral coupling with periodic GTP gate → per-protofilament MAP gate → out_proj. GWT-B, Hebbian, world-model, and predictive-coding are NOT wired into the adapter (forced off) because a standalone residual adapter has no outer model forward() to aggregate auxiliary losses. Those modules are active in the from-scratch MTLNNModel (O1 line) and in per-module ablations. The M1 demo = LTC core only; full cognitive integration is an O1 goal.
@@ -117,7 +117,14 @@ Results:
 - Reduction: (9.161 − 6.553) / 9.161 = 28.5%
 - Inference speed: base 959.3 tok/s → adapter 861.9 tok/s (−10.1% overhead)
 
-Verdict: BUILT — independently verified on Kaggle infrastructure.
+Verdict: RETRACTED (2026-07). Do not cite the -28.5% figure.
+A later controlled ablation found this run had the MT adapter FROZEN by PEFT
+(get_peft_model freezes every non-LoRA parameter and no modules_to_save was
+set), so only the LoRA weights were actually trained. Matched ablation:
+  lora_only  val PPL 7.984
+  mt_lora    val PPL 7.920
+The MT adapter's own contribution is therefore ~0 PPL. The -28.5% gain is
+attributable to plain LoRA fine-tuning, not to the liquid architecture.
 
 ---
 
@@ -138,7 +145,13 @@ Results:
 
 Notable: AwareLiquid-specific questions (q03, q04) scored 0/2 without injection, 1/2 with injection. General factual questions scored well in both conditions.
 
-Verdict: BUILT — reproducible cloud run.
+Reclassified (2026-07): this +13.3pp uplift is a PROMPT-TEMPLATE effect, not an
+adapter capability. The same template injecting the same fact produces an
+identical gain with and without the MT adapter, so the result must not be
+presented as evidence for the liquid architecture.
+
+Verdict: RECLASSIFIED (2026-07) — reproducible cloud run, but the effect belongs
+to the prompt template, not to the MT adapter. Do not cite as an adapter result.
 
 ---
 

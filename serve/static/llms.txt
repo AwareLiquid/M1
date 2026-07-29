@@ -20,11 +20,12 @@
 
 Can a neural network learn new domains sequentially without catastrophically forgetting prior ones? AwareLiquid implements and evaluates neuroscience-inspired mechanisms — Elastic Weight Consolidation (EWC), Hebbian plasticity, Global Workspace Theory, predictive coding — on a liquid time-constant backbone.
 
-## Key Verified Results
+## Key Results (including retractions — read the status of each claim)
 
-- **EWC reduces cross-domain forgetting by 85%** (PPL rise: 10,562 → 1,633; SNR 4.14; 3/3 seeds consistent; 60.7M model; WikiText-103 → TinyStories)
-- **MT-LNN adapter reduces perplexity by 28.5%** (base LLM PPL 9.161 → adapter PPL 6.553; Kaggle P100; TinyLlama-1.1B)
-- **Context injection accuracy: +13.3 percentage points** (83.3% → 96.7%; 30 QA questions; Qwen-3B)
+- **O(1) constant inference memory (O-Series)**: carried state stays at **0.381 MB** from 512 to 1,048,576 tokens (2048× context growth, state flat) while a matched Llama KV-cache grows to 3,072 MB — **8063× smaller at 1M tokens**. Inference carried state only; not training memory, and only for the attention-free O-Series.
+- **EWC reduces cross-domain forgetting by 85% — early signal, not a solved claim** (PPL rise: 10,562 → 1,633; SNR 4.14; 3/3 seeds consistent; 60.7M model; WikiText-103 → TinyStories). Both arms still catastrophically forget domain A; absolute PPL after EWC is ~7.6× the original, short of the ≤5× threshold.
+- **⚠ RETRACTED (2026-07) — "MT-LNN adapter reduces perplexity by 28.5%"**: withdrawn. A controlled ablation showed that run had the MT adapter *frozen* by PEFT and trained *LoRA only*: `lora_only 7.984` vs `mt_lora 7.920` — the MT adapter contributes **≈0 PPL**. Do not cite the −28.5% figure.
+- **Context injection +13.3 percentage points is a prompt-template effect, not an adapter capability** (83.3% → 96.7%; 30 QA questions; Qwen-1.5B). The uplift is identical with and without the MT adapter.
 - **State-only streaming: constant 4 KB memory** regardless of context length (vs. O(n) KV-cache)
 - **Hebbian plasticity term: currently inert** at tested scales (2 seeds × 150 steps; PPL changes within seed noise)
 - **Needle-in-haystack: near-perfect within the base's 2048 window** (re-tested 2026-06-26 with the chat template; base 0.867/1.000 at 1K/2K, adapter 1.000/1.000). The earlier "0%" was a harness artefact (raw-token concat without the instruct chat template). At 4096 tokens both collapse to 0 — exceeds TinyLlama's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; measurable uplift inconclusive at 5 samples/cell
@@ -41,7 +42,7 @@ Key components:
 - **Hebbian Plasticity**: co-activation weight modulation (currently inert at small scale)
 - **Predictive Coding**: hierarchical prediction error propagation
 - **EWC Consolidation**: Fisher-weighted quadratic penalty preventing weight drift from prior domain
-- **Residual adapter on a frozen base (the M1 model)**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: TinyLlama-1.1B-Chat — 2.3M trainable / 1.17B total (0.20%). The validated −28.5% PPL result below was measured on this same TinyLlama-1.1B base with the phase-5b recipe.
+- **Residual adapter on a frozen base (the M1 model)**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: TinyLlama-1.1B-Chat — 2.3M trainable / 1.17B total (0.20%). The −28.5% PPL result once advertised for this configuration has been **retracted** (2026-07): the adapter was frozen and only LoRA trained; the MT adapter's own PPL contribution is ≈0.
 - **Episodic conversation memory**: typed-card RAG recall of past user statements (identity / preference / emotion / plan / relationship / health / detail) over a multilingual-e5 sentence encoder. Recall + a lightweight semantic tag only — no understanding, reasoning, or emotion.
 
 **Honest integration scope**: In the M1 demo adapter, only the **LTC resonance core** is live in the forward pass (in_proj → multi-scale resonance → lateral GTP-gated coupling → MAP gate → out_proj). GWT-B, Predictive World Model, Hebbian, Predictive Coding and EWC are NOT wired into the served adapter — they live in the from-scratch MTLNNModel (the O1 model) and in standalone ablations. Full multi-module integration is an O1 goal, not yet shipped in M1. Also: the "0.20%" figure is trainable-parameter share, not a measure of research effort — the frozen 1.1B base is TinyLlama's, deliberately reused; a small share is the intended property of the adapter route.
@@ -60,8 +61,9 @@ AwareLiquid is not competing with LFM. Liquid AI solved static-weight inference 
 |-------|--------|---------|
 | EWC reduces forgetting 85% | Early Signal | 3 seeds, SNR 4.14, reproducible GPU run |
 | Absolute PPL after EWC ≤5× original | Not Yet | Current: ~7.6× (1,878 vs 245); threshold not reached |
-| Adapter −28.5% PPL | Built | Kaggle P100, 38,400 tokens, 50 batches |
-| Context injection +13.3pp | Built | 30 QA questions, Qwen-3B |
+| Adapter −28.5% PPL | **RETRACTED (2026-07)** | Ablation: `lora_only 7.984` vs `mt_lora 7.920` — adapter was frozen by PEFT, gain was plain LoRA. MT adapter adds ≈0 PPL |
+| Context injection +13.3pp | Template effect, not adapter | 30 QA questions, Qwen-1.5B; identical with and without the MT adapter |
+| O(1) inference memory (O-Series) | Built | 0.381 MB carried state flat from 512 → 1M tokens; 8063× smaller than matched KV-cache at 1M |
 | Needle-in-haystack | Re-tested (chat template) | Near-perfect within 2048 window (base 0.87-1.0, adapter 1.0); 4096 collapses for both (exceeds base RoPE window); old 0% was a harness artefact |
 | Hebbian plasticity | Inert | Effect within seed noise |
 | Conversation memory (typed recall) | Built | Bilingual recall ranking fixed by type boost (ZH 0/3 → 3/3); English off-topic floor ~0.75, Chinese off-topic gating honestly NOT solved |
