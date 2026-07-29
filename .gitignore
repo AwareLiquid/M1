@@ -132,3 +132,6 @@ benchmarks/_legacy.onnx
 
 # partner referral runtime counts (not source)
 /data/partners/
+
+# Deployment access notes — never committed (public repo)
+*.local.md

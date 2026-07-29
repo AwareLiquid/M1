@@ -101,6 +101,44 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 3. **随机深度训练教模型无视迭代**;固定深度或深监督才可能起作用
 4. **基准必须做作弊者分析**:随机置换图存在 f^k(s)=s 捷径(理论/实测逐位吻合),已改单环封死
 
+## 2.7 官网与产品表面(2026-07-30,已上线)
+
+线上 `awareliquid.ai` 已部署到 `45c4b72`。生产是一台 Vultr 机器(**地址与登录方式不写在
+本公开仓库**,见 §3.7),仓库在 `/root/M1`,三容器 `mtlnn_prod` / `mtlnn_adapter` / `caddy_prod`。
+**`serve/static` 是只读 bind-mount,改 HTML/CSS/JS 只要 `git pull` 即生效,不用重建;
+改 `serve/server.py` 才需要 `docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`。**
+
+### 已完成
+
+| 项 | 内容 |
+|---|---|
+| **撤回泄漏修复** | `llms.txt` / `llms-full.txt` 是 `robots.txt` 指给 GPTBot/ClaudeBot/PerplexityBot 的文件,却仍把 −28.5% 写成 "Key Verified Results / validated / Built / independently verified"。人类在 `/research` 看到已撤回,爬虫读到的却是旧版——而后者才是被模型引用的那份。已同步撤回标注,`+13.3pp` 重新定性为 prompt-template 效应,基座笔误 Qwen-3B → Qwen-1.5B,版本号 bump 到 2.3 |
+| **4 个用户可见 bug** | `finally{}` 把 `[error 503]`/`[Model backend offline]`/`[connection lost]` 无条件覆盖成 `[no output]`(return 也走 finally);404 处理器把 JSON API 错误返回整页 HTML,SDK 收到 `SyntaxError: Unexpected token '<'`;`/api` 是死链;`/robots.txt` 和 `/sitemap.xml` 生产上 404(文件在 `static/` 但 `StaticFiles` 只挂 `/static`,**整站 SEO 配置从未生效过**) |
+| **编辑式改版(8 页)** | 参照 liquid.ai 的**结构语言**:系统 serif 标题 weight 400 + 负字距、1px 发丝线代替卡片、mono uppercase 元数据标签、控件 4px 圆角其余为 0、只有 hover 动效。**配色刻意不同**——他们单一紫 `#7c3aed`,我们纯黑白灰,这是名称近似下最强的区分手段 |
+| **公司主体** | 8 个页面页脚均含 `Shenzhen Santi Anyuan Technology Co., Ltd`;`index` / `demo` 跟随语言切换显示「深圳三体暗源科技有限公司」 |
+| **另外 7 个 bug** | privacy/terms 访问一次即把全站主题永久钉死;about/research 语言按钮把 `<html lang>` 谎报成 `zh-CN`;research 侧栏高亮观察全部 22 个 `[id]`(12 个非章节)导致高亮被清空;research 宽表被 `overflow-x:hidden` 裁切;404 `rel=canonical` 指向首页;demo `probe()` 无超时;demo 切模型失败静默(显示 M1 实际打到 O1) |
+
+### 行业案例(6 块,只有 2 块有数据)
+
+| 块 | 状态 | 依据 |
+|---|---|---|
+| 电池 | **Measured** | NASA PCoE,10 seeds,整颗 B0018 留出。80% 丢采样 +7.7% vs LSTM +31.1% / GRU +32.8%;2.6 KB vs 34 MB@32K |
+| 金融文档 | **Measured** | `AwareLiquid/AwareLiquid-M2`,44/48 = 91.7%,约 1.3 次调用 / 2.8k tokens 每题。**M2 是检索+压缩适配器,不是 O 系列,不可混为一谈** |
+| 耳机 | Code shipped — untrained | `AwareLiquid/O1-Sound`,见 §2.8 |
+| 车机 / 手机 / 工程机器人 | Target application | **无任何实验**,写的是场景 + 架构适配理由,明写 "No pilot data yet" |
+
+## 2.8 O1-Sound(2026-07-30,已推送,无权重)
+
+仓库 `AwareLiquid/O1-Sound`(公开,MIT)。多语种问候唤醒词,O 系列液态核心。
+
+**已实测**:ONNX 导出 **5.03 MB fp32 / 1.27 MB int8**,携带状态 **5,120 B 且不随流长增长**,
+流式 `step()` 与批处理路径数值一致 **3.7e-09**,10 个测试通过(含体积门禁超预算会真的 fail)。
+默认 `hidden=640, layers=2` = 1.30M params。τ 用 `softplus(log_tau)+tau_min` 几何初始化覆盖 **10–240 ms**。
+导出的是**单帧 step 图**而非定长窗口。
+
+**没有的**:权重。所以没有 FRR / FAR,官网标 `Code shipped — untrained`(灰框,非 Measured 黑框)。
+`o1sound/keywords.py` 里 20 个语种是 **spec 不是结果**;`train.py` 会按名字警告 spec 中磁盘上不存在的语种。
+
 ## 3. 进行中 / 卡点
 
 - **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。
@@ -109,6 +147,73 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 - **⛔ O1 48M 权重找不到（阻塞浏览器 demo）**：本地仓库只有 M1 adapter；HuggingFace `EverestAn/MT-LNN` 也只有 `llama_mt_adapter_000500.pt`（4.11 MB）+ PDF，**没有 O1 48M**。`checkpoints/` 和 `*.pt` 被 gitignore。最可能在**已被禁用的 Modal workspace**（`ac-ESq0Y6MGgrCtt67tOwrcDS`，官网 demo 的 `/adapter/v1/model` 因此 404）或服务器上。**拿到权重后一条命令即可**：`py -3.11 benchmarks/export_o1_for_browser.py --ckpt <path> --int8`
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
+
+## 3.7 官网 / O1-Sound 未完成项(2026-07-30 交接)
+
+### ⛔ 最高优先:改版从未经人眼看过
+
+8 个页面改版 + 部署全程**没有做过视觉确认** —— 整个会话里 Chrome 工具都连不上。
+上线的是**结构正确但没人看过**的版本:标签栈平衡、CSS 括号配平、inline JS 过
+`node --check`、i18n 55/55 对称、8 条路由 200,这些都验过;**渲染出来长什么样没验过**。
+用户反馈过一次「模块间距不太对」,根因(`.section` 同特异性覆盖)已修,但**修完的效果同样没看过**。
+
+**接手第一件事:开浏览器把 8 个页面走一遍**,尤其间距,以及 serif 标题在 Windows 上的落地
+——`--font-serif` 首选 Iowan Old Style 是 macOS 字体,Windows 会落到 Palatino/Georgia,
+中文落到宋体/思源宋体,两边观感可能差别很大。
+
+### O1-Sound:训练没跑
+
+官网那块要翻成 Measured,必须先有真数字:
+
+```bash
+python scripts/fetch_mswc.py --languages en,de,fr,es,it,pt,pl,ru,tr,id --out data/mswc
+python train.py --root data/mswc --epochs 20 --out checkpoints/o1sound.pt
+python eval.py  --ckpt checkpoints/o1sound.pt --root data/mswc --split test --out results/test.json
+python export_onnx.py --ckpt checkpoints/o1sound.pt --out dist/o1sound.onnx --int8
+```
+
+跑在**本地 RTX 5060**(服务器是 4 vCPU 纯 CPU,不合适)。模型只有 1.3M 参数,几十分钟量级。
+`eval.py` 报的是**固定 FAR 预算下逐语言的 FRR**,并单独打印最差语种 ——
+**多语言声明的上界是最差语种,不是平均值**,填官网时用那个数。
+
+### 官网仍未修的 bug(按严重度)
+
+| 级 | 位置 | 问题 |
+|---|---|---|
+| **P1** | `serve/server.py:340` | `if token and ...` 短路语义 = **`PARTNER_STATS_TOKEN` 没设就完全不鉴权**。`docker-compose.prod.yml` 里默认空串,`.env` 忘填 → `GET /partners` 全公开。应改成 prod 强制要求 token |
+| **P1** | `index.html` i18n | `demo.fullpage` / `footer.brand` / `footer.built` **中文翻译写好了但没进 `I18N_MAP`,永远不会应用**;另有 60+ 可见文案根本不在映射表内(stat 标签、feature card、rh-table、future bullets、vs 对比表、footer 链接、模型下拉)。切中文后半中半英 |
+| **P2** | `index.html` / `demo.html` | `marked.parse()` 无 sanitize,CSP 含 `'unsafe-inline'` → 诱导模型输出 `<img src=x onerror=…>` 即执行。fallback shim 更糟:只转义代码块,普通段落直接拼 |
+| **P2** | `llms.txt:29` / `research.html:592` | **同一个 O(1) 数字有两个版本**:`4 KB`(正文)vs `0.381 MB`(meta/JSON-LD/首页),差近 100 倍。两者可能指不同模型规模,但**未标注就是自相矛盾**,需确认各自对应什么配置再统一 |
+| **P2** | `api.html` | 缺 canonical、og 标签;主题只有 1 处 `prefers-color-scheme`,浅色模式下仍可能突兀 |
+| **P2** | `server.py:304` | `counts.json` 非原子写(先 truncate 再 dump),被 `docker stop` 打断 → 下次 `json.load` 抛 ValueError → `except` 静默把累计计数**归零** |
+| **P2** | `server.py:172` | 全局单锁串行化所有生成,无超时无队列上限。CPU 2–15 tok/s × 400 token ≈ 单请求最长 200s,第二个用户一直挂着 |
+| **P2** | `server.py:600` | `/v1/model` 不返回 `base_model`/`adapter_loaded`/`is_baseline`,前端 `applyModel` 依赖它们 → 状态栏永远显示 `MT-LNN · 48M · cpu`,「· O1」徽标永不出现 |
+| **P2** | `demo.html:8` vs `sitemap.xml` | demo 页 `noindex` 但 sitemap 以 priority 0.8 收录 |
+
+完整审计是 4×P0 / 10×P1 / 24×P2,另有 17 类明确验证为干净(childNodes 下标依赖全站 0 处、
+重复 id 0 处、JSON-LD 全合法、站内锚点 0 死链、本地资源 0 死链)。上面只列**仍未修**的。
+
+### 部署访问
+
+**部署凭证不在本仓库,也不会进本仓库** —— 这是公开仓库。服务器地址、SSH 密钥路径
+和吊销方式记在本地 `DEPLOY_ACCESS.local.md`(已被 `.gitignore` 排除),接手时向
+项目所有者索取。
+
+`serve/static` 是只读 bind-mount:改 HTML/CSS/JS 只要在服务器上 `git pull` 即生效;
+改 `serve/server.py` 才需要
+`docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`(耗时数分钟,
+SSH 前台会超时,用 `nohup ... &` 丢后台再 `tail /tmp/deploy.log`)。
+
+### 踩过的坑(别再踩)
+
+1. **`.gitignore` 的 `data/` 是任意层级匹配**。O1-Sound 首次推送时它吞掉了源码包
+   `o1sound/data/`,远端仓库 `import` 直接失败,而本地工作区一切正常。
+   **推送后必须重新 clone 一份跑测试**,不能信本地。要锚定根目录就写 `/data/`。
+2. **`.section{padding:96px 0}` 与 `.industries-section{...}` 同特异性**,后者在前、
+   前者在后 → 后者胜出,设的节奏静默失效。改 CSS 节奏时把值放在**最通用的那条规则上**,
+   不要逐个 section 覆盖。
+3. **Edit 工具会把 LF 文件写成 CRLF**(index.html / demo.html 中过招)。批量改完
+   `git diff --stat` 若出现整文件改动,先查行尾。
 
 ## 3.5 资源缺口分析(2026-07-29 — 回答"M1 目前缺哪块")
 
