@@ -776,12 +776,12 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <span class="ind-m">No pilot data yet. Architectural fit: constant carried state; cross-session snapshot and restore is bit-exact.</span>
       </a>
 
-      <a class="ind-cell hov" href="/research">
+      <a class="ind-cell hov" href="https://github.com/AwareLiquid/O1-Sound" target="_blank" rel="noopener noreferrer">
         <span class="ind-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2" y="13" width="4.5" height="7" rx="2"/><rect x="17.5" y="13" width="4.5" height="7" rx="2"/></svg></span>
         <h3 class="ind-t">Hearables</h3>
-        <p class="ind-d">Always-on audio and biosignal processing under a milliwatt power envelope, where duty-cycling makes the input stream irregular by design.</p>
-        <span class="ind-s">Target application</span>
-        <span class="ind-m">No pilot data yet. Architectural fit: continuous-time dynamics accept non-uniform Δt natively, without resampling.</span>
+        <p class="ind-d">Always-on greeting wake-word spotting under a few megabytes, where the microphone never closes and the state must not grow with it. Open source as <strong>O1-Sound</strong>.</p>
+        <span class="ind-s">Code shipped — untrained</span>
+        <span class="ind-m">Measured: 5.03 MB fp32 / 1.27 MB int8 ONNX, 5,120-byte carried state constant in stream length, streaming step numerically identical to the batched path (3.7e-09). Not measured: <strong>no weights are trained yet</strong>, so there is no false-reject or false-accept rate — and the 20-language greeting list is a spec, not a result.</span>
       </a>
 
       <a class="ind-cell hov" href="/research">
