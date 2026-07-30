@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E1 (ITERATION_PRINCIPLES.md): fair-baseline falsification run, seed 0.
+"""E1 (docs/guides/ITERATION_PRINCIPLES.md): fair-baseline falsification run, seed 0.
 
 Question this run can kill: P4 "the hybrid architecture beats matched
 baselines on from-scratch pretraining" - previously supported only by a

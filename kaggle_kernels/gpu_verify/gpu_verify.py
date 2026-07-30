@@ -2,7 +2,7 @@
 """MT-LNN GPU verification + performance benchmark (Kaggle, branch physics-informed-head).
 
 Phase 1  clone + deps
-Phase 2  CPU fix-verification suite (_verify_fixes_2026_07_14.py, 19 checks)
+Phase 2  CPU fix-verification suite (scripts/diagnostics/_verify_fixes_2026_07_14.py, 19 checks)
 Phase 3  GPU correctness: forward/backward/generate, hamiltonian no_grad,
          sparse prefill==incremental, pad_mask parity, fp16 autocast
 Phase 4  GPU performance: default 125M config - train-step throughput +
@@ -42,7 +42,7 @@ print(f"torch {torch.__version__} | GPU: {GPU_NAME}", flush=True)
 
 # ---------------------------------------------------------------- Phase 2
 print("\n=== Phase 2: CPU fix-verification suite ===", flush=True)
-r = subprocess.run([sys.executable, "_verify_fixes_2026_07_14.py"],
+r = subprocess.run([sys.executable, "scripts/diagnostics/_verify_fixes_2026_07_14.py"],
                    capture_output=True, text=True, timeout=1200)
 tail = "\n".join(r.stdout.strip().splitlines()[-25:])
 print(tail, flush=True)

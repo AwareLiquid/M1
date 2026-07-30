@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>MT-LNN 架构交互教程</title>
+<style>
+  /* ===== 全局样式：模仿 nano-gpt 教程的简洁白底黑字 ===== */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #ffffff;
+    color: #111;
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+  }
+  #app { width: 100%; height: 100%; display: flex; flex-direction: column; }
+
+  header {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    display: flex; align-items: center; gap: 12px;
+    background: #fafafa;
+  }
+  header h1 { font-size: 16px; font-weight: 600; color: #222; }
+  header .sub { font-size: 12px; color: #666; }
+
+  /* ===== 中央 SVG 画布 ===== */
+  #canvas-wrap {
+    flex: 1; position: relative; overflow: auto;
+    background:
+      linear-gradient(#fff,#fff),
+      radial-gradient(circle, #f0f0f0 1px, transparent 1px);
+    background-size: 100% 100%, 18px 18px;
+  }
+  svg { display: block; margin: 0 auto; }
+
+  /* ===== 底部控制条 ===== */
+  footer {
+    padding: 10px 16px;
+    border-top: 1px solid #eee;
+    background: #fafafa;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px;
+  }
+  footer button {
+    border: 1px solid #ccc;
+    background: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  footer button:hover { background: #eef; }
+  #progress {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    background: #ddd;
+    border-radius: 3px;
+    outline: none;
+  }
+  #progress::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    background: #2b7cff; border-radius: 50%;
+    cursor: pointer;
+  }
+  #step-label { min-width: 120px; color: #333; }
+  #speed { width: 90px; }
+
+  /* ===== 悬浮提示框 ===== */
+  #tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(255,255,255,0.98);
+    border: 1px solid #888;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.55;
+    max-width: 320px;
+    border-radius: 6px;
+    color: #111;
+    display: none;
+    z-index: 99;
+  }
+  #tooltip .title { font-weight: 700; margin-bottom: 4px; color: #2b7cff; }
+  #tooltip .formula {
+    margin-top: 6px; padding: 6px 8px;
+    background: #f6f8fc; border-left: 3px solid #2b7cff;
+    font-family: "Consolas", "Cascadia Code", monospace; font-size: 12px;
+    color: #224;
+  }
+
+  /* ===== SVG 元素样式 ===== */
+  .layer-rect {
+    stroke: #222; stroke-width: 1.2;
+    cursor: pointer;
+    transition: filter .2s, stroke-width .2s;
+  }
+  .layer-rect:hover { stroke-width: 2.4; filter: brightness(1.05); }
+  .layer-rect.active {
+    stroke: #ff4e4e; stroke-width: 2.6;
+    filter: drop-shadow(0 0 6px rgba(255,80,80,.55));
+  }
+  .layer-label {
+    font-size: 12px; fill: #111; pointer-events: none;
+    font-weight: 600;
+  }
+  .layer-sub {
+    font-size: 10px; fill: #444; pointer-events: none;
+  }
+  .dim-label {
+    font-size: 10px; fill: #2a6b2a; pointer-events: none;
+    font-family: "Consolas", monospace;
+  }
+  .arrow { stroke: #111; stroke-width: 1.4; fill: none; marker-end: url(#arrowhead); }
+  .res-arrow { stroke: #888; stroke-width: 1.2; fill: none; marker-end: url(#arrowhead); stroke-dasharray: 4 3; }
+  .loop-arrow { stroke: #c0392b; stroke-width: 1.6; fill: none; marker-end: url(#arrowhead-red); }
+
+  /* 绿色张量线 */
+  .tensor-line {
+    stroke: #21a35a; stroke-width: 4;
+    stroke-linecap: round;
+    opacity: 0.0;
+    transition: opacity .25s;
+  }
+  .tensor-line.show { opacity: 1; }
+
+  /* 数据流动的脉冲圆点 */
+  .pulse {
+    fill: #21a35a;
+    opacity: 0;
+  }
+  .pulse.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>MT-LNN 微管液态神经网络 · 架构交互教程</h1>
+    <span class="sub">空格键 = 下一步 ｜ 拖动进度条 ｜ 鼠标悬停查看公式</span>
+  </header>
+
+  <div id="canvas-wrap">
+    <svg id="svg" width="900" height="1450" viewBox="0 0 900 1450">
+      <defs>
+        <marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#111"/>
+        </marker>
+        <marker id="arrowhead-red" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+        </marker>
+      </defs>
+
+      <!-- 层和连接将由 JavaScript 动态绘制 -->
+      <g id="connections"></g>
+      <g id="tensors"></g>
+      <g id="layers"></g>
+      <g id="pulses"></g>
+    </svg>
+    <div id="tooltip"></div>
+  </div>
+
+  <footer>
+    <button id="btn-play">▶ 播放</button>
+    <button id="btn-prev">◀ 上一步</button>
+    <button id="btn-next">下一步 ▶</button>
+    <input type="range" id="progress" min="0" max="0" value="0" step="1" />
+    <span id="step-label">0 / 0</span>
+    <label>速度
+      <input type="range" id="speed" min="200" max="1500" value="700" step="50" />
+    </label>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   MT-LNN 架构层定义
+   严格按照 MT-LNN PRD：
+   输入 → 嵌入 → Block1(LN→Attn→Res→LN→MT-DL→Res) →
+   Block2(同上) → FinalLN → GWTB(Encode→Core→Decode) →
+   全局相干 → LM Head → Softmax
+   ========================================================= */
+const LAYERS = [
+  { id:'input',   name:'Input Tokens',         dim:'[T, 3]',     color:'#fff7e0', group:'输入',
+    desc:'输入 token 序列，每个 token 用 3 维表示（可为 codebook id）。',
+    formula:'x ∈ ℝ^{T×3}' },
+
+  { id:'embed',   name:'Embedding',            dim:'[T, 48]',    color:'#ffe4b5', group:'嵌入',
+    desc:'词嵌入层：将离散 token 映射到 48 维连续向量空间。',
+    formula:'e_t = W_E · x_t,  W_E ∈ ℝ^{V×48}' },
+
+  // ===== Block 1 =====
+  { id:'b1-ln1', name:'LayerNorm 1',           dim:'[T, 48]',    color:'#d9edff', group:'Block 1',
+    desc:'Block1 的第一个层归一化，稳定注意力前的激活分布。',
+    formula:'y = (x − μ) / σ · γ + β' },
+  { id:'b1-att', name:'Self-Attention 1',      dim:'[T, 48]',    color:'#c1d9ff', group:'Block 1',
+    desc:'多头自注意力：在 token 序列上建立全局依赖。',
+    formula:'A = softmax(QKᵀ/√d) · V' },
+  { id:'b1-res1',name:'Residual Connection',   dim:'[T, 48]',    color:'#eef3ff', group:'Block 1',
+    desc:'残差相加：x + Attn(LN(x))。',
+    formula:'x ← x + Attn(LN(x))' },
+  { id:'b1-ln2', name:'LayerNorm 2',           dim:'[T, 48]',    color:'#d9edff', group:'Block 1',
+    desc:'Block1 的第二个层归一化，位于 MT-DL 之前。',
+    formula:'y = (x − μ) / σ · γ + β' },
+  { id:'b1-mtdl',name:'MT-DL 1 · 13×5 微管动力学', dim:'[T, 48]', color:'#c8f0c8', group:'Block 1',
+    desc:'微管动力学层：13 条原丝 × 5 个时间尺度的液态状态，按指数衰减更新。',
+    formula:'h_t = decay · h_{t−1} + (1 − decay) · A_t' },
+  { id:'b1-res2',name:'Residual Connection',   dim:'[T, 48]',    color:'#eef3ff', group:'Block 1',
+    desc:'残差相加：x + MT-DL(LN(x))。',
+    formula:'x ← x + MTDL(LN(x))' },
+
+  // ===== Block 2 =====
+  { id:'b2-ln1', name:'LayerNorm 1',           dim:'[T, 48]',    color:'#d9edff', group:'Block 2',
+    desc:'Block2 的第一个层归一化。',
+    formula:'y = (x − μ) / σ · γ + β' },
+  { id:'b2-att', name:'Self-Attention 2',      dim:'[T, 48]',    color:'#c1d9ff', group:'Block 2',
+    desc:'第二层多头自注意力。',
+    formula:'A = softmax(QKᵀ/√d) · V' },
+  { id:'b2-res1',name:'Residual Connection',   dim:'[T, 48]',    color:'#eef3ff', group:'Block 2',
+    desc:'残差相加。',
+    formula:'x ← x + Attn(LN(x))' },
+  { id:'b2-ln2', name:'LayerNorm 2',           dim:'[T, 48]',    color:'#d9edff', group:'Block 2',
+    desc:'Block2 的第二个层归一化。',
+    formula:'y = (x − μ) / σ · γ + β' },
+  { id:'b2-mtdl',name:'MT-DL 2 · 13×5 微管动力学', dim:'[T, 48]', color:'#c8f0c8', group:'Block 2',
+    desc:'第二个微管动力学层，进一步累积多时间尺度上下文。',
+    formula:'h_t = decay · h_{t−1} + (1 − decay) · A_t' },
+  { id:'b2-res2',name:'Residual Connection',   dim:'[T, 48]',    color:'#eef3ff', group:'Block 2',
+    desc:'残差相加。',
+    formula:'x ← x + MTDL(LN(x))' },
+
+  // ===== Final =====
+  { id:'fln',    name:'Final LayerNorm',       dim:'[T, 48]',    color:'#d9edff', group:'输出归一',
+    desc:'最终层归一化，准备进入 GWTB 全局工作空间。',
+    formula:'y = (x − μ) / σ · γ + β' },
+
+  // ===== GWTB =====
+  { id:'gwtb-e', name:'GWTB Encode',           dim:'48 → 10',    color:'#ffd6e0', group:'GWTB',
+    desc:'全局工作空间编码：将 48 维 token 表征压缩到 10 维瓶颈。',
+    formula:'z = W_enc · x,  W_enc ∈ ℝ^{10×48}' },
+  { id:'gwtb-c', name:'GWTB Core (O(1) h_prev)', dim:'[10]',     color:'#ff9fb6', group:'GWTB',
+    desc:'GWTB 核心循环：以常数代价维护 h_prev 状态，跨时间步传递全局上下文。',
+    formula:'h_t = f(z_t, h_{t−1})    // 时间步间循环' },
+  { id:'gwtb-d', name:'GWTB Decode',           dim:'10 → 48',    color:'#ffd6e0', group:'GWTB',
+    desc:'全局工作空间解码：将 10 维瓶颈展开回 48 维表征。',
+    formula:'x̂ = W_dec · h_t,  W_dec ∈ ℝ^{48×10}' },
+
+  { id:'coh',    name:'Global Coherence Layer', dim:'[T, 48]',   color:'#e0d4ff', group:'相干',
+    desc:'全局相干层：融合 GWTB 输出与残差流，保证 token 间的全局一致性。',
+    formula:'x ← LayerNorm(x + α · x̂)' },
+
+  { id:'lm',     name:'LM Head Logits',        dim:'[T, 3]',     color:'#ffe4b5', group:'输出',
+    desc:'语言模型头：投影回词表维度，得到未归一化的 logits。',
+    formula:'logits = W_lm · x,  W_lm ∈ ℝ^{3×48}' },
+  { id:'soft',   name:'Softmax Probs',         dim:'[T, 3]',     color:'#fff7e0', group:'输出',
+    desc:'对 logits 应用 softmax，得到每个 token 的概率分布。',
+    formula:'p_t = softmax(logits_t)' },
+];
+
+/* =========================================================
+   布局：垂直堆叠，居中
+   ========================================================= */
+const CANVAS_W = 900;
+const CX = CANVAS_W / 2;
+const BOX_W = 360;
+const BOX_H = 42;
+const GAP   = 16;
+const TOP   = 30;
+
+const layerNodes = LAYERS.map((L, i) => {
+  const y = TOP + i * (BOX_H + GAP);
+  return { ...L, x: CX - BOX_W/2, y, w: BOX_W, h: BOX_H, cx: CX, cy: y + BOX_H/2 };
+});
+
+const svgHeight = TOP + LAYERS.length * (BOX_H + GAP) + 40;
+document.getElementById('svg').setAttribute('height', svgHeight);
+document.getElementById('svg').setAttribute('viewBox', `0 0 ${CANVAS_W} ${svgHeight}`);
+
+/* =========================================================
+   绘制：连接箭头、张量线、层矩形
+   ========================================================= */
+const gConn   = document.getElementById('connections');
+const gTensor = document.getElementById('tensors');
+const gLayer  = document.getElementById('layers');
+const gPulse  = document.getElementById('pulses');
+
+// 主流箭头 + 张量绿线（每两层之间）
+for (let i = 0; i < layerNodes.length - 1; i++) {
+  const a = layerNodes[i], b = layerNodes[i+1];
+  // 黑色数据流箭头（在右侧）
+  const arrow = document.createElementNS('http://www.w3.org/2000/svg','line');
+  arrow.setAttribute('class','arrow');
+  arrow.setAttribute('x1', a.x + a.w + 30);
+  arrow.setAttribute('y1', a.y + a.h);
+  arrow.setAttribute('x2', a.x + a.w + 30);
+  arrow.setAttribute('y2', b.y);
+  gConn.appendChild(arrow);
+
+  // 绿色张量线（在左侧），代表此处的激活张量
+  const tline = document.createElementNS('http://www.w3.org/2000/svg','line');
+  tline.setAttribute('class','tensor-line');
+  tline.setAttribute('id', `t-${i}`);
+  tline.setAttribute('x1', a.x - 30);
+  tline.setAttribute('y1', a.y + a.h);
+  tline.setAttribute('x2', a.x - 30);
+  tline.setAttribute('y2', b.y);
+  gTensor.appendChild(tline);
+
+  // 维度标注（绿色）
+  const dimText = document.createElementNS('http://www.w3.org/2000/svg','text');
+  dimText.setAttribute('class','dim-label');
+  dimText.setAttribute('x', a.x - 40);
+  dimText.setAttribute('y', (a.y + a.h + b.y)/2 + 4);
+  dimText.setAttribute('text-anchor','end');
+  dimText.textContent = b.dim;
+  gTensor.appendChild(dimText);
+}
+
+// 残差跳连虚线（Block1 / Block2 的两次 residual）
+function drawResidual(fromId, toId, sideOffset) {
+  const a = layerNodes.find(n => n.id === fromId);
+  const b = layerNodes.find(n => n.id === toId);
+  const x = a.x + a.w + sideOffset;
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('class','res-arrow');
+  p.setAttribute('d', `M ${a.x + a.w} ${a.cy} L ${x} ${a.cy} L ${x} ${b.cy} L ${b.x + b.w} ${b.cy}`);
+  gConn.appendChild(p);
+}
+drawResidual('embed','b1-res1', 90);
+drawResidual('b1-res1','b1-res2', 90);
+drawResidual('b1-res2','b2-res1', 90);
+drawResidual('b2-res1','b2-res2', 90);
+
+// GWTB Core 循环箭头（红色，表示 h_prev 时间步循环）
+(function drawLoop() {
+  const c = layerNodes.find(n => n.id === 'gwtb-c');
+  const lx = c.x - 70;
+  const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('class','loop-arrow');
+  // 从右侧出去 → 绕回左侧（表示 t → t+1 的状态传递）
+  p.setAttribute('d', `M ${c.x + c.w} ${c.cy - 8}
+                       Q ${c.x + c.w + 80} ${c.cy - 30}, ${c.x + c.w + 60} ${c.cy + 25}
+                       Q ${c.x - 40} ${c.cy + 60}, ${lx} ${c.cy + 6}
+                       L ${c.x} ${c.cy + 6}`);
+  gConn.appendChild(p);
+
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('x', c.x + c.w + 95);
+  t.setAttribute('y', c.cy + 4);
+  t.setAttribute('fill', '#c0392b');
+  t.setAttribute('font-size', '11');
+  t.setAttribute('font-weight', '600');
+  t.textContent = 'h_{t-1} 循环';
+  gConn.appendChild(t);
+})();
+
+// 层矩形 + 文本
+layerNodes.forEach((n, i) => {
+  const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+  g.setAttribute('data-id', n.id);
+  g.setAttribute('data-idx', i);
+
+  const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+  r.setAttribute('class','layer-rect');
+  r.setAttribute('id', `rect-${i}`);
+  r.setAttribute('x', n.x); r.setAttribute('y', n.y);
+  r.setAttribute('width', n.w); r.setAttribute('height', n.h);
+  r.setAttribute('rx', 6);
+  r.setAttribute('fill', n.color);
+  g.appendChild(r);
+
+  const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+  t.setAttribute('class','layer-label');
+  t.setAttribute('x', n.cx);
+  t.setAttribute('y', n.cy - 2);
+  t.setAttribute('text-anchor','middle');
+  t.textContent = n.name;
+  g.appendChild(t);
+
+  const s = document.createElementNS('http://www.w3.org/2000/svg','text');
+  s.setAttribute('class','layer-sub');
+  s.setAttribute('x', n.cx);
+  s.setAttribute('y', n.cy + 12);
+  s.setAttribute('text-anchor','middle');
+  s.textContent = n.group + ' · ' + n.dim;
+  g.appendChild(s);
+
+  // 悬停事件
+  g.addEventListener('mouseenter', e => showTooltip(e, n));
+  g.addEventListener('mousemove',  e => moveTooltip(e));
+  g.addEventListener('mouseleave', hideTooltip);
+  g.addEventListener('click', () => setStep(i));
+
+  gLayer.appendChild(g);
+});
+
+// 在第一层下方添加初始张量线（输入张量也需要可视化）
+(function addInputTensor() {
+  const first = layerNodes[0];
+  const tline = document.createElementNS('http://www.w3.org/2000/svg','line');
+  tline.setAttribute('class','tensor-line');
+  tline.setAttribute('id', `t-input`);
+  tline.setAttribute('x1', first.x - 30);
+  tline.setAttribute('y1', 5);
+  tline.setAttribute('x2', first.x - 30);
+  tline.setAttribute('y2', first.y);
+  gTensor.appendChild(tline);
+
+  const dimText = document.createElementNS('http://www.w3.org/2000/svg','text');
+  dimText.setAttribute('class','dim-label');
+  dimText.setAttribute('x', first.x - 40);
+  dimText.setAttribute('y', 18);
+  dimText.setAttribute('text-anchor','end');
+  dimText.textContent = first.dim;
+  gTensor.appendChild(dimText);
+})();
+
+/* =========================================================
+   动画状态机
+   ========================================================= */
+let currentStep = 0;
+const totalSteps = layerNodes.length;
+let playing = false;
+let timer = null;
+
+const progress = document.getElementById('progress');
+const stepLabel = document.getElementById('step-label');
+const btnPlay = document.getElementById('btn-play');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const speedInput = document.getElementById('speed');
+
+progress.max = totalSteps - 1;
+
+function setStep(i) {
+  currentStep = Math.max(0, Math.min(totalSteps - 1, i));
+  progress.value = currentStep;
+  stepLabel.textContent = `${currentStep + 1} / ${totalSteps}  ·  ${layerNodes[currentStep].name}`;
+
+  // 更新层高亮
+  layerNodes.forEach((n, idx) => {
+    const r = document.getElementById(`rect-${idx}`);
+    r.classList.toggle('active', idx === currentStep);
+  });
+
+  // 更新张量线显示：已经"流过"的张量线点亮
+  document.getElementById('t-input').classList.toggle('show', currentStep >= 0);
+  for (let k = 0; k < totalSteps - 1; k++) {
+    const t = document.getElementById(`t-${k}`);
+    t.classList.toggle('show', k < currentStep);
+  }
+}
+
+function next() {
+  if (currentStep >= totalSteps - 1) {
+    pause();
+    return;
+  }
+  setStep(currentStep + 1);
+}
+function prev() { setStep(currentStep - 1); }
+
+function play() {
+  playing = true;
+  btnPlay.textContent = '⏸ 暂停';
+  const speed = parseInt(speedInput.value, 10);
+  timer = setInterval(() => {
+    if (currentStep >= totalSteps - 1) { pause(); return; }
+    next();
+  }, speed);
+}
+function pause() {
+  playing = false;
+  btnPlay.textContent = '▶ 播放';
+  if (timer) { clearInterval(timer); timer = null; }
+}
+btnPlay.addEventListener('click', () => playing ? pause() : play());
+btnPrev.addEventListener('click', prev);
+btnNext.addEventListener('click', next);
+progress.addEventListener('input', e => {
+  pause();
+  setStep(parseInt(e.target.value, 10));
+});
+speedInput.addEventListener('input', () => {
+  if (playing) { pause(); play(); }
+});
+
+// 空格键单步
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); pause(); next(); }
+  else if (e.code === 'ArrowRight') { pause(); next(); }
+  else if (e.code === 'ArrowLeft')  { pause(); prev(); }
+});
+
+/* =========================================================
+   悬浮提示框
+   ========================================================= */
+const tooltip = document.getElementById('tooltip');
+function showTooltip(e, n) {
+  tooltip.innerHTML = `
+    <div class="title">${n.name}  <span style="color:#666;font-weight:400;">[${n.group}]</span></div>
+    <div>维度：<b style="color:#21a35a;">${n.dim}</b></div>
+    <div style="margin-top:4px;">${n.desc}</div>
+    <div class="formula">${n.formula}</div>
+  `;
+  tooltip.style.display = 'block';
+  moveTooltip(e);
+}
+function moveTooltip(e) {
+  const wrap = document.getElementById('canvas-wrap');
+  const rect = wrap.getBoundingClientRect();
+  let x = e.clientX - rect.left + wrap.scrollLeft + 14;
+  let y = e.clientY - rect.top  + wrap.scrollTop  + 14;
+  // 防止超出右侧
+  if (x + 340 > wrap.scrollLeft + rect.width) x -= 360;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// 初始
+setStep(0);
+</script>
+</body>
+</html>

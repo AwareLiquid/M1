@@ -825,7 +825,7 @@ WikiText-2 valid, 50 batches × 768 tokens = 38 400 tokens.
 > **Retraction.** The previous "0/15 across all contexts, base-model ceiling" result was
 > **invalid**. It came from `bench_llama_mt_needle.py`, which concatenates raw filler/needle/
 > question tokens *without applying the instruct chat template* — a format that returns 0.0
-> on any instruct-tuned base (documented in `NEEDLE_FIX.md`). Re-running with the chat
+> on any instruct-tuned base (documented in `docs/reviews/NEEDLE_FIX.md`). Re-running with the chat
 > template **and** a faithful phase-5b model build (MT adapters **+** PEFT LoRA, with an honest
 > guard that aborts unless every adapter tensor maps onto the graph: 374/374 tensors matched,
 > unexpected=0) gives the real numbers below. Harness: `bench_needle_m1_faithful.py`; raw data:
@@ -995,7 +995,7 @@ WikiText-2 valid, 50 batches × 384 tokens = 19 200 tokens.
 
 **Root cause identified and fixed**: The old `bench_llama_mt_needle.py` used raw prompt concatenation without chat templates, causing 0.0 accuracy on all instruct-tuned models regardless of size (1.1B / 1.5B / 3B). The new `bench_needle_chat_template.py` uses `tokenizer.apply_chat_template()` and achieves **1.0 accuracy** on Qwen-0.5B-Instruct baseline at all depths (0.1, 0.5, 0.9) and contexts (512, 1024).
 
-This was a benchmark-tooling problem, not an architecture problem. Next: rerun on Qwen-1.5B/3B with Phase 5b adapters to measure MT-vs-base delta. See `NEEDLE_FIX.md` for full details.
+This was a benchmark-tooling problem, not an architecture problem. Next: rerun on Qwen-1.5B/3B with Phase 5b adapters to measure MT-vs-base delta. See `docs/reviews/NEEDLE_FIX.md` for full details.
 
 ### Cross-base summary (Phase 5 + 5b + Track 1A)
 

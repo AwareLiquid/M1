@@ -121,7 +121,7 @@ class MTLNNConfig:
     use_competitive_gwtb: bool = False
     n_competitive_bids: int = 3          # K concurrent workspace bids
     competitive_hard_winner: bool = False  # True: argmax at inference, soft in training
-    # Symmetry-breaking mechanisms (2026-06-07, P0 fix per V2_REVIEW.md):
+    # Symmetry-breaking mechanisms (2026-06-07, P0 fix per docs/reviews/V2_REVIEW.md):
     # Without these, all K bids start identical → score gradient is zero by symmetry →
     # competition stays at uniform 1/K forever (DeepSeekMoE "routing collapse" failure).
     competitive_score_noise: float = 0.5  # Gaussian noise σ on scores during training

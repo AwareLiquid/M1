@@ -588,7 +588,7 @@ recorder.download('mt_lnn_animation.webm');
 
 - **llm-viz原项目**: https://github.com/bbycroft/llm-viz
 - **在线Demo**: https://bbycroft.net/llm
-- **MT-LNN论文**: `assets/decks/mt_lnn_arxiv.pdf`
+- **MT-LNN论文**: [AwareLiquid-Web `decks/mt_lnn_arxiv.pdf`](https://github.com/AwareLiquid/AwareLiquid-Web/blob/main/decks/mt_lnn_arxiv.pdf)（decks 已迁至 AwareLiquid-Web 仓库）
 - **架构文档**: `ARCHITECTURE.md`
 
 ---

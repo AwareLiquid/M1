@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-06
 **Status:** Active development — v2.0 module expansion in progress
-**Companion docs:** [PRD.md](PRD.md) · [AWARENESS_NETWORK_PRD.md](AWARENESS_NETWORK_PRD.md) · [AWARELIQUID_SYSTEM_MVP.md](AWARELIQUID_SYSTEM_MVP.md)
+**Companion docs:** [PRD.md](PRD.md) · [AWARENESS_NETWORK_PRD.md](docs/specs/AWARENESS_NETWORK_PRD.md) · [AWARELIQUID_SYSTEM_MVP.md](docs/specs/AWARELIQUID_SYSTEM_MVP.md)
 
 ---
 
@@ -574,7 +574,7 @@ LaTeX 技术论文(standard `article` + `amsmath/amsthm`,因本机无 LaTeX 编�
 STDP/黎曼算子按设计**未**接入训练目标。并据实纠正代码 prose 的过度主张(`continual_eval` 的 "FM≥0" 被其自身测试证伪——
 正向回迁下 FM 可为负)。
 
-**类脑 Phase-1 三件套行为测试(补齐覆盖空洞)**:路线图 `BRAIN_INSPIRED_ROADMAP.md` 第一阶段三机制——多尺度**预测编码 loss**、
+**类脑 Phase-1 三件套行为测试(补齐覆盖空洞)**:路线图 `docs/specs/BRAIN_INSPIRED_ROADMAP.md` 第一阶段三机制——多尺度**预测编码 loss**、
 **O(1) 工作记忆衰减**、内源性**动态 κ 通道门控**——均**默认开启**(`use_predictive_coding=True` / `use_decay_wm=True` /
 `dynamic_scale_gates=True`)却长期**无行为测试**(此前测试只把它们设 `False` 以静默)。现补三份测试钉住其真实契约:
 `tests/test_predictive_coding_loss.py` 9 项[`W_pred` 形状(P,S-1,D,D)仅在启用且 S>1 时存在、训练态 `last_pred_error>0` 而 eval 态恒 0、
@@ -868,7 +868,7 @@ class PredictiveStateHead(nn.Module):
 - **surprise 信号归一化到 [0,1]**: `last_pred_error = ((1 - cos) · 0.5).clamp(0,1)`，供 LAVI 稳定耦合（`wm_correction = tanh(pred_error_scale)·pred_error`）；同时保留原始 MSE 量级 `last_pred_error_raw` 供调试。
 - 初始化顺序修复: 先初始化 online_proj (std=0.02)，再 copy 到 target_proj；predictor 用 small-init（非零）。
 
-**科学发现 (见 V2_REVIEW.md §8)**: 实测发现 `use_ema_target=False` 分支（stop-grad + predictor + 无偏归一化投影）即 **SimSiam** (Chen & He 2021)，**本身就不坍缩**（3 seeds pairwise|cos|≈0.33）。即 EMA 对本架构的防坍缩**非必需**；EMA 在此规模下收敛速度≈SimSiam（非传言的 +25%）。`use_ema_target` 因此作为消融开关保留，默认 True。
+**科学发现 (见 docs/reviews/V2_REVIEW.md §8)**: 实测发现 `use_ema_target=False` 分支（stop-grad + predictor + 无偏归一化投影）即 **SimSiam** (Chen & He 2021)，**本身就不坍缩**（3 seeds pairwise|cos|≈0.33）。即 EMA 对本架构的防坍缩**非必需**；EMA 在此规模下收敛速度≈SimSiam（非传言的 +25%）。`use_ema_target` 因此作为消融开关保留，默认 True。
 
 ---
 

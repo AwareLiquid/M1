@@ -186,7 +186,7 @@ knowledge memory (`KB_PATH` on a writable `kb` volume), and the
 causal-consistency check (`CAUSAL_CHECK=0` by default -- honest: it is
 non-discriminative on a Transformer base, see `serve/server_hf.py`). The `kb`
 named volume persists `/v1/memory/write` facts across restarts and redeploys
-(verified by `_test_kb_persist.py`); an `hf_cache` volume downloads
+(verified by `scripts/diagnostics/_test_kb_persist.py`); an `hf_cache` volume downloads
 Qwen2.5-0.5B once, so first boot needs internet but restarts are offline.
 
 ```bash
@@ -205,7 +205,7 @@ contract for both servers is pinned by `tests/test_server.py` /
 
 ## Architecture
 
-> Full design doc: [ARCHITECTURE.md](ARCHITECTURE.md). Visual walkthrough: [MT_LNN_ARCHITECTURE_VISUAL.md](MT_LNN_ARCHITECTURE_VISUAL.md). 3D interactive viewer: [llm-viz-QUICKSTART.md](llm-viz-QUICKSTART.md).
+> Full design doc: [ARCHITECTURE.md](ARCHITECTURE.md). Visual walkthrough: [MT_LNN_ARCHITECTURE_VISUAL.md](docs/specs/MT_LNN_ARCHITECTURE_VISUAL.md). 3D interactive viewer: [llm-viz-QUICKSTART.md](llm-viz-integration/llm-viz-QUICKSTART.md).
 
 ```
 input_ids
@@ -268,7 +268,7 @@ All four default **OFF**, add zero overhead when disabled, and never change the 
 | **Phase C** — `PredictiveStateHead` | `use_world_model` | Predictive coding / Friston free energy | BYOL/V-JEPA online predictor + stop-grad EMA target (collapse-free); normalised surprise ∈ [0,1] feeds LAVI |
 | **Phase D** — `HebbianRegularizer` | `use_hebbian` | Hebbian consolidation | LAVI-gated co-activation loss (training only) |
 
-> Phase C `use_ema_target=False` is a SimSiam variant — provably collapse-free on its own (verified across 3 seeds, |cos| ≈ 0.33 vs naïve 1.000). EMA aids convergence, not collapse-prevention. Full analysis in [V2_REVIEW.md](V2_REVIEW.md) §8.
+> Phase C `use_ema_target=False` is a SimSiam variant — provably collapse-free on its own (verified across 3 seeds, |cos| ≈ 0.33 vs naïve 1.000). EMA aids convergence, not collapse-prevention. Full analysis in [V2_REVIEW.md](docs/reviews/V2_REVIEW.md) §8.
 
 ### EEG-inspired Rhythm Gate (2026-06-06)
 
@@ -575,19 +575,19 @@ What's not yet shown (by design):
 | Doc | What's in it |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Full v2.0 architecture spec |
-| [MT_LNN_ARCHITECTURE_VISUAL.md](MT_LNN_ARCHITECTURE_VISUAL.md) | Visual walkthrough |
+| [MT_LNN_ARCHITECTURE_VISUAL.md](docs/specs/MT_LNN_ARCHITECTURE_VISUAL.md) | Visual walkthrough |
 | [BENCHMARKS.md](BENCHMARKS.md) | All benchmark numbers + AVP details |
 | [docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md) | M-series (hybrid) vs O-series (attention-free ARR): honest capability cards |
-| [RECIPES.md](RECIPES.md) | Recipe API reference |
+| [RECIPES.md](docs/guides/RECIPES.md) | Recipe API reference |
 | [ABLATIONS.md](ABLATIONS.md) | Ablation framework |
-| [V2_REVIEW.md](V2_REVIEW.md) | v2.0/v2.1 module review (incl. SimSiam collapse proof) |
-| [TECH_BLOG.md](TECH_BLOG.md) | Cross-architecture reproducibility story |
+| [V2_REVIEW.md](docs/reviews/V2_REVIEW.md) | v2.0/v2.1 module review (incl. SimSiam collapse proof) |
+| [TECH_BLOG.md](https://github.com/AwareLiquid/AwareLiquid-Web/blob/main/blog/TECH_BLOG.md) | Cross-architecture reproducibility story (moved to AwareLiquid-Web) |
 | [PRD.md](PRD.md) | Product requirements & roadmap |
 | [SPEC.md](SPEC.md) | Component spec |
 | [mt_lnn_operator_algebra_whitepaper.tex](mt_lnn_operator_algebra_whitepaper.tex) | Operator-algebra math white paper: exact definitions + property-pinned invariants for all 11 zero-parameter operators wrapping the LTC core (honest "identity vs property-pinned vs statistical" grading) |
-| [NEEDLE_FIX.md](NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
-| [CLOUD_RUN.md](CLOUD_RUN.md) / [KAGGLE_RUN.md](KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
-| [llm-viz-QUICKSTART.md](llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |
+| [NEEDLE_FIX.md](docs/reviews/NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
+| [CLOUD_RUN.md](docs/guides/CLOUD_RUN.md) / [KAGGLE_RUN.md](docs/guides/KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
+| [llm-viz-QUICKSTART.md](llm-viz-integration/llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |
 
 ---
 

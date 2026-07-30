@@ -18,7 +18,7 @@ Between 2026-05-24 and 2026-05-30 the project pivoted to compete in the Gemini-3
 
 | Date | Event |
 |---|---|
-| 2026-05-24 | `AWARENESS_NETWORK_PRD.md` introduces the **Cloud Oracle** strategy |
+| 2026-05-24 | `docs/specs/AWARENESS_NETWORK_PRD.md` introduces the **Cloud Oracle** strategy |
 | 2026-05-24 | `ARCHITECTURE.md` rewrite — Predictive Coding, O(1) Memory, Compute Skipping |
 | 2026-05-26 | Project renamed **M1 → AwareLiquid** |
 | 2026-05-28 | Capsule v2 + ReasoningTrace shipped *"for Gemini-3.1-class reasoning UX"* |
@@ -155,7 +155,7 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 | Kaggle notebooks | Each headline number reproducible from one `kaggle/*.ipynb` | ✅ Phase 5b, cloud-inject |
 | Artefact JSONs | All headline tables back-by-JSON in `benchmarks/` | ✅ |
 | Pinned torch | Kaggle notebooks pin `torch==2.4.1+cu121` to survive P100/T4 random assignment | ✅ |
-| Pitch deck | `assets/decks/Pitch_Deck_MT_LNN.md` reflects current headline numbers | ✅ |
+| Pitch deck | [AwareLiquid-Web](https://github.com/AwareLiquid/AwareLiquid-Web) `decks/Pitch_Deck_MT_LNN.md` reflects current headline numbers (decks migrated out of M1) | ✅ |
 | Test suite green | All tests pass on CPU in < 2 min | ✅ 967 tests green on CPU (Track 1B wiring landed) |
 
 ### F5 — MT-LNN core architecture (Track A, P1, from v1.1)
@@ -234,7 +234,7 @@ Four orthogonal brain-inspired modules + observability. **All default OFF, zero 
 | Config opt-in | `use_competitive_gwtb` / `use_world_model` / `use_hebbian` all default False | ✅ `mt_lnn/config.py` |
 | Test coverage | +9 mechanism/negative-control tests; full suite 219 tests, all pass | ✅ `tests/` |
 
-**Scientific finding (Phase C) — SimSiam vs BYOL:** Rigorous empirical investigation (3 seeds) corrected the common assumption that any non-EMA self-prediction collapses. Our `use_ema_target=False` branch is a **SimSiam** design (stop-grad + predictor + bias-free L2-normalised projector) and is **provably collapse-free on its own** (pairwise |cos| ≈ 0.33). Only naïve self-prediction (no stop-grad, no predictor) collapsed (≈1.000). EMA's role is convergence/quality, **not** collapse-prevention — at this scale EMA ≈ SimSiam (not the rumored +25%). `use_ema_target` is retained as an ablation switch (default True). Full analysis: [V2_REVIEW.md](V2_REVIEW.md) §8.
+**Scientific finding (Phase C) — SimSiam vs BYOL:** Rigorous empirical investigation (3 seeds) corrected the common assumption that any non-EMA self-prediction collapses. Our `use_ema_target=False` branch is a **SimSiam** design (stop-grad + predictor + bias-free L2-normalised projector) and is **provably collapse-free on its own** (pairwise |cos| ≈ 0.33). Only naïve self-prediction (no stop-grad, no predictor) collapsed (≈1.000). EMA's role is convergence/quality, **not** collapse-prevention — at this scale EMA ≈ SimSiam (not the rumored +25%). `use_ema_target` is retained as an ablation switch (default True). Full analysis: [V2_REVIEW.md](docs/reviews/V2_REVIEW.md) §8.
 
 **Product angle — what this changes for users:** these modules give AwareLiquid measurable *cognitive* signals beyond raw PPL: a competition-health index (GWT routing not collapsing), a per-step causal-consistency / topic-break detector (drives self-critique), a predictive-surprise channel (novelty detection feeding the rhythm gate), and Hebbian consolidation against catastrophic forgetting. All are exposed as bounded scalars in `get_mt_diagnostics()` / JSONL for audit trails (B3) and long-run monitoring.
 
@@ -283,7 +283,7 @@ Re-run Phase 5b recipe on **Qwen-3B or Phi-3-mini-3.8B**. Goal: produce non-zero
 ### Track 1B — Wire ReasoningTrace into real Qwen inference
 **DONE.** The wiring shipped: `scripts/awareliquid_real_trace_v3.py` hooks `ReasoningTrace` into a real Qwen generate loop (manual KV-cache token loop, real per-token entropies, entropy-gated route/cloud-inject decisions); a synthetic generator (`scripts/demo_trace_synth.py`) is retained only for the UI demo. Artefacts: `real_trace_demo.jsonl` + `real_trace_demo_audit.json`. **Remaining:** re-run as the *canonical adapter-on Kaggle* session (cosmetic — the path itself is proven on the Qwen-0.5B/CPU smoke).
 
-### Track 2 — Brain-inspired Phase 1 (from `BRAIN_INSPIRED_ROADMAP.md`)
+### Track 2 — Brain-inspired Phase 1 (from `docs/specs/BRAIN_INSPIRED_ROADMAP.md`)
 **DONE (correcting the earlier "deferred" framing).** All three are wired and **ON by default** in `MTLNNConfig`, and each now has a behavioural-contract test (added 2026-06):
 - Dynamic channel gating (`dynamic_scale_gates=True`) — `tests/test_dynamic_scale_gating.py`. NB: by default the κ-gate only *reweights* scales; real κ-based compute skipping needs `sparse_resonance_kernel=True` (top-k scale selection), also pinned.
 - Working memory decay / GWTB upgrade (`use_decay_wm=True`) — `tests/test_decay_working_memory.py` (the O(1)-vs-O(T) streaming-cache contract).

@@ -2,7 +2,7 @@
 
 WHY THIS EXISTS: the old needle numbers on the site (0% across all cells) came
 from bench_llama_mt_needle.py, which concatenates raw tokens WITHOUT applying the
-instruct chat template -- a format NEEDLE_FIX.md already identified as producing
+instruct chat template -- a format docs/reviews/NEEDLE_FIX.md already identified as producing
 0.0 on instruct-tuned bases. bench_needle_chat_template.py fixes the formatting,
 but its adapter loader (attach_adapters_from_checkpoint) rebuilds ONLY the MT
 adapters and never re-wraps PEFT LoRA, so a phase5b checkpoint (MT + LoRA) is

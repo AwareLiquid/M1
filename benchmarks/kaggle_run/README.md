@@ -17,7 +17,7 @@
 Run date: **2026-05-28**
 Hardware: **Kaggle free GPU — Tesla T4 (14.6 GB), single GPU**
 Wall-clock: ~3 h (train) + ~5 min (PPL eval) + ~5 min (needle eval)
-Reproduce: `KAGGLE_RUN.md`
+Reproduce: `docs/guides/KAGGLE_RUN.md`
 
 ## What's in this directory
 
