@@ -12,8 +12,22 @@ class MTLNNConfig:
 
     # Model dimensions
     # d_model = 832 = 13 × 64 → d_proto = 64 (Tensor-Core aligned).
-    # n_heads = 13 chosen so each head naturally corresponds to one
-    # protofilament, with d_head = 832 / 13 = 64.
+    #
+    # Attention heads are DECOUPLED from the protofilament count. The original
+    # "one head per protofilament" pairing (n_heads = 13) was naming aesthetics,
+    # not mechanism — nothing in the attention path consumes n_protofilaments,
+    # and the multi-timescale resonance semantics live entirely in the LNN's
+    # 13 protofilaments. The pairing had a real cost: 13 is prime, so the only
+    # expressible GQA ratios were 13:1 (MQA — P0 round 4 measured acc 0.248 on
+    # the relational probe) and 1:1 (full MHA — acc 1.0000 but 13× the KV
+    # cache). Every production middle ratio (8:1, 4:1, 2:1) was arithmetically
+    # impossible. See ABLATIONS.md "Design-coupling audit".
+    #
+    # Defaults stay 13/1 — bit-exact with every existing checkpoint. A
+    # decoupled shape such as n_heads=16, d_head=52, n_kv_heads=4 (keeping
+    # d_model=832 and d_proto=64) is verified end-to-end by
+    # tests/test_head_decoupling.py; flipping the default awaits the probe
+    # sweep (HANDOFF §3.8).
     d_model: int = 832
     n_layers: int = 12               # 12 layers → ~125M params
     n_heads: int = 13
@@ -418,6 +432,14 @@ class MTLNNConfig:
         assert self.d_model % self.n_heads == 0, "d_model must be divisible by n_heads"
         assert self.d_head == self.d_model // self.n_heads, "d_head must equal d_model // n_heads"
         assert self.n_heads % self.n_kv_heads == 0, "n_heads must be divisible by n_kv_heads (GQA)"
+        # RoPE pairs dimensions, so an odd d_head fails deep inside
+        # RotaryEmbedding with a bare assert. Fail here with the reason.
+        if self.d_head % 2 != 0:
+            raise ValueError(
+                f"d_head must be even for rotary embeddings; got d_head="
+                f"{self.d_head} (d_model={self.d_model} / n_heads={self.n_heads}). "
+                f"Pick n_heads so that d_model/n_heads is even."
+            )
         # Pad to next multiple of n_protofilaments so each proto gets equal width
         self.d_proto = math.ceil(self.d_model / self.n_protofilaments)
         self.d_proto_total = self.d_proto * self.n_protofilaments

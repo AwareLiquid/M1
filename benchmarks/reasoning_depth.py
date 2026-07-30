@@ -79,19 +79,32 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 # ── models ───────────────────────────────────────────────────────────────────
 
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
-                gamma_init=None, full_mha=False, n_global_heads=0):
+                gamma_init=None, full_mha=False, n_global_heads=0,
+                n_heads=None, n_kv_heads=None):
     torch.manual_seed(seed)
     kw = {"n_global_heads": n_global_heads}
     if gamma_init is not None:
         kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
+    # Head-decoupling sweep knobs (ABLATIONS.md "Design-coupling audit").
+    # None keeps the historical probe shape -- 4 heads, GQA 2:1 (or full MHA
+    # via --full_mha) -- so existing command lines reproduce bit-identically.
+    H = 4 if n_heads is None else int(n_heads)
+    if d_model % H != 0:
+        raise SystemExit(f"--n_heads {H} does not divide d_model {d_model}")
+    if (d_model // H) % 2 != 0:
+        raise SystemExit(f"--n_heads {H} gives odd d_head {d_model//H}; "
+                         f"RoPE needs an even d_head")
+    KV = (H if full_mha else max(1, H // 2)) if n_kv_heads is None else int(n_kv_heads)
+    if H % KV != 0:
+        raise SystemExit(f"--n_kv_heads {KV} does not divide n_heads {H}")
     cfg = MTLNNConfig(
         vocab_size=vocab,
         max_seq_len=seq_len,
         d_model=d_model,          # 104 = 13 protofilaments × 8
         n_layers=n_layers,        # shallow on purpose: depth comes from iteration
-        n_heads=4,
-        n_kv_heads=4 if full_mha else 2,
-        d_head=d_model // 4,
+        n_heads=H,
+        n_kv_heads=KV,
+        d_head=d_model // H,
         dropout=0.0,
         attention_dropout=0.0,
         gwtb_n_heads=1,           # d_gw = d_model//8 = 13 → single-head workspace
@@ -185,7 +198,8 @@ def evaluate_per_k(model, difficulty, n_values, rng, device,
 def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
                     skip_transformer=False, gamma_init=None, full_mha=False,
-                    depth_setter="core", mix=False, n_global_heads=0):
+                    depth_setter="core", mix=False, n_global_heads=0,
+                    n_heads=None, n_kv_heads=None):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -213,7 +227,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                             2 if depth_setter == "core" else 1,
                             seed, n_layers=n_layers, gamma_init=gamma_init,
                             full_mha=full_mha,
-                            n_global_heads=n_global_heads)
+                            n_global_heads=n_global_heads,
+                            n_heads=n_heads, n_kv_heads=n_kv_heads)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -413,6 +428,14 @@ def main():
     p.add_argument("--n_global_heads", type=int, default=0,
                    help="reserve N truly-global heads per layer (架构原则#1); "
                         "0 = historical all-decaying init")
+    p.add_argument("--n_heads", type=int, default=None,
+                   help="attention heads, decoupled from the 13 protofilaments "
+                        "(ABLATIONS.md design-coupling audit); must divide "
+                        "d_model. Default: historical probe shape (4)")
+    p.add_argument("--n_kv_heads", type=int, default=None,
+                   help="KV heads for GQA; must divide n_heads. Default: "
+                        "n_heads/2, or n_heads under --full_mha. Middle "
+                        "ratios like 4:1 are the point of the sweep")
     args = p.parse_args()
 
     if args.n_values is None:
@@ -433,7 +456,8 @@ def main():
                         skip_transformer=args.skip_transformer,
                         gamma_init=args.gamma_init, full_mha=args.full_mha,
                         depth_setter="stack" if args.stack else "core",
-                        mix=args.mix, n_global_heads=args.n_global_heads)
+                        mix=args.mix, n_global_heads=args.n_global_heads,
+                        n_heads=args.n_heads, n_kv_heads=args.n_kv_heads)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
