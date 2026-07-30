@@ -345,6 +345,13 @@ generate the next token), and it belongs to the attention-free **O-series
 
 T4, 832 x 12, GQA=1 (matched to the native model's config):
 
+> **Hard boundary — read before citing this table.** It measures **inference
+> carried-state bytes only**. It contains **no evidence of model quality beyond
+> the 512-token training length**: out-of-window LM results are **null** (see
+> RESULTS.md, chunked-streaming −0.006 / TBPTT +0.004). A reader who takes this
+> table as long-context *capability* is misreading it, and we would rather say
+> so here than let a reviewer say it for us.
+
 | context T | Llama KV-cache | ARR state | ratio |
 |---|---|---|---|
 | 512 | 1.5 MB | 0.381 MB | 3.9x |

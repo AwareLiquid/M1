@@ -281,7 +281,17 @@ B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 3. **tokenizer / 外推信誉**:GPT-2 BPE 对中文是 byte-level 灾难(一字 2-3 token),
    若接 Awareness 主产品(100+ 语言)先废一半;训练 512 → 对外 1M 是 2000× 外推,
    LFM2 训到 32k 只标 32k。**表格硬约束已落地**(2026-07-30):首页图注、research.html、
-   llms.txt 均已标明"仅推理携带状态字节,无 512 token 以上质量证据,out-of-window LM 为 null"。
+   llms.txt、**BENCHMARKS.md 1M 表上方**均已标明"仅推理携带状态字节,无 512 token 以上
+   质量证据,out-of-window LM 为 null"。
+4. **重跑 adapter 挂载实验(评审第四条,成本最低、信息量最大)**:上次失败是工程 bug
+   不是架构结论 —— MT adapter 被 PEFT 冻结只训了 LoRA(RESULTS.md:42),且用 in-window
+   PPL 去测跨窗口记忆模块,指标本身就测不出东西。重跑改三个变量:
+   backbone 换 **LFM2.5-350M**(混合同族,28T token,<$10M 免费商用)、训练前打印可训
+   参数量确认 `requires_grad=True`、主指标换 **cross-window recall**(0.56 vs 0.000
+   那条线),in-window PPL 只做不退化 sanity check。本地 8GB 可跑。若成立,P1 的
+   "数百美元云预算+教师 API"整块可省。⚠️ 风险:LFM2 conv state 无状态设计
+   (2 token 且每 forward 重置),有状态 fast-weight 层的 state 接口要自己设计。
+   相关:13 质数锁 GQA 的问题已记入 **ABLATIONS.md「Design-coupling audit」**。
 
 ## 4. 下一步（按优先级）
 

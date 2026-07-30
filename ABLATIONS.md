@@ -103,6 +103,32 @@ python scripts/analyze_ablations.py artifacts/ablations/ablation_adapter_type_re
 - If `13 is best`: Supports biological prior hypothesis
 - If `21 > 13 > 8`: It's just model capacity (biology is coincidence)
 
+## Design-coupling audit (unrun ablations that are really design bugs)
+
+Two places where biological naming quietly constrained the math. The first was
+caught and fixed in M2-P0; the second is recorded here so it is not rediscovered
+the hard way.
+
+1. **GTP-cap distance-decay init** (caught, M2-P0 rounds 3–5): the per-head
+   decay spectrum left at most one quasi-global head, starving induction-head
+   composition. Pointer-chase went 0.249 → 1.0000 once heads could see far.
+   Fix shipped as the `n_global_heads` quota — biology keeps the local heads,
+   the global slots are explicit.
+
+2. **`n_heads = 13` couples attention to the protofilament count — and 13 is
+   prime.** "One head per protofilament" is naming aesthetics, not mechanism:
+   the multi-timescale resonance semantics live in the LNN's
+   `n_protofilaments=13`, and nothing in the attention path uses that number.
+   The cost is real: with 13 heads the only legal GQA settings are 13:1 (MQA,
+   the current default — the config P0 round 4 measured at **acc 0.248**) or
+   1:1 (full MHA — **acc 1.0000 but 13× the KV cache**). Every intermediate
+   ratio is arithmetically impossible, so the accuracy/memory trade-off cannot
+   be tuned at all; production hybrids pick middle ratios (LFM2: 32 heads,
+   4:1) precisely because their head counts have divisors. Decoupling proposals
+   (16 heads × 64 at d_model 1024, or 16 × 52 keeping 832) are logged in
+   HANDOFF §3.8; the sweep has NOT been run — this entry exists so the prime
+   lock is treated as a design constraint to remove, not a finding to rediscover.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
