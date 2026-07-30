@@ -266,6 +266,23 @@ checkpoint `.pt` 不提交;O1 数字绝不进 M1 主表;本地 8GB 归 CC 排队
 **汇合点**:T2 结果决定论文摘要改不改;C1 sweep 结果决定 `n_global_heads` 默认值;
 B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 
+## 3.75 分支盘点(2026-07-30,已清理)
+
+**规则:main = 验证过的主干(生产从它部署);实验分支 = 一条一个假设,null 结果
+入档不入主干。** 本次清理:`physics-informed-head`(已全量并入,空壳)与
+`cleanup-dead-symbols`(死符号删除,重验 0 调用者 + 0 冲突 + 全套 1232 测试绿后
+并入 main)均已删除。保留的三条实验分支及保留理由:
+
+| 分支 | 内容 | 状态 |
+|---|---|---|
+| `mtp-seam-wireup` | MTP 辅助损失,3 种子 A/B **honest null** | 入档保留,不 promote |
+| `delta-write-stability-fix` | `eta_t` 仪表,诊断逐 token 写强度 | 结论未出 |
+| `exp/learn-tau` | `--learn_tau` 优化器组 | 结论未出 |
+| `experiment/consciousness-m1` | 意识科学蒸馏文档 ×2 | 方向已降级,故意不进主干 |
+
+后续实验(GQA sweep 翻默认、混合配比 4/12 重训、LFM2.5 adapter 重跑)按此惯例
+开 `exp/*` 分支,结论落档后再决定 promote。
+
 ## 3.8 外部评审意见(2026-07-30,待 M2 决策,未实施)
 
 一份对照 RESULTS.md 的外部评审,三条架构级建议,**均需重训验证,不是文档改动**:
