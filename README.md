@@ -316,10 +316,9 @@ At inference, hooks progressively damp MT-DL outputs and the global-coherence br
 
 ## Optional research modules
 
-Both off by default; package imports cleanly without their dependencies.
+Off by default; package imports cleanly without their dependencies.
 
 - **`mt_lnn.phi_iit`** — exact IIT 4.0 Φ via PyPhi (Tononi lab toolbox). `pip install pyphi`. Use for ≤8-node analysis; the kNN proxy `phi_hat` covers training-time monitoring.
-- **`mt_lnn.quantum_coupling.QuantumLateralCoupling`** — drop-in replacement for `LateralCoupling`: P qubits in a ring with parameterised CNOT entanglers (mod-P), classical simulator default. `pip install pennylane`.
 
 ---
 
@@ -368,7 +367,6 @@ mt_lnn/
   phi_hat.py             Kraskov kNN Φ̂ proxy + anesthesia sweep
   phi_iit.py             Exact IIT 4.0 Φ (PyPhi); optional
   phi_spectral.py        Spectral Φ approximation
-  quantum_coupling.py    QuantumLateralCoupling (PennyLane); optional
   multimodal.py          Multi-modal token codebook hooks
   sensory_frontend.py    SensoryFrontend (P1 closed-loop): the temporal front that turns a raw, jittered, dropout-prone sensor stream into backbone-ready tokens -- composes ingest_ops.align_stream (resample onto the core's fixed-dt grid + flag dropout steps) with a trainable multimodal.ModalityProjector (project to d_model); emits a SensoryEncoding (inputs_embeds + coverage/pad mask, the trust signal a BlindRolloutGuard coasts on); trainable nn.Module, but never imports model.py (feeds the backbone via inputs_embeds)
   model.py top_down      Top-down modulation (P1 closed-loop ②): MTLNNModel.forward(top_down=...) threads a high-level goal/context vector to every block, folded in as a zero-init-gated residual (x = x + tanh(gate)*proj(LayerNorm(top_down))) after attention, before the liquid core -- cortical top-down feedback. Gated by config.use_top_down (default OFF -> no new params, bit-identical). At init gate=0 -> strict no-op (bit-exact); the gate keeps a live gradient so the model LEARNS to open and aim it. Optional config.top_down_to_gwtb additionally offers the goal as an external bid in the global-workspace competition (reuses the world-model bid pathway)
