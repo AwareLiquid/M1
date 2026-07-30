@@ -33,21 +33,25 @@ mpl.rcParams.update({
     "axes.facecolor": "white",
 })
 
-# NMI pastel palette
+# Monochrome palette, matching the site. The site runs no accent colour at all
+# (a deliberate split from the violet the nearest-neighbour project uses), so
+# charts separate series by VALUE and by line style -- solid vs dashed, filled
+# vs hollow markers -- rather than by hue. This also survives greyscale printing
+# and is readable with any form of colour blindness.
 P = {
-    "baseline_dark": "#484878",
-    "baseline_mid":  "#7884B4",
-    "baseline_soft": "#B4C0E4",
-    "ours":          "#C06080",
-    "ours_dark":     "#8B3050",
-    "delta_up":      "#2E9E44",
-    "delta_down":    "#E53935",
-    "neutral":       "#A8A8A8",
-    "neutral_light": "#D8D8D8",
-    "accent_green":  "#52B788",
-    "accent_amber":  "#D97706",
-    "accent_red":    "#DC2626",
-    "bg_panel":      "#F7F7F9",
+    "baseline_dark": "#0d0d0d",
+    "baseline_mid":  "#6b6b80",
+    "baseline_soft": "#c9c9d2",
+    "ours":          "#0d0d0d",
+    "ours_dark":     "#000000",
+    "delta_up":      "#0d0d0d",
+    "delta_down":    "#6b6b80",
+    "neutral":       "#a8a8b0",
+    "neutral_light": "#e8e8ef",
+    "accent_green":  "#0d0d0d",
+    "accent_amber":  "#6b6b80",
+    "accent_red":    "#0d0d0d",
+    "bg_panel":      "#f7f7f9",
 }
 
 def save_svg(fig, name):
@@ -212,43 +216,57 @@ def fig_sparse_resonance():
 # Claim: state-only streaming keeps constant O(1) memory vs O(n) KV cache
 # ═══════════════════════════════════════════════════════════════════════════════
 def fig_memory_scaling():
-    # From operator_compression_report.json
-    # steps=100: kv=108992, state=4160
-    # steps=1000: kv=1044992, state=4160
-    # Extrapolate linear relationship
-    steps_vals = np.array([100, 200, 400, 600, 800, 1000])
-    kv_bytes   = np.array([108992, 217984, 435968, 653952, 871936, 1044992])
-    state_bytes = np.full_like(steps_vals, 4160, dtype=float)
+    """O(1) carried state vs a matched KV-cache, out to 1M tokens.
 
-    kv_kb   = kv_bytes   / 1024
-    state_kb = state_bytes / 1024
+    Replaces an earlier version that plotted a 100-1000 token run from
+    operator_compression_report.json (state = 4,160 B) while the caption
+    beneath it quoted the 1M-token result (0.381 MB). Chart and caption
+    described two different experiments, which read as a 100x contradiction.
+    This plots the experiment the caption describes.
+
+    ARR state is a measured snapshot (prime the full context, then weigh the
+    carried tensors). The KV line is the exact analytic size for the matched
+    Llama config -- 3 GB of cache cannot be materialised on the test machine,
+    and quoting an estimate as a measurement would be worse than saying so.
+    Source: benchmarks/scaling_comparison.py --mode decode, 832x12, GQA=1.
+    """
+    ctx = np.array([512, 2048, 8192, 32768, 131072, 524288, 1048576], dtype=float)
+    kv_mb = np.array([1.5, 6.0, 24.0, 96.0, 384.0, 1536.0, 3072.0])
+    state_mb = np.full_like(ctx, 0.381)
 
     fig, ax = plt.subplots(figsize=(4.5, 2.8))
 
-    ax.plot(steps_vals, kv_kb, color=P["baseline_mid"], lw=1.5,
-            marker="o", ms=3.5, label="KV-cache stream  O(n)")
-    ax.plot(steps_vals, state_kb, color=P["accent_green"], lw=1.5,
-            marker="s", ms=3.5, label="State-only stream  O(1)")
+    # Series separate by line style and marker fill, not hue: the site runs no
+    # accent colour, and this stays legible in greyscale.
+    ax.plot(ctx, kv_mb, color=P["baseline_dark"], lw=1.4, ls="--",
+            marker="o", ms=3.5, mfc="white", mew=1.0,
+            label="KV-cache  O(n)")
+    ax.plot(ctx, state_mb, color=P["baseline_dark"], lw=1.8, ls="-",
+            marker="s", ms=3.5,
+            label="O-series carried state  O(1)")
+    ax.fill_between(ctx, state_mb, kv_mb, alpha=0.06, color=P["baseline_dark"])
 
-    ax.fill_between(steps_vals, kv_kb, state_kb,
-                    alpha=0.10, color=P["baseline_mid"])
-
+    ax.set_xscale("log", base=2)
+    ax.set_yscale("log")
     ax.set_xlabel("Context length (tokens)", fontsize=8)
-    ax.set_ylabel("Cache size (KB)", fontsize=8)
-    ax.set_title("Memory footprint: KV-cache vs recurrent state", fontsize=8.5,
+    ax.set_ylabel("Inference memory (MB, log)", fontsize=8)
+    ax.set_title("Carried state vs KV-cache, 512 to 1M tokens", fontsize=8.5,
                  fontweight="bold", pad=8)
-    ax.legend(loc="upper left", fontsize=7)
-    ax.set_ylim(0, 1100)
-    ax.grid(lw=0.5, alpha=0.4, color="#ddd", zorder=0)
+    ax.set_xticks([512, 8192, 131072, 1048576])
+    ax.set_xticklabels(["512", "8K", "128K", "1M"], fontsize=7)
+    ax.legend(loc="upper left", fontsize=7, frameon=False)
+    ax.grid(lw=0.5, alpha=0.35, color="#ddd", zorder=0)
     ax.set_axisbelow(True)
 
-    # annotation
-    ax.annotate("State-only: constant 4 KB\nregardless of context",
-                xy=(steps_vals[-1], state_kb[-1]),
-                xytext=(750, 200),
-                fontsize=6.5, color=P["accent_green"],
-                arrowprops=dict(arrowstyle="-|>", color=P["accent_green"],
+    # Annotations sit INSIDE the axes; at log scale the previous positions
+    # collided with the x-axis title (bottom) and escaped the frame (top).
+    ax.set_ylim(0.08, 20000)
+    ax.annotate("0.381 MB, flat", xy=(ctx[2], 0.381), xytext=(2500, 3.2),
+                fontsize=6.5, color=P["baseline_dark"], ha="center",
+                arrowprops=dict(arrowstyle="-|>", color=P["baseline_dark"],
                                 lw=0.8, mutation_scale=8))
+    ax.annotate("3,072 MB", xy=(ctx[-1], 3072.0), xytext=(150000, 1400),
+                fontsize=6.5, color=P["baseline_dark"], ha="right")
 
     fig.tight_layout()
     save_svg(fig, "memory_scaling.svg")
@@ -276,8 +294,8 @@ def fig_architecture():
 
     for x, label, fc, tc in boxes:
         rect = mpatches.FancyBboxPatch((x, y0), bw, bh,
-                                        boxstyle="round,pad=0.06",
-                                        facecolor=fc, edgecolor="#ccc",
+                                        boxstyle="square,pad=0.06",
+                                        facecolor=fc, edgecolor="#d0d0d8",
                                         linewidth=0.8)
         ax.add_patch(rect)
         ax.text(x + bw/2, y0 + bh/2, label, ha="center", va="center",

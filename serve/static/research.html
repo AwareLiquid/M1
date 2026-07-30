@@ -589,13 +589,13 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
       </figure>
 
       <h3>Streaming Memory Footprint</h3>
-      <p>The recurrent architecture enables a <strong>state-only streaming</strong> mode that discards historical KV cache after each step, maintaining a constant 4 KB memory footprint regardless of context length — vs. the O(n) growth of standard KV-cache streaming.</p>
+      <p>The recurrent architecture enables a <strong>state-only streaming</strong> mode that discards historical KV cache after each step, maintaining a constant-size carried state regardless of context length — vs. the O(n) growth of standard KV-cache streaming. On the 832×12 decode benchmark the carried state is <strong>0.381 MB, flat from 512 to 1M tokens</strong> (a matched KV-cache reaches 3,072 MB); an earlier, smaller operator-compression config measured 4 KB — the constant is a property of the recurrence, its size a property of the model. <strong>Boundary:</strong> these are inference carried-state bytes only, not evidence of model quality beyond the 512-token training length — out-of-window LM results are null (see RESULTS.md).</p>
 
       <figure class="chart-fig">
         <img src="/static/charts/memory_scaling.svg"
-             alt="Line chart: KV-cache bytes grow linearly with context length (108 KB at 100 tokens, 1044 KB at 1000 tokens), while state-only stream stays flat at 4 KB."
+             alt="Log-log line chart: matched Llama KV-cache grows linearly from 1.5 MB at 512 tokens to 3,072 MB at 1M tokens, while the O-series carried state stays flat at 0.381 MB."
              loading="lazy">
-        <figcaption>Fig. 6b — Cache footprint vs. context length. KV-cache stream grows O(n); state-only stream stays constant at 4 KB. Data from operator compression benchmark, CPU, batch=1.</figcaption>
+        <figcaption>Fig. 6b — Inference carried state vs. context length, 512 → 1M tokens. KV-cache grows O(n) to 3,072 MB; the carried state stays 0.381 MB. ARR state is a measured snapshot; the KV line is the exact analytic size (832×12, GQA=1). Carried-state bytes only — no quality claim beyond the 512-token training length.</figcaption>
       </figure>
 
       <hr class="divider">
