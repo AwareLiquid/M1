@@ -129,6 +129,52 @@ the hard way.
    HANDOFF §3.8; the sweep has NOT been run — this entry exists so the prime
    lock is treated as a design constraint to remove, not a finding to rediscover.
 
+## GQA x global-head quota, first sweep (2026-07-31, Kaggle T4, n=1 — UNREPLICATED)
+
+Decoupled heads made middle GQA ratios expressible for the first time, so the
+question was whether a middle ratio plus the `n_global_heads` quota recovers
+probe accuracy without paying full-MHA KV. Three configs finished before the
+session was cancelled at 12 h (~4 h each); the fourth (full MHA + quota) did
+not run. Raw: `benchmarks/results/gqa_quota_sweep_kaggle.jsonl`.
+
+Probe: pointer_chase, difficulty 2, n_values 8, 30k steps, seed 0, 4 heads,
+`n_layers=2`, depth 1. Chance is 1/8 = 0.125; the transformer control sat at
+0.148 in all three.
+
+| tag | n_kv_heads | n_global_heads | params | MT-LNN acc |
+|---|---:|---:|---:|---:|
+| gqa-kv1_g2 | 1 (4:1) | 2 | 192,141 | 0.176 |
+| gqa-kv2_g2 | 2 (2:1) | 2 | 202,957 | 0.179 |
+| **gqa-kv2_g0** | 2 (2:1) | **0** | 202,957 | **1.0000** |
+
+**The middle two rows are a clean A/B: identical parameter count, one knob
+different — and the quota is the difference between chance and a perfect
+score, in the direction opposite to what M2-P0 concluded.** P0 rounds 3-5 found
+the all-decaying GTP init was blocking relational lookup and that freeing heads
+fixed it (0.249 -> 1.0000); here, freeing two heads *prevents* the solve that
+the untouched decay schedule reaches.
+
+**This is n=1 and must not be treated as a finding.** The task is visibly
+bimodal — every run either cracks it (1.0) or sits at chance (~0.15), with
+nothing in between — which is exactly the grokking-like behaviour rounds 1-2
+described. A single seed cannot distinguish "the quota hurts" from "seed 0
+happened not to grok under that init". Before anything is concluded or any
+default is changed:
+
+1. Re-run the kv2_g2 / kv2_g0 pair at **3+ seeds**. That is the whole
+   experiment; it is 8 GPU-hours and it settles the direction.
+2. If the effect survives, the two results are not actually in conflict —
+   P0 varied `gamma_init` (making *all* heads global) while this varies
+   `n_global_heads` (making *some* heads global while the rest keep a decay
+   schedule computed over fewer local heads). Reconciling those two mechanisms
+   is the real question, and `_build_alibi_gamma` recomputing the local
+   spectrum over `n_heads - n_global_heads` is the first place to look.
+3. Note also that difficulty 2 here vs difficulty 4 in P0 means these are not
+   the same task instance.
+
+Defaults are unchanged (`n_global_heads=0`), which — if this replicates — is
+already the better setting. Nothing shipped on the strength of one seed.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
