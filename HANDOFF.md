@@ -1,6 +1,6 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
-> 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`，即可无缝接续。
+> 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
 > 最后更新：2026-07-29 · 分支 `main`（physics-informed-head 已并入）
 
 ---
@@ -23,7 +23,7 @@
 
 - **意识 / Φ / 麻醉验证降级**（争议大、证据站不住），聚焦 1-2 个证据充分的硬主张：质量-效率折中 + 长上下文。
 - **可交付的证据门槛**：P0-1 多种子和 P0-2 20K 收敛训练已完成；P0-3 已补第一类强 baseline（modern Transformer），结果显示现代 Transformer 明显强于当前 MT-LNN；下一步继续补 Mamba/Mamba-2/GLA/DeltaNet、fp16 根因、scaling law、真实长上下文和效率曲线。
-- 完整施工图见 `PUBLICATION_READINESS.md`（P0/P1/P2 清单）。
+- 完整施工图见 `PUBLICATION_READINESS.md`（P0/P1/P2 清单）——在私有仓库 `AwareLiquid/AwareLiquid-Web` 的 `internal/` 下。
 
 ---
 
@@ -333,7 +333,7 @@ B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 4. **不要提交 checkpoint `.pt`**：`scaling_fp32/converge_probe/checkpoints/*.pt` 单个文件可达 1GB+，只用于本地/服务器恢复，不进 GitHub。
 5. **8GB GPU 不适合并行训练**：M1 P0-2 约 7GB，占用时不要并行 O1 或其他 GPU 训练。
 6. **transformer baseline 硬编码 `n_heads=13`**：`--d_model` 必须能被 13 整除（用 832 或 104，别用 128）。
-7. **公开仓库自曝短板**：`PUBLICATION_READINESS.md`、本 HANDOFF 都包含未完成项和风险，提交前确认可以公开。
+7. **公开仓库自曝短板**：`PUBLICATION_READINESS.md` 已于 2026-08-01 迁出到私有仓库 AwareLiquid-Web 的 `internal/`（它自述"勿推公开仓库"却一直被 git 跟踪）。**本 HANDOFF 仍在公开仓库**且包含未完成项与风险，提交前确认可以公开。
 
 ## 6. 关键命令速查
 
@@ -388,5 +388,5 @@ nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader
 - P0-2/P0-3 汇总：`scaling_fp32/converge_probe/scaling_train_20000_summary.txt`
 - 标准化日志：`scaling_fp32/converge_probe/scaling_train_20000_mt_lnn.log`、`scaling_train_20000_transformer.log`、`scaling_train_20000_modern_transformer.log`
 - checkpoint（不提交）：`scaling_fp32/converge_probe/checkpoints/*.pt`
-- 施工图：`PUBLICATION_READINESS.md`
+- 施工图：`PUBLICATION_READINESS.md`（私有仓库 AwareLiquid-Web `internal/`）
 - 模型：`mt_lnn/model.py`、`mt_lnn/mt_lnn_layer.py`、`mt_lnn/mt_lnn_v2.py`
