@@ -81,6 +81,13 @@ class MTLNNConfig:
     gwtb_compression_ratio: int = 8
     gwtb_n_heads: int = 4
     gwtb_broadcast_init: float = 0.01
+    # J-Space J1 (docs/JSPACE_DESIGN.md): workspace reverberation. The
+    # workspace self-attention iterates this many weight-tied passes per
+    # forward — content "reverberates on the stage" before broadcast. At
+    # d_gw = d_model/8 this is the cheapest thinking-depth knob in the model
+    # (~1/64 the cost of iterating the backbone). Default 1 = the existing
+    # single-pass path, bit-exact. No new parameters.
+    workspace_iterations: int = 1
     # If True, every MTLNNBlock contains its own GWTB instance (paper §4).
     # If False (default), GWTB is applied once after the block stack.
     # Per-block adds ~3% parameters and ~10% wall-clock per layer at d_gw=104,
@@ -468,6 +475,10 @@ class MTLNNConfig:
         if int(self.stack_iterations) < 1:
             raise ValueError(
                 f"stack_iterations must be >= 1; got {self.stack_iterations}"
+            )
+        if int(self.workspace_iterations) < 1:
+            raise ValueError(
+                f"workspace_iterations must be >= 1; got {self.workspace_iterations}"
             )
         if not (0 <= int(self.n_global_heads) <= int(self.n_heads)):
             raise ValueError(

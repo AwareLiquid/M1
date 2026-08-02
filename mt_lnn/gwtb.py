@@ -84,6 +84,10 @@ class GWTBLayer(nn.Module):
         self.d_head = self.d_gw // self.n_heads
         self.scale = math.sqrt(self.d_head)
         self.max_seq_len = config.max_seq_len
+        # J-Space J1 (docs/JSPACE_DESIGN.md): weight-tied reverberation passes
+        # of the workspace self-attention. Runtime attribute (no parameters)
+        # so MTLNNModel.set_workspace_iterations can vary it per step.
+        self.workspace_iterations = int(getattr(config, "workspace_iterations", 1))
 
         # 1. Compression projection (d_model → d_gw)
         self.compress = nn.Linear(self.d_model, self.d_gw, bias=False)
@@ -256,17 +260,10 @@ class GWTBLayer(nn.Module):
         B, T_new, _ = z.shape
         H, D = self.n_heads, self.d_head
 
-        Q = self.q_proj(z).view(B, T_new, H, D).transpose(1, 2)    # (B,H,T_new,D)
-        K = self.k_proj(z).view(B, T_new, H, D).transpose(1, 2)
-        V = self.v_proj(z).view(B, T_new, H, D).transpose(1, 2)
-
-        if past_kv is not None:
-            K = torch.cat([past_kv[0], K], dim=2)
-            V = torch.cat([past_kv[1], V], dim=2)
-
-        T_total = K.shape[2]
-        new_kv = (K, V) if use_cache else None
-
+        # Mask construction is z-independent, so it is hoisted out of the
+        # reverberation loop below (J-Space J1, docs/JSPACE_DESIGN.md §2).
+        past_len = past_kv[0].shape[2] if past_kv is not None else 0
+        T_total = past_len + T_new
         self._maybe_extend_causal(max(position_offset + T_new, T_total))
         causal_mask = self._causal[
             position_offset: position_offset + T_new, :T_total
@@ -279,20 +276,41 @@ class GWTBLayer(nn.Module):
             # instead of a bool mask so a fully-masked row (a pad query) yields a
             # uniform softmax rather than NaN.
             keep = causal_mask.unsqueeze(0).unsqueeze(0) & pad_mask[:, None, None, :T_total].bool()
-            attn_mask = torch.zeros(
-                keep.shape, dtype=Q.dtype, device=Q.device
-            ).masked_fill(~keep, torch.finfo(Q.dtype).min)
-        out = F.scaled_dot_product_attention(
-            Q, K, V,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout.p if self.training else 0.0,
-            is_causal=False,
-        )
-        # reshape, not contiguous().view() — see mt_attention.py: view() on the
-        # transposed tensor blocks torch.export/ONNX (browser deployment path).
-        out = out.transpose(1, 2).reshape(B, T_new, self.d_gw)
-        z_attn = self.workspace_norm(z + self.attn_out(out))
-        delta = self.broadcast(z_attn)                               # (B,T_new,d_model)
+            attn_mask = None  # dtype needs Q; built lazily on first pass below
+
+        # J1 reverberation: the workspace self-attention re-applies its own
+        # (weight-tied) pass workspace_iterations times — content reverberates
+        # on the stage before broadcast. Pass k re-derives Q/K/V from pass
+        # k-1's normed output; the PAST side of the KV concat stays fixed
+        # (those tokens contributed their own final-pass K/V when they were
+        # current). The cache stores the FINAL pass's K/V for consistency.
+        # workspace_iterations=1 is the exact pre-existing single-pass path.
+        z_cur = z
+        K = V = None
+        for _ in range(self.workspace_iterations):
+            Q = self.q_proj(z_cur).view(B, T_new, H, D).transpose(1, 2)  # (B,H,T_new,D)
+            K = self.k_proj(z_cur).view(B, T_new, H, D).transpose(1, 2)
+            V = self.v_proj(z_cur).view(B, T_new, H, D).transpose(1, 2)
+            if past_kv is not None:
+                K = torch.cat([past_kv[0], K], dim=2)
+                V = torch.cat([past_kv[1], V], dim=2)
+            if pad_mask is not None and attn_mask is None:
+                attn_mask = torch.zeros(
+                    keep.shape, dtype=Q.dtype, device=Q.device
+                ).masked_fill(~keep, torch.finfo(Q.dtype).min)
+            out = F.scaled_dot_product_attention(
+                Q, K, V,
+                attn_mask=attn_mask,
+                dropout_p=self.dropout.p if self.training else 0.0,
+                is_causal=False,
+            )
+            # reshape, not contiguous().view() — see mt_attention.py: view() on the
+            # transposed tensor blocks torch.export/ONNX (browser deployment path).
+            out = out.transpose(1, 2).reshape(B, T_new, self.d_gw)
+            z_cur = self.workspace_norm(z_cur + self.attn_out(out))
+
+        new_kv = (K, V) if use_cache else None
+        delta = self.broadcast(z_cur)                                # (B,T_new,d_model)
         return delta, new_kv
 
     # ------------------------------------------------------------------

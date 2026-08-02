@@ -962,6 +962,24 @@ class MTLNNModel(nn.Module):
             raise ValueError(f"stack_iterations must be >= 1; got {n}")
         self.stack_iterations = n
 
+    def set_workspace_iterations(self, n: int) -> None:
+        """J-Space J1: set the workspace reverberation pass count on every
+        GWTB instance (top-level and/or per-block). No parameters involved —
+        valid on any model at any depth."""
+        n = int(n)
+        if n < 1:
+            raise ValueError(f"workspace_iterations must be >= 1; got {n}")
+        targets = []
+        if getattr(self, "gwtb", None) is not None:
+            targets.append(self.gwtb)
+        for block in self.blocks:
+            if getattr(block, "gwtb", None) is not None:
+                targets.append(block.gwtb)
+        if not targets:
+            raise RuntimeError("model has no GWTB layer to set")
+        for g in targets:
+            g.workspace_iterations = n
+
     def get_mt_diagnostics(self) -> Dict[str, float]:
         """Return a dict of MT health metrics for monitoring during training."""
         diag: Dict[str, float] = {}
