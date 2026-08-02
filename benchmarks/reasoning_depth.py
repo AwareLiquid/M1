@@ -143,6 +143,8 @@ def train_model(model, gen, device, steps, batch, lr, seed,
             d = int(depth_rng.choice(depth_choices))
             if depth_setter == "stack":
                 model.set_stack_iterations(d)
+            elif depth_setter == "workspace":
+                model.set_workspace_iterations(d)
             else:
                 model.set_core_iterations(d)
         ids, labels, _ = make_lm_batch(gen, batch, rng, device)
@@ -232,6 +234,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
+            elif depth_setter == "workspace":
+                m.set_workspace_iterations(d)
             else:
                 m.set_core_iterations(d)
             print(f"  [seed {seed}] mt_lnn {depth_setter}-depth={d} fixed "
@@ -422,6 +426,9 @@ def main():
                    help="depth knob = stack_iterations (whole block stack, "
                         "attention included) instead of core_iterations "
                         "(LNN sub-layer only)")
+    p.add_argument("--workspace", action="store_true",
+                   help="depth knob = workspace_iterations (J-Space J1: "
+                        "GWTB reverberation passes, the cheapest depth)")
     p.add_argument("--mix", action="store_true",
                    help="curriculum mixture: train on k ~ U{1..difficulty} "
                         "(pointer_chase only), evaluate per-k")
@@ -455,7 +462,8 @@ def main():
                         no_scan=args.no_scan,
                         skip_transformer=args.skip_transformer,
                         gamma_init=args.gamma_init, full_mha=args.full_mha,
-                        depth_setter="stack" if args.stack else "core",
+                        depth_setter=("stack" if args.stack else
+                                      "workspace" if args.workspace else "core"),
                         mix=args.mix, n_global_heads=args.n_global_heads,
                         n_heads=args.n_heads, n_kv_heads=args.n_kv_heads)
     else:
