@@ -1,7 +1,7 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
 > 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
-> 最后更新：2026-07-29 · 分支 `main`（physics-informed-head 已并入）
+> 最后更新：2026-08-01 · 分支 `main`
 
 ---
 
@@ -101,6 +101,11 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
    指针追踪 0.25 → **1.0000 满分**(transformer 对照 0.9932)。液体子层本身无罪
 3. **随机深度训练教模型无视迭代**;固定深度或深监督才可能起作用
 4. **基准必须做作弊者分析**:随机置换图存在 f^k(s)=s 捷径(理论/实测逐位吻合),已改单环封死
+5. **⚠️ 第 2 条已被复现动摇(2026-08-01)**:g0 本地复现 seeds 1,2 = **0.183/0.165(≈随机)**,
+   而 Kaggle seed 0 = 1.0000 —— 固定难度探针在 30k 步处于 **grokking 掷硬币双峰区**,
+   此前所有单 seed 对比(P0 第四五轮、Kaggle 反例)互相不矛盾但**都不可信**。
+   新协议:单环 + mix 课程任务(可靠 grok)+ 每配置 ≥3 seeds + per-k 评估。
+   裁决实验在 Kaggle 跑(见 §3.9),结果出来前**不得引用任何单 seed 结论**
 
 ## 2.7 官网与产品表面(2026-07-30,已上线)
 
@@ -149,18 +154,22 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 - **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
 - **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 
-## 3.7 官网 / O1-Sound 未完成项(2026-07-30 交接)
+## 3.7 官网 / O1-Sound 未完成项(2026-07-30 交接,2026-08-01 更新)
 
-### ⛔ 最高优先:改版从未经人眼看过
+### ✅ 走查已完成(2026-08-01,几何审计,两个 bug 已修并上线验证)
 
-8 个页面改版 + 部署全程**没有做过视觉确认** —— 整个会话里 Chrome 工具都连不上。
-上线的是**结构正确但没人看过**的版本:标签栈平衡、CSS 括号配平、inline JS 过
-`node --check`、i18n 55/55 对称、8 条路由 200,这些都验过;**渲染出来长什么样没验过**。
-用户反馈过一次「模块间距不太对」,根因(`.section` 同特异性覆盖)已修,但**修完的效果同样没看过**。
+8 页 × 桌面/手机双宽度审计(元素重叠检测 + 溢出测量 + 计算样式):桌面端全干净
+(重叠 0、溢出 0、节奏统一 80/128px),主题钉死/404 canonical 等此前修复均验证生效。
+抓到并**已修+已部署+线上复验**的两个问题:
 
-**接手第一件事:开浏览器把 8 个页面走一遍**,尤其间距,以及 serif 标题在 Windows 上的落地
-——`--font-serif` 首选 Iowan Old Style 是 macOS 字体,Windows 会落到 Palatino/Georgia,
-中文落到宋体/思源宋体,两边观感可能差别很大。
+1. **research 手机端横向溢出 218px**——grid 列 `min-width:auto` 被 569px 宽表撑破;
+   `.content-col{min-width:0}` 修复,线上实测 hOverflow 218→0
+2. **首页中文覆盖**——切中文后实测残留 **75 段英文**(超过已知的 60+);EN/ZH 各
+   +72 key(58→130)、映射 33→52 条;线上复验残留 75→4,剩余 4 个均应保留英文
+   (TinyLlama/Liquid AI·LFM2/GitHub 链接/MIT LNN)
+
+**唯一剩给人眼的**:serif 标题在 Windows 的实际观感(`document.fonts.check` 对全部
+候选返回 true,浏览器别名机制导致机器测不出实际落地字体)——Everest 有空瞟一眼首页即可。
 
 ### O1-Sound:训练没跑
 
@@ -182,7 +191,7 @@ python export_onnx.py --ckpt checkpoints/o1sound.pt --out dist/o1sound.onnx --in
 | 级 | 位置 | 问题 |
 |---|---|---|
 | **P1** | `serve/server.py:340` | `if token and ...` 短路语义 = **`PARTNER_STATS_TOKEN` 没设就完全不鉴权**。`docker-compose.prod.yml` 里默认空串,`.env` 忘填 → `GET /partners` 全公开。应改成 prod 强制要求 token |
-| **P1** | `index.html` i18n | `demo.fullpage` / `footer.brand` / `footer.built` **中文翻译写好了但没进 `I18N_MAP`,永远不会应用**;另有 60+ 可见文案根本不在映射表内(stat 标签、feature card、rh-table、future bullets、vs 对比表、footer 链接、模型下拉)。切中文后半中半英 |
+| ~~P1~~ | ~~`index.html` i18n~~ | **✅ 已修(2026-08-01)**:EN/ZH 各 +72 key + 52 条映射,线上复验残留英文 75→4 |
 | **P2** | `index.html` / `demo.html` | `marked.parse()` 无 sanitize,CSP 含 `'unsafe-inline'` → 诱导模型输出 `<img src=x onerror=…>` 即执行。fallback shim 更糟:只转义代码块,普通段落直接拼 |
 | **P2** | `llms.txt:29` / `research.html:592` | **同一个 O(1) 数字有两个版本**:`4 KB`(正文)vs `0.381 MB`(meta/JSON-LD/首页),差近 100 倍。两者可能指不同模型规模,但**未标注就是自相矛盾**,需确认各自对应什么配置再统一 |
 | **P2** | `api.html` | 缺 canonical、og 标签;主题只有 1 处 `prefers-color-scheme`,浅色模式下仍可能突兀 |
@@ -259,13 +268,21 @@ checkpoint `.pt` 不提交;O1 数字绝不进 M1 主表;本地 8GB 归 CC 排队
 
 | 序 | 任务 | 状态 |
 |---|---|---|
-| C1 | M2-P0 收尾:过夜单环实验 → `n_global_heads` sweep → 结论+曲线图固化 | 进行中 |
+| C1 | M2-P0 收尾:GQA 配额裁决(本地 g2 + Kaggle g0×3 seeds,grok 率协议)→ J1 工作区驻留 sweep → 结论+曲线图固化 | 进行中(2026-08-01) |
 | C2 | 蒸馏数据管线(teacher-trace 采集/清洗/SFT 格式,CPU 先行,等 B3 的 key 接通) | 排队 |
 | C3 | 生物模块 5-seed ablation 补课(GWT/PC/睡眠;Hebbian 改 fast-weights 或删) | 排队 |
 | C4 | 每轮结果同步 README/BENCHMARKS/论文材料 + 本 HANDOFF | 持续 |
 
 **汇合点**:T2 结果决定论文摘要改不改;C1 sweep 结果决定 `n_global_heads` 默认值;
 B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
+
+## 3.9 算力与部署通道(2026-08-01 打通,凭证一律在 `DEPLOY_ACCESS.local.md`,不进本公开仓库)
+
+| 通道 | 状态 | 用法 |
+|---|---|---|
+| **SSH 直连生产服务器** | ✅ CC 专用 ed25519 部署密钥已装;**历史误判澄清:之前"SSH 被网络拦截"是交接把 IP 抄错(75.x ≠ 45.x)+ 本机 Clash fake-ip 挡 DNS 双重假象,22 端口一直可达** | 静态改动 push main → SSH `git pull` 即生效;`server.py` 改动才 rebuild。命令模板见 local 笔记 |
+| **Kaggle 云 GPU(T4,~30h/周)** | ✅ API token 配好,CC 可命令行推 kernel/轮询/收结果全自动 | 模板 `kaggle/kaggle_runner.ipynb`;一个 kernel 装一个配置的 3 seeds(T4 ≈ 4h/30k 步趟,会话上限 12h)。首个 kernel `everestan/m1-gqa-quota-replication-g0` 跑 mix 任务 g0×3 seeds 裁决实验 |
+| 本地 RTX 5060 8GB | 占用中 | g2 固定难度复现收尾;之后排 J1 探针 |
 
 ## 3.75 分支盘点(2026-07-30,已清理)
 
