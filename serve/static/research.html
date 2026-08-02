@@ -193,6 +193,13 @@ a{color:var(--fg)}
 /* ── SIDEBAR LAYOUT ── */
 .research-layout{display:grid;grid-template-columns:220px 1fr;gap:64px;padding:64px 0 96px;align-items:start}
 @media(max-width:860px){.research-layout{grid-template-columns:1fr}}
+/* Grid items default to min-width:auto = the content's min-content width, so
+   the wide results tables (min-content ≈ 569px) silently stretched the 1fr
+   track past a 375px viewport — the whole page scrolled sideways on mobile
+   (measured hOverflow=218px, 2026-08-01). min-width:0 lets the column shrink
+   to the viewport; the tables then scroll inside their own boxes (the
+   .card table overflow-x:auto rule above). */
+.content-col{min-width:0}
 .sidebar{position:sticky;top:84px}
 .sidebar-nav{list-style:none}
 .sidebar-nav li{margin-bottom:2px}
