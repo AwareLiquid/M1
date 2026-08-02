@@ -1057,6 +1057,64 @@ const I18N={
     'footer.bottom':'© 2026 AwareLiquid · open research demo',
     'footer.entity':'Shenzhen Santi Anyuan Technology Co., Ltd',
     'footer.built':'Built on',
+    'skip.demo':'Skip to demo',
+    'nav.industries':'Industries',
+    'rail.t1':'Constant-memory evidence extended from 128k to 1M tokens',
+    'rail.t2':'Battery state-of-health on real NASA cells',
+    'rail.t3':'Root-causing an fp16-only training divergence',
+    'rail.c1':'Benchmark','rail.c2':'Edge pilot','rail.c3':'Engineering',
+    'lineup.s1':'M-Series','lineup.s2':'O-Series',
+    'stats.l1':'Less inference memory at 1M tokens<br>O-series state vs. KV-cache',
+    'stats.l2':'Constant carried state<br>flat from 512 to 1M tokens',
+    'stats.l3':'Cross-window recall<br>fast-weight vs. attention/LoRA',
+    'stats.l4':'From-scratch edge model<br>attention-free O-series',
+    'arch.figcap':'AwareLiquid M1 end-to-end pipeline — continuous-time LTC core + GWT competitive broadcast + sleep consolidation + EWC online learning',
+    'feat.tag1':'M1 · M-Series','feat.tag2':'M1 · M-Series','feat.tag3':'O1 · O-Series',
+    'feat.t1':'Global Workspace Theory (GWT)',
+    'feat.d1':'Specialist cortical modules compete for a shared broadcast channel — the "global workspace." The winner propagates its representation to all other modules, enabling selective attention, emergent integration, and conscious-like information routing.',
+    'feat.t2':'Sleep Consolidation (NREM Bridge)',
+    'feat.d2':'Synthetic NREM cycles replay short-term session activations and compress them into a persistent graph-memory structure. Synaptic Homeostasis (SHY) downscaling prunes redundant connections, boosting signal-to-noise. The model grows smarter during rest.',
+    'feat.t3':'Liquid ODE Dynamics',
+    'feat.d3':'Hidden state evolves as a continuous-time differential equation with learnable time constants — inspired by microtubule dynamics. No discrete layer stacking, no KV-cache growth. Constant-memory state enables edge deployment at millisecond latency.',
+    'ind.c1t':'Battery management',
+    'ind.c1d':'State-of-health regression on voltage/current/temperature streams, on the pack controller itself.',
+    'ind.c1s':'Measured — NASA PCoE cells',
+    'ind.c1m':'+7.7% at 80% sample loss vs +31% LSTM/GRU · 2.6 KB streaming state. 10 seeds, whole cell held out.',
+    'ind.c2t':'Hearables',
+    'ind.c2d':'Always-on wake-word spotting where the microphone never closes — one keyword, measured in English. Open source as <strong>O1-Sound</strong>.',
+    'ind.c2s':'Measured — single keyword only',
+    'ind.c2m':'English &ldquo;hello&rdquo;: FRR 0.14 &plusmn; 0.05 at FAR 0.05 across 3 seeds. 5.03 MB fp32 / 1.27 MB int8, 5,120 B constant state. <strong>Not production grade</strong>: seed-to-seed spread is wider than any change we have tried, and the multilingual version measured worse than never firing — one binary class cannot span greetings that share no phonetics.',
+    'ind.c3t':'Financial documents',
+    'ind.c3d':'QA over filings far longer than the context window, with the base model frozen behind an API.',
+    'ind.c3s':'Measured — M2 adapter',
+    'ind.c3m':'44/48 (91.7%) across five financial-document domains · ~2.8k tokens per question. A regression baseline, not a leaderboard.',
+    'ind.alsoLabel':'Also targeting',
+    'ind.alsoText':'In-vehicle systems · On-device assistants · Industrial robotics — architectural fit (bounded state over an unbounded session, native Δt), <strong>no pilot data yet</strong>.',
+    'rh.th1':'Capability','rh.th2':'Result',
+    'rh.r1c':'O(1) inference memory (O-series)','rh.r1v':'0.381 MB flat → 8063× smaller @1M tokens',
+    'rh.r2c':'Cross-window associative recall','rh.r2v':'0.56 vs 0.000 (attention/LoRA)',
+    'rh.r3c':'Cross-session snapshot → restore','rh.r3v':'bit-exact lossless',
+    'rh.r4c':'Stable training at 125M scale','rh.r4v':'no NaN, 20K steps, 3 seeds',
+    'rh.r5c':'Irregular-sampling robustness (battery SoH)','rh.r5v':'4× steadier than LSTM/GRU when samples drop',
+    'rh.note':'Full methodology, raw data and reproduction scripts: <a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.',
+    'rh.chartcap':'Inference memory vs. context length. The KV-cache grows O(n); the O-series carried state is flat. Measured to 1M tokens: 0.381 MB state vs. 3,072 MB KV-cache — 8063× smaller. This measures inference carried-state bytes only — it is not evidence of model quality beyond the 512-token training length (out-of-window LM results are null; see RESULTS.md).',
+    'demo.opt1':'M1 · TinyLlama-1.1B + MT adapter',
+    'demo.opt2':'O1 · 48M edge, from scratch',
+    'vs.t1':'Maximum Inference<br>Efficiency',
+    'vs.t2':'Cognitive Continuity<br>&amp; Lifelong Learning',
+    'vs.o1':'SSM + linear attention + MoE hybrid',
+    'vs.o2':'350M – 24B parameters, commercial scale',
+    'vs.o3':'Weights frozen post-training; in-context only',
+    'vs.o4':'Targets industrial time-series & edge devices',
+    'vs.u1':'Continuous-time RNN + GWT + Sleep + EWC',
+    'vs.u2':'48M – 60.7M, open research prototype',
+    'vs.u3':'Online weight updates — learns without forgetting',
+    'vs.u4':'Targets episodic memory, agent cognition & adaptation',
+    'footer.arch':'Architecture','footer.ewc':'EWC Results','footer.hebbian':'Hebbian Ablation',
+    'footer.spatial':'Spatial Computing','footer.paperpdf':'Paper (PDF)',
+    'footer.about':'About','footer.livedemo':'Live Demo',
+    'footer.modelapi':'Model API','footer.health':'Health',
+    'footer.privacy2':'Privacy','footer.terms2':'Terms',
   },
   zh:{
     'nav.demo':'演示','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
@@ -1096,6 +1154,64 @@ const I18N={
     'footer.bottom':'© 2026 AwareLiquid · 开源研究演示',
     'footer.entity':'深圳三体暗源科技有限公司',
     'footer.built':'基于',
+    'skip.demo':'跳转到演示',
+    'nav.industries':'行业',
+    'rail.t1':'恒定内存证据从 128k 扩展到 1M tokens',
+    'rail.t2':'真实 NASA 电池上的健康状态估计',
+    'rail.t3':'定位一次仅 fp16 训练发散的根因',
+    'rail.c1':'基准测试','rail.c2':'边缘试点','rail.c3':'工程',
+    'lineup.s1':'M 系列','lineup.s2':'O 系列',
+    'stats.l1':'1M tokens 下推理内存更省<br>O 系列状态 vs. KV cache',
+    'stats.l2':'恒定携带状态<br>从 512 到 1M tokens 保持不变',
+    'stats.l3':'跨窗口召回<br>快权重 vs. 注意力/LoRA',
+    'stats.l4':'从零训练的边缘模型<br>无注意力 O 系列',
+    'arch.figcap':'AwareLiquid M1 端到端流水线——连续时间 LTC 核心 + GWT 竞争广播 + 睡眠巩固 + EWC 在线学习',
+    'feat.tag1':'M1 · M 系列','feat.tag2':'M1 · M 系列','feat.tag3':'O1 · O 系列',
+    'feat.t1':'全局工作空间理论（GWT）',
+    'feat.d1':'各专家皮层模块竞争一条共享广播通道——"全局工作空间"。胜出者将其表征传播给所有其他模块，实现选择性注意、涌现式整合与类意识的信息路由。',
+    'feat.t2':'睡眠巩固（NREM 桥接）',
+    'feat.d2':'合成 NREM 周期回放短期会话激活，并将其压缩进持久的图记忆结构。突触稳态（SHY）降标机制修剪冗余连接，提升信噪比。模型在休息中变得更聪明。',
+    'feat.t3':'液态 ODE 动力学',
+    'feat.d3':'隐藏状态以带可学习时间常数的连续时间微分方程演化——灵感来自微管动力学。没有离散层堆叠，没有 KV cache 增长。恒定内存状态让边缘部署达到毫秒级延迟。',
+    'ind.c1t':'电池管理',
+    'ind.c1d':'在电池包控制器上，直接对电压/电流/温度数据流做健康状态（SoH）回归。',
+    'ind.c1s':'已实测 — NASA PCoE 电池',
+    'ind.c1m':'80% 采样丢失下 +7.7%，对比 LSTM/GRU 的 +31% · 2.6 KB 流式状态。10 个种子，整颗电池留出验证。',
+    'ind.c2t':'可穿戴音频',
+    'ind.c2d':'麦克风永不关闭的常开唤醒词检测——单个关键词，仅英文实测。已开源为 <strong>O1-Sound</strong>。',
+    'ind.c2s':'已实测 — 仅单关键词',
+    'ind.c2m':'英文 &ldquo;hello&rdquo;：3 个种子下 FAR 0.05 时 FRR 0.14 &plusmn; 0.05。5.03 MB fp32 / 1.27 MB int8，5,120 B 恒定状态。<strong>非生产级</strong>：种子间波动大于我们尝试过的任何改动，且多语言版本实测比从不触发还差——单一二分类无法覆盖没有共同音素的问候语。',
+    'ind.c3t':'金融文档',
+    'ind.c3d':'对远超上下文窗口长度的申报文件做问答，基座模型冻结在 API 之后。',
+    'ind.c3s':'已实测 — M2 适配器',
+    'ind.c3m':'五个金融文档领域 44/48（91.7%）· 每题约 2.8k tokens。这是一条回归基线，不是排行榜。',
+    'ind.alsoLabel':'同时瞄准',
+    'ind.alsoText':'车载系统 · 端侧助手 · 工业机器人——架构契合（无界会话下的有界状态、原生 Δt），<strong>尚无试点数据</strong>。',
+    'rh.th1':'能力','rh.th2':'结果',
+    'rh.r1c':'O(1) 推理内存（O 系列）','rh.r1v':'0.381 MB 恒定 → 1M tokens 下小 8063×',
+    'rh.r2c':'跨窗口联想召回','rh.r2v':'0.56 vs 0.000（注意力/LoRA）',
+    'rh.r3c':'跨会话快照 → 恢复','rh.r3v':'比特级无损',
+    'rh.r4c':'125M 规模稳定训练','rh.r4v':'无 NaN，20K 步，3 个种子',
+    'rh.r5c':'不规则采样鲁棒性（电池 SoH）','rh.r5v':'采样丢失时比 LSTM/GRU 稳 4×',
+    'rh.note':'完整方法论、原始数据与复现脚本：<a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>。',
+    'rh.chartcap':'推理内存 vs. 上下文长度。KV cache 以 O(n) 增长；O 系列携带状态保持恒定。实测至 1M tokens：0.381 MB 状态 vs. 3,072 MB KV cache——小 8063×。此项仅测量推理携带状态字节数——不构成超出 512 token 训练长度之外模型质量的证据（窗口外 LM 结果为空；见 RESULTS.md）。',
+    'demo.opt1':'M1 · TinyLlama-1.1B + MT 适配器',
+    'demo.opt2':'O1 · 48M 边缘模型 · 从零训练',
+    'vs.t1':'极致推理<br>效率',
+    'vs.t2':'认知连续性<br>与终身学习',
+    'vs.o1':'SSM + 线性注意力 + MoE 混合架构',
+    'vs.o2':'350M – 24B 参数，商业规模',
+    'vs.o3':'训练后权重冻结；仅上下文内学习',
+    'vs.o4':'瞄准工业时间序列与边缘设备',
+    'vs.u1':'连续时间 RNN + GWT + 睡眠 + EWC',
+    'vs.u2':'48M – 60.7M，开源研究原型',
+    'vs.u3':'在线权重更新——学习而不遗忘',
+    'vs.u4':'瞄准情节记忆、智能体认知与适应',
+    'footer.arch':'架构','footer.ewc':'EWC 结果','footer.hebbian':'Hebbian 消融',
+    'footer.spatial':'空间计算','footer.paperpdf':'论文（PDF）',
+    'footer.about':'关于','footer.livedemo':'在线演示',
+    'footer.modelapi':'模型 API','footer.health':'健康检查',
+    'footer.privacy2':'隐私','footer.terms2':'条款',
   }
 };
 
@@ -1141,6 +1257,23 @@ const I18N_MAP=[
   ['.footer-col a[href="/terms"]','footer.terms','text'],
   ['.footer-copy','footer.bottom','text'],
   ['.footer-entity','footer.entity','text'],
+  ['.skip-nav','skip.demo','text'],
+  ['.nav-links a[href="#industries"]','nav.industries','text'],
+  ['.nav-actions .btn-ghost','nav.research','text'],
+  ['#fullpageLink','demo.fullpage','text'],
+  ['.arch-figure figcaption','arch.figcap','text'],
+  ['.chart-fig figcaption','rh.chartcap','text'],
+  ['.rh-table .table-note','rh.note','html'],
+  ['.footer-brand p','footer.brand','text'],
+  ['.footer-col a[href="/research#architecture"]','footer.arch','text'],
+  ['.footer-col a[href="/research#ewc"]','footer.ewc','text'],
+  ['.footer-col a[href="/research#hebbian"]','footer.hebbian','text'],
+  ['.footer-col a[href="/research#spatial"]','footer.spatial','text'],
+  ['.footer-col a[href*="arxiv.pdf"]','footer.paperpdf','text'],
+  ['.footer-col a[href="/about"]','footer.about','text'],
+  ['.footer-col a[href="#demo"]','footer.livedemo','text'],
+  ['.footer-col a[href="/v1/model"]','footer.modelapi','text'],
+  ['.footer-col a[href="/health"]','footer.health','text'],
 ];
 
 function applyPageLang(lang){
@@ -1187,6 +1320,64 @@ function applyPageLang(lang){
   // rh.h2 needs <br>
   const rhH2=document.querySelector('.rh-section .rh-text h2');
   if(rhH2)rhH2.innerHTML=ti('rh.h2').replace('\n','<br>');
+
+  // news rail: headline + category label (2nd label; the 1st is the date)
+  document.querySelectorAll('.rail .r-title').forEach((el,i)=>{el.textContent=ti('rail.t'+(i+1));});
+  document.querySelectorAll('.rail .r-meta').forEach((el,i)=>{
+    const labs=el.querySelectorAll('.label');
+    if(labs[1])labs[1].textContent=ti('rail.c'+(i+1));
+  });
+
+  // model lineup series captions (M-Series / O-Series)
+  document.querySelectorAll('.model-series').forEach((el,i)=>{el.textContent=ti('lineup.s'+(i+1));});
+
+  // stats strip labels (contain <br>)
+  document.querySelectorAll('.stat-l').forEach((el,i)=>{el.innerHTML=ti('stats.l'+(i+1));});
+
+  // architecture feature cards
+  document.querySelectorAll('.feat-card').forEach((card,i)=>{
+    const tag=card.querySelector('.feat-model-tag'),h=card.querySelector('h3'),p=card.querySelector('p');
+    if(tag)tag.textContent=ti('feat.tag'+(i+1));
+    if(h)h.textContent=ti('feat.t'+(i+1));
+    if(p)p.textContent=ti('feat.d'+(i+1));
+  });
+
+  // industries cells (desc/metric may contain <strong> → html)
+  document.querySelectorAll('.ind-cell').forEach((cell,i)=>{
+    const t=cell.querySelector('.ind-t'),d=cell.querySelector('.ind-d'),
+          s=cell.querySelector('.ind-s'),m=cell.querySelector('.ind-m');
+    if(t)t.textContent=ti('ind.c'+(i+1)+'t');
+    if(d)d.innerHTML=ti('ind.c'+(i+1)+'d');
+    if(s)s.textContent=ti('ind.c'+(i+1)+'s');
+    if(m)m.innerHTML=ti('ind.c'+(i+1)+'m');
+  });
+  const indAlso=document.querySelector('.ind-also');
+  if(indAlso)indAlso.innerHTML='<span class="label"><span class="label-sq"></span>'+ti('ind.alsoLabel')+'</span> '+ti('ind.alsoText');
+
+  // engineering-reality table: headers + row cells
+  document.querySelectorAll('.rh-table thead th').forEach((el,i)=>{el.textContent=ti('rh.th'+(i+1));});
+  document.querySelectorAll('.rh-table tbody tr').forEach((tr,i)=>{
+    const tds=tr.querySelectorAll('td');
+    if(tds[0])tds[0].textContent=ti('rh.r'+(i+1)+'c');
+    if(tds[1])tds[1].textContent=ti('rh.r'+(i+1)+'v');
+  });
+
+  // demo model dropdown
+  document.querySelectorAll('#modelSel option').forEach((el,i)=>{el.textContent=ti('demo.opt'+(i+1));});
+
+  // vs comparison cards: titles contain <br>; list items are plain text
+  document.querySelectorAll('.vs-card .vs-title').forEach((el,i)=>{el.innerHTML=ti('vs.t'+(i+1));});
+  document.querySelectorAll('.vs-card').forEach((card,ci)=>{
+    card.querySelectorAll('li').forEach((li,i)=>{
+      li.textContent=ti((ci===0?'vs.o':'vs.u')+(i+1));
+    });
+  });
+
+  // footer bottom right span: privacy · terms · built-on link
+  const fbSpan=document.querySelector('.footer-bottom-inner > span:not(.footer-legal)');
+  if(fbSpan)fbSpan.innerHTML='<a href="/privacy">'+ti('footer.privacy2')+'</a> &nbsp;·&nbsp; '
+    +'<a href="/terms">'+ti('footer.terms2')+'</a> &nbsp;·&nbsp; '
+    +ti('footer.built')+' <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT LNN</a>';
 
   // all other selectors
   for(const [sel,key,type] of I18N_MAP){
