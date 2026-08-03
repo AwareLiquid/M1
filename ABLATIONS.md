@@ -175,6 +175,31 @@ default is changed:
 Defaults are unchanged (`n_global_heads=0`), which — if this replicates — is
 already the better setting. Nothing shipped on the strength of one seed.
 
+### Replication (2026-08-03, local RTX 5060, seeds 1–2 × 30k steps) — probe DEPRECATED
+
+The 3+-seed replication asked for above is now in. Same pair, same fixed-
+difficulty probe (pointer_chase, difficulty 2, n_values 8, kv=2):
+
+| config | seed 0 (Kaggle) | seed 1 (local) | seed 2 (local) | grok rate |
+|---|---:|---:|---:|---:|
+| kv2_g0 | 1.0000 | 0.1832 | 0.1652 | **1/3** |
+| kv2_g2 | 0.179 | 0.1863 | 0.2980 | **0/3** |
+
+1/3 vs 0/3 at n=3 is not evidence of anything (Fisher exact p = 1.0). The
+real finding is about the PROBE, not the configs: at 30k steps the fixed-
+difficulty task is a Bernoulli grok/no-grok coin flip per seed — every
+headline contrast so far (P0 rounds 3–5 "γ freeing fixes it", the 2026-07-31
+"quota prevents it") was sampling noise from this bimodality, mutually
+consistent and mutually uninformative. Raw: `benchmarks/results/gqa_rep_g{0,2}.log`,
+rows tagged `gqa-rep-g0/g2` in `reasoning_depth.jsonl`.
+
+**Protocol decision**: the fixed-difficulty probe is deprecated for config
+comparisons. The replacement is the single-cycle + curriculum-mix task
+(`--mix`, per-k eval), which grokked reliably in the one local run to date
+(loss → 0 by 28k). The g0-vs-g2 question re-runs under that protocol on
+Kaggle (`m1-gqa-quota-replication-g0` kernel et seq.); until it lands, the
+quota direction is UNDECIDED and `n_global_heads=0` stays default.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
