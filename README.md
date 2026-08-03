@@ -16,6 +16,14 @@
 
 ---
 
+> **Note — "M2" also names a document-QA adapter, not this architecture.**
+> A separate repo, [`AwareLiquid/AwareLiquid-M2`](https://github.com/AwareLiquid/AwareLiquid-M2),
+> is a retrieval + compression **adapter** that wraps a *frozen* API model for
+> financial-document QA. Its ~91.7% eval score is the adapter's, not this MT-LNN
+> architecture's — it trains no weights and shares no code with this repo. The
+> "M2" in this project (`m2_final.pt`, the kaggle m2 pretrain kernel) refers to
+> this architecture's 125M line.
+
 **A streaming-state recurrent LLM architecture with two proven, hard-to-replicate results: cross-window associative recall that attention cannot express, and (in its attention-free variant) genuine O(1) inference memory.**
 
 > **Evidence policy.** Every number in this README is backed by a reproducible table in [BENCHMARKS.md](BENCHMARKS.md) and reconciled in [RESULTS.md](RESULTS.md). RESULTS.md is the source of truth; if any other doc disagrees, RESULTS.md wins. Earlier "−28–34% adapter PPL" and consciousness/Φ̂ claims have been **retracted or reclassified as inspiration** — see [What is retracted](#what-is-retracted).
