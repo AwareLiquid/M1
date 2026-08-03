@@ -157,6 +157,79 @@ def gen_mod_chain(
     return Batch(tokens=toks, answer=ans, ans_pos=T - 1)
 
 
+# ── Task 3: parity ───────────────────────────────────────────────────────────
+#
+# Layout: [BOS] b1 b2 ... bk [THINK] [ANS], bits ∈ {0,1}, answer = XOR of all.
+# Purpose (memory/m1-m2-depth-study, 2026-08-03): parity ∈ TC⁰, but
+# finite-precision SSMs with NON-NEGATIVE gating provably cannot compute it
+# (Sarrof et al. NeurIPS 2024 Thm 2). This is the DEBUG GATE for the liquid
+# core's eigenvalue parameterization defect — failure here indicts the
+# (0,1)-decay parameterization, not circuit depth, and is fixable by extending
+# to signed eigenvalues (Grazzi et al. ICLR 2025). Do not confuse a parity
+# failure with an NC¹ separation.
+
+def gen_parity(
+    batch: int,
+    k_bits: int,
+    rng: np.random.Generator,
+) -> Batch:
+    T = 1 + k_bits + 2  # BOS + bits + THINK + ANS
+    toks = np.full((batch, T), PAD, dtype=np.int64)
+    bits = rng.integers(0, 2, size=(batch, k_bits))
+    toks[:, 0] = BOS
+    toks[:, 1:1 + k_bits] = VALUE_BASE + bits
+    toks[:, 1 + k_bits] = THINK
+    toks[:, 2 + k_bits] = ANS
+    ans = VALUE_BASE + (bits.sum(axis=1) % 2)
+    return Batch(tokens=toks, answer=ans.astype(np.int64), ans_pos=T - 1)
+
+
+# ── Task 4: S5 word problem ──────────────────────────────────────────────────
+#
+# Layout: [BOS] g1 g2 ... gk [THINK] [ANS], each g a uniformly random element
+# of the symmetric group S5 (|S5| = 120, one value token per element), answer
+# = the left-to-right product g1·g2·...·gk.
+# Purpose: S5 is NON-SOLVABLE, so its word problem is NC¹-complete (Barrington)
+# — the canonical task a TC⁰ model (diagonal, input-independent transition:
+# Merrill et al. ICML 2024 Thm 4.2) cannot solve at fixed depth, while
+# Θ(log n) weight-tied depth (stack_iterations) suffices (Merrill & Sabharwal
+# NeurIPS 2025). This is THE separation experiment. NOTE mod_chain cannot play
+# this role: abelian groups are solvable and admit O(1)-depth shortcuts
+# (Krohn–Rhodes), so depth-flat results there are theory-consistent and
+# uninformative. Products of uniform elements are uniform on S5 → content-free
+# baseline is exactly 1/120; no cycle/shortcut structure to seal.
+
+from itertools import permutations as _perms
+
+_S5 = tuple(_perms(range(5)))                    # fixed enumeration, 120 elems
+_S5_INDEX = {p: i for i, p in enumerate(_S5)}
+# composition table: (a∘b)[x] = a[b[x]]; COMPOSE[a, b] = index of a∘b
+_S5_COMPOSE = np.empty((120, 120), dtype=np.int64)
+for _i, _a in enumerate(_S5):
+    for _j, _b in enumerate(_S5):
+        _S5_COMPOSE[_i, _j] = _S5_INDEX[tuple(_a[_b[x]] for x in range(5))]
+S5_ORDER = 120
+
+
+def gen_s5_word(
+    batch: int,
+    k_terms: int,
+    rng: np.random.Generator,
+) -> Batch:
+    T = 1 + k_terms + 2  # BOS + elements + THINK + ANS
+    toks = np.full((batch, T), PAD, dtype=np.int64)
+    g = rng.integers(0, S5_ORDER, size=(batch, k_terms))
+    toks[:, 0] = BOS
+    toks[:, 1:1 + k_terms] = VALUE_BASE + g
+    toks[:, 1 + k_terms] = THINK
+    toks[:, 2 + k_terms] = ANS
+    acc = g[:, 0].copy()
+    for i in range(1, k_terms):
+        acc = _S5_COMPOSE[acc, g[:, i]]
+    return Batch(tokens=toks, answer=(VALUE_BASE + acc).astype(np.int64),
+                 ans_pos=T - 1)
+
+
 # ── Convenience: unified generator ───────────────────────────────────────────
 
 def make_generator(task: str, difficulty: int, n_values: int, seed: int):
@@ -171,6 +244,14 @@ def make_generator(task: str, difficulty: int, n_values: int, seed: int):
     elif task == "mod_chain":
         def gen(batch: int, rng: np.random.Generator) -> Batch:
             return gen_mod_chain(batch, n_values, difficulty, rng)
+    elif task == "parity":
+        n_values = 2  # bits; difficulty = k_bits
+        def gen(batch: int, rng: np.random.Generator) -> Batch:
+            return gen_parity(batch, difficulty, rng)
+    elif task == "s5_word":
+        n_values = S5_ORDER  # difficulty = k_terms
+        def gen(batch: int, rng: np.random.Generator) -> Batch:
+            return gen_s5_word(batch, difficulty, rng)
     else:
         raise ValueError(f"unknown task: {task}")
     return gen, vocab_size(n_values), n_values
@@ -216,6 +297,28 @@ def _selftest() -> None:
 
     b2 = gen_mod_chain(4, modulus=10, k_terms=5, rng=rng)
     assert (b2.tokens[:, b2.ans_pos] == ANS).all()
+
+    # parity: replay XOR from tokens
+    bp = gen_parity(16, k_bits=9, rng=rng)
+    for r in range(16):
+        bits = bp.tokens[r, 1:10] - VALUE_BASE
+        assert VALUE_BASE + (bits.sum() % 2) == bp.answer[r]
+
+    # S5: group-theory sanity — identity element, closure, and manual replay
+    ident = _S5_INDEX[tuple(range(5))]
+    assert (_S5_COMPOSE[ident, :] == np.arange(120)).all()
+    assert (_S5_COMPOSE[:, ident] == np.arange(120)).all()
+    # associativity spot-check on random triples
+    tri = np.random.default_rng(1).integers(0, 120, size=(50, 3))
+    for a, b_, c in tri:
+        assert _S5_COMPOSE[_S5_COMPOSE[a, b_], c] == _S5_COMPOSE[a, _S5_COMPOSE[b_, c]]
+    bs = gen_s5_word(8, k_terms=6, rng=rng)
+    for r in range(8):
+        g = bs.tokens[r, 1:7] - VALUE_BASE
+        acc = int(g[0])
+        for i in range(1, 6):
+            acc = int(_S5_COMPOSE[acc, int(g[i])])
+        assert VALUE_BASE + acc == bs.answer[r]
     # deterministic given seed
     r1 = np.random.default_rng(42)
     r2 = np.random.default_rng(42)

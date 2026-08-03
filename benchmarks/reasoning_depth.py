@@ -389,7 +389,8 @@ def run(task, difficulty, n_values, seeds, steps, batch, lr, max_depth,
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--task", choices=["pointer_chase", "mod_chain"],
+    p.add_argument("--task",
+                   choices=["pointer_chase", "mod_chain", "parity", "s5_word"],
                    default="pointer_chase")
     p.add_argument("--difficulty", type=int, default=4,
                    help="k_hops (pointer_chase) or k_terms (mod_chain)")
@@ -446,7 +447,8 @@ def main():
     args = p.parse_args()
 
     if args.n_values is None:
-        args.n_values = 16 if args.task == "pointer_chase" else 10
+        args.n_values = {"pointer_chase": 16, "mod_chain": 10,
+                         "parity": 2, "s5_word": 120}[args.task]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.smoke:
