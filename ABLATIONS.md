@@ -200,6 +200,38 @@ comparisons. The replacement is the single-cycle + curriculum-mix task
 Kaggle (`m1-gqa-quota-replication-g0` kernel et seq.); until it lands, the
 quota direction is UNDECIDED and `n_global_heads=0` stays default.
 
+### Mix-protocol A/B (2026-08-04, Kaggle T4, 3 seeds each × 30k) — VERDICT
+
+Single-cycle + curriculum-mix (k ~ U{1..4} announced in-input), per-k eval,
+kv=2, depth 1, 200K params. Chance ≈ 1/7 = 0.143 (answer ≠ start on a cycle).
+Rows tagged `kg-mix-g0` / `kg-mix-g2` in `reasoning_depth.jsonl`.
+
+| config | seed | k=1 | k=2 | k=3 | k=4 |
+|---|---:|---:|---:|---:|---:|
+| g0 | 0 | **1.000** | 0.184 | 0.160 | 0.167 |
+| g0 | 1 | 0.676 | 0.216 | 0.205 | 0.194 |
+| g0 | 2 | **0.994** | 0.188 | 0.164 | 0.173 |
+| g2 | 0 | 0.240 | 0.131 | 0.142 | 0.144 |
+| g2 | 1 | **1.000** | 0.461 | 0.250 | 0.220 |
+| g2 | 2 | **1.000** | 0.329 | 0.326 | 0.319 |
+
+Two verdicts:
+
+1. **Quota: no promotable difference.** k=1 solve rate 2–3/3 both ways (g2
+   seed 0 failed even 1-hop; g2's surviving seeds show mildly better k=2
+   partial credit, ~0.33–0.46 vs ~0.19 — suggestive, not conclusive at n=3).
+   `n_global_heads=0` STAYS DEFAULT; the 2026-07-31 "quota prevents the
+   solve" headline does not replicate under the mix protocol.
+2. **The real result: 1-hop lookup is learnable under the DEFAULT decaying
+   attention (5/6 seeds ≥0.68), but composition (k≥2) emerges in NO config at
+   depth 1 / 30k / 200K params.** Head configuration was never the binding
+   constraint for multi-hop — depth is, exactly as the circuit-depth analysis
+   predicts (liquid core in TC⁰; composition needs depth). The earlier local
+   loss→0 mix run that DID compose used γ=0.001 + full MHA — freed attention
+   may lower the depth barrier, but under production-realistic attention the
+   binding constraint is depth. The decisive test is the stack_iterations
+   sweep on s5_word (`m1-circuit-separation-parity-s5` kernel, running).
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
