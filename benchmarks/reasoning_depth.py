@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mt_lnn import MTLNNConfig, MTLNNModel
 from benchmarks.baselines import BaselineConfig, ModernCausalTransformer
-from benchmarks.reasoning_tasks import make_generator, gen_pointer_chase
+from benchmarks.reasoning_tasks import make_generator, gen_pointer_chase, gen_parity
 
 RESULTS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                        "results", "reasoning_depth.jsonl")
@@ -80,9 +80,11 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
                 gamma_init=None, full_mha=False, n_global_heads=0,
-                n_heads=None, n_kv_heads=None, signed_decay=False):
+                n_heads=None, n_kv_heads=None, signed_decay=False,
+                selective_decay=False):
     torch.manual_seed(seed)
-    kw = {"n_global_heads": n_global_heads, "signed_decay": signed_decay}
+    kw = {"n_global_heads": n_global_heads, "signed_decay": signed_decay,
+          "selective_decay": selective_decay}
     if gamma_init is not None:
         kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
     # Head-decoupling sweep knobs (ABLATIONS.md "Design-coupling audit").
@@ -162,30 +164,56 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
 # ── experiment ───────────────────────────────────────────────────────────────
 
-def make_mix_generator(difficulty, n_values):
-    """Curriculum-style mixture: each batch draws hop count k ~ U{1..difficulty}
-    (k is announced in the input tokens). Composition tasks grok much faster
-    when the model can learn 1-hop lookup first and bootstrap deeper hops —
-    fixed-k training left everyone (incl. transformer) on a shared plateau at
-    k=4 (P0-C′ round 1). Sequence length is constant since only the k token
-    varies."""
+def _mix_gen_for(task, n_values):
+    """Per-task fixed-k generator used by mixture training / per-k eval."""
+    if task == "pointer_chase":
+        return lambda batch, k, rng: gen_pointer_chase(batch, n_values, k, rng)
+    if task == "parity":
+        return lambda batch, k, rng: gen_parity(batch, k, rng)
+    raise ValueError(f"--mix does not support task {task}")
+
+
+def make_mix_generator(task, difficulty, n_values):
+    """Curriculum-style mixture: each batch draws difficulty k ~ U{1..difficulty}.
+    Composition/recurrence tasks grok far faster when the model can learn the
+    k=1 base case first and bootstrap upward — fixed-k training left everyone
+    (incl. transformer) on shared plateaus (P0-C′ round 1; parity 2026-08-05:
+    fixed L=32 all-chance for every arm, curriculum immediately separates
+    selective vs stock at L=2). pointer_chase keeps T constant (only the k
+    token varies); parity's T varies per batch, which is fine — batches are
+    homogeneous."""
+    base = _mix_gen_for(task, n_values)
+
     def gen(batch, rng):
         k = int(rng.integers(1, difficulty + 1))
-        return gen_pointer_chase(batch, n_values, k, rng)
+        return base(batch, k, rng)
     return gen
 
 
+def _eval_ks(task, difficulty):
+    """Which k values to report. pointer_chase: every hop count. parity:
+    geometric ladder (1,2,4,...) — adjacent lengths are near-redundant."""
+    if task == "parity":
+        ks, k = [], 1
+        while k <= difficulty:
+            ks.append(k)
+            k *= 2
+        return ks
+    return list(range(1, difficulty + 1))
+
+
 @torch.no_grad()
-def evaluate_per_k(model, difficulty, n_values, rng, device,
+def evaluate_per_k(model, task, difficulty, n_values, rng, device,
                    batches=8, batch=256, fwd_kwargs=None):
-    """Accuracy at EACH hop count 1..difficulty (mixture-trained models)."""
+    """Accuracy at each difficulty bucket (mixture-trained models)."""
     fwd_kwargs = fwd_kwargs or {}
+    base = _mix_gen_for(task, n_values)
     model.eval()
     accs = {}
-    for k in range(1, difficulty + 1):
+    for k in _eval_ks(task, difficulty):
         correct = total = 0
         for _ in range(batches):
-            b = gen_pointer_chase(batch, n_values, k, rng)
+            b = base(batch, k, rng)
             ids = torch.from_numpy(b.tokens).to(device)
             ans = torch.from_numpy(b.answer).to(device)
             logits = model(ids, **fwd_kwargs)["logits"]
@@ -201,20 +229,24 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
                     skip_transformer=False, gamma_init=None, full_mha=False,
                     depth_setter="core", mix=False, n_global_heads=0,
-                    n_heads=None, n_kv_heads=None, signed_decay=False):
+                    n_heads=None, n_kv_heads=None, signed_decay=False,
+                    selective_decay=False):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
     This avoids the anytime-training failure mode where random-depth sampling
     teaches the model to be depth-INVARIANT (ignore iterations)."""
     if mix:
-        assert task == "pointer_chase", "--mix only supports pointer_chase"
-        gen = make_mix_generator(difficulty, n_values)
+        gen = make_mix_generator(task, difficulty, n_values)
         _, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
     else:
         gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
     probe = gen(1, np.random.default_rng(0))
     seq_len = probe.tokens.shape[1]
+    if mix and task == "parity":
+        # parity-mix batches vary in T (one k per batch); size the model for
+        # the LONGEST, not whatever k the probe happened to sample.
+        seq_len = 1 + difficulty + 2
     print(f"== FIXED sweep {task} difficulty={difficulty} n_values={n_values} "
           f"T={seq_len} vocab={vocab} device={device} depths={depths} "
           f"mix={mix} ==")
@@ -231,7 +263,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                             full_mha=full_mha,
                             n_global_heads=n_global_heads,
                             n_heads=n_heads, n_kv_heads=n_kv_heads,
-                            signed_decay=signed_decay)
+                            signed_decay=signed_decay,
+                            selective_decay=selective_decay)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -246,7 +279,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                         depth_choices=[d], fwd_kwargs=fwd_kwargs,
                         depth_setter=depth_setter)
             if mix:
-                acc = evaluate_per_k(m, difficulty, n_values,
+                acc = evaluate_per_k(m, task, difficulty, n_values,
                                      np.random.default_rng(10_000 + seed),
                                      device, fwd_kwargs=fwd_kwargs)
                 print(f"    eval depth {d}: " +
@@ -267,7 +300,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             print(f"  [seed {seed}] transformer {tr_params/1e3:.0f}K params")
             train_model(tr, gen, device, steps, batch, lr, seed)
             if mix:
-                tr_acc = evaluate_per_k(tr, difficulty, n_values,
+                tr_acc = evaluate_per_k(tr, task, difficulty, n_values,
                                         np.random.default_rng(10_000 + seed),
                                         device)
                 print("    eval: " +
@@ -442,6 +475,10 @@ def main():
                    help="attention heads, decoupled from the 13 protofilaments "
                         "(ABLATIONS.md design-coupling audit); must divide "
                         "d_model. Default: historical probe shape (4)")
+    p.add_argument("--selective_decay", action="store_true",
+                   help="input-dependent signed transition λ_t = "
+                        "decay·tanh(W_sel·x_t+b) — the parity-capable "
+                        "parameterisation (restores LTC's input-dependent τ)")
     p.add_argument("--signed_decay", action="store_true",
                    help="negative-eigenvalue extension: λ = decay·tanh(s), "
                         "learnable sign per (P,S). The theory-driven fix for "
@@ -474,7 +511,8 @@ def main():
                                       "workspace" if args.workspace else "core"),
                         mix=args.mix, n_global_heads=args.n_global_heads,
                         n_heads=args.n_heads, n_kv_heads=args.n_kv_heads,
-                        signed_decay=args.signed_decay)
+                        signed_decay=args.signed_decay,
+                        selective_decay=args.selective_decay)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
