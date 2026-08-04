@@ -81,10 +81,14 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
                 gamma_init=None, full_mha=False, n_global_heads=0,
                 n_heads=None, n_kv_heads=None, signed_decay=False,
-                selective_decay=False):
+                selective_decay=False, attention_layers=None):
     torch.manual_seed(seed)
     kw = {"n_global_heads": n_global_heads, "signed_decay": signed_decay,
           "selective_decay": selective_decay}
+    if attention_layers is not None:
+        # Hybrid thinning probe (attention in SOME layers, pure LNN in the
+        # rest). Empty tuple = no attention anywhere.
+        kw["attention_layers"] = tuple(attention_layers)
     if gamma_init is not None:
         kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
     # Head-decoupling sweep knobs (ABLATIONS.md "Design-coupling audit").
@@ -230,7 +234,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     skip_transformer=False, gamma_init=None, full_mha=False,
                     depth_setter="core", mix=False, n_global_heads=0,
                     n_heads=None, n_kv_heads=None, signed_decay=False,
-                    selective_decay=False):
+                    selective_decay=False, attention_layers=None):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -264,7 +268,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                             n_global_heads=n_global_heads,
                             n_heads=n_heads, n_kv_heads=n_kv_heads,
                             signed_decay=signed_decay,
-                            selective_decay=selective_decay)
+                            selective_decay=selective_decay,
+                            attention_layers=attention_layers)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -475,6 +480,10 @@ def main():
                    help="attention heads, decoupled from the 13 protofilaments "
                         "(ABLATIONS.md design-coupling audit); must divide "
                         "d_model. Default: historical probe shape (4)")
+    p.add_argument("--attention_layers", type=int, nargs="*", default=None,
+                   help="layer indices that KEEP attention; others become pure "
+                        "LNN+FFN (hybrid thinning, HANDOFF 3.8 item 1). Omit "
+                        "for all layers; pass with no values for none")
     p.add_argument("--selective_decay", action="store_true",
                    help="input-dependent signed transition λ_t = "
                         "decay·tanh(W_sel·x_t+b) — the parity-capable "
@@ -512,7 +521,10 @@ def main():
                         mix=args.mix, n_global_heads=args.n_global_heads,
                         n_heads=args.n_heads, n_kv_heads=args.n_kv_heads,
                         signed_decay=args.signed_decay,
-                        selective_decay=args.selective_decay)
+                        selective_decay=args.selective_decay,
+                        attention_layers=(tuple(args.attention_layers)
+                                          if args.attention_layers is not None
+                                          else None))
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
