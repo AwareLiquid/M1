@@ -121,6 +121,10 @@ benchmarks/length_out/
 /temp_nature_skills
 benchmarks/_needle_smoke.json
 
+# Local test run logs + opencode session dir (never source)
+/_*.log
+/.omo/
+
 # local scaling benchmark run outputs (2026-07-16)
 /scaling_fp32/
 
