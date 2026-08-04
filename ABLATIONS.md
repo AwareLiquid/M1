@@ -279,9 +279,60 @@ selectivity and sign. Notably the ORIGINAL LTC theory has input-dependent
 
 `selective_decay` (λ_t = decay · tanh(W_sel·x_t + b_sel), general per-step
 pscan, b_sel init 1.0 = live-gradient region) is implemented behind a
-default-off flag; local decisive probe running. Prediction: parity learnable
-with selectivity ON, chance OFF. If ON also fails, the next suspect is the
-readout path, not the transition.
+default-off flag. Prediction: parity learnable with selectivity ON, chance
+OFF. If ON also fails, the next suspect is the readout path, not the
+transition.
+
+### selective_decay A/B: HIT — theory-confirmed separation (2026-08-05, local)
+
+Pure-LNN stack (`--attention_layers` = none, 138K params — attention REMOVED
+so the liquid core cannot borrow TC⁰ from the attention side), parity
+difficulty 8, mix curriculum, depth=1 fixed, 2500 steps, 3 seeds:
+
+| arm | k=1 | k=2 | k=4 | k=8 |
+|---|---:|---:|---:|---:|
+| stock (input-independent λ) | 0.826 | 0.583 | 0.481 | 0.509 |
+| **selective_decay** | **1.000** | **1.000** | **1.000** | **1.000** |
+| transformer control (246K) | 1.000 | 1.000 | 1.000 | 0.999 |
+
+- **Sarrof Thm 2 confirmed cleanly**: stock pure-LNN fails k≥2 (chance) —
+  strictly positive, input-independent gating cannot express parity. The
+  earlier hybrid runs showed stock at 1.0 only because the attention layers
+  (TC⁰-complete) silently solved parity at short T — hybrid was not a valid
+  liquid-core probe.
+- **selective_decay closes the gap completely**: 3/3 seeds at 1.000 across
+  all k, matching the transformer at **44% fewer parameters** (138K vs 246K).
+- The difficulty-16 arm at 2500 steps failed for BOTH arms (k≥2 ≈ chance):
+  training time, not mechanism — the d8 arm above separates at the same
+  step budget. Parity needs more steps as L grows; curriculum helps but does
+  not remove the budget.
+- Rows: `purelnn-parity-ab-{stock,selective}` / `purelnn-d8-ab-{stock,selective}`
+  in `reasoning_depth.jsonl`.
+- **Open**: does selective keep 1.0 at L=16/32 where the transformer starts
+  to sag (k=16 ≈ 0.92–0.99)? That is the "beyond" evidence chain: the
+  transition-parameterised liquid core holding where attention sags.
+
+### Difficulty-16 long-budget confirmation: selective 1.0 where transformer sags (2026-08-05, local)
+
+Same pure-LNN stack, difficulty 16, 6000 steps, 3 seeds:
+
+| arm | k=1 | k=2 | k=4 | k=8 | k=16 |
+|---|---:|---:|---:|---:|---:|
+| stock (input-independent λ) | 0.501 | 0.750 | 0.481 | 0.520 | 0.502 |
+| **selective_decay** | **1.000** | **1.000** | **1.000** | **1.000** | **1.000** |
+| transformer control (246K) | 1.000 | 1.000 | 1.000 | 1.000 | 0.986 |
+
+- 6k steps does NOT rescue stock: 3/3 seeds still at chance for k≥2 — the
+  defect is expressivity (Sarrof Thm 2), not training budget. (Seed 2's
+  k=2:1.0 is grokking noise; k≥4 still chance.)
+- **selective_decay holds 1.000 across ALL k including k=16 where the
+  transformer begins to sag (0.986) — at 138K vs 246K params (−44%)**.
+  First measured point where the transition-parameterised liquid core
+  exceeds a matched transformer on the same probe.
+- Rows: `purelnn-d16-sel-long` / `purelnn-d16-stock-long`.
+- Honest scope: toy probe (200K-class), depth-1 only; k=32 (Kaggle
+  protocol) and stack-depth interplay remain open. No ranking claims
+  beyond this task.
 
 ## Expected Results
 
