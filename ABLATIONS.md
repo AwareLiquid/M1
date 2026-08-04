@@ -257,6 +257,32 @@ becomes learnable at depth 1 with the flag ON and stays at chance OFF. That
 A/B is the cleanest single-variable test in the whole program: theory names
 the defect, one parameter family fixes it, both arms falsifiable.
 
+### signed_decay A/B: NEGATIVE — and the diagnosis was wrong by one axis (2026-08-04/05)
+
+Kaggle 3-seed A/B (`parity-signed` / `parity-stock`, 10k steps) + local 3-arm
+probe (off / stock-init / mixed-init s~U(−2,2), 2500 steps): **every arm sits
+at exactly ln 2 loss and chance accuracy.** The per-seed bit-identical accs
+across Kaggle arms are the constant-prediction + shared-eval-set artifact,
+NOT a dead flag — a local differential probe confirmed the two arms' losses
+diverge numerically (flag live), and the mixed init rules out the tanh(3)
+saturation explanation.
+
+**Corrected diagnosis: sign was the wrong (or at least insufficient) axis.**
+A constant-λ diagonal core — any sign — computes fixed-weight linear sums
+Σ λ^(T−t)·b(x_t). Parity needs the TRANSITION to read the token (flip on 1,
+hold on 0): λ_t = λ(x_t). Grazzi's negative-eigenvalue result applies to
+SELECTIVE SSMs (Mamba-class, where Δ(x) is already input-dependent and only
+the sign range was missing). M1's liquid core is input-INDEPENDENT (the
+2026-08-03 three-question audit said exactly this) — so it is missing BOTH
+selectivity and sign. Notably the ORIGINAL LTC theory has input-dependent
+τ(x); this implementation dropped it for `pscan_constant_A` speed.
+
+`selective_decay` (λ_t = decay · tanh(W_sel·x_t + b_sel), general per-step
+pscan, b_sel init 1.0 = live-gradient region) is implemented behind a
+default-off flag; local decisive probe running. Prediction: parity learnable
+with selectivity ON, chance OFF. If ON also fails, the next suspect is the
+readout path, not the transition.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:

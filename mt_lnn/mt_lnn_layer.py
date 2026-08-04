@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .config import MTLNNConfig
-from .parallel_scan import pscan_constant_A
+from .parallel_scan import pscan, pscan_constant_A
 
 
 # ---------------------------------------------------------------------------
@@ -89,9 +89,29 @@ class VectorizedMultiScaleResonance(nn.Module):
         # and can learn to flip channels negative. Parameter exists only when
         # config.signed_decay=True; default path is untouched (zero regression).
         if getattr(config, "signed_decay", False):
-            self.decay_sign_raw = nn.Parameter(torch.full((P, S), 3.0))
+            mode = getattr(config, "signed_decay_init", "stock")
+            if mode == "mixed":
+                # U(−2,2): mixed signs from step 0, no saturation plateau.
+                init = torch.empty(P, S).uniform_(-2.0, 2.0)
+            else:
+                init = torch.full((P, S), 3.0)
+            self.decay_sign_raw = nn.Parameter(init)
         else:
             self.decay_sign_raw = None
+
+        # Selective decay (see config.selective_decay): per-step signed
+        # transition λ_t = decay · tanh(W_sel·x_t + b_sel). W_sel init small
+        # (std 0.02) so selectivity is learnable but weak at start; b_sel
+        # init 1.0 → tanh ≈ 0.76 with a LIVE gradient (0.42) — deliberately
+        # NOT the saturated near-stock init that killed signed_decay's
+        # trainability. Supersedes decay_sign_raw when both flags are set.
+        if getattr(config, "selective_decay", False):
+            self.sel_w = nn.Parameter(torch.empty(P, S, D))
+            nn.init.normal_(self.sel_w, mean=0.0, std=0.02)
+            self.sel_b = nn.Parameter(torch.full((P, S), 1.0))
+        else:
+            self.sel_w = None
+            self.sel_b = None
         
         # Endogenous Dynamic Kappa Gate: dynamically activates tau channels
         # based on input. Initialized open so channels are not dead at startup.
@@ -231,6 +251,16 @@ class VectorizedMultiScaleResonance(nn.Module):
         lam_active = lam[:, active_idx]                                # (P,K)
         K_active = active_idx.numel()
 
+        # Selective decay: per-STEP signed transition λ_t (B,T,P,K).
+        # Supersedes the constant lam above. This is the parity-capable
+        # parameterisation: the transition itself reads the token.
+        lam_t = None
+        if self.sel_w is not None:
+            sel = torch.einsum("btpd,pkd->btpk", x, self.sel_w[:, active_idx])
+            lam_t = decay_active.view(1, 1, P, K_active) * torch.tanh(
+                sel + self.sel_b[:, active_idx]
+            )                                                          # (B,T,P,K)
+
         if not use_scan:
             # Legacy parallel mode — h_prev: (B, T, P, D) broadcast across T
             decay_full = decay_active.view(1, 1, P, K_active, 1)
@@ -247,6 +277,8 @@ class VectorizedMultiScaleResonance(nn.Module):
                     # Treat as (B, P, S, D) → broadcast across T
                     h_prev_full = h_prev.unsqueeze(1).expand(B, T, P, S, D).clone()
                     h_prev_e = h_prev[:, :, active_idx, :].unsqueeze(1).expand(B, T, P, K_active, D)
+            if lam_t is not None:
+                lam_full = lam_t.unsqueeze(-1)                          # (B,T,P,K,1)
             h_active = h_prev_e * lam_full + A * (1.0 - decay_full)
             if K_active == S:
                 h_per_scale = h_active
@@ -275,7 +307,12 @@ class VectorizedMultiScaleResonance(nn.Module):
                 )
 
             h_init_active = h_init[:, :, active_idx, :]
-            H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
+            if lam_t is not None:
+                # Selective: per-step multipliers via the GENERAL scan.
+                A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)
+                H = pscan(A_lam, X, h_init=h_init_active)             # (B,P,K,T,D)
+            else:
+                H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
             h_active = H.permute(0, 3, 1, 2, 4)                       # (B,T,P,K,D)
             if K_active == S:
                 h_per_scale = h_active

@@ -120,6 +120,27 @@ class MTLNNConfig:
     # Input coefficient stays (1 − decay). Default False = no parameter, exact
     # historical path.
     signed_decay: bool = False
+    # Init mode for the sign parameter. "stock": constant 3.0 → tanh≈0.995,
+    # near-historical dynamics — BUT tanh'(3)=0.0099, so flipping a channel
+    # negative must crawl through the saturation plateau; measured 2026-08-04:
+    # parity stayed at chance for 10k steps under this init (both arms
+    # collapsed to constant prediction). "mixed": s ~ U(−2, 2) — half the
+    # channels start negative and every channel sits in the live-gradient
+    # region; the oscillation basis parity needs exists from step 0.
+    signed_decay_init: str = "stock"
+
+    # Selective decay — INPUT-DEPENDENT signed transition (the actual parity
+    # fix). Measured 2026-08-04: signed_decay alone (constant λ, both stock
+    # and mixed init) leaves parity at exact chance — as it must: a
+    # constant-λ diagonal core computes fixed-weight linear sums
+    # Σ λ^(T−t)·b(x_t) regardless of sign. Parity needs the TRANSITION to
+    # depend on the token (flip on 1, hold on 0): λ_t = decay · tanh(W_sel·x_t
+    # + b_sel). This is Mamba-class selectivity — and is faithful to the
+    # ORIGINAL LTC theory, whose time constant τ(x) is input-dependent (the
+    # implementation dropped that for pscan_constant_A speed; the general
+    # pscan supports per-step multipliers). Supersedes signed_decay when both
+    # are set. Default False = no parameters, exact historical path.
+    selective_decay: bool = False
 
     # Stack-level latent recurrence (M2 P0-C′, docs/ROADMAP_M2.md §4.5).
     # Re-apply the ENTIRE block stack (attention + LNN, weight-tied) N times
