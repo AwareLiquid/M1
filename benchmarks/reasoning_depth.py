@@ -80,9 +80,9 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
                 gamma_init=None, full_mha=False, n_global_heads=0,
-                n_heads=None, n_kv_heads=None):
+                n_heads=None, n_kv_heads=None, signed_decay=False):
     torch.manual_seed(seed)
-    kw = {"n_global_heads": n_global_heads}
+    kw = {"n_global_heads": n_global_heads, "signed_decay": signed_decay}
     if gamma_init is not None:
         kw["gamma_init"] = gamma_init  # GTP distance-decay ablation knob
     # Head-decoupling sweep knobs (ABLATIONS.md "Design-coupling audit").
@@ -201,7 +201,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depths, device, tag="", n_layers=2, no_scan=False,
                     skip_transformer=False, gamma_init=None, full_mha=False,
                     depth_setter="core", mix=False, n_global_heads=0,
-                    n_heads=None, n_kv_heads=None):
+                    n_heads=None, n_kv_heads=None, signed_decay=False):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -230,7 +230,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                             seed, n_layers=n_layers, gamma_init=gamma_init,
                             full_mha=full_mha,
                             n_global_heads=n_global_heads,
-                            n_heads=n_heads, n_kv_heads=n_kv_heads)
+                            n_heads=n_heads, n_kv_heads=n_kv_heads,
+                            signed_decay=signed_decay)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -284,6 +285,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "task": task, "difficulty": difficulty, "n_values": n_values,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
+            "signed_decay": signed_decay,
             "gamma_init": gamma_init, "full_mha": full_mha,
             "depth_setter": depth_setter, "mix": mix,
             "n_global_heads": n_global_heads,
@@ -440,6 +442,10 @@ def main():
                    help="attention heads, decoupled from the 13 protofilaments "
                         "(ABLATIONS.md design-coupling audit); must divide "
                         "d_model. Default: historical probe shape (4)")
+    p.add_argument("--signed_decay", action="store_true",
+                   help="negative-eigenvalue extension: λ = decay·tanh(s), "
+                        "learnable sign per (P,S). The theory-driven fix for "
+                        "parity (Sarrof Thm 2 / Grazzi ICLR 2025)")
     p.add_argument("--n_kv_heads", type=int, default=None,
                    help="KV heads for GQA; must divide n_heads. Default: "
                         "n_heads/2, or n_heads under --full_mha. Middle "
@@ -467,7 +473,8 @@ def main():
                         depth_setter=("stack" if args.stack else
                                       "workspace" if args.workspace else "core"),
                         mix=args.mix, n_global_heads=args.n_global_heads,
-                        n_heads=args.n_heads, n_kv_heads=args.n_kv_heads)
+                        n_heads=args.n_heads, n_kv_heads=args.n_kv_heads,
+                        signed_decay=args.signed_decay)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,

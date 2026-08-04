@@ -76,6 +76,22 @@ class VectorizedMultiScaleResonance(nn.Module):
 
         # blend_weights: (P, S) — statically balances the default scale mixture
         self.blend_weights = nn.Parameter(torch.zeros(P, S))
+
+        # Signed decay — negative-eigenvalue extension (M2 separation study).
+        # The stock update h_t = decay·h_{t-1} + (1-decay)·A_t has a strictly
+        # positive, input-independent, diagonal transition — provably unable to
+        # express parity in finite precision (Sarrof et al. NeurIPS 2024 Thm 2;
+        # empirically confirmed 2026-08-04: parity acc 0.492 ≈ chance). The fix
+        # follows Grazzi et al. (ICLR 2025): extend the state eigenvalue to
+        # λ = decay · tanh(sign_raw) ∈ (-decay, decay), keeping the INPUT
+        # coefficient at (1 - decay) (magnitude-based, unchanged). sign_raw
+        # init 3.0 → tanh ≈ 0.995, so training starts near the stock dynamics
+        # and can learn to flip channels negative. Parameter exists only when
+        # config.signed_decay=True; default path is untouched (zero regression).
+        if getattr(config, "signed_decay", False):
+            self.decay_sign_raw = nn.Parameter(torch.full((P, S), 3.0))
+        else:
+            self.decay_sign_raw = None
         
         # Endogenous Dynamic Kappa Gate: dynamically activates tau channels
         # based on input. Initialized open so channels are not dead at startup.
@@ -205,12 +221,20 @@ class VectorizedMultiScaleResonance(nn.Module):
         tau = F.softplus(self.log_tau) + self.tau_min                 # (P,S)
         tau = tau.clamp(self.tau_min, self.tau_max)
         decay = torch.exp(-self.dt / tau)                              # (P,S)
+        # Signed decay: λ is the (possibly negative) STATE coefficient; the
+        # INPUT coefficient below stays (1 - decay), i.e. magnitude-based.
+        if self.decay_sign_raw is not None:
+            lam = decay * torch.tanh(self.decay_sign_raw)              # (P,S)
+        else:
+            lam = decay
         decay_active = decay[:, active_idx]                            # (P,K)
+        lam_active = lam[:, active_idx]                                # (P,K)
         K_active = active_idx.numel()
 
         if not use_scan:
             # Legacy parallel mode — h_prev: (B, T, P, D) broadcast across T
             decay_full = decay_active.view(1, 1, P, K_active, 1)
+            lam_full = lam_active.view(1, 1, P, K_active, 1)
             if h_prev is None:
                 h_prev_full = torch.zeros(B, T, P, S, D, device=x.device, dtype=x.dtype)
                 h_prev_e = h_prev_full[:, :, :, active_idx, :]
@@ -223,7 +247,7 @@ class VectorizedMultiScaleResonance(nn.Module):
                     # Treat as (B, P, S, D) → broadcast across T
                     h_prev_full = h_prev.unsqueeze(1).expand(B, T, P, S, D).clone()
                     h_prev_e = h_prev[:, :, active_idx, :].unsqueeze(1).expand(B, T, P, K_active, D)
-            h_active = h_prev_e * decay_full + A * (1.0 - decay_full)
+            h_active = h_prev_e * lam_full + A * (1.0 - decay_full)
             if K_active == S:
                 h_per_scale = h_active
             else:
@@ -234,7 +258,7 @@ class VectorizedMultiScaleResonance(nn.Module):
             # pscan expects (..., T, D); permute (B,T,P,S,D) -> (B,P,S,T,D)
             A_perm = A.permute(0, 2, 3, 1, 4)                          # (B,P,K,T,D)
             X = (1.0 - decay_active).view(1, P, K_active, 1, 1) * A_perm # (B,P,K,T,D)
-            decay_bps = decay_active.unsqueeze(0).expand(B, P, K_active) # (B,P,K)
+            decay_bps = lam_active.unsqueeze(0).expand(B, P, K_active)  # (B,P,K) signed λ
 
             # Initial state: h_prev is the per-scale state (B, P, S, D).
             # If only (B, P, D) is passed, broadcast across scales (zero-init common case).

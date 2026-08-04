@@ -110,6 +110,17 @@ class MTLNNConfig:
     core_iterations: int = 1
     core_iter_gate_init: float = 0.0
 
+    # Signed decay — negative-eigenvalue extension (M2 separation study,
+    # ABLATIONS.md / memory 2026-08-03/04). The stock liquid update's strictly
+    # positive diagonal transition provably cannot express parity in finite
+    # precision (Sarrof et al. NeurIPS 2024 Thm 2; measured: parity acc 0.492
+    # ≈ chance). Following Grazzi et al. (ICLR 2025), True extends the state
+    # eigenvalue to λ = decay · tanh(sign_raw) ∈ (−decay, decay) with a
+    # learnable (P,S) sign parameter (init 3.0 → tanh≈0.995, near-stock start).
+    # Input coefficient stays (1 − decay). Default False = no parameter, exact
+    # historical path.
+    signed_decay: bool = False
+
     # Stack-level latent recurrence (M2 P0-C′, docs/ROADMAP_M2.md §4.5).
     # Re-apply the ENTIRE block stack (attention + LNN, weight-tied) N times
     # per forward — Universal-Transformer-style depth. P0 rounds 1–5 showed

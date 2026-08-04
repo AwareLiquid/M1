@@ -232,6 +232,31 @@ Two verdicts:
    binding constraint is depth. The decisive test is the stack_iterations
    sweep on s5_word (`m1-circuit-separation-parity-s5` kernel, running).
 
+### Circuit-separation kernel, first data (2026-08-04, Kaggle T4, seed 0 — landed)
+
+Rows `sep-parity` / `sep-s5-d1` / `sep-s5-d4` in `reasoning_depth.jsonl`
+(30k steps, 200K params):
+
+| task | depth knob | acc | chance | verdict |
+|---|---|---:|---:|---|
+| parity L=32 | core, d=1 | 0.4921 | 0.5 | **theory hit**: Sarrof Thm 2 (strictly positive gating cannot express parity) confirmed empirically |
+| s5_word L=8 | stack, d=1 | 0.0086 | 1/120 ≈ 0.0083 | chance |
+| s5_word L=8 | stack, d=4 | 0.0094 | 1/120 | chance — depth alone did NOT unlock S5 |
+
+Reading: parity failing at chance is the PREDICTED parameterisation defect,
+not news — it validates the debug gate. S5 at chance for BOTH stack depths is
+the finding that needs care: Θ(log n) depth suffices *expressively* (Merrill &
+Sabharwal 2025), but at 30k steps / 200K params SGD found nothing at either
+depth, so expressivity ≠ learnability here — S5 from scratch likely needs a
+curriculum (the mix lesson) and/or far longer training before the depth axis
+can show a separation. Single seed; no ranking claims.
+
+Next (theory-driven, falsifiable): `signed_decay` (λ = decay·tanh(s), Grazzi
+ICLR 2025) is now implemented behind a default-off flag — prediction: parity
+becomes learnable at depth 1 with the flag ON and stays at chance OFF. That
+A/B is the cleanest single-variable test in the whole program: theory names
+the defect, one parameter family fixes it, both arms falsifiable.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:

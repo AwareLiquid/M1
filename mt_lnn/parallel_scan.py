@@ -122,8 +122,13 @@ def pscan(A: torch.Tensor, X: torch.Tensor,
     """
     Parallel scan: h_t = A_t * h_{t-1} + X_t,  h_{-1} = h_init (or 0).
 
-    A:      (..., T)        — per-step multipliers (must be positive for
-                               stability; clamp upstream)
+    A:      (..., T)        — per-step multipliers. Any sign is valid — the
+                               scan is plain multiplication; stability needs
+                               |A| <= 1, enforced upstream. Signed (negative)
+                               multipliers are used by the signed-decay
+                               extension (config.signed_decay, λ = decay·tanh(s));
+                               parity vs pscan_sequential is covered by
+                               tests/test_signed_decay.py.
     X:      (..., T, D)     — per-step inputs
     h_init: (..., D) or None — initial state (absorbed into X[..., 0, :])
 
