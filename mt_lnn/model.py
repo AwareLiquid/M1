@@ -90,8 +90,19 @@ class MTLNNBlock(nn.Module):
         self.layer_idx = layer_idx
         self.has_gwtb = config.gwtb_per_block
 
-        self.attn_norm = nn.LayerNorm(config.d_model)
-        self.attn: MicrotubuleAttention   # set by parent after embedding init
+        # Hybrid thinning: attention_layers=None keeps the historical
+        # every-layer attention (bit-exact). A block outside the set builds NO
+        # attention machinery at all -- no norm, no projections, no KV cache
+        # entry -- rather than a bypassed module, so the parameter saving and
+        # the KV saving are real, not cosmetic.
+        att = getattr(config, "attention_layers", None)
+        self.has_attn = att is None or layer_idx in att
+        if self.has_attn:
+            self.attn_norm = nn.LayerNorm(config.d_model)
+            self.attn: MicrotubuleAttention   # set by parent after embedding init
+        else:
+            self.attn_norm = None
+            self.attn = None
         self.lnn_norm = nn.LayerNorm(config.d_model)
         self.lnn = MTLNNLayer(config)
 
@@ -161,16 +172,20 @@ class MTLNNBlock(nn.Module):
         past_gwtb_kv = (layer_cache[2] if (layer_cache is not None and len(layer_cache) > 2)
                         else None)
 
-        # Attention sub-layer (pre-norm)
-        attn_out, new_kv = self.attn(
-            self.attn_norm(x),
-            pad_mask=pad_mask,
-            past_kv=past_kv,
-            position_offset=position_offset,
-            use_cache=use_cache,
-            h_prev=h_prev,  # Pass h_prev for position-free timing signal
-        )
-        x = x + attn_out
+        # Attention sub-layer (pre-norm) -- absent entirely in thinned layers,
+        # whose cache slot stays None and whose timing comes from the LNN.
+        if self.has_attn:
+            attn_out, new_kv = self.attn(
+                self.attn_norm(x),
+                pad_mask=pad_mask,
+                past_kv=past_kv,
+                position_offset=position_offset,
+                use_cache=use_cache,
+                h_prev=h_prev,  # Pass h_prev for position-free timing signal
+            )
+            x = x + attn_out
+        else:
+            new_kv = None
 
         # Top-down modulation (P1 closed-loop ②): inject the goal/context bias
         # AFTER attention, BEFORE the LNN sub-layer, so it colours the liquid
@@ -255,7 +270,8 @@ class MTLNNModel(nn.Module):
         self.blocks = nn.ModuleList()
         for i in range(config.n_layers):
             block = MTLNNBlock(config, layer_idx=i)
-            block.attn = MicrotubuleAttention(config, rope=self.embedding.rope)
+            if block.has_attn:
+                block.attn = MicrotubuleAttention(config, rope=self.embedding.rope)
             self.blocks.append(block)
 
         # Global Workspace Theory Bottleneck.
@@ -560,10 +576,16 @@ class MTLNNModel(nn.Module):
                 "provide exactly one of input_ids or inputs_embeds"
             )
 
-        # Infer absolute position offset
+        # Infer absolute position offset. token_count is authoritative: it is
+        # maintained for every architecture, while the historical fallback --
+        # reading T_past off layer 0's K tensor -- returns 0 silently whenever
+        # layer 0 has no attention (attention_layers thinning), skewing RoPE
+        # and the GTP clock on every subsequent decode step.
         if position_offset is None:
-            if (cache is not None and len(cache.layers) > 0
-                and cache.layers[0] is not None and cache.layers[0][0] is not None):
+            if cache is not None and getattr(cache, "token_count", 0):
+                position_offset = int(cache.token_count)
+            elif (cache is not None and len(cache.layers) > 0
+                  and cache.layers[0] is not None and cache.layers[0][0] is not None):
                 position_offset = cache.layers[0][0][0].shape[2]   # T_past from first layer's K
             else:
                 position_offset = 0

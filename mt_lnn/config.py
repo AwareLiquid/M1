@@ -64,6 +64,18 @@ class MTLNNConfig:
     # bit-exact. Flip the default only after the --n_global_heads sweep on the
     # (shortcut-sealed) pointer-chase probe lands.
     n_global_heads: int = 0
+    # Hybrid thinning (M2 review 2026-07-30, HANDOFF 3.8 item 1): which layers
+    # keep an attention sub-layer. None = every layer (bit-exact historical
+    # default). The current hybrid is ADDITIVE -- a full 12-layer Transformer
+    # with liquid layers stacked on top -- so it pays full KV growth and full
+    # attention activations, which is why "hybrid is O(1)" had to be retracted
+    # (RESULTS.md) and training memory measured strictly worse. Production
+    # hybrids REPLACE: LFM2 runs attention in 6/16 layers. attention_layers=
+    # (2,5,8,11) on a 12-layer model cuts the KV cache and attention compute
+    # to a third; the other layers become pure LNN+FFN blocks.
+    # Placement matters and is unswept -- late-ish layers follow the hybrid
+    # literature, but treat any specific placement as a hypothesis.
+    attention_layers: "Optional[Tuple[int, ...]]" = None
     # GTP cap renewal period — lateral coupling refreshes every gtp_period
     # positions. Without this, the exp(-γ·t) gate vanishes at large t and
     # microtubule mixing silently dies in long contexts.
@@ -517,6 +529,22 @@ class MTLNNConfig:
                 f"n_global_heads must be in [0, n_heads={self.n_heads}]; "
                 f"got {self.n_global_heads}"
             )
+
+        # attention_layers: None means all layers; otherwise a de-duplicated
+        # tuple of valid indices. An EMPTY tuple is legal -- a pure-LNN stack --
+        # and position tracking must then come from cache.token_count, never
+        # from a layer-0 KV that does not exist.
+        if self.attention_layers is not None:
+            idx = tuple(int(i) for i in self.attention_layers)
+            if len(set(idx)) != len(idx):
+                raise ValueError(f"attention_layers has duplicates: {idx}")
+            bad = [i for i in idx if not (0 <= i < self.n_layers)]
+            if bad:
+                raise ValueError(
+                    f"attention_layers indices {bad} out of range for "
+                    f"n_layers={self.n_layers}"
+                )
+            self.attention_layers = tuple(sorted(idx))
 
         # scale_gate_period constraint: values >4 risk τ-routing rigidity.
         if self.scale_gate_period not in (1, 2, 4):
