@@ -423,6 +423,32 @@ difficulty 16, 2500 steps (budget-matched to the core-depth-1 runs):
   6000+ steps would also be needed before depth can be ruled out entirely.
 - Rows: `stack4-d16-stock` / `stack4-d16-selective`.
 
+### Stack-depth interaction verdict: depth does NOT rescue the core (2026-08-05, local, complete)
+
+Difficulty 8, stack depth 4, 3000 steps, 3 seeds (budget-matched to the
+core-depth-1 d8 runs where selective grokked 3/3):
+
+| arm (stack4) | k=1 | k=2 | k=4 | k=8 |
+|---|---:|---:|---:|---:|
+| stock | 0.667 | 0.581 | 0.503 | 0.499 |
+| **selective** | **1.000** | **0.915** | **0.854** | **0.835** |
+| transformer control | 1.000 | 1.000 | 1.000 | 1.000 |
+
+- **Weight-tied whole-block depth does NOT rescue the input-independent
+  core**: stock+stack4 sits at chance for k≥2 (mean 0.58/0.50/0.50; only
+  seed 0 manages k=1:1.0 k=2:0.75 — grokking noise, k≥4 all chance).
+  Selective+stack4 does grok (k=1 1.0, k=2 0.92, k=8 0.84) but strictly
+  WORSE than selective+core-depth-1 (which was 3/3 at 1.000 across all k
+  at d8 with FEWER steps per block).
+- **Verdict for the M2 main-line question** ("can an O(1) recurrent model
+  climb out of TC⁰ via input-dependent transfer + weight-tied depth?"):
+  selectivity is the binding constraint; depth alone buys nothing, and
+  depth ON TOP of selectivity hurts (4× compute per step for a strictly
+  worse result than core-depth-1). The liquid core's escape route from
+  TC⁰ is the transition reading the token — J-Space workspace residency
+  is a depth argument and this experiment says depth is not the lever.
+- Rows: `stack4-d8-stock` / `stack4-d8-selective`.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:

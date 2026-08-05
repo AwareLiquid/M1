@@ -312,7 +312,7 @@ B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 | 3. tokenizer | 未动,与 M2 预训练一起换(单独换会作废全部 PPL 基线) |
 | 4. LFM2.5 adapter 重跑 | 未动,协议在 §3.8 |
 | (新) selective_decay 测试缺口 | ✅ 14 项测试补齐(默认位等价/输入依赖真实生效/优先级覆盖/非 2 幂长度/256 步有界/cache parity)。顺带钉住:`decay_bps` 变量名误导但实际持有 λ,signed_decay 确实到达 scan |
-| (新) parity 裁决实验 | ✅ **本地分离确认(2026-08-05)**:纯 LNN 栈(无 attention)难度 8、mix、2500 步、3 seeds——stock k≥2 卡 chance(0.48–0.58),**selective_decay 3/3 seeds 全 k 满分 1.000**(138K 参数 vs transformer 246K)。Sarrof Thm 2 理论命中。**注意**:hybrid(带 attention)下 stock 也满分 = attention 兜底,非液核能力;纯 LNN 才是有效探针。高难度(L=16)长预算验证跑中(6000 步) |
+| (新) parity 裁决实验 | ✅ **本地完整裁决(2026-08-05)**:纯 LNN 栈(无 attention,138K 参数)下 3-seed A/B——① d8/2500 步:stock k≥2 卡 chance(0.48–0.58) vs **selective 3/3 seeds 全 k 满分 1.000**;② d16/6000 步:stock 仍 chance,selective 全 k 满分含 **k=16(transformer 此处掉到 0.986)**——首个液核超同规模 transformer 的测点(−44% 参数);③ d32/6000 步:含 transformer 在内全部架构卡 k=32(0.557),预算墙非机制失败;④ stack 深度 4:d8 下 stock 仍 chance,selective 反而比 core-depth-1 更差 → **选择性是 TC⁰ 逃逸的绑定约束,深度不是**(M2 主线问题直接答案)。**方法论修正**:hybrid 下 stock 满分 = attention 兜底,纯 LNN 才是有效探针。数据:`purelnn-*`/`stack4-*` 行 + ABLATIONS §selective_decay |
 
 **北极星重述(建议,非决定)**:过去一个月里唯一「理论预测 → 实验证实」的结果链
 全部来自**电路复杂度**框架(TC⁰ 上限 → parity 失败 → 输入依赖+负特征值 →
