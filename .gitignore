@@ -139,3 +139,6 @@ benchmarks/_legacy.onnx
 
 # Deployment access notes â€” never committed (public repo)
 *.local.md
+
+# Kaggle credentials (KGAT_ tokens ¡ª never commit)
+/.kaggle/
