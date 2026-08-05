@@ -380,6 +380,35 @@ shrinks the KV cache 13x — standard multi-head attention would put the ratio
 the attention-free O-series gets constant memory, which is exactly the
 edge/streaming/unbounded-context niche the product line targets.
 
+## MTP (multi-token-prediction) aux loss — honest null, not promoted (2026-07-12)
+
+`benchmarks/scaling_comparison.py --mode train`, native MT-LNN 125M, matched
+seed-0 trunk copy so `mt_lnn` vs `mt_lnn_mtp` start byte-identical and differ
+ONLY by the MTP aux gradient (3 seeds, 2000 steps, WikiText-2, K=3 lookahead
+heads, λ=0.1). Question: does a DeepSeek-V3-style multi-token-prediction
+regularizer lower held-out PPL on the proven core?
+
+| arch | params | val PPL (mean ± std, n=3) |
+|---|---|---|
+| mt_lnn (core) | 126.7M | 268.40 ± 2.61 |
+| mt_lnn + MTP heads | 252.2M | 267.65 ± 2.63 |
+
+**Honest null.** The −0.75 PPL delta is well inside the seed noise (std
+±2.6 both arms — the difference is ~0.3σ, not a resolvable signal at n=3).
+Two reasons it likely stays null rather than replicating the published
+result: (1) the K heads here are **flat, weight-untied linear** projections
+reading the *same* final hidden state (`head_k(x)` for all k), unlike
+DeepSeek-V3's sequential per-depth modules where head k conditions on head
+k−1's prediction — a materially weaker predictor of t+2/t+3; (2) the 3 heads
+add **125.4M params (+99% of the base model)** for a training-only term that
+contributes zero value at inference (dead weight in every checkpoint unless
+speculative decoding is later built). **Verdict: do not enable
+`use_mtp_heads` by default.** The aux-loss wiring itself is correct and
+zero-regression when off (see the architecture seam audit); this result
+answers the audit's own validation gate (`WIRE_LATER: validate PPL is
+neutral-or-better before default`) with a null, not a win — kept opt-in for
+research, not promoted.
+
 ## O1 module switch-matrix — all optional modules PPL-neutral (2026-07-05)
 
 `benchmarks/o1_module_ablation.py` (Colab free T4, 48M-class O1, TinyStories,

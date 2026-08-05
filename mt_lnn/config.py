@@ -325,6 +325,13 @@ class MTLNNConfig:
     # state (~4 KB) makes it an exceptionally cheap draft model — no KV cache to
     # re-compute for each draft step.
     #
+    # ⚠ VALIDATED NULL (2026-07-12, see BENCHMARKS.md "MTP aux loss — honest
+    # null"): matched-budget 3-seed A/B at 125M/2000steps/WikiText-2 gave
+    # 267.65±2.63 (MTP) vs 268.40±2.61 (core) — a −0.75 PPL delta well inside
+    # seed noise, not a resolvable win. The K heads add 125.4M params (+99% of
+    # the base model) for a training-only term. DO NOT enable by default;
+    # keep opt-in for research only.
+    #
     # Zero-regression contract:
     #   use_mtp_heads=False (default) → no MTP parameters built, forward unchanged.
     #   use_mtp_heads=True with mtp_loss_weight=0.0 → heads present, no aux loss.
