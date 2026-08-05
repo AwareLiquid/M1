@@ -129,6 +129,58 @@ the hard way.
    HANDOFF §3.8; the sweep has NOT been run — this entry exists so the prime
    lock is treated as a design constraint to remove, not a finding to rediscover.
 
+## Parity verdict, good recipe (2026-08-06) — my own headline from yesterday is downgraded
+
+`m1-parity-verdict-goodrecipe`: pure-LNN stack, beta2 0.999, clip off, 8k
+steps, 6 seeds/arm, k=2 and k=8. Rows `pv-*` in
+`benchmarks/results/reasoning_depth.jsonl`; arms verified real by the
+1,170-parameter delta.
+
+| arm | grok rate | accs |
+|---|---|---|
+| k=2, selective | **2/6** | 1.000, 1.000, 0.513, 0.513, 0.511, 0.487 |
+| k=2, stock | **1/6** | 1.000, 0.513, 0.513, 0.503, 0.497, 0.487 |
+| k=8, selective | 0/6 | all ~0.50 |
+| k=8, stock | 0/6 | all ~0.50 (per-seed bit-identical with sel — the constant-collapse artifact again) |
+
+### What this corrects
+
+**The stock core grokked k=2 once.** Not a violation of Sarrof Thm 2 — a
+correction to my reading of where the theorem bites. At fixed k=2 the answer
+state is a linear sum of two inputs with DISTINCT positional coefficients;
+four input combinations give four distinct state values, and the nonlinear
+readout (MAP gate + head) classifies XOR from them. The excluded regime is
+large/unbounded k, where that route collapses. **k=2 was never a decisive
+task**, and yesterday's "first theory-confirmed positive" (bare probe:
+selective groks, stock at chance) was a 2/6-vs-1/6 coin-flip difference read
+as a separation — Fisher p = 1.0. Downgraded to: consistent with the
+mechanism, discriminates nothing.
+
+### What survives
+
+- The **recipe veto** (beta2=0.95 / clip=1.0 each independently prevent the
+  k=2 breakthrough): bisected with reproduced controls, stands.
+- The **grok-rate protocol** stands — and just did its job: it is the only
+  reason this over-claim was caught by the verdict experiment instead of
+  shipped as a result.
+- The theorem's actual battleground is **k=8+**, where NEITHER arm learns at
+  this budget. Stock failing is what the theory demands; selective failing
+  means the capability the mechanism exists to add is **not yet demonstrated**
+  where it matters.
+
+### Next, in order of information-per-cost
+
+1. **Compare implementations with `experiment/consciousness-m1-v2`** (parity
+   0.000 → 1.000, 3/3 seeds claimed) — establish their k, budget and init; if
+   that result is at large k, their implementation choices are the lead.
+2. **Curriculum k=2 → 8** under the good recipe: both arms CAN learn k=2, so
+   it can seed the flip-transition solution cold-start k=8 never finds.
+   (`benchmarks/parity_lengthgen.py` is already moving this direction.)
+3. **sel_b init**: tanh(1.0)≈0.76 starts transitions far from the flip regime
+   (λ_t ≈ −decay needs W·x+b ≲ −2); a mixed/negative-init arm is one config.
+4. 8k steps may be short of the k=8 grok time even when reachable — 30k-step
+   budgets before any "cannot" is concluded.
+
 ## Parity, core isolation: the recipe was vetoing the experiment (2026-08-05)
 
 The follow-up isolation run (`m1-parity-core-isolation`, pure-LNN stack via
