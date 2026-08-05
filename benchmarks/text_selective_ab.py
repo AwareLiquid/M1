@@ -65,7 +65,6 @@ def train_eval(sel, seed, steps=2000, batch=16, lr=3e-4):
     m = build(sel, seed)
     n_params = m.get_num_params()
     opt = torch.optim.AdamW(m.parameters(), lr=lr, betas=(0.9, 0.95), weight_decay=0.01)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps)
     rng = torch.Generator().manual_seed(seed)
     ckpt_dir = os.path.join(DATA, "text_ab_ckpt")
     os.makedirs(ckpt_dir, exist_ok=True)
@@ -75,9 +74,22 @@ def train_eval(sel, seed, steps=2000, batch=16, lr=3e-4):
         st = torch.load(ckpt_path, map_location="cpu")
         m.load_state_dict(st["model"])
         opt.load_state_dict(st["opt"])
-        sched.load_state_dict(st["sched"])
         start_step = st["step"] + 1
-        print(f"  [seed {seed}] sel={sel} resumed from step {start_step}", flush=True)
+        # load_state_dict restored the OLD lr (≈0 at end of the original
+        # 2000-step cosine). Reset to the configured lr BEFORE creating the
+        # new scheduler — CosineAnnealingLR captures base_lrs at __init__.
+        for g in opt.param_groups:
+            g["lr"] = lr
+        # Rebuild scheduler for the NEW total budget, resuming mid-curve:
+        # cosine LR continues from the current point and anneals to 0 at the
+        # new `steps`, so a longer-budget continuation is meaningful (the old
+        # T_max=2000 would have LR ≈ 0 already).
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps)
+        sched.last_epoch = start_step - 1
+        print(f"  [seed {seed}] sel={sel} resumed from step {start_step}, "
+              f"lr now {opt.param_groups[0]['lr']:.2e}", flush=True)
+    else:
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps)
 
     for step in range(steps):
         if step < start_step:
@@ -113,10 +125,16 @@ def train_eval(sel, seed, steps=2000, batch=16, lr=3e-4):
 
 if __name__ == "__main__":
     OUT = "benchmarks/results/text_selective_ab.jsonl"
+    # CLI: --steps N overrides the budget (default 2000); --resume continues
+    # from saved checkpoints with the scheduler rebuilt for the new budget.
+    steps = 2000
+    if "--steps" in sys.argv:
+        steps = int(sys.argv[sys.argv.index("--steps") + 1])
+    print(f"steps={steps} resume={('--resume' in sys.argv)}", flush=True)
     rows = []
     for sel in [False, True]:
         for seed in [0, 1, 2]:
-            rows.append(train_eval(sel, seed))
+            rows.append(train_eval(sel, seed, steps=steps))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "a", encoding="utf-8") as f:
         for r in rows:
