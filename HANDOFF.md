@@ -416,6 +416,21 @@ Get-Content E:\M1\scaling_fp32\converge_probe\scaling_train_20000_summary.txt
 
 # 查 GPU 争抢
 nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader
+
+# ⭐ 125M selective_decay 文本实验（2026-08-06 就绪，待 GPU —— 文本翻盘关键证据）
+# 接线已验证：126,092,519 params（=126,041,819 + 50,700 sel_w/sel_b），冒烟 stable。
+# 前提：selective_decay 在 parity 探针 3/3 满分，小模型文本探针 3/3 配对全优（v3 协议），
+#       此实验放大到 125M 验证是否缩小与 modern_transformer 的 11.3% PPL 差距。
+# 注意：对比组必须同跑 —— mt_lnn(默认) 是 88.93±0.33 的历史基线，再加 --selective_decay 臂。
+ssh root@tulong91.imwork.net -p 54511   # 或 AutoDL / Kaggle T4
+cd /root/autodl-tmp/M1
+python benchmarks/scaling_comparison.py --mode train --steps 20000 \
+  --seeds 0,1,2 --archs mt_lnn \
+  --dtype fp32 --ckpt_every 500 --resume \
+  --selective_decay \
+  --train_token_cap 50000000 \
+  --out_dir /root/autodl-tmp/M1/scaling_fp32/p0_2b_selective \
+  2>&1 | tee /root/autodl-tmp/M1/scaling_fp32/p0_2b_selective/run.log
 ```
 
 ## 7. 关键文件
