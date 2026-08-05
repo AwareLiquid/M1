@@ -133,12 +133,22 @@ def build_transformer(vocab, seq_len, seed, d_model=104, n_layers=2):
 
 def train_model(model, gen, device, steps, batch, lr, seed,
                 depth_choices=None, log_every=200, fwd_kwargs=None,
-                depth_setter="core"):
+                depth_setter="core", beta2=0.95, clip=1.0):
     """depth_choices: list of ints to sample per step (MT-LNN), or None.
-    depth_setter: 'core' (LNN sub-layer iteration) or 'stack' (whole-block)."""
+    depth_setter: 'core' (LNN sub-layer iteration) or 'stack' (whole-block).
+
+    beta2/clip: optimizer hygiene, and NOT a detail. A bisect on 2-bit XOR in
+    the pure-LNN stack (2026-08-05) found beta2=0.95 and grad-clip 1.0 EACH
+    independently prevent the parity breakthrough (chance vs 1.000 for the
+    control; cosine schedule and the internal-loss path were exonerated).
+    Mechanism from both sides of the same coin: the breakthrough is a rare
+    large-gradient event -- clip truncates it, and a fast second moment
+    (beta2=0.95) adapts to neutralise it. Defaults keep the historical recipe
+    so every archived row stays comparable; parity/grokking runs should pass
+    beta2=0.999, clip=0.    """
     fwd_kwargs = fwd_kwargs or {}
     model.to(device).train()
-    opt = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.95),
+    opt = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, beta2),
                             weight_decay=0.01)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=steps)
     rng = np.random.default_rng(seed)
@@ -158,7 +168,8 @@ def train_model(model, gen, device, steps, batch, lr, seed,
         loss = out["loss"]
         opt.zero_grad(set_to_none=True)
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        if clip:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         opt.step()
         sched.step()
         if step % log_every == 0 or step == steps - 1:
@@ -234,7 +245,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     skip_transformer=False, gamma_init=None, full_mha=False,
                     depth_setter="core", mix=False, n_global_heads=0,
                     n_heads=None, n_kv_heads=None, signed_decay=False,
-                    selective_decay=False, attention_layers=None):
+                    selective_decay=False, attention_layers=None,
+                    beta2=0.95, clip=1.0):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -282,7 +294,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                   f"scan={'off' if no_scan else 'on'})")
             train_model(m, gen, device, steps, batch, lr, seed,
                         depth_choices=[d], fwd_kwargs=fwd_kwargs,
-                        depth_setter=depth_setter)
+                        depth_setter=depth_setter, beta2=beta2, clip=clip)
             if mix:
                 acc = evaluate_per_k(m, task, difficulty, n_values,
                                      np.random.default_rng(10_000 + seed),
@@ -324,6 +336,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
             "signed_decay": signed_decay,
+            "beta2": beta2, "clip": clip,
             # Provenance must cover every knob that changes the model: the
             # 2026-08-04 hybrid parity A/B recorded rows whose arms were only
             # distinguishable by tag and a 1,170-parameter delta -- the
@@ -491,6 +504,13 @@ def main():
                    help="layer indices that KEEP attention; others become pure "
                         "LNN+FFN (hybrid thinning, HANDOFF 3.8 item 1). Omit "
                         "for all layers; pass with no values for none")
+    p.add_argument("--beta2", type=float, default=0.95,
+                   help="Adam beta2. The historical 0.95 PREVENTS parity-class "
+                        "grokking (bisected 2026-08-05: chance vs 1.000); pass "
+                        "0.999 for breakthrough experiments")
+    p.add_argument("--clip", type=float, default=1.0,
+                   help="grad-norm clip; 0 disables. clip=1.0 independently "
+                        "prevents the same breakthrough (same bisect)")
     p.add_argument("--selective_decay", action="store_true",
                    help="input-dependent signed transition λ_t = "
                         "decay·tanh(W_sel·x_t+b) — the parity-capable "
@@ -531,7 +551,8 @@ def main():
                         selective_decay=args.selective_decay,
                         attention_layers=(tuple(args.attention_layers)
                                           if args.attention_layers is not None
-                                          else None))
+                                          else None),
+                        beta2=args.beta2, clip=args.clip)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
