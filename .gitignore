@@ -142,3 +142,6 @@ benchmarks/_legacy.onnx
 
 # Kaggle credentials (KGAT_ tokens ¡ª never commit)
 /.kaggle/
+
+# text A/B checkpoints (large, reproducible from script)
+/data/text_ab_ckpt/

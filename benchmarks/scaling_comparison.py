@@ -109,7 +109,8 @@ def count_params(m):
     return sum(p.numel() for p in m.parameters())
 
 
-def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
+def build(arch, d_model, n_layers, vocab, seq_len, device, dtype,
+           selective_decay=False, signed_decay=False):
     from benchmarks.baselines import (BaselineConfig, SimpleCausalLNN,
                                        SimpleCausalTransformer,
                                        ModernCausalTransformer)
@@ -169,6 +170,11 @@ def build(arch, d_model, n_layers, vocab, seq_len, device, dtype):
             use_mtp_heads=mtp_on,
             mtp_lookahead=_MTP["k"],
             mtp_loss_weight=(_MTP["weight"] if mtp_on else 0.0),
+            # Parity-capable transition parameterisations (2026-08-05): the
+            # liquid core's escape route from TC^0 — input-dependent λ_t.
+            # Defaults OFF = bit-identical to every historical run.
+            selective_decay=selective_decay,
+            signed_decay=signed_decay,
         )
         m = MTLNNModel(cfg)
     return m.to(device=device, dtype=dtype)
@@ -246,7 +252,9 @@ def profile_arch(arch, args, device, dtype):
     rows = []
     for T in [int(x) for x in args.profile_lens.split(",")]:
         try:
-            m = build(arch, args.d_model, args.n_layers, args.vocab, T, device, dtype)
+            m = build(arch, args.d_model, args.n_layers, args.vocab, T, device, dtype,
+                      selective_decay=args.selective_decay,
+                      signed_decay=args.signed_decay)
             n_params = count_params(m)
             opt = torch.optim.AdamW(m.parameters(), lr=1e-4)
             ids = torch.randint(0, args.vocab, (args.profile_batch, T), device=device)
@@ -351,7 +359,8 @@ def train_arch(arch, args, device, dtype, seed=0):
     # autocast below still runs the matmuls in fp16. bf16 keeps the
     # historical full-cast, scaler-free path.
     param_dtype = torch.float32 if dtype == torch.float16 else dtype
-    m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, param_dtype)
+    m = build(arch, args.d_model, args.n_layers, args.vocab, args.seq_len, device, param_dtype,
+              selective_decay=args.selective_decay, signed_decay=args.signed_decay)
     if arch == "mt_lnn_mtp":
         # Controlled A/B: the extra MTP-head Linear params draw init RNG DURING
         # MTLNNModel.__init__ *before* its self.apply(init_weights) pass, which
@@ -362,7 +371,9 @@ def train_arch(arch, args, device, dtype, seed=0):
         # gradient — otherwise a PPL delta could be init luck, not MTP.
         torch.manual_seed(seed)
         _base = build("mt_lnn", args.d_model, args.n_layers, args.vocab,
-                      args.seq_len, device, param_dtype)
+                      args.seq_len, device, param_dtype,
+                      selective_decay=args.selective_decay,
+                      signed_decay=args.signed_decay)
         _bsd = _base.state_dict()
         _msd = m.state_dict()
         m.load_state_dict({k: (_bsd[k] if k in _bsd else v)
@@ -501,6 +512,15 @@ def main():
                     help="mt_lnn_mtp: MTP lookahead K (default 3)")
     ap.add_argument("--mtp_weight", type=float, default=0.1,
                     help="mt_lnn_mtp: MTP aux-loss weight λ (default 0.1)")
+    ap.add_argument("--selective_decay", action="store_true",
+                    help="mt_lnn: input-dependent transition λ_t = "
+                         "decay·tanh(W_sel·x_t+b) — the parity-capable "
+                         "parameterisation (2026-08-05 probe result). OFF by "
+                         "default = bit-identical to historical runs")
+    ap.add_argument("--signed_decay", action="store_true",
+                    help="mt_lnn: negative-eigenvalue extension λ = "
+                         "decay·tanh(s) (Grazzi ICLR 2025). Superseded by "
+                         "--selective_decay when both are set")
     ap.add_argument("--wikitext", default="wikitext-103-raw-v1",
                     help="wikitext-2-raw-v1 for a cheap smoke")
     ap.add_argument("--dtype", choices=["auto", "fp32", "fp16", "bf16"],

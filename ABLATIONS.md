@@ -635,6 +635,51 @@ degrades out-of-length; a genuine flip-flop recurrence (expressible only
 with input-dependent λ) generalizes. Both directions falsifiable: if
 selective also collapses out-of-length, it learned the shortcut too.
 
+### selective_decay on real TEXT — protocol lesson + v2 rerun (2026-08-05/06, local CPU)
+
+Does the parity-proven selective transition help language modeling?
+`benchmarks/text_selective_ab.py`: WikiText-2, tiny matched model
+(d_model=104, 2 layers, 10.65M params — embedding-dominated), 2000 steps,
+3 seeds, fp32 CPU, stock vs selective_decay.
+
+**v1 protocol (broken — do not cite)**: trained on first 2000 lines of the
+TRAIN split (~80k tokens), evaluated on the OFFICIAL VALIDATION split (a
+different distribution). Result: val_ppl ~ 10^4 for BOTH arms
+(stock 39287±7398, selective 41593±13746) — the model cannot generalize
+80k tokens → full val set, and a PPL of 10^4 drowns any A/B difference.
+Rows in `text_selective_ab.jsonl` from this protocol are marked by their
+magnitude; they are NOT evidence either way.
+
+**v2 protocol (running)**: held-out eval FROM THE TRAIN SPLIT (lines
+2000-2300, same distribution as training), checkpoints saved for resume.
+This is the protocol lesson the parity line already learned: a fixed
+out-of-distribution probe reads as "both fail" and cannot separate arms.
+
+**v3 protocol — THE valid one (complete)**: full WikiText-2 train split
+(~3.6M tokens, 17.8k chunks), held-out = last 3000 lines of the SAME
+split (~974 chunks). 2000 steps, batch 16, 3 seeds, fp32 CPU:
+
+| arm | seed 0 | seed 1 | seed 2 | mean ± std |
+|---|---:|---:|---:|---:|
+| stock | 666.16 | 674.80 | 678.23 | 673.07 ± 6.22 |
+| **selective** | **662.96** | **671.94** | **677.25** | **670.72 ± 7.22** |
+
+- **Directional signal, not yet significant**: selective is lower in
+  ALL 3 paired seeds (−3.20 / −2.86 / −0.99 PPL, ~0.35% mean), but the
+  gap is inside the ±6-7 seed std. At 10.6M params the selective weights
+  are 0.01% of the model — 2000 steps cannot amplify them. The consistent
+  paired direction (3/3) is the reason to run the 125M version (GPU).
+- v3 rows in `text_selective_ab.jsonl` are the last 6; v1/v2 rows (10^4
+  PPL) are protocol artifacts, not evidence.
+- Checkpoints in `data/text_ab_ckpt/` (sel{0,1}_s{0,1,2}.pt) enable
+  longer-budget reruns without retraining.
+
+Windows tooling note: torch 2.5.1 + transformers 5.x + pyarrow have an
+OpenMP/DLL conflict — pyarrow read_table crashes (0xC0000005) once torch is
+loaded; also `-X faulthandler` alone crashes with transformers 5.x. The
+parquet data was converted to plain .txt by a standalone pyarrow pass
+(`data/wikitext2_{train,val}.txt`); the script reads text only.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
