@@ -129,6 +129,75 @@ the hard way.
    HANDOFF §3.8; the sweep has NOT been run — this entry exists so the prime
    lock is treated as a design constraint to remove, not a finding to rediscover.
 
+## Parity, core isolation: the recipe was vetoing the experiment (2026-08-05)
+
+The follow-up isolation run (`m1-parity-core-isolation`, pure-LNN stack via
+`attention_layers=()`, 3 seeds/arm, 10k steps) came back with BOTH arms
+bit-identical at chance for every k **including k=1** — and k=1 parity is
+copy-a-bit. A setup that fails the trivial task cannot indict the hard one, so
+the run was discarded and the failure debugged locally instead of being
+recorded as a null.
+
+### The debugging chain, kept because each step exonerates something
+
+1. Bare probe, pure-LNN, copy-a-bit: **1.000 in 150 steps** — the architecture
+   moves information fine; the failure is in the harness path.
+2. lr (3e-4 vs 3e-3): both learn copy in the bare loop — exonerated.
+3. `core_iterations` built-2-run-1 vs built-1: identical learning — the
+   bit-equivalence claim holds; exonerated.
+4. `evaluate()` shift convention: correct (reads `ans_pos-1`, matching the
+   model's internal shifted loss). My own head-to-head diagnostic had read the
+   wrong position — the harness was innocent here.
+5. My earlier "k=2" bare test had the second bit FIXED at 0 — that is copy,
+   not XOR. **True 2-bit XOR is the minimal decisive task.**
+
+### The positive result (bare probe, pure-LNN stack, true XOR)
+
+| arm | outcome |
+|---|---|
+| `selective_decay=True` | **1.000** (breakthrough ~step 800; reproduced again as the bisect control and its +cosine arm) |
+| stock core | **0.499–0.508, pinned at ln 2** — exactly Sarrof Thm 2's prediction |
+
+First theory-predicted, experiment-confirmed result on main: input-dependent
+signed transitions enable parity-class computation in the isolated liquid
+core; the stock core cannot break the symmetry at all. Converges with the
+independent implementation on `experiment/consciousness-m1-v2` (parity 0.000 →
+1.000, 3/3 seeds, via input-dependence + negative eigenvalues).
+
+**Caveat that must travel with the result**: the breakthrough is data-stream
+sensitive. The same model seed groks on one RNG stream (2/2) and sits at
+chance on another (0/3 across three seeds, 2k steps). Verdict experiments must
+report **grok rates over many seeds**, never accuracies over few.
+
+### Why the harness (and the Kaggle run) could not see it — bisected
+
+One delta at a time added to the working bare loop (1500 steps, lr 3e-3):
+
+| variant | acc |
+|---|---|
+| control | **1.000** |
+| + `betas=(0.9, 0.95)` | **0.496** |
+| + cosine schedule | 1.000 |
+| + `clip_grad_norm 1.0` | **0.496** |
+| + internal-loss path (`model(ids, labels=labels)`) | 1.000 |
+
+`beta2=0.95` and `clip=1.0` — the harness's historical recipe — **each
+independently veto the breakthrough**. Same mechanism, opposite sides: the
+breakthrough is a rare large-gradient event; clip truncates it, a fast second
+moment adapts to it and neutralises the effective step. `train_model` used
+both, which fully explains the isolation run's all-arms-at-chance and casts
+the same doubt on every previous parity attempt under this recipe (including
+the signed_decay all-arms null: it was run under the same veto and should be
+re-examined with the good recipe before "signed is inert" is treated as
+final).
+
+Harness now exposes `--beta2` / `--clip` (defaults unchanged for archival
+comparability), records both in every row's provenance.
+
+**Verdict experiment running**: `m1-parity-verdict-goodrecipe` — pure-LNN,
+beta2 0.999, clip off, 6 seeds/arm, difficulty 2 and 8, tags `pv-d2-*` /
+`pv-d8-*`. Deliverable is the grok-rate table.
+
 ## Parity x selective_decay, hybrid A/B (2026-08-04, Kaggle T4, 3 seeds — NULL, and a design flaw worth more than the null)
 
 Arms: `--selective_decay` on/off, parity mix curriculum (difficulty 32), 10k
