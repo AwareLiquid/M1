@@ -129,6 +129,42 @@ the hard way.
    HANDOFF §3.8; the sweep has NOT been run — this entry exists so the prime
    lock is treated as a design constraint to remove, not a finding to rediscover.
 
+## Parity x selective_decay, hybrid A/B (2026-08-04, Kaggle T4, 3 seeds — NULL, and a design flaw worth more than the null)
+
+Arms: `--selective_decay` on/off, parity mix curriculum (difficulty 32), 10k
+steps, 3 seeds each. Rows `parity-sel-on` / `parity-sel-off` in
+`benchmarks/results/reasoning_depth.jsonl` (merged from Kaggle 2026-08-05).
+
+| k | sel-on (3 seeds) | sel-off (3 seeds) | transformer control |
+|---|---|---|---|
+| 8 | 0.999 / 1.000 / 0.992 | 1.000 / 1.000 / 0.912 | 1.0 |
+| 16 | 0.970 / 0.922 / 0.681 | 0.923 / 1.000 / 0.524 | 1.0 |
+| 32 | **0.515 ± 0.028** | **0.531 ± 0.039** | 0.68–0.81 |
+
+**No difference between arms at any k.** But the more important finding is
+that the experiment could not have seen one: the "mt_lnn" probe is the full
+HYBRID block, and its **attention sub-layer computes the parity-adjacent
+counting on its own** (the attention-only transformer control reaches 0.68–0.81
+at k=32). A stock core scoring 0.92–1.00 at k=16 is not a refutation of Sarrof
+Thm 2 — the theorem is about the recurrence, and the recurrence was never
+isolated. The null between arms means "attention already does what it can",
+nothing about the liquid core.
+
+Two side findings:
+- The hybrid is WORSE than the attention-only control at k=32 (≈0.52 vs
+  0.68–0.81) — the liquid sub-layer is not merely idle on this task, it appears
+  to be in the way. Unexplained; single protocol; noted, not concluded.
+- Provenance gap: the jsonl rows did not record `selective_decay` (arms were
+  distinguishable only by tag and a 1,170-parameter delta — exactly sel_w+sel_b
+  for P=13, S=5, D=8 over 2 layers, which is how the arms were verified to be
+  real). The recorder now writes `selective_decay` and `attention_layers`.
+
+**Follow-up running**: `m1-parity-core-isolation` — identical protocol with
+`attention_layers=()` (pure LNN stack, the new hybrid-thinning knob). Theory
+predicts the stock arm hard-stuck at 0.5 for every k; selective learning any
+nontrivial k is the positive. This is the experiment the first one should have
+been.
+
 ## GQA x global-head quota, first sweep (2026-07-31, Kaggle T4, n=1 — UNREPLICATED)
 
 Decoupled heads made middle GQA ratios expressible for the first time, so the
@@ -333,6 +369,59 @@ Same pure-LNN stack, difficulty 16, 6000 steps, 3 seeds:
 - Honest scope: toy probe (200K-class), depth-1 only; k=32 (Kaggle
   protocol) and stack-depth interplay remain open. No ranking claims
   beyond this task.
+
+### k=32 protocol: everyone hits the grokking budget wall (2026-08-05, local)
+
+Same pure-LNN stack, difficulty 32 (T=35), 6000 steps, 3 seeds:
+
+| arm | k=1 | k=2 | k=4 | k=8 | k=16 | k=32 |
+|---|---:|---:|---:|---:|---:|---:|
+| stock | 0.513 | 0.500 | 0.495 | 0.505 | 0.494 | 0.507 |
+| selective | 0.513 | 0.500 | 0.495 | 0.505 | 0.494 | 0.507 |
+| transformer control (246K) | 1.000 | 1.000 | 1.000 | 1.000 | 0.997 | **0.557** |
+
+- **k=32 is the budget wall for EVERY architecture at 6000 steps** — even
+  the transformer (which solves k≤16 at 1.0) collapses to 0.557 ≈ chance at
+  k=32. This reproduces the historical "fixed L=32 all-chance for every arm"
+  (ABLATIONS P0-C′); mix curriculum lowers the wall but does not remove it.
+- selective at k=32 does NOT grok within 6000 steps — this is a training
+  budget finding, NOT a mechanism failure: grokking delay grows with
+  sequence length, and d8/d16 show the mechanism works. A decisive k=32
+  test needs 12k+ steps (or the Kaggle T4 line where the 10k-step
+  `m1-parity-selective-ab` kernel is still the canonical protocol).
+- **Interpretation for the "beyond" claim**: the sweet spot is d16 — the
+  highest difficulty where selective still groks to 1.0 within budget while
+  the transformer has already begun to sag. k=32's wall is shared, so it
+  does not separate architectures; it only bounds all of them.
+- Rows: `purelnn-d32-sel-long` / `purelnn-d32-stock-long`.
+
+### Stack-depth interaction: depth does NOT substitute for selectivity (2026-08-05, local)
+
+The M2 main-line question — can weight-tied whole-block depth
+(`stack_iterations`, the J-Space "add depth at the bottleneck, cost 1/64"
+idea) rescue the input-independent core from TC⁰? Pure-LNN stack, stack
+depth 4 (`--stack --eval_depths 4`), mix curriculum, 3 seeds:
+
+difficulty 16, 2500 steps (budget-matched to the core-depth-1 runs):
+
+| arm (stack4) | k=1 | k=2 | k=4 | k=8 | k=16 |
+|---|---:|---:|---:|---:|---:|
+| stock | 0.501 | 0.501 | 0.501 | 0.505 | 0.497 |
+| selective | 0.501 | 0.501 | 0.501 | 0.505 | 0.497 |
+| transformer control | 1.000 | 1.000 | 1.000 | 1.000 | 0.904 |
+
+- **stack depth 4 does not rescue either arm at 2500 steps / d16** — both
+  sit at exactly ln 2. Same budget, core-depth-1 selective had already
+  grokked d8 (3/3 at 1.0). Weight-tied depth alone does not substitute for
+  input-dependent transition at this scale/budget.
+- The stack-depth axis multiplies compute per step (~4×), so it makes the
+  grokking-budget problem WORSE per wall-clock second — consistent with the
+  theory that selectivity is the binding constraint (the transition must
+  READ the token), not raw depth.
+- **Open**: stack × selective at d8 with a budget long enough to isolate
+  depth effects (running as `stack4-d8-*`); stack_iterations at d16 with
+  6000+ steps would also be needed before depth can be ruled out entirely.
+- Rows: `stack4-d16-stock` / `stack4-d16-selective`.
 
 ## Expected Results
 

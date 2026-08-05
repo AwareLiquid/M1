@@ -324,6 +324,13 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "n_layers": n_layers, "no_scan": no_scan,
             "signed_decay": signed_decay,
+            # Provenance must cover every knob that changes the model: the
+            # 2026-08-04 hybrid parity A/B recorded rows whose arms were only
+            # distinguishable by tag and a 1,170-parameter delta -- the
+            # selective_decay field simply wasn't written.
+            "selective_decay": selective_decay,
+            "attention_layers": (list(attention_layers)
+                                 if attention_layers is not None else None),
             "gamma_init": gamma_init, "full_mha": full_mha,
             "depth_setter": depth_setter, "mix": mix,
             "n_global_heads": n_global_heads,
