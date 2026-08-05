@@ -518,6 +518,34 @@ core-depth-1 d8 runs where selective grokked 3/3):
   is a depth argument and this experiment says depth is not the lever.
 - Rows: `stack4-d8-stock` / `stack4-d8-selective`.
 
+### Curriculum unlocks parity for BOTH arms — attention counting confound (2026-08-05)
+
+Local 8k probe: fixed L=32 all-chance for every arm, but curriculum-mix
+(L ~ U{1..32}) separates immediately at n=1: selective L=2 = 1.000 vs stock
+0.753. Kaggle 30k × interleaved arms (`m1-parity-selective-curriculum-ab`,
+CANCELLED at ~2h — weekly GPU quota exhausted — 4/6 runs salvaged from
+per-run snapshots):
+
+| arm | seed | L=8 | L=16 | L=32 |
+|---|---:|---:|---:|---:|
+| selective | 0 | 1.0 | **1.000** | **1.000** — first full parity solve in the program |
+| stock | 0 | 1.0 | 0.879 | 0.528 |
+| selective | 1 | 1.0 | 1.000 | 0.619 |
+| stock | 1 | 1.0 | 1.000 | 0.658 |
+
+Honest reading: (a) curriculum + 30k makes parity largely learnable for BOTH
+arms to L≥16 — parity ∈ TC⁰ and the ATTENTION path can count bits and read
+out mod 2, bypassing the liquid core (the 2026-08-03 memory warned exactly
+this); (b) at L=32 the arms overlap across seeds (sel {1.0, 0.62} vs stock
+{0.53, 0.66}) — suggestive, not conclusive at n=2. **The in-distribution
+task cannot isolate the core's contribution.**
+
+Discriminator now running: `benchmarks/parity_lengthgen.py` — train
+L ~ U{1..32}, evaluate at L ∈ {48, 64, 96, 128}. A counting shortcut
+degrades out-of-length; a genuine flip-flop recurrence (expressible only
+with input-dependent λ) generalizes. Both directions falsifiable: if
+selective also collapses out-of-length, it learned the shortcut too.
+
 ## Expected Results
 
 Based on Phase 5b validation, we expect:
