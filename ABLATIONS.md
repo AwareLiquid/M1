@@ -489,13 +489,22 @@ difficulty 8, mix curriculum, depth=1 fixed, 2500 steps, 3 seeds:
 | **selective_decay** | **1.000** | **1.000** | **1.000** | **1.000** |
 | transformer control (246K) | 1.000 | 1.000 | 1.000 | 0.999 |
 
-- **Sarrof Thm 2 confirmed cleanly**: stock pure-LNN fails k≥2 (chance) —
-  strictly positive, input-independent gating cannot express parity. The
-  earlier hybrid runs showed stock at 1.0 only because the attention layers
-  (TC⁰-complete) silently solved parity at short T — hybrid was not a valid
-  liquid-core probe.
+- **Sarrof Thm 2 — where it actually bites (updated 2026-08-06 with the
+  fixed-k=2 verdict)**: the theorem's excluded regime is LARGE/unbounded k.
+  At FIXED small k (k=2: 4 input combos → 4 distinct linear-sum states),
+  the nonlinear readout can classify XOR from distinct positional
+  coefficients — so stock CAN grok k=2 (6-seed fixed-k=2 A/B: selective
+  2/6 vs stock 1/6, Fisher p=1.0 — "separation at k=2" was my misreading,
+  correctly downgraded in 87532b5). The clean d8 separation below is
+  dominated by k≥4, and the decisive large-k evidence is the d16 k=16
+  arm: selective 3/3 at 1.000 vs stock 3/3 at chance (0.505/0.510/0.492)
+  — the pure-LNN stock core CANNOT do large-k parity, exactly the
+  theorem's regime. The earlier hybrid runs showed stock at 1.0 only
+  because the attention layers (TC⁰-complete) silently solved parity at
+  short T — hybrid was not a valid liquid-core probe.
 - **selective_decay closes the gap completely**: 3/3 seeds at 1.000 across
-  all k, matching the transformer at **44% fewer parameters** (138K vs 246K).
+  all k (incl. k=16), matching the transformer at **44% fewer parameters**
+  (138K vs 246K).
 - The difficulty-16 arm at 2500 steps failed for BOTH arms (k≥2 ≈ chance):
   training time, not mechanism — the d8 arm above separates at the same
   step budget. Parity needs more steps as L grows; curriculum helps but does
