@@ -143,6 +143,43 @@ steps, 6 seeds/arm, k=2 and k=8. Rows `pv-*` in
 | k=8, selective | 0/6 | all ~0.50 |
 | k=8, stock | 0/6 | all ~0.50 (per-seed bit-identical with sel — the constant-collapse artifact again) |
 
+### Length-generalization v2, full model, good recipe (2026-08-06)
+
+Complementary axis to the isolated-core verdict: FULL model (attention on),
+curriculum L ~ U{1..32}, 30k steps, one arm per process, beta2=0.999 clip=0
+lr=3e-4. Rows in `benchmarks/results/parity_lengthgen.jsonl` (v1 rows from
+2026-08-05 used the vetoing recipe — not interpretable, superseded).
+
+| run | L16 | L32 | L48 | L64+ |
+|---|---:|---:|---:|---:|
+| sel s0 | 0.753 | 0.498 | 0.492 | chance |
+| stock s0 | 0.996 | 0.566 | 0.492 | chance |
+| sel s1 | 0.475 | 0.519 | 0.504 | chance |
+| stock s1 | 0.491 | 0.515 | 0.509 | chance |
+| **sel s2** | **0.9995** | **0.9951** | **0.749** | 0.536 → chance |
+| stock s2 | 0.565 | 0.502 | 0.484 | chance |
+
+Verdict: (a) the ONLY out-of-length transfer in six runs is sel s2
+(L48 = 0.749, ~1.5× train length, decayed by L64) — no run learned a clean
+length-invariant flip-flop; (b) sel 1/3 vs stock 0/3 on "any L48 transfer"
+is directionally consistent with the selective hypothesis and nowhere near
+significance; (c) good-recipe in-dist learning is WEAKER here than the
+vetoing-recipe v1 (v1 sel s0 hit L32 0.96 in-dist) — the recipe effect is
+context-dependent (bare core vs full model), so recipe must be treated as a
+swept axis, not a fixed constant, in any promotable claim.
+
+### Where the parity program stands (2026-08-06 synthesis)
+
+Anecdotal positives for input-dependent signed transitions exist in three
+independent places (branch bare-probe 3/3; curriculum full-solve seed;
+sel s2 length transfer) but **no multi-seed matched-control test has
+separated the arms yet**: isolated core 2/6 vs 1/6 (p≈1.0), length-gen 1/3
+vs 0/3. k=2 is now understood to be an INVALID separator (bounded parity is
+reachable by counting + nonlinear readout in any accumulator; the
+impossibility theorems are asymptotic). The live discriminators are k≥8
+grok rate at larger budget, and length extrapolation. Both are
+budget-limited, not design-limited.
+
 ### What this corrects
 
 **The stock core grokked k=2 once.** Not a violation of Sarrof Thm 2 — a
