@@ -422,6 +422,17 @@ nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader
 # 前提：selective_decay 在 parity 探针 3/3 满分，小模型文本探针 3/3 配对全优（v3 协议），
 #       此实验放大到 125M 验证是否缩小与 modern_transformer 的 11.3% PPL 差距。
 # 注意：对比组必须同跑 —— mt_lnn(默认) 是 88.93±0.33 的历史基线，再加 --selective_decay 臂。
+#
+# 📊 v4 文本续训（决策门，2026-08-06 启动，2000→8000 步）：本地 CPU 跑
+#   `py -3.11 benchmarks/text_selective_ab.py --resume --steps 8000`
+#   - seed0 stock 已完成：val_ppl=475.974（v3 同模型 666.16 → 预算×4 大幅改善，训练远未饱和）
+#   - 结论判定：3 配对 selective 是否随预算放大 → 跑 `py -3.11 benchmarks/analyze_text_ab.py`
+#   - 分析脚本 `benchmarks/analyze_text_ab.py`（2026-08-06 新增）：配对 delta + sign-test + 跨预算轨迹
+#
+# 🔓 P100 解锁（2026-08-06 发现）：Kaggle 免费层 P100（sm_60）默认新 torch 无 sm_60 支持，
+#   → 装 cu118 构建 `torch==2.1.2+cu118`（保留 sm_60，官方论坛证实 arch_list 含 sm_60）即可用 GPU。
+#   kaggle/kaggle_runner.ipynb 已内置该逻辑（cell 1 自动探测+安装），queue D（125M）不再被 GPU 卡死。
+#   推送内核：kaggle/kernel-metadata-runner.json（is_private=true）→ `kaggle kernels push -p kaggle`
 ssh root@tulong91.imwork.net -p 54511   # 或 AutoDL / Kaggle T4
 cd /root/autodl-tmp/M1
 python benchmarks/scaling_comparison.py --mode train --steps 20000 \
