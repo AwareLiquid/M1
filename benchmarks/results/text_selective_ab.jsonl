@@ -17,3 +17,9 @@
 {"seed": 0, "selective": true, "params": 10653837, "val_ppl": 662.9612426757812, "steps": 2000}
 {"seed": 1, "selective": true, "params": 10653837, "val_ppl": 671.9390258789062, "steps": 2000}
 {"seed": 2, "selective": true, "params": 10653837, "val_ppl": 677.2468872070312, "steps": 2000}
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 475.97357177734375, "steps": 8000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 470.8699951171875, "steps": 8000}
+{"seed": 2, "selective": false, "params": 10652667, "val_ppl": 471.1477966308594, "steps": 8000}
+{"seed": 0, "selective": true, "params": 10653837, "val_ppl": 465.51690673828125, "steps": 8000}
+{"seed": 1, "selective": true, "params": 10653837, "val_ppl": 476.726318359375, "steps": 8000}
+{"seed": 2, "selective": true, "params": 10653837, "val_ppl": 472.9900207519531, "steps": 8000}

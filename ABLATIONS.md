@@ -683,6 +683,33 @@ split (~974 chunks). 2000 steps, batch 16, 3 seeds, fp32 CPU:
 - Checkpoints in `data/text_ab_ckpt/` (sel{0,1}_s{0,1,2}.pt) enable
   longer-budget reruns without retraining.
 
+**v4 protocol — the budget-amplification test (complete, 2026-08-06)**: resume
+the v3 checkpoints 2000→8000 steps (`--resume --steps 8000`, same eval split),
+the decision experiment for whether the 2000-step directional signal scales:
+
+| arm | seed 0 | seed 1 | seed 2 | mean ± std |
+|---|---:|---:|---:|---:|
+| stock | 475.974 | 470.870 | 471.148 | 472.664 ± 2.870 |
+| selective | **465.517** | 476.726 | 472.990 | 471.744 ± 5.708 |
+
+- **The 2000-step signal does NOT amplify with budget — it collapses.**
+  paired deltas: seed0 **+10.457** (selective), seed1 **−5.856**, seed2
+  **−1.842** → mean **+0.919**, selective wins **1/3**, sign-test **p=1.000**.
+  v3's 3/3 directionality (mean +2.349) was within seed noise; the v4
+  budget-amplification hypothesis is **falsified at 8000 steps**.
+- Two failures — the process crashed mid-run (arrow.dll APPCRASH, torch+
+  transformers+pyarrow long-run DLL conflict) and was resumed via `-X
+  faulthandler`; stock arms resume-complete in ~80s (checkpoint math
+  verified: val_ppl bit-matches v3 rows), selective arms ran 2000→8000.
+  Both arms improved ~200 PPL over v3, consistent with a real 4× budget.
+- **Decision impact**: the 125M text experiment is NOT justified by this
+  line alone — selective's edge here is dominated by a single lucky seed.
+  The parity line (d16 k=16 selective 3/3 vs stock 3/3 at chance, and the
+  k=32 12k-step Kaggle queue) remains the selective mechanism's evidence;
+  text-language-modeling benefit stays unproven.
+- v4 rows in `text_selective_ab.jsonl` are the last 6 (steps=8000);
+  analyze with `benchmarks/analyze_text_ab.py` (paired delta + sign-test).
+
 Windows tooling note: torch 2.5.1 + transformers 5.x + pyarrow have an
 OpenMP/DLL conflict — pyarrow read_table crashes (0xC0000005) once torch is
 loaded; also `-X faulthandler` alone crashes with transformers 5.x. The
