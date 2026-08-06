@@ -1,0 +1,16 @@
+{
+  "ckpt": "checkpoints/o1_48m_serve.pt",
+  "device": "cpu",
+  "results": {
+    "mmlu": {
+      "acc": 0.0,
+      "n": 10,
+      "correct": 0
+    },
+    "gsm8k": {
+      "acc": 0.0,
+      "n": 10,
+      "correct": 0
+    }
+  }
+}

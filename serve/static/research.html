@@ -605,6 +605,26 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
         <figcaption>Fig. 6b — Inference carried state vs. context length, 512 → 1M tokens. KV-cache grows O(n) to 3,072 MB; the carried state stays 0.381 MB. ARR state is a measured snapshot; the KV line is the exact analytic size (832×12, GQA=1). Carried-state bytes only — no quality claim beyond the 512-token training length.</figcaption>
       </figure>
 
+      <h3>Long-Context Capability (Matched Size)</h3>
+      <p>On Selective Copy — a whole-sequence recall task under heavy noise — MT-LNN leads at <strong>every</strong> sequence length at matched 200K parameters under a fair full-sequence decode: 0.883 vs 0.672 at T=37, widening to <strong>×2.0</strong> at T=229 (0.219 vs 0.109). The edge is specifically all-or-nothing recall, not average per-token accuracy.</p>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/selective_copy_samesize.svg"
+             alt="Bar chart, matched 200K params: whole-sequence recall at T=37/101/229. MT-LNN 88%/74%/22%, Transformer 67%/57%/11%, LNN 70%/73%/17%. MT-LNN leads at every length; ratio widens to ×2.0 at T=229."
+             loading="lazy">
+        <figcaption>Fig. 6c — Selective Copy, matched 200K params, equal 1500-step budget, fair full-sequence decode (BENCHMARKS.md). MT-LNN leads at every length; the ratio widens to ×2.0 at T=229. Boundary: toy-scale task — most of the gain is the liquid recurrence; the microtubule machinery adds a smaller increment.</figcaption>
+      </figure>
+
+      <h3>Positioning: Long-Context + Edge Cost, Not AGI Indices</h3>
+      <p><strong>Honest framing:</strong> our models (48M–1.1B) score near random on AGI-class benchmarks (MMLU, Agent suites) — those are designed for 50+-point models. We do not compete there. We compete on <strong>long-context capability at edge cost</strong>: the same-size recall advantage above, plus O(1) carried state (0.381 MB vs 3,072 MB at 1M tokens) — putting per-task cost 2–3 orders of magnitude below cloud APIs.</p>
+
+      <figure class="chart-fig">
+        <img src="/static/charts/cost_capability_positioning.svg"
+             alt="Log-x scatter: cost per task (USD) vs capability score. DeepSeek-V4-Flash reference at $0.028 / AA index 50. MT-LNN at ~$0.001 / 89.5% (T=32) and ~$0.0009 / 21.9% (T=229, ×2.0). Slay zone shaded."
+             loading="lazy">
+        <figcaption>Fig. 6d — Cost-per-task vs capability, AA slay-line methodology (reference point from the 2026-07-31 Artificial Analysis ranking; costs are estimates). We position on long-context + edge cost, explicitly not on general-intelligence indices.</figcaption>
+      </figure>
+
       <hr class="divider">
 
       <h2 id="reproduce">7 · How to Reproduce</h2>

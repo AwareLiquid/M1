@@ -1,0 +1,21 @@
+{
+  "ckpt": "checkpoints/llama_mt_adapter/llama_mt_adapter_v2s_003000.pt",
+  "device": "cpu",
+  "base": "TinyLlama-1.1B-Chat-v1.0",
+  "results": {
+    "mmlu": {
+      "acc": 0.0,
+      "n": 4,
+      "correct": 0,
+      "wall_s": 21.4,
+      "s_per_item": 5.35
+    },
+    "gsm8k": {
+      "acc": 0.0,
+      "n": 4,
+      "correct": 0,
+      "wall_s": 23.4,
+      "s_per_item": 5.86
+    }
+  }
+}

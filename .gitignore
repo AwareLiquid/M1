@@ -145,3 +145,6 @@ benchmarks/_legacy.onnx
 
 # text A/B checkpoints (large, reproducible from script)
 /data/text_ab_ckpt/
+
+# Web assets repo (keep separate)
+AwareLiquid-Web/
