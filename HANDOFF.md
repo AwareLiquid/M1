@@ -432,7 +432,9 @@ nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader
 # 🔓 P100 解锁（2026-08-06 发现）：Kaggle 免费层 P100（sm_60）默认新 torch 无 sm_60 支持，
 #   → 装 cu118 构建 `torch==2.1.2+cu118`（保留 sm_60，官方论坛证实 arch_list 含 sm_60）即可用 GPU。
 #   kaggle/kaggle_runner.ipynb 已内置该逻辑（cell 1 自动探测+安装），queue D（125M）不再被 GPU 卡死。
-#   推送内核：kaggle/kernel-metadata-runner.json（is_private=true）→ `kaggle kernels push -p kaggle`
+#   推送内核：kaggle/runner_push/kernel-metadata.json（is_private=true，引用 notebook 副本）
+#   → `kaggle kernels push -p kaggle/runner_push`  ← 注意 CLI 要求精确文件名 kernel-metadata.json，
+#     无 -m 参数，目录内必须自包含该文件（勿用 `-p kaggle`，那里只有 kernel-metadata-runner.json）。
 ssh root@tulong91.imwork.net -p 54511   # 或 AutoDL / Kaggle T4
 cd /root/autodl-tmp/M1
 python benchmarks/scaling_comparison.py --mode train --steps 20000 \
