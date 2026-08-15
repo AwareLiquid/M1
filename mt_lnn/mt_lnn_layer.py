@@ -146,6 +146,30 @@ class VectorizedMultiScaleResonance(nn.Module):
             self.hh_rank = 0
             self.hh_w = None
             self.hh_b = None
+
+        # DeltaProduct NDIT (docs/NONDIAGONAL_TRANSITION.md §4.5, 2026-08-15).
+        # Non-involutory dense low-rank correction:
+        #   A(x_t) = Σ_r δ_r(x_t) u_r(x_t) v_r(x_t)ᵀ   (rank-R, non-diagonal)
+        #   h_t = (I + A(x_t)) h_{t-1} + (1-decay) ⊙ B_t
+        # δ_r init ≈ 0 (deltaproduct_scale=0.1 × tanh) → transition ≈ I at
+        # init: stable start, opens as training proceeds. Off by default.
+        self.use_dp = getattr(config, "use_deltaproduct_transition", False)
+        if self.use_dp:
+            self.dp_rank = max(1, int(getattr(config, "deltaproduct_rank", 2)))
+            self.dp_scale = float(getattr(config, "deltaproduct_scale", 0.1))
+            self.dp_u_w = nn.Parameter(torch.empty(P, self.dp_rank, D, D))
+            self.dp_u_b = nn.Parameter(torch.zeros(P, self.dp_rank, D))
+            self.dp_v_w = nn.Parameter(torch.empty(P, self.dp_rank, D, D))
+            self.dp_v_b = nn.Parameter(torch.zeros(P, self.dp_rank, D))
+            self.dp_g_w = nn.Parameter(torch.empty(P, self.dp_rank, D))
+            self.dp_g_b = nn.Parameter(torch.zeros(P, self.dp_rank))
+            nn.init.normal_(self.dp_u_w, mean=0.0, std=0.02)
+            nn.init.normal_(self.dp_v_w, mean=0.0, std=0.02)
+            nn.init.normal_(self.dp_g_w, mean=0.0, std=0.02)
+        else:
+            self.dp_rank = 0
+            self.dp_u_w = self.dp_u_b = self.dp_v_w = self.dp_v_b = None
+            self.dp_g_w = self.dp_g_b = None
         
         # Endogenous Dynamic Kappa Gate: dynamically activates tau channels
         # based on input. Initialized open so channels are not dead at startup.
@@ -380,6 +404,37 @@ class VectorizedMultiScaleResonance(nn.Module):
                         a_step * (1.0 - decay_active).view(1, P, K_active, 1)
                     h_ndit[:, t] = state
                 h_active = h_ndit
+            elif lam_t is not None and self.use_dp:
+                # DeltaProduct NDIT (2026-08-15): per-token rank-R dense
+                # correction — NON-involutory, non-diagonal, input-dependent:
+                #   h_t = (I + Σ_r δ_r u_r v_rᵀ) h_{t-1} + (1-decay) ⊙ B_t
+                # Naive sequential loop (correctness first). δ_r init ≈ 0 so
+                # the transition starts ≈ I (stable) and opens during training.
+                h_dp = torch.zeros(B, T, P, K_active, D,
+                                   device=x.device, dtype=x.dtype)
+                state = h_init_active.clone()                 # (B,P,K,D)
+                for t in range(T):
+                    xt = x[:, t]                              # (B,P,D)
+                    out = state
+                    for r in range(self.dp_rank):
+                        u = torch.tanh(
+                            torch.einsum("bpd,pde->bpe", xt, self.dp_u_w[:, r])
+                            + self.dp_u_b[:, r])              # (B,P,D)
+                        v = torch.tanh(
+                            torch.einsum("bpd,pde->bpe", xt, self.dp_v_w[:, r])
+                            + self.dp_v_b[:, r])              # (B,P,D)
+                        g = self.dp_scale * torch.tanh(
+                            torch.einsum("bpd,pd->bp", xt, self.dp_g_w[:, r])
+                            + self.dp_g_b[:, r])              # (B,P)
+                        dots = torch.einsum("bpd,bpkd->bpk", v, out)  # (B,P,K)
+                        out = out + (g.unsqueeze(-1) * dots).unsqueeze(-1) \
+                            * u.unsqueeze(2)                  # (B,P,K,D)
+                    lam_step = lam_t[:, t]                    # (B,P,K)
+                    a_step = A[:, t]                          # (B,P,K,D)
+                    state = out * lam_step.unsqueeze(-1) + \
+                        a_step * (1.0 - decay_active).view(1, P, K_active, 1)
+                    h_dp[:, t] = state
+                h_active = h_dp
             elif lam_t is not None:
                 # Selective: per-step multipliers via the GENERAL scan.
                 A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)

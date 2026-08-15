@@ -164,12 +164,15 @@ def run_one(arm, seed, args, table, device):
             # main 旗标映射（2026-08-15）：分支的
             # allow_negative_decay + input_dependent_decay（both）=
             # main 的 selective_decay（每步带符号输入相关转移，两者 superset）
-            selective_decay=(arm in ("liquid_both", "liquid_ndit")),
+            selective_decay=(arm in ("liquid_both", "liquid_ndit",
+                                     "liquid_deltap")),
             # E5e: 参数化切换（默认 tanh = 历史；exp 已验证恢复长度外推）
             selective_decay_mode=getattr(args, "sel_mode", "tanh"),
             # NDIT (M2, 2026-08-15): Householder 非对角输入相关转移 —
             # A5 需要非对角（Merrill Cor 4.7），对角修复无论参数化都解不了
             use_householder_transition=(arm == "liquid_ndit"),
+            # DeltaProduct NDIT (§4.5 路线修正): 非对合稠密低秩修正
+            use_deltaproduct_transition=(arm == "liquid_deltap"),
         )
         model = LiquidProbe(cfg, n_classes, args.probe_layers).to(device)
 
@@ -235,7 +238,8 @@ def main():
     print(f"device={device}  train<=({args.train_len})  test=({args.train_len+1}..{args.test_len})")
     print(f"per-token chance = 1/60 = 0.0167\n")
 
-    ARMS = ["lstm_control", "liquid_legacy", "liquid_both", "liquid_ndit"]
+    ARMS = ["lstm_control", "liquid_legacy", "liquid_both", "liquid_ndit",
+            "liquid_deltap"]
     if getattr(args, "arms", None) is not None:
         ARMS = [a for a in ARMS if a in args.arms]
         if not ARMS:
@@ -275,9 +279,18 @@ def main():
               f"extrap_tok={r['extrapolate_tok_mean']:.3f}")
     print()
     ndit = results.get("liquid_ndit", {}).get("in_dist_tok_mean", None)
+    deltap = results.get("liquid_deltap", {}).get("in_dist_tok_mean", None)
     if ctrl is not None and ctrl < 0.5:
         print("  !! LSTM CONTROL FAILED -- the pipeline, not the theory, is at "
               "fault. Nothing else in this run is interpretable.")
+    elif deltap is not None and deltap >= 0.5:
+        print("  -> DELTAPRODUCT VERDICT: the non-involutory dense correction "
+              "SOLVES A5 - first NC1-level expressivity gain on the liquid "
+              "core. Proceed to M3 (parity regression + extrapolation).")
+    elif deltap is not None and both is not None and deltap <= both + 0.02:
+        print("  -> DELTAPRODUCT FAILED (no gain over diagonal). The dense "
+              "correction did not open - check dp_g energy; the bottleneck "
+              "is elsewhere (width/budget/interaction design).")
     elif both is not None and both < 0.5 and ndit is not None and ndit >= 0.5:
         print("  -> NDIT VERDICT: the diagonal fix fails A5 AND the "
               "Householder non-diagonal transition SOLVES it - first "

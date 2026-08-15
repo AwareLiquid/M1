@@ -740,6 +740,33 @@ unit tests (5) green, rotation verified unitary.
 - Rows: `benchmarks/results/state_tracking_a5_ndit.json` (rank-1) /
   `state_tracking_a5_ndit2.json` (rank-2).
 
+**DeltaProduct NDIT — also fails (0.019 ≈ chance) (2026-08-15)**: the route
+correction (non-involutory dense low-rank correction, `use_deltaproduct_transition`,
+rank-2, δ init ≈ 0) scored in_dist_tok **0.019** — at chance, WORSE than the
+diagonal exp arm (0.225). The dense correction did not open within 20k steps
+(δ-gate energy stays tiny under the 0.1 scale init), or its spectral radius
+drifted. **A5 verdict across all three non-diagonal attempts**:
+
+| arm | in_dist_tok |
+|---|---:|
+| lstm_control | 0.988 |
+| diagonal selective (exp) | 0.225 |
+| Householder rank-1 / rank-2 | 0.130 / 0.130 |
+| DeltaProduct rank-2 | 0.019 |
+
+- **Honest synthesis**: the liquid core's gap to LSTM on NC1 is NOT closed by
+  first-round non-diagonal transitions — neither unitary-involution nor
+  dense-correction routes. The remaining difference is deeper than
+  "diagonal vs non-diagonal": LSTM's dense input-to-hidden gating + nonlinear
+  state path is a different update-family, not a parameterisation of ours.
+- **Positioning decision (feeds docs/BEAT_TRANSFORMER_PLAN.md)**: accept the
+  liquid core as a TC0-class, O(1)-state, memory-capable engine — its
+  competitive dimensions are cost (8063×), size (1.27MB), circuit-level
+  separation (parity 6/6), and cross-session memory (0.56 vs 0.000). NC1-class
+  reasoning stays in the hybrid's attention path (M-series). Revisit
+  non-diagonal work only with a from-scratch update-family redesign.
+- Rows: `benchmarks/results/state_tracking_a5_deltap.json`.
+
 ### E5d: ROOT CAUSE FOUND — exp vs tanh transition parameterisation decides extrapolation (2026-08-15, local)
 
 E5c ruled out the layer components (lateral/MAP: extrapolation did NOT recover

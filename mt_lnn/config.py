@@ -177,6 +177,18 @@ class MTLNNConfig:
     # a richer unitary subgroup (rank-k correction, k·D degrees of freedom).
     householder_rank: int = 2
 
+    # DeltaProduct NDIT — NON-INVOLUTORY dense low-rank transition
+    # (docs/NONDIAGONAL_TRANSITION.md §4.5, 2026-08-15). Householder
+    # involutions failed A5 (rank-1 = rank-2 = 0.130, diagnosis: active but
+    # wrong inductive bias — Q²=I cannot encode 60 distinct group-multiply
+    # semantics). DeltaProduct-style update instead:
+    #   h_t = (I + Σ_r δ_r(x_t) u_r(x_t) v_r(x_t)ᵀ) h_{t-1} + (1-decay) ⊙ B_t
+    # Non-involutory, non-diagonal, input-dependent; δ_r starts tiny so the
+    # transition is ≈ I at init (stable) and opens up as training proceeds.
+    use_deltaproduct_transition: bool = False
+    deltaproduct_rank: int = 2
+    deltaproduct_scale: float = 0.1
+
     # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
     # gap between the branch's minimal probe (extrap 1.000) and main's full
     # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.
