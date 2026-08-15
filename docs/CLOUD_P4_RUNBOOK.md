@@ -19,18 +19,18 @@ python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_
 ```bash
 # A) 基座对照（无 adapter，纯 LoRA）
 python train_llama_mt_adapter.py --model Qwen/Qwen2.5-1.5B-Instruct \
-    --dataset wikitext --dataset_config wikitext-2-raw-v1 \
+    --dataset Salesforce/wikitext --dataset_config wikitext-2-raw-v1 \
     --seq_len 2048 --batch 1 --grad_accum 8 --steps 5000 --lora
 
 # B) MT adapter + selective mamba 模式（当前默认）
 python train_llama_mt_adapter.py --model Qwen/Qwen2.5-1.5B-Instruct \
-    --dataset wikitext --dataset_config wikitext-2-raw-v1 \
+    --dataset Salesforce/wikitext --dataset_config wikitext-2-raw-v1 \
     --seq_len 2048 --batch 1 --grad_accum 8 --steps 5000 \
     --mt_every 4 --lora --v2_selective --sel_mode mamba
 
 # C) MT adapter + selective exp 模式（E5e 修复，本实验主角）
 python train_llama_mt_adapter.py --model Qwen/Qwen2.5-1.5B-Instruct \
-    --dataset wikitext --dataset_config wikitext-2-raw-v1 \
+    --dataset Salesforce/wikitext --dataset_config wikitext-2-raw-v1 \
     --seq_len 2048 --batch 1 --grad_accum 8 --steps 5000 \
     --mt_every 4 --lora --v2_selective --sel_mode exp
 ```
@@ -72,7 +72,7 @@ python bench_llama_mt_needle.py --model Qwen/Qwen2.5-1.5B-Instruct \
 ```bash
 # 7B 基座 + 相同协议（batch 1, grad_accum 8, 5000 步）
 python train_llama_mt_adapter.py --model Qwen/Qwen2.5-7B-Instruct \
-    --dataset wikitext --dataset_config wikitext-2-raw-v1 \
+    --dataset Salesforce/wikitext --dataset_config wikitext-2-raw-v1 \
     --seq_len 4096 --batch 1 --grad_accum 16 --steps 5000 \
     --mt_every 4 --lora --v2_selective --sel_mode exp
 ```
