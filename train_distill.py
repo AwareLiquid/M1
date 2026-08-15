@@ -100,6 +100,7 @@ def main():
         dropout=0.0,
         attention_dropout=0.0,
         attention_layers=(),           # O 系列：无注意力，纯 LNN
+        gwtb_n_heads=1,                # d_gw = d_model//8 需被整除（1 恒满足）
         selective_decay=True,
         selective_decay_mode=args.sel_mode,
         tau_max=200.0,                 # exp 参数化需要大 tau_max 逼近 ±1
