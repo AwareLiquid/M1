@@ -83,3 +83,22 @@ python train_llama_mt_adapter.py --model Qwen/Qwen2.5-7B-Instruct \
 - `train_llama_mt_adapter.py`：`--sel_mode {mamba,exp}` 旋钮已接好
 - 零回归：27 核心测试通过（test_mt_lnn_v2 + test_model）
 - E5e 证据链：exp 参数化在 toy 层实现长度外推 0.999（ABLATIONS.md 完整入档）
+
+---
+
+## 附录 P2：蒸馏到 O 系列端侧模型（体积维度）
+
+`train_distill.py`（本地 smoke 已验证，39.1M 学生 + KL/CE 蒸馏正常）。
+
+```bash
+# 教师 Qwen2.5-0.5B → 学生 O 系列（纯 LNN，attention-free，~79M @ d_model 384）
+python train_distill.py --teacher Qwen/Qwen2.5-0.5B-Instruct \
+    --dataset Salesforce/wikitext --dataset_config wikitext-2-raw-v1 \
+    --d_model 384 --n_layers 8 --steps 5000 --temperature 4.0 --alpha 0.5 \
+    --sel_mode exp
+```
+
+- 学生用教师同一 tokenizer（151936 vocab）保证 KL 对齐；embedding 层占大头
+  （~58M @ d_model 384），端侧 <5MB 需第二段词表裁剪 + int8 量化。
+- 验证标准（G-B）：蒸馏学生达到教师 80% 下游性能 @ 4% 体积。
+- 算力：1×A100 × 2-3 天（5000 步 + 下游评估）。
