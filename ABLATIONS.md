@@ -537,6 +537,31 @@ Same pure-LNN stack, difficulty 16, 6000 steps, 3 seeds:
   protocol) and stack-depth interplay remain open. No ranking claims
   beyond this task.
 
+### E1: d16 separation hardening — 6 seeds, Fisher p=0.0022 (2026-08-15, local)
+
+Same pure-LNN stack, difficulty 16, 6000 steps, **6 seeds**, good recipe
+(beta2=0.999/clip=0), mix curriculum, eval_depths=1, `--skip_transformer`.
+Statistics via the E0 protocol module (`benchmarks/exp_protocol.py`):
+
+| arm | k=16 accs (6 seeds) | grok rate |
+|---|---|---:|
+| **selective_decay** | 1.000 × 6 | **6/6** |
+| stock (input-independent λ) | 0.4946 / 0.4956 / 0.5107 / 0.4927 / 0.5078 / 0.5049 | 0/6 |
+
+- **Fisher exact p = 0.0022** (2×2 grok table 6/0 vs 0/6), **sign-test
+  p = 0.0312** (6/0 positive per-seed deltas), both arms clean (no grokking
+  bimodal) → **decision gate G1 PASSED**: the d16 separation survives 6 seeds
+  and is statistically significant, not a seed-luck artifact.
+- This hardens the 2026-08-05 3-seed result (above) against the grokking
+  coin-flip criticism that already killed several single-seed claims (P0
+  rounds 4–5, the GQA quota, the fixed-difficulty probe). selective_decay is
+  now the only mechanism with a multi-seed, significance-tested separation on
+  this task.
+- Rows: `e1-d16-sel` / `e1-d16-stock`. Analysis: `benchmarks/analyze_e1.py`.
+- Open (next, per DEVELOPMENT_PLAN.md E1/E5): k=32/64 at 12k+ steps (budget
+  wall, not mechanism), and the length-extrapolation protocol ported from
+  `consciousness-m1-v2` (`benchmarks/parity_extrapolation.py`, ready to run).
+
 ### k=32 protocol: everyone hits the grokking budget wall (2026-08-05, local)
 
 Same pure-LNN stack, difficulty 32 (T=35), 6000 steps, 3 seeds:
@@ -561,6 +586,223 @@ Same pure-LNN stack, difficulty 32 (T=35), 6000 steps, 3 seeds:
   the transformer has already begun to sag. k=32's wall is shared, so it
   does not separate architectures; it only bounds all of them.
 - Rows: `purelnn-d32-sel-long` / `purelnn-d32-stock-long`.
+
+### E1-d32: budget wall BREACHED at 12k steps — selective 5/6, stock 0/6 (2026-08-15, local)
+
+The 2026-08-05 wall verdict said "12k+ steps" would decide whether k=32 is a
+budget wall or a mechanism limit. Ran it: same pure-LNN stack, difficulty 32
+(T=35), **12000 steps**, 6 seeds, good recipe (beta2=0.999/clip=0), mix
+curriculum, eval_depths=1. Rows `e1-d32-sel` / `e1-d32-stock`.
+
+| arm | k=32 accs (6 seeds) | grok rate |
+|---|---|---:|
+| **selective_decay** | 1.000 × 5, **0.4863** (seed 4) | **5/6** |
+| stock | 0.4941 / 0.5166 / 0.4995 / 0.5142 / 0.5112 / 0.4961 | 0/6 |
+
+- **The wall was a budget wall, not a mechanism limit**: at 12k steps
+  selective groks k=32 in 5/6 seeds (the 2026-08-05 6k-step run had 0/3), and
+  the transformer's k=32 sag (0.557 at 6k) is now a selective 1.000 on the
+  same probe. Fisher exact p = **0.0152** (5/0 vs 0/6) — separation is
+  significant.
+- **BUT decision gate G1 (k=32) is NOT passed — honestly.** sel's seed 4
+  (0.4863) is not pure chance (its k=1 is 1.000, k=2 0.747 — a partially
+  learned state), so the arm sits in the E0 bimodality zone: 5 grok + 1
+  mid-flight. The protocol's rule (fisher<0.05 AND no bimodality) correctly
+  withholds the clean-separation verdict. Interpretation: 12k steps straddles
+  the k=32 grokking-time distribution — seed 4 is its right tail, not a
+  mechanism failure.
+- **Next**: rerun the seed-4 arm at 20k steps (single-arm continuation) to
+  confirm the tail groks; then k=32 G1 can be re-evaluated as 6/6 vs 0/6.
+  This is exactly the "budget amplification" the E0 protocol exists to
+  distinguish from seed-luck noise.
+- Rows: `e1-d32-sel` / `e1-d32-stock`. Analysis: `benchmarks/analyze_e1.py
+  --difficulty 32`.
+
+**d32 in exp mode — tail pulled in, G1 NOW PASSES (2026-08-15)**: the tanh
+seed-4 tail (0.486 at 12k, still chance at 20k) is **1.000 at 12k** under
+`selective_decay_mode="exp"` — 6/6 seeds at 1.000 across k=1..32 vs stock
+0/6. Fisher p = **0.0022**, sign-test p = 0.0312, both arms clean →
+**G1 PASSED** (the tanh-mode run scored 5/6 and failed G1 on bimodality).
+Second independent win for the exp parameterisation: it does not just restore
+length extrapolation (E5e) — its exact ±1 reachability also pulls the k=32
+grokking right-tail in, converting a "budget-edge" verdict into a clean
+separation. Rows: `e1-d32-sel-exp`.
+
+### E5: length extrapolation — selective is the only generalising cell, but not yet 1.000 (2026-08-15, local)
+
+Protocol ported from `consciousness-m1-v2` (`benchmarks/parity_extrapolation.py`):
+train U(1,24), eval U(25,64), full-sequence acc, 4000 steps, 3 seeds, 3-cell
+ablation (legacy / signed_only / selective). Isolated liquid core (embed →
+MTLNNLayer → norm → head), tau_max=200.
+
+| arm | in_dist (3 seeds) | extrapolate | eig range |
+|---|---:|---:|---|
+| legacy | 0.121 / 0.514 / 0.453 → **0.363** | **0.000** | [+0.000, +0.994] |
+| signed_only | 0.191 / 0.533 / 0.248 → **0.324** | **0.000** | [+0.000, +0.994] |
+| **selective** | 1.000 / 1.000 / 0.344 → **0.781** | **0.212** (0.250/0.385/0.000) | **[−0.994, +0.994]** |
+
+- **Mechanism confirmed live**: selective's eigenvalues reach −0.994 — the
+  input-dependent signed transition really activates; legacy and signed_only
+  stay strictly positive (signed's saturating init never flips within 4k
+  steps, reproducing the historical signed_decay dead-gradient observation).
+- **Direction matches the branch**: only the selective cell extrapolates at
+  all (0.212 mean vs 0.000/0.000), consistent with Khavari et al. (both input
+  dependence AND negative eigenvalues required).
+- **But the magnitude falls short of the branch's `both_khavari` 1.000/1.000**
+  (3/3, zero variance). Two differences to attribute, in priority order:
+  1. **main's MTLNNLayer carries extra components** the branch probe lacked —
+     LateralCoupling (GTP-gated), per-protofilament MAPGate, and the 5-scale
+     blend. Any of these can blur the exact ±λ_t flip semantics that length
+     extrapolation depends on.
+  2. **Budget**: seed 2 did not even grok in-dist (0.344) — 4k steps on the
+     full layer is below the branch's 5k-on-simpler-layer grokking time.
+- **Next (E5b done, E5c pending)**: budget bump to 8k steps does NOT move
+  extrapolation (0.215 vs 0.212 at 4k; in_dist 0.781→0.911, seed 2 still
+  mid-grok at 0.732) → **the extrapolation gap is a component effect, not
+  budget**. E5c: ablation of main-layer extras (LateralCoupling / MAPGate /
+  5-scale blend) — if one restores extrap → 1.0, that component is the
+  length-generalisation blocker and the fix is config-level, not new research.
+- Rows: `benchmarks/results/parity_extrapolation.json` (4k) /
+  `parity_extrapolation_8k.json` (8k).
+
+### E2: A5 word problem — the diagonal fix stops exactly where theory says (2026-08-15, local)
+
+A5 (alternating group on 5, order 60) word problem = NC1-complete under AC0
+reductions (Barrington 1989). Merrill et al. ICML 2024 Cor 4.7: no
+log-precision SSM with a diagonal or input-independent transition can solve it.
+Protocol ported from `consciousness-m1-v2` (`benchmarks/state_tracking_a5.py`,
+flag-mapped to main's `selective_decay`): train U(1,16), eval U(17,48), 20000
+steps, 2 seeds, LSTM positive control. Per-token chance = 1/60 = 0.0167.
+
+| arm | in_dist_tok | extrap_tok | extrap_seq |
+|---|---:|---:|---:|
+| lstm_control (positive control) | **0.988** | **0.830** | 0.433 |
+| liquid_legacy | 0.124 | 0.045 | 0.000 |
+| liquid_both (= selective_decay) | 0.126 | 0.046 | 0.000 |
+
+- **LSTM control PASSES (0.988) — the pipeline is interpretable.** The
+  liquid failure below is the theory, not a broken harness. (Branch's LSTM:
+  0.992/0.819 — reproduces within noise.)
+- **AS PREDICTED: the diagonal selective fix solves parity but NOT A5.**
+  selective_decay took parity from 0.000 → 1.000, and here it sits at 0.126
+  in-dist — exactly Merrill Cor 4.7's boundary. The parity fix was a
+  PARAMETERISATION repair (parity ∈ TC0, needs signed input-dependent diagonal
+  transitions); it does not change the complexity class. A5 needs a
+  **NON-DIAGONAL input-dependent transition** (Thm 5.2 / IDS4 / DeltaProduct
+  Householder products) — the next architecture increment, not another knob.
+- **This is the cleanest possible confirmation of the E3 branch analysis**:
+  the branch's claim "the diagonal fix stops at NC1" is now reproduced on
+  main's full MTLNNLayer.
+- **Implication for the roadmap**: E2's "bridge to real tasks" now has a
+  precise target — build the non-diagonal input-dependent transition
+  (input-dependent Householder-style state matrices), then re-run A5 as the
+  acceptance test. LSTM's extrap_tok 0.830 (vs our 0.046) is the gap to close.
+- Rows: `benchmarks/results/state_tracking_a5.json`.
+
+**A5 in exp mode (2026-08-15 follow-up)**: liquid_both with
+`selective_decay_mode="exp"` scores in_dist_tok **0.225** / extrap_tok 0.074
+(vs tanh-mode 0.126/0.046) — a small gain, still far below the LSTM control
+(0.988/0.830). As expected: the E5e parameterisation fixes ±1 reachability on
+the DIAGONAL, it does not change diagonality — A5 needs a non-diagonal
+transition regardless of parameterisation. Rows:
+`benchmarks/results/state_tracking_a5_exp.json`. Design: `docs/NONDIAGONAL_TRANSITION.md`.
+
+### E5d: ROOT CAUSE FOUND — exp vs tanh transition parameterisation decides extrapolation (2026-08-15, local)
+
+E5c ruled out the layer components (lateral/MAP: extrapolation did NOT recover
+when removed — 0.186/0.121/0.118 vs 0.212 full layer). Code comparison against
+the branch found the real difference — the transition parameterisation:
+
+| | branch `both_khavari` (extrap 1.000) | main `selective_decay` (extrap ~0.2) |
+|---|---|---|
+| formula | `λ_t = 2·exp(−softplus(δ(x_t))/τ) − 1` | `λ_t = decay·tanh(W_sel·x_t + b_sel)` |
+| input path | δ inside the **exponential** | input inside the **tanh** |
+| ±1 reachability | exact: δ→0 ⇒ λ→+1, δ→∞ ⇒ λ→−1 | soft: needs |W·x+b|≫3, gradient dies |
+| long-sequence leak | none (λ can be exactly ±1) | every step leaks (|λ|<decay<1) |
+
+Minimal same-field A/B (`benchmarks/parity_exp_param.py`, 4000 steps, 3 seeds,
+train≤24 / test 25-64, full-sequence acc):
+
+| arm | in_dist | extrapolate |
+|---|---:|---:|
+| **exp_param** | **0.992** (0.977/1.000/1.000) | **0.953** (0.859/**1.000**/**1.000**) |
+| tanh_param (main's) | 0.297 (0.027/0.709/0.154) | 0.023 (0.004/0.066/0.000) |
+
+- **2/3 exp seeds achieve PERFECT length extrapolation (1.000) at 4k steps** —
+  reproducing the branch's both_khavari result and explaining the entire
+  E5 gap. The tanh arm fails even in-distribution: the saturation plateau
+  (tanh′ → 0 at ±3) makes the exact flip/hold semantics unlearnable, and
+  |λ| < 1 leaks state every step, compounding over 25-64 tokens.
+- **This is the first root-caused, mechanistically-explained architecture
+  finding in the parity line**: input-dependent transitions are necessary but
+  NOT sufficient — their parameterisation (exp-reachable ±1 vs tanh-soft)
+  decides whether length generalisation exists at all.
+- **Fix (E5e)**: add `selective_decay_mode: "tanh" | "exp"` to MTLNNConfig;
+  exp mode = `λ_t = 2·exp(−softplus(W_d·x_t + b_d)/τ) − 1` inside
+  VectorizedMultiScaleResonance (reuses the general pscan; per-step
+  multipliers already supported). Default stays "tanh" (zero regression);
+  re-run the full-layer parity_extrapolation in exp mode to confirm the gap
+  closes on the real MTLNNLayer.
+- Rows: `benchmarks/results/parity_exp_param.json`.
+
+### E5e: FIX VERIFIED — exp parameterisation closes the gap on the FULL layer (2026-08-15, local)
+
+`selective_decay_mode="exp"` implemented in `VectorizedMultiScaleResonance`
+(config switch, default "tanh" = historical path, 27 model tests still green).
+Full MTLNNLayer (lateral + MAPGate ON), same protocol as E5 (train≤24 /
+test 25-64, full-sequence acc, 4000 steps, 3 seeds):
+
+| arm | in_dist | extrapolate |
+|---|---:|---:|
+| selective, tanh mode (E5 baseline) | 0.781 | 0.212 |
+| **selective, exp mode** | **1.000** (1.000 × 3) | **0.999** (0.996/1.000/1.000) |
+
+- **The E5 gap is closed: 0.212 → 0.999 on the same full layer.** Two of
+  three seeds hit PERFECT extrapolation (1.000), reproducing the branch's
+  `both_khavari` 1.000/1.000 on main's real MTLNNLayer. The complete causal
+  chain: E5 (gap measured) → E5b (budget excluded) → E5c (components
+  excluded) → E5d (parameterisation isolated, minimal A/B) → **E5e (fix
+  verified on the full layer)**.
+- **Claim now supported**: input-dependent signed transitions are necessary
+  but NOT sufficient for length generalisation — the transition
+  parameterisation (exp-reachable exact ±1 vs tanh-soft) is a first-class
+  architecture decision. tanh's saturation plateau (gradient death) and
+  per-step |λ|<1 leak destroy extrapolation; exp's ±1-reachability preserves
+  it.
+- **Fix status**: `selective_decay_mode="exp"` is merged in code behind the
+  config switch (default tanh = zero regression). Next steps, in order:
+  1. ~~d16/d32 parity regression in exp mode~~ **d16 done (E1-d16-exp)**: 6/6
+     seeds at 1.000 across k=1..16, Fisher p=0.0022 vs stock 0/6 — identical
+     to the tanh-mode E1-d16 (6/6), i.e. exp costs nothing in-distribution.
+     d32 exp re-run queued (expected ≥ 5/6; the tanh-mode seed-4 tail at 12k
+     steps was budget-limited, not parameterisation-limited — but exp's
+     ±1-reachability may also pull the tail in).
+  2. LM-scale PPL check before promoting exp to default (the branch's
+     ee42697 checked the state-tracking change at 46M; exp parameterisation
+     is unmeasured at LM scale).
+  3. A5 re-run in exp mode — expected still-fail (A5 needs NON-DIAGONAL
+     transitions; parameterisation does not change diagonality).
+- Rows: `benchmarks/results/e5e_exp_mode.json`; d16 exp regression:
+  `e1-d16-sel-exp`.
+
+**LM-scale PPL check — exp stays opt-in (2026-08-15)**: 22.1M (208d×4L),
+wikitext-2, 500 steps, batch 8, matched tau_max=10 (the LM default — an
+earlier run confounded tau_max=200-for-exp vs 10-for-tanh and was discarded):
+
+| arm | val PPL @500 (100-step ladder) |
+|---|---:|
+| selective tanh | 37.7K → 37.3K → 37.0K → 35.8K → **35.0K** |
+| selective exp | 40.3K → 39.9K → 39.3K → 38.0K → **37.2K** |
+
+- exp runs ~6% HIGHER val PPL at 500 steps under tau_max=10 — directional
+  only (22M/500 steps is far from convergence; no seeds), but combined with
+  exp's parity-specific tau_max=200 protocol, the honest verdict is:
+  **exp parameterisation stays opt-in (`selective_decay_mode="exp"`), the
+  default remains tanh.** exp is the length-extrapolation tool; tanh is the
+  LM-default. A proper promotion test would need 3 seeds × 20k steps × 46M+.
+- Windows note: train.py's val print used τ/γ glyphs that crash under cp1252
+  (fixed to ASCII); `--tau_max` exposed as an explicit knob (no implicit
+  override per mode).
 
 ### Stack-depth interaction: depth does NOT substitute for selectivity (2026-08-05, local)
 

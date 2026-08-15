@@ -60,7 +60,7 @@ def main(args):
                 n_tokens += len(arr)
                 if max_tokens and n_tokens >= max_tokens:
                     break
-        print(f"  → {out_path}: {n_tokens:,} tokens"
+        print(f"  -> {out_path}: {n_tokens:,} tokens"
               + (f" (capped at {max_tokens:,})" if max_tokens else ""))
         meta[f"n_{split}_tokens"] = n_tokens
 

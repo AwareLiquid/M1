@@ -81,10 +81,12 @@ def evaluate(model, gen, rng, device, batches=20, batch=256, fwd_kwargs=None):
 def build_mtlnn(vocab, seq_len, max_depth, seed, d_model=104, n_layers=2,
                 gamma_init=None, full_mha=False, n_global_heads=0,
                 n_heads=None, n_kv_heads=None, signed_decay=False,
-                selective_decay=False, attention_layers=None):
+                selective_decay=False, attention_layers=None,
+                sel_mode="tanh"):
     torch.manual_seed(seed)
     kw = {"n_global_heads": n_global_heads, "signed_decay": signed_decay,
-          "selective_decay": selective_decay}
+          "selective_decay": selective_decay,
+          "selective_decay_mode": sel_mode}
     if attention_layers is not None:
         # Hybrid thinning probe (attention in SOME layers, pure LNN in the
         # rest). Empty tuple = no attention anywhere.
@@ -246,7 +248,7 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                     depth_setter="core", mix=False, n_global_heads=0,
                     n_heads=None, n_kv_heads=None, signed_decay=False,
                     selective_decay=False, attention_layers=None,
-                    beta2=0.95, clip=1.0):
+                    beta2=0.95, clip=1.0, sel_mode="tanh"):
     """HRM-style claim: train a FRESH model at each fixed depth d, evaluate at
     that same d. Same parameter count across depths (weight-tied iteration) —
     if accuracy climbs with d, extra latent iterations buy real capability.
@@ -281,7 +283,8 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
                             n_heads=n_heads, n_kv_heads=n_kv_heads,
                             signed_decay=signed_decay,
                             selective_decay=selective_decay,
-                            attention_layers=attention_layers)
+                            attention_layers=attention_layers,
+                            sel_mode=sel_mode)
             n_params = m.get_num_params()
             if depth_setter == "stack":
                 m.set_stack_iterations(d)
@@ -519,6 +522,10 @@ def main():
                    help="negative-eigenvalue extension: λ = decay·tanh(s), "
                         "learnable sign per (P,S). The theory-driven fix for "
                         "parity (Sarrof Thm 2 / Grazzi ICLR 2025)")
+    p.add_argument("--sel-mode", choices=["tanh", "exp"], default="tanh",
+                   help="selective transition parameterisation (E5e): "
+                        "exp = 2*exp(-softplus(Wx+b)/tau)-1, restores length "
+                        "extrapolation (E5d/E5e 2026-08-15)")
     p.add_argument("--n_kv_heads", type=int, default=None,
                    help="KV heads for GQA; must divide n_heads. Default: "
                         "n_heads/2, or n_heads under --full_mha. Middle "
@@ -547,12 +554,13 @@ def main():
                                       "workspace" if args.workspace else "core"),
                         mix=args.mix, n_global_heads=args.n_global_heads,
                         n_heads=args.n_heads, n_kv_heads=args.n_kv_heads,
-                        signed_decay=args.signed_decay,
-                        selective_decay=args.selective_decay,
-                        attention_layers=(tuple(args.attention_layers)
-                                          if args.attention_layers is not None
-                                          else None),
-                        beta2=args.beta2, clip=args.clip)
+                         signed_decay=args.signed_decay,
+                         selective_decay=args.selective_decay,
+                         attention_layers=(tuple(args.attention_layers)
+                                           if args.attention_layers is not None
+                                           else None),
+                         beta2=args.beta2, clip=args.clip,
+                         sel_mode=args.sel_mode)
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,

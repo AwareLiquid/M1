@@ -1,0 +1,51 @@
+{
+  "args": {
+    "steps": 20000,
+    "seeds": 2,
+    "batch": 64,
+    "train_len": 16,
+    "test_len": 48,
+    "d_model": 64,
+    "n_proto": 4,
+    "n_scales": 4,
+    "probe_layers": 1,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "sel_mode": "exp",
+    "arms": [
+      "liquid_both"
+    ],
+    "out": "benchmarks/results/state_tracking_a5_exp.json"
+  },
+  "results": {
+    "liquid_both": {
+      "runs": [
+        {
+          "final_loss": 3.5265026092529297,
+          "params": 31175,
+          "in_dist": 0.125,
+          "in_dist_tok": 0.20891203703703703,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.07645685053380782,
+          "seed": 0,
+          "secs": 313.6
+        },
+        {
+          "final_loss": 2.767758369445801,
+          "params": 31175,
+          "in_dist": 0.0,
+          "in_dist_tok": 0.24034926470588236,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.07251602564102565,
+          "seed": 1,
+          "secs": 318.4
+        }
+      ],
+      "in_dist_mean": 0.0625,
+      "in_dist_tok_mean": 0.2246306508714597,
+      "extrapolate_mean": 0.0,
+      "extrapolate_tok_mean": 0.07448643808741673
+    }
+  }
+}

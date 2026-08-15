@@ -148,3 +148,6 @@ benchmarks/_legacy.onnx
 
 # Web assets repo (keep separate)
 AwareLiquid-Web/
+
+# Experiment run logs (E1/E2/E5 parity/length-extrapolation series)
+/logs/

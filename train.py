@@ -142,7 +142,22 @@ def train(args):
         if not os.path.exists(val_path):
             val_path = os.path.join(args.data_dir, "test.bin")
         val_ds = BinDataset(val_path, args.seq_len)
-        print(f"Train tokens: {len(train_ds.data):,}  Val tokens: {len(val_ds.data):,}")
+    # Selective transition knobs (E5e, 2026-08-15): config-level switches for
+    # the parity/length-extrapolation line. Default off = historical path.
+    # tau_max is NOT overridden here — parity protocols set it explicitly via
+    # --tau_max; LM runs keep the config default (10) so tanh/exp A/B stays
+    # matched (2026-08-15 PPL confound fix).
+    cfg_kwargs["selective_decay"] = args.selective_decay
+    cfg_kwargs["selective_decay_mode"] = args.sel_mode
+    if args.tau_max is not None:
+        cfg_kwargs["tau_max"] = args.tau_max
+        train_tokens = getattr(train_ds, "data", None)
+        val_tokens = getattr(val_ds, "data", None)
+        if train_tokens is not None:
+            print(f"Train tokens: {len(train_tokens):,}  "
+                  f"Val tokens: {len(val_tokens):,}")
+        else:
+            print(f"Train samples: {len(train_ds)}  Val samples: {len(val_ds)}")
 
     train_loader = DataLoader(
         train_ds, batch_size=args.batch, shuffle=True,
@@ -366,9 +381,9 @@ def train(args):
                 diag = base_model.get_mt_diagnostics()
                 hist = base_model.get_mt_histograms()
                 print(f"  val PPL: {val_ppl:.2f} | "
-                      f"τ={diag['tau_mean']:.2f}±{diag['tau_std']:.2f} "
+                      f"tau={diag['tau_mean']:.2f}+/-{diag['tau_std']:.2f} "
                       f"[{diag['tau_min']:.2f}, {diag['tau_max']:.2f}] | "
-                      f"γ={diag['gamma_mean']:.3f} | "
+                      f"gamma={diag['gamma_mean']:.3f} | "
                       f"polarity_std={diag['polarity_std']:.3f} | "
                       f"rmc_gate={diag['rmc_gate_mean']:.3f} | "
                       f"collapse_gate={diag['collapse_gate_last']:.3f} | "
@@ -454,6 +469,16 @@ def parse_args():
                    help="[Phase A] Number of specialist bids competing for workspace (default 3)")
     p.add_argument("--world_model", action="store_true",
                    help="[Phase C] Enable PredictiveStateHead: next-state self-supervised loss")
+    p.add_argument("--selective_decay", action="store_true",
+                   help="[E5e] input-dependent signed transition "
+                        "lambda_t = decay*tanh(W_sel*x+b) (parity-capable)")
+    p.add_argument("--sel_mode", choices=["tanh", "exp"], default="tanh",
+                   help="[E5e] selective transition parameterisation; "
+                        "exp = 2*exp(-softplus(Wx+b)/tau)-1 restores length "
+                        "extrapolation (E5d/E5e 2026-08-15)")
+    p.add_argument("--tau_max", type=float, default=None,
+                   help="override config tau_max (parity protocols use 200; "
+                        "LM runs keep the default 10)")
     p.add_argument("--world_model_weight", type=float, default=0.01,
                    help="[Phase C] Weight of world-model MSE loss (default 0.01)")
     p.add_argument("--world_model_grad_clip", type=float, default=1.0,

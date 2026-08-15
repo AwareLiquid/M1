@@ -154,6 +154,24 @@ class MTLNNConfig:
     # are set. Default False = no parameters, exact historical path.
     selective_decay: bool = False
 
+    # Transition parameterisation for selective_decay (E5e, 2026-08-15).
+    # "tanh" (default, historical): λ_t = decay·tanh(W_sel·x_t + b_sel) —
+    # saturating, |λ|<decay<1, per-step state leak; E5d measured it DESTROYS
+    # length extrapolation (extrap 0.023 in the minimal A/B).
+    # "exp": λ_t = 2·exp(−softplus(W_d·x_t + b_d)/τ) − 1 — input inside the
+    # exponential, reaches ±1 exactly; E5d measured extrap 0.953 with 2/3
+    # seeds at PERFECT 1.000, reproducing the branch's both_khavari result.
+    selective_decay_mode: str = "tanh"
+
+    # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
+    # gap between the branch's minimal probe (extrap 1.000) and main's full
+    # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.
+    # Default True = exact historical path (zero regression); False removes
+    # the component entirely (no params built/used, bit-identical to a
+    # stripped layer).
+    use_lateral_coupling: bool = True
+    use_map_gate: bool = True
+
     # Stack-level latent recurrence (M2 P0-C′, docs/ROADMAP_M2.md §4.5).
     # Re-apply the ENTIRE block stack (attention + LNN, weight-tied) N times
     # per forward — Universal-Transformer-style depth. P0 rounds 1–5 showed

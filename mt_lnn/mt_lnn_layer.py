@@ -112,6 +112,23 @@ class VectorizedMultiScaleResonance(nn.Module):
         else:
             self.sel_w = None
             self.sel_b = None
+
+        # EXP parameterisation (E5e, 2026-08-15). E5d proved the tanh form
+        # (input inside tanh) cannot reach exact ±1 flips (saturation plateau,
+        # gradient death, per-step |λ|<1 leak) and destroys length
+        # extrapolation, while the branch's exp form
+        #   λ_t = 2·exp(−softplus(W_d·x_t + b_d)/τ) − 1  ∈ (−1, 1)
+        # reaches ±1 exactly (δ→0 ⇒ +1, δ→∞ ⇒ −1) and hit 1.000/1.000 extrap
+        # in 2/3 seeds. This is the same-parameter exp form, built only when
+        # selective_decay=True AND selective_decay_mode="exp"; default
+        # "tanh" keeps the historical path bit-identical.
+        self.sel_mode = getattr(config, "selective_decay_mode", "tanh")
+        if getattr(config, "selective_decay", False) and self.sel_mode == "exp":
+            self.sel_w = nn.Parameter(torch.empty(P, S, D))
+            nn.init.normal_(self.sel_w, mean=0.0, std=0.02)
+            self.sel_b = nn.Parameter(torch.zeros(P, S))
+        elif getattr(config, "selective_decay", False):
+            pass  # tanh mode already built above
         
         # Endogenous Dynamic Kappa Gate: dynamically activates tau channels
         # based on input. Initialized open so channels are not dead at startup.
@@ -257,9 +274,20 @@ class VectorizedMultiScaleResonance(nn.Module):
         lam_t = None
         if self.sel_w is not None:
             sel = torch.einsum("btpd,pkd->btpk", x, self.sel_w[:, active_idx])
-            lam_t = decay_active.view(1, 1, P, K_active) * torch.tanh(
-                sel + self.sel_b[:, active_idx]
-            )                                                          # (B,T,P,K)
+            if self.sel_mode == "exp":
+                # E5e exp parameterisation (2026-08-15): input inside the
+                # exponential — λ_t = 2·exp(−softplus(sel+b)/τ) − 1 ∈ (−1,1).
+                # Reaches ±1 exactly (δ→0 ⇒ +1, δ→∞ ⇒ −1); E5d showed this
+                # restores perfect length extrapolation (2/3 seeds at 1.000).
+                tau_active = tau[:, active_idx]                      # (P,K)
+                delta = F.softplus(sel + self.sel_b[:, active_idx])  # (B,T,P,K)
+                lam_t = 2.0 * torch.exp(
+                    -delta / tau_active.view(1, 1, P, K_active).clamp_min(1e-3)
+                ) - 1.0                                             # (B,T,P,K)
+            else:
+                lam_t = decay_active.view(1, 1, P, K_active) * torch.tanh(
+                    sel + self.sel_b[:, active_idx]
+                )                                                   # (B,T,P,K)
 
         if not use_scan:
             # Legacy parallel mode — h_prev: (B, T, P, D) broadcast across T
@@ -557,6 +585,10 @@ class MTLNNLayer(nn.Module):
         self.map_gates = VectorizedMAPGate(
             config.n_protofilaments, config.d_proto, config.map_hidden_dim
         )
+        # Component ablation switches (E5c). Default True = exact historical
+        # path; False removes the component entirely.
+        self.use_lateral = getattr(config, "use_lateral_coupling", True)
+        self.use_map_gate = getattr(config, "use_map_gate", True)
 
         # GTP hydrolysis on lateral signal — temporal decay
         self.gtp_gamma = nn.Parameter(torch.tensor(config.gamma_init))
@@ -648,20 +680,26 @@ class MTLNNLayer(nn.Module):
         # represent integers > 2048, so under a pure-fp16 model the position
         # index (and hence t % period) silently degrades at long offsets.
         # Compute index/modulo/exp in fp32, cast the final scale to x.dtype.
-        period = self.gtp_period.to(torch.float32)
-        t_idx = torch.arange(position_offset, position_offset + T,
-                             device=x.device, dtype=torch.float32)
-        t_local = t_idx % period                                       # (T,)
-        gtp_scale = torch.exp(
-            -self.gtp_gamma.clamp(min=1e-4).to(torch.float32) * t_local
-        ).to(x.dtype)
-        gtp_scale = gtp_scale.view(1, T, 1, 1)
-        h_lateral = self.lateral(h_stack)                              # (B,T,P,D)
-        h_coupled = h_stack + gtp_scale * (h_lateral - h_stack)
+        if self.use_lateral:
+            period = self.gtp_period.to(torch.float32)
+            t_idx = torch.arange(position_offset, position_offset + T,
+                                 device=x.device, dtype=torch.float32)
+            t_local = t_idx % period                                   # (T,)
+            gtp_scale = torch.exp(
+                -self.gtp_gamma.clamp(min=1e-4).to(torch.float32) * t_local
+            ).to(x.dtype)
+            gtp_scale = gtp_scale.view(1, T, 1, 1)
+            h_lateral = self.lateral(h_stack)                          # (B,T,P,D)
+            h_coupled = h_stack + gtp_scale * (h_lateral - h_stack)
+        else:
+            h_coupled = h_stack
 
-        # 5. ALL MAP gates in one shot
-        s = self.map_gates(h_coupled, x_split)                         # (B,T,P,1)
-        h_gated = h_coupled * s                                         # (B,T,P,D)
+        # 5. ALL MAP gates in one shot (E5c switch)
+        if self.use_map_gate:
+            s = self.map_gates(h_coupled, x_split)                     # (B,T,P,1)
+            h_gated = h_coupled * s                                    # (B,T,P,D)
+        else:
+            h_gated = h_coupled
 
         # 6. Output projection
         h_flat = h_gated.reshape(B, T, P * D)

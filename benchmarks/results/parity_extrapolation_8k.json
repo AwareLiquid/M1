@@ -1,0 +1,57 @@
+{
+  "args": {
+    "steps": 8000,
+    "seeds": 3,
+    "batch": 64,
+    "train_len": 24,
+    "test_len": 64,
+    "d_model": 32,
+    "n_proto": 4,
+    "n_scales": 4,
+    "probe_layers": 1,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "arms": [
+      "selective"
+    ],
+    "out": "benchmarks/results/parity_extrapolation_8k.json"
+  },
+  "results": {
+    "selective": {
+      "runs": [
+        {
+          "in_dist": 1.0,
+          "extrapolate": 0.302734375,
+          "eig_min": -0.9934998154640198,
+          "eig_max": 0.9935019612312317,
+          "final_loss": 1.3171546520140964e-08,
+          "seed": 0,
+          "secs": 147.8
+        },
+        {
+          "in_dist": 1.0,
+          "extrapolate": 0.33984375,
+          "eig_min": -0.9936472773551941,
+          "eig_max": 0.9935668706893921,
+          "final_loss": 0.0,
+          "seed": 1,
+          "secs": 145.4
+        },
+        {
+          "in_dist": 0.732421875,
+          "extrapolate": 0.001953125,
+          "eig_min": -0.9928401112556458,
+          "eig_max": 0.9936147332191467,
+          "final_loss": 0.016742492094635963,
+          "seed": 2,
+          "secs": 143.3
+        }
+      ],
+      "in_dist_mean": 0.9108072916666666,
+      "extrapolate_mean": 0.21484375,
+      "signed": false,
+      "selective": true
+    }
+  }
+}
