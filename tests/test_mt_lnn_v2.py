@@ -114,6 +114,35 @@ def test_selective_decay_init_equivalence():
     print("[5/6] selective decay: init-equivalent to static + W_dt trains  OK")
 
 
+def test_selective_decay_exp_mode():
+    """exp 参数化（E5e）：λ_t = 2·exp(-dt/τ)-1 ∈ (-1,1)，可达 ±1，
+    输出有限、形状正确、梯度流动。mamba 模式是 exp 在 λ_t→λ_t 的退化。
+    init_scale=1.0 使 adapter 转移差异不被残差 gate 稀释（默认 1e-3）。"""
+    torch.manual_seed(1)
+    kw = dict(hidden_size=64, n_protofilaments=4, d_proto=16,
+              n_time_scales=3, proj_rank=8, use_fast_weight=False,
+              init_scale=1.0)
+    a_exp = MTResidualAdapterV2(
+        MTAdapterV2Config(selective_decay=True, selective_decay_mode="exp", **kw))
+    x = torch.randn(2, 21, 64)
+    out = a_exp(x)
+    assert out.shape == (2, 21, 64)
+    assert torch.isfinite(out).all()
+    # 梯度流动
+    out.sum().backward()
+    g = a_exp.mt_layer.W_dt.grad
+    assert g is not None and torch.isfinite(g).all() and g.abs().sum() > 0
+    # mamba 与 exp 模式在输出上应不同（exp 引入带符号转移）
+    a_mamba = MTResidualAdapterV2(
+        MTAdapterV2Config(selective_decay=True, selective_decay_mode="mamba", **kw))
+    a_mamba.load_state_dict(a_exp.state_dict())
+    a_mamba.eval(), a_exp.eval()
+    with torch.no_grad():
+        o_m, o_e = a_mamba(x), a_exp(x)
+    assert (o_m - o_e).abs().max() > 1e-4, "exp vs mamba 应产生不同输出"
+    print("[exp] selective exp mode: signed lam_t active, finite, trains  OK")
+
+
 def test_peft_does_not_wrap_v2_internals():
     try:
         from peft import LoraConfig, get_peft_model

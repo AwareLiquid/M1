@@ -84,6 +84,13 @@ class MTAdapterV2Config:
     # strict generalisation. ~4K params/adapter. Off by default so the v2
     # ablation baseline stays what was benchmarked; "v2s" configs turn it on.
     selective_decay: bool = False
+    # Transition parameterisation for selective_decay (E5e, 2026-08-15).
+    # "mamba" (default, historical): decay_t = exp(-dt/tau) ∈ (0,1) — the
+    # input-dependent dt form; positive-only, CANNOT express parity (needs
+    # signed flip, Sarrof Thm 2).
+    # "exp": lam_t = 2·exp(-dt/tau) - 1 ∈ (-1,1) — signed, reaches ±1 exactly;
+    # restores length extrapolation (E5d/E5e: 0.999 on the full layer).
+    selective_decay_mode: str = "mamba"
     # Fast-weight associative memory (Ba et al. 2016 / gated linear attention).
     # V2 turns it ON by default: precise in-context recall is the single
     # biggest capability gap of pure recurrent state (the honest 0% needle
@@ -292,6 +299,7 @@ class MTLNNLayerV2(nn.Module):
         # b_dt = softplus^-1(1) so dt starts at exactly 1 -> identical to the
         # static path at init; W_dt small so selectivity is learned, not noise.
         self.selective_decay = cfg.selective_decay
+        self.sel_mode = getattr(cfg, "selective_decay_mode", "mamba")
         if cfg.selective_decay:
             self.W_dt = nn.Parameter(torch.empty(P, d, S))
             nn.init.normal_(self.W_dt, std=0.02)
@@ -348,10 +356,20 @@ class MTLNNLayerV2(nn.Module):
             dt = F.softplus(
                 torch.einsum("btpd,pds->btps", u, self.W_dt) + self.b_dt
             )                                                          # (B,T,P,S)
-            decay_t = torch.exp(-dt / tau.view(1, 1, P, S))
+            decay_t = torch.exp(-dt / tau.view(1, 1, P, S))            # (B,T,P,S)
+            if self.sel_mode == "exp":
+                # E5e: signed transition λ_t = 2·exp(-dt/τ) - 1 ∈ (-1,1).
+                # Reaches ±1 exactly (dt→0 ⇒ +1, dt→∞ ⇒ −1) — the length-
+                # extrapolation parameterisation (0.999 on the full layer).
+                # Input coefficient stays (1 - decay_t) with the POSITIVE
+                # decay_t, keeping the input path identical to mamba mode.
+                lam_t = 2.0 * decay_t - 1.0                             # (B,T,P,S)
+            else:
+                lam_t = decay_t
             decay_t = decay_t.permute(0, 2, 3, 1)                      # (B,P,S,T)
+            lam_t = lam_t.permute(0, 2, 3, 1)                          # (B,P,S,T)
             X = (1.0 - decay_t).unsqueeze(-1) * A_perm
-            H = pscan(decay_t, X, h_init=h_init)                       # (B,P,S,T,d)
+            H = pscan(lam_t, X, h_init=h_init)                         # (B,P,S,T,d)
         else:
             decay = torch.exp(-self.dt / tau)                          # (P,S)
             X = (1.0 - decay).view(1, P, S, 1, 1) * A_perm
@@ -484,6 +502,7 @@ def attach_mt_v2_adapters(
     init_scale: float = 1e-3,
     dropout: float = 0.0,
     selective_decay: bool = False,
+    selective_decay_mode: str = "mamba",
     use_fast_weight: bool = True,
     fast_weight_dim: int = 64,
     fast_weight_heads: int = 1,
@@ -528,6 +547,7 @@ def attach_mt_v2_adapters(
             init_scale=init_scale,
             dropout=dropout,
             selective_decay=selective_decay,
+            selective_decay_mode=selective_decay_mode,
             use_fast_weight=use_fast_weight,
             fast_weight_dim=fast_weight_dim,
             fast_weight_heads=fast_weight_heads,

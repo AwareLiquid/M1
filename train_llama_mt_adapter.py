@@ -239,6 +239,7 @@ def train(args):
             init_scale=args.mt_init_scale,
             dropout=args.mt_dropout,
             selective_decay=args.v2_selective,
+            selective_decay_mode=args.sel_mode,
             use_fast_weight=not args.v2_no_fw,
             fast_weight_dim=args.v2_fw_dim,
             fast_weight_heads=args.v2_fw_heads,
@@ -387,6 +388,9 @@ def parse_args():
     p.add_argument("--v2_rank", type=int, default=128)
     p.add_argument("--v2_selective", action="store_true",
                    help="v2: input-dependent (selective) decay")
+    p.add_argument("--sel_mode", choices=["mamba", "exp"], default="mamba",
+                   help="v2 selective transition parameterisation (E5e): "
+                        "exp = 2*exp(-dt/tau)-1, signed ±1 (length extrapolation)")
     p.add_argument("--v2_no_fw", action="store_true",
                    help="v2: disable the fast-weight memory")
     p.add_argument("--v2_fw_dim", type=int, default=64,
