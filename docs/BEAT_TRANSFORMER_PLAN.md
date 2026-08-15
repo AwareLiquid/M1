@@ -40,7 +40,7 @@
 ### P2 体积维度：端侧闭环（3 周，本地为主）
 **目标**：可下载的 <5MB 流式模型，跑真实端侧任务。
 1. O 系列模型蒸馏：从强基座（Qwen 0.5B）蒸馏到 O 系列（125M）——选择性
-   机制 + exp 参数化注入
+   机制注入（mamba 默认；exp 在 LM 打平，见 P4 降级决策门 3c）
 2. ONNX/WebGPU 浏览器 demo（已有 export 工具链）
 3. 真实端侧基准：流式音频（O1-Sound 路线）/传感器流（NASA 电池）
 **算力**：1×A100 × 2-3 天（蒸馏）
@@ -53,7 +53,9 @@
 
 ### P4 质量追赶：M 系列适配器规模化（4 周，云 GPU 主力）
 **目标**：类脑机制在 1.5B-7B 基座上的差异化验证。
-1. selective_decay + exp 参数化注入 Llama/Qwen 适配器（train_llama_mt_adapter.py 已有）
+1. selective_decay 注入 Llama/Qwen 适配器（train_llama_mt_adapter.py 已有）；
+   **参数化用 mamba 默认**——本地降级决策门（0.5B 1500 步）已测 exp vs mamba
+   在 LM 打平（<0.3% 差异），exp 的 toy 层优势是电路任务特异的
 2. 验证三件事：(a) 不伤基座质量 (b) 长上下文外推改善 (c) 记忆能力注入
 3. 如果 (b)(c) 成立：这就是"类脑机制 + Transformer 基座 = 双赢"的证据
 **算力**：8×A100 × 3-5 天（1.5B-7B 适配器训练 + 基准）
