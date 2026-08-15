@@ -644,8 +644,30 @@ def collect_adapter_aux_losses(
 
 
 def attach_adapters_from_checkpoint(model: nn.Module, checkpoint: dict) -> List[int]:
-    """Recreate the MT adapter layout recorded by train_llama_mt_adapter.py."""
+    """Recreate the MT adapter layout recorded by train_llama_mt_adapter.py.
+
+    Selects V2 vs V1 by the saved --adapter flag; V2 checkpoints carry
+    fast_weight / selective_decay / sel_mode params that the V1 attach path
+    would otherwise report as unexpected keys.
+    """
     saved_args = checkpoint.get("args", {})
+    if saved_args.get("adapter") == "v2":
+        from .mt_lnn_v2 import attach_mt_v2_adapters
+        return attach_mt_v2_adapters(
+            model,
+            every=int(saved_args.get("mt_every", 4)),
+            n_protofilaments=int(saved_args.get("mt_proto", 13)),
+            d_proto=int(saved_args.get("v2_d_proto", 64)),
+            n_time_scales=int(saved_args.get("mt_scales", 5)),
+            proj_rank=int(saved_args.get("v2_rank", 128)),
+            init_scale=float(saved_args.get("mt_init_scale", 1e-3)),
+            dropout=float(saved_args.get("mt_dropout", 0.0)),
+            selective_decay=bool(saved_args.get("v2_selective", False)),
+            selective_decay_mode=str(saved_args.get("sel_mode", "mamba")),
+            use_fast_weight=not bool(saved_args.get("v2_no_fw", False)),
+            fast_weight_dim=int(saved_args.get("v2_fw_dim", 64)),
+            fast_weight_heads=int(saved_args.get("v2_fw_heads", 1)),
+        )
     return attach_mt_adapters(
         model,
         every=int(saved_args.get("mt_every", 4)),

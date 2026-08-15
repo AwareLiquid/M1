@@ -75,6 +75,28 @@ batch 1 grad_accum 8，可训练参数 1.188%）：
 - **未验证方向性**：500 步 batch 1 噪音太大（单点 std ~0.4），mamba/exp 的
   ~8% loss 差异在噪音内，不是结论。决策门仍需 5000 步 + 3 seeds。
 
+### 3c. 本地降级决策门已跑（2026-08-15，0.5B × 1500 步 × seq_len 512）
+
+训练 seq_len 512（1500 步）后，评估 base / mamba / exp 在 512/1024/2048 的
+wikitext-2 PPL（10-20 batches）：
+
+| seq_len | base | mamba | exp |
+|---|---:|---:|---:|
+| 512（in-dist） | 15.650 | 10.693 | 10.713 |
+| 1024（2× 外推） | 12.920 | 9.846 | 9.845 |
+| 2048（4× 外推） | 11.439 | 9.289 | 9.298 |
+
+- **adapter 有效**：MT V2 + LoRA 把 PPL 压降 ~30-40%（15.65→10.69 @ 512）。
+- **mamba vs exp 无差异**：所有长度差异 <0.3%（10.693 vs 10.713 等）——在
+  1500 步的 LM 训练中，带符号 exp 参数化和恒正 mamba 参数化打平。
+- **诚实解读**：exp 参数化的 toy 层优势（长度外推 0.999）是**任务特异的**
+  ——parity 需要 ±1 翻转（负特征值），wikitext LM 不需要。这与 22M PPL 检查
+  一致（exp 比 tanh 高 6%）。**G-A 决策门的本地预演结论：exp 在真实 LM 基座
+  无差异化价值，维持 mamba 为默认**（toy 层的 exp 优势仍作为 S1 主张的
+  电路级证据，不迁移到 LM 质量主张）。
+- 附带修复：`attach_adapters_from_checkpoint` 现在按 checkpoint 的
+  `--adapter` 标记选择 V2/V1 重建（之前 V2 评估会 key 不匹配崩溃）。
+
 ## 4. 算力与时间
 
 - 1×A100（80GB）：1.5B 基座 + LoRA + MT adapter，5000 步 seq_len 2048

@@ -1,0 +1,27 @@
+{
+  "args": {
+    "lengths": [
+      8192,
+      16384
+    ],
+    "d_model": 104,
+    "device": "auto",
+    "output": "benchmarks/efficiency_curve_16k.json"
+  },
+  "rows": [
+    {
+      "seq_len": 8192,
+      "kv_cache_bytes": 15339584,
+      "state_only_bytes": 4160,
+      "ratio": 3687.4,
+      "wall_s": 241.0
+    },
+    {
+      "seq_len": 16384,
+      "kv_cache_bytes": 30675008,
+      "state_only_bytes": 4160,
+      "ratio": 7373.8,
+      "wall_s": 908.8
+    }
+  ]
+}
