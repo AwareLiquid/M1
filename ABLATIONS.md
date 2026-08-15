@@ -707,6 +707,39 @@ the DIAGONAL, it does not change diagonality — A5 needs a non-diagonal
 transition regardless of parameterisation. Rows:
 `benchmarks/results/state_tracking_a5_exp.json`. Design: `docs/NONDIAGONAL_TRANSITION.md`.
 
+### NDIT v1/v2 — Householder non-diagonal transition FAILS A5, diagnosis: active but wrong inductive bias (2026-08-15, local)
+
+Implemented `use_householder_transition` (per-protofilament input-dependent
+unitary rotations Q_t = ∏(I − 2v_t v_tᵀ), composed with λ_t) — M2 milestone of
+`docs/NONDIAGONAL_TRANSITION.md`. Zero-regression (51 tests green), NDIT
+unit tests (5) green, rotation verified unitary.
+
+| arm (exp mode, 20k steps, 2 seeds) | in_dist_tok |
+|---|---:|
+| lstm_control | 0.988 |
+| liquid_both (diagonal) | 0.225 |
+| liquid_ndit rank-1 | 0.130 |
+| liquid_ndit rank-2 | 0.130 |
+
+- **NDIT FAILS A5 — and rank-2 is IDENTICAL to rank-1 (0.130)**. The
+  inertness diagnosis (`benchmarks/diag_ndit_inert.py`) rules out the obvious
+  failure mode: off-diagonal energy 0.96, v_t cross-batch std 0.23, bias
+  fraction 0.12 → the rotations ARE non-diagonal and input-dependent.
+- **Interpretation (honest)**: the Householder family is the WRONG inductive
+  bias for A5, not an undertrained one. An involution (Q²=I) cannot encode
+  the 60 distinct group-multiplication semantics A5 requires, and composing
+  k reflections did not change the loss landscape (identical score). The
+  update h_t = Q_t(λ⊙h_{t−1}) + (1−decay)⊙A_t also keeps the g_t↔h_{t−1}
+  interaction additive-only — the prefix-product needs a true multiplicative
+  interaction, which is what LSTM's dense input-to-hidden gates provide.
+- **Route correction (docs/NONDIAGONAL_TRANSITION.md §4 updated)**: next
+  increment is DeltaProduct-style dense low-rank correction
+  h_t = (I + δ_t · A(x_t)) h_{t−1} + ..., where A is a NON-involutory,
+  non-diagonal, input-dependent matrix — not more Householder rank. A5 stays
+  the acceptance test; LSTM's 0.988 is the bar.
+- Rows: `benchmarks/results/state_tracking_a5_ndit.json` (rank-1) /
+  `state_tracking_a5_ndit2.json` (rank-2).
+
 ### E5d: ROOT CAUSE FOUND — exp vs tanh transition parameterisation decides extrapolation (2026-08-15, local)
 
 E5c ruled out the layer components (lateral/MAP: extrapolation did NOT recover

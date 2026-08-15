@@ -163,6 +163,20 @@ class MTLNNConfig:
     # seeds at PERFECT 1.000, reproducing the branch's both_khavari result.
     selective_decay_mode: str = "tanh"
 
+    # Householder NDIT — NON-DIAGONAL input-dependent transition
+    # (docs/NONDIAGONAL_TRANSITION.md, 2026-08-15). A5 (NC1-complete) needs a
+    # non-diagonal state transition (Merrill ICML 2024 Cor 4.7); the diagonal
+    # selective_decay — regardless of parameterisation — provably cannot.
+    # Q_t = I - 2 v_t v_t^T per protofilament, v_t = normalize(W_h x_t + b_h),
+    # unitary → spectral radius exactly 1 → no state explosion. Off by default
+    # (zero regression); requires selective_decay=True to compose with λ_t.
+    use_householder_transition: bool = False
+    # Number of Householder reflections per token (NDIT rank). 1 = single
+    # involution (only D degrees of freedom — measured INSUFFICIENT for A5,
+    # 2026-08-15 diag: rotation active but A5 fails); k reflections compose to
+    # a richer unitary subgroup (rank-k correction, k·D degrees of freedom).
+    householder_rank: int = 2
+
     # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
     # gap between the branch's minimal probe (extrap 1.000) and main's full
     # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.

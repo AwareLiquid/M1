@@ -129,6 +129,23 @@ class VectorizedMultiScaleResonance(nn.Module):
             self.sel_b = nn.Parameter(torch.zeros(P, S))
         elif getattr(config, "selective_decay", False):
             pass  # tanh mode already built above
+
+        # Householder NDIT (docs/NONDIAGONAL_TRANSITION.md, 2026-08-15).
+        # Per-protofilament input-dependent unitary rotation
+        # Q_t = I - 2 v_t v_t^T, v_t = normalize(W_h x_t + b_h). Composes with
+        # lam_t (λ ⊙ inside the rotation). Off by default = exact historical
+        # path; the A5 acceptance test is the only justification to turn it on.
+        self.use_hh = getattr(config, "use_householder_transition", False)
+        if self.use_hh:
+            self.hh_rank = max(1, int(getattr(config, "householder_rank", 2)))
+            # k reflections: Q_t = Q_t^(1) ... Q_t^(k)
+            self.hh_w = nn.Parameter(torch.empty(P, self.hh_rank, D, D))
+            self.hh_b = nn.Parameter(torch.zeros(P, self.hh_rank, D))
+            nn.init.normal_(self.hh_w, mean=0.0, std=0.02)
+        else:
+            self.hh_rank = 0
+            self.hh_w = None
+            self.hh_b = None
         
         # Endogenous Dynamic Kappa Gate: dynamically activates tau channels
         # based on input. Initialized open so channels are not dead at startup.
@@ -335,13 +352,42 @@ class VectorizedMultiScaleResonance(nn.Module):
                 )
 
             h_init_active = h_init[:, :, active_idx, :]
-            if lam_t is not None:
+            if lam_t is not None and self.use_hh:
+                # NDIT (M2, 2026-08-15): per-token Householder product on top
+                # of the selective scalar transition —
+                #   h_t = Q_t (λ_t ⊙ h_{t-1}) + (1-decay) ⊙ A_t
+                # Q_t = Q_t^(1) ... Q_t^(k) (k = householder_rank). Naive
+                # sequential loop (correctness first; chunked WY + block
+                # pscan optimisation is the M3 follow-up).
+                h_ndit = torch.zeros(B, T, P, K_active, D,
+                                     device=x.device, dtype=x.dtype)
+                state = h_init_active.clone()                 # (B,P,K,D)
+                for t in range(T):
+                    xt = x[:, t]                              # (B,P,D)
+                    # apply k reflections in order
+                    rotated = state
+                    for r in range(self.hh_rank):
+                        v = torch.einsum("bpd,pde->bpe", xt,
+                                         self.hh_w[:, r]) \
+                            + self.hh_b[:, r]                 # (B,P,D)
+                        v = F.normalize(v, dim=-1)
+                        dots = torch.einsum("bpd,bpkd->bpk", v, rotated)
+                        rotated = rotated - 2.0 * dots.unsqueeze(-1) \
+                            * v.unsqueeze(2)
+                    lam_step = lam_t[:, t]                    # (B,P,K)
+                    a_step = A[:, t]                          # (B,P,K,D)
+                    state = rotated * lam_step.unsqueeze(-1) + \
+                        a_step * (1.0 - decay_active).view(1, P, K_active, 1)
+                    h_ndit[:, t] = state
+                h_active = h_ndit
+            elif lam_t is not None:
                 # Selective: per-step multipliers via the GENERAL scan.
                 A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)
                 H = pscan(A_lam, X, h_init=h_init_active)             # (B,P,K,T,D)
+                h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             else:
                 H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
-            h_active = H.permute(0, 3, 1, 2, 4)                       # (B,T,P,K,D)
+                h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             if K_active == S:
                 h_per_scale = h_active
             else:

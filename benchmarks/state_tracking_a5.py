@@ -164,9 +164,12 @@ def run_one(arm, seed, args, table, device):
             # main 旗标映射（2026-08-15）：分支的
             # allow_negative_decay + input_dependent_decay（both）=
             # main 的 selective_decay（每步带符号输入相关转移，两者 superset）
-            selective_decay=(arm == "liquid_both"),
+            selective_decay=(arm in ("liquid_both", "liquid_ndit")),
             # E5e: 参数化切换（默认 tanh = 历史；exp 已验证恢复长度外推）
             selective_decay_mode=getattr(args, "sel_mode", "tanh"),
+            # NDIT (M2, 2026-08-15): Householder 非对角输入相关转移 —
+            # A5 需要非对角（Merrill Cor 4.7），对角修复无论参数化都解不了
+            use_householder_transition=(arm == "liquid_ndit"),
         )
         model = LiquidProbe(cfg, n_classes, args.probe_layers).to(device)
 
@@ -218,7 +221,8 @@ def main():
     p.add_argument("--sel-mode", choices=["tanh", "exp"], default="tanh",
                    help="selective transition parameterisation (E5e)")
     p.add_argument("--arms", nargs="+", default=None,
-                   help="subset of lstm_control/liquid_legacy/liquid_both")
+                   help="subset of lstm_control/liquid_legacy/liquid_both/"
+                        "liquid_ndit")
     p.add_argument("--out", type=str,
                    default="benchmarks/results/state_tracking_a5.json")
     args = p.parse_args()
@@ -231,7 +235,7 @@ def main():
     print(f"device={device}  train<=({args.train_len})  test=({args.train_len+1}..{args.test_len})")
     print(f"per-token chance = 1/60 = 0.0167\n")
 
-    ARMS = ["lstm_control", "liquid_legacy", "liquid_both"]
+    ARMS = ["lstm_control", "liquid_legacy", "liquid_both", "liquid_ndit"]
     if getattr(args, "arms", None) is not None:
         ARMS = [a for a in ARMS if a in args.arms]
         if not ARMS:
@@ -270,9 +274,19 @@ def main():
         print(f"  {a:15s} in_dist_tok={r['in_dist_tok_mean']:.3f}  "
               f"extrap_tok={r['extrapolate_tok_mean']:.3f}")
     print()
+    ndit = results.get("liquid_ndit", {}).get("in_dist_tok_mean", None)
     if ctrl is not None and ctrl < 0.5:
         print("  !! LSTM CONTROL FAILED -- the pipeline, not the theory, is at "
               "fault. Nothing else in this run is interpretable.")
+    elif both is not None and both < 0.5 and ndit is not None and ndit >= 0.5:
+        print("  -> NDIT VERDICT: the diagonal fix fails A5 AND the "
+              "Householder non-diagonal transition SOLVES it - first "
+              "NC1-level expressivity gain on the liquid core. Proceed to "
+              "M3 (parity regression + length extrapolation).")
+    elif both is not None and both < 0.5 and ndit is not None and ndit < 0.5:
+        print("  -> NDIT FAILED A5 too. The rotation was learned inert or the "
+              "budget/width is insufficient - check the Q_t off-diagonal "
+              "energy before any expressivity claim. Back to the design doc.")
     elif both is not None and both < 0.5:
         print("  -> AS PREDICTED: the diagonal fix solves parity but NOT A5. "
               "Consistent with Merrill et al. Cor 4.7 (diagonal => TC0 => no "
