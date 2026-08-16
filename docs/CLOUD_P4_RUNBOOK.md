@@ -196,3 +196,8 @@ python train_distill.py --teacher Qwen/Qwen2.5-0.5B-Instruct \
 **7.11MB**（fp32 483MB → int8 13.81MB → 4bit 7.11MB，总 68× 压缩）。
 端侧规模 7.11MB 已接近实用（O1-Sound 1.27MB 是更小模型）；<5MB 需
 4K 词表或 208d 学生，路径明确。
+
+**P2 端侧 <5MB 闭环达成（2026-08-16）**：4K 词表（4096）+ 去 target_head
+（MTP 辅助头，推理不需要）+ weight-tie（embedding/lm_head 共享）+ 4bit →
+**3.15MB**（从 fp32 483MB，**153× 压缩**）。体积维度验收通过：O 系列
+蒸馏学生可部署到 <5MB 端侧。
