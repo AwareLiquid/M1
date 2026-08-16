@@ -151,6 +151,10 @@ def train(args):
     cfg_kwargs["selective_decay_mode"] = args.sel_mode
     if args.tau_max is not None:
         cfg_kwargs["tau_max"] = args.tau_max
+    if args.attention_layers is not None:
+        cfg_kwargs["attention_layers"] = tuple(args.attention_layers)
+    if args.no_gwtb:
+        cfg_kwargs["use_gwtb"] = False
         train_tokens = getattr(train_ds, "data", None)
         val_tokens = getattr(val_ds, "data", None)
         if train_tokens is not None:
@@ -479,6 +483,10 @@ def parse_args():
     p.add_argument("--tau_max", type=float, default=None,
                    help="override config tau_max (parity protocols use 200; "
                         "LM runs keep the default 10)")
+    p.add_argument("--attention_layers", type=int, nargs="*", default=None,
+                   help="保留注意力的层索引；不带值 = 纯 LNN O 系列（无注意力）")
+    p.add_argument("--no_gwtb", action="store_true",
+                   help="use_gwtb=False（O 系列：免 O(T^2) causal mask）")
     p.add_argument("--world_model_weight", type=float, default=0.01,
                    help="[Phase C] Weight of world-model MSE loss (default 0.01)")
     p.add_argument("--world_model_grad_clip", type=float, default=1.0,
