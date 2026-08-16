@@ -651,6 +651,9 @@ def attach_adapters_from_checkpoint(model: nn.Module, checkpoint: dict) -> List[
     would otherwise report as unexpected keys.
     """
     saved_args = checkpoint.get("args", {})
+    if saved_args.get("no_mt", False):
+        # 纯 LoRA 对照臂：checkpoint 无 mt_adapter key，不挂任何 MT adapter
+        return []
     if saved_args.get("adapter") == "v2":
         from .mt_lnn_v2 import attach_mt_v2_adapters
         return attach_mt_v2_adapters(
