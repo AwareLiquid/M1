@@ -212,6 +212,13 @@ def save_adapter_checkpoint(model, args, step):
 def train(args):
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    import random
+    import numpy as np
+    seed = getattr(args, "seed", 0)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.bfloat16 if device == "cuda" and torch.cuda.is_bf16_supported() else torch.float16
 
@@ -351,6 +358,8 @@ def parse_args():
     p.add_argument("--task", choices=["lm", "sft"], default="lm",
                    help="lm = plain causal-LM on a corpus; sft = instruction "
                         "tuning (chat template + completion-only loss)")
+    p.add_argument("--seed", type=int, default=0,
+                   help="训练随机种子（多种子决策门实验用）")
     p.add_argument("--dataset", default="wikitext",
                    help="dataset name, or comma-separated list for an SFT mix")
     p.add_argument("--dataset_config", default="wikitext-2-raw-v1",
