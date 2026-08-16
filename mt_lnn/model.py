@@ -1020,7 +1020,8 @@ class MTLNNModel(nn.Module):
             tau_vals.extend(tau.detach().flatten().cpu().tolist())
 
             gamma_vals.append(block.lnn.gtp_gamma.item())
-            pol_vals.extend(block.attn.polarity_direction.detach().cpu().tolist())
+            if block.attn is not None:
+                pol_vals.extend(block.attn.polarity_direction.detach().cpu().tolist())
             W = block.lnn.lateral.W_lat
             off_diag = W - torch.eye(W.shape[0], device=W.device)
             lat_norms.append(off_diag.norm().item())
@@ -1150,12 +1151,15 @@ class MTLNNModel(nn.Module):
             tau = F.softplus(block.lnn.resonance.log_tau).detach() + self.config.tau_min
             taus.append(tau.flatten())
             gammas.append(block.lnn.gtp_gamma.detach().reshape(-1))
-            pols.append(block.attn.polarity_direction.detach())
-        return {
+            if block.attn is not None:
+                pols.append(block.attn.polarity_direction.detach())
+        out = {
             "tau": torch.cat(taus).cpu().float(),
             "gamma": torch.cat(gammas).cpu().float(),
-            "polarity": torch.cat(pols).cpu().float(),
         }
+        if pols:
+            out["polarity"] = torch.cat(pols).cpu().float()
+        return out
 
     # ------------------------------------------------------------------
     # Persistent memory (SQLite-backed cross-session h_prev storage)
