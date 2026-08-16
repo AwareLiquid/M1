@@ -278,8 +278,10 @@ class MTLNNModel(nn.Module):
         # If gwtb_per_block=True the bottleneck lives inside every block (paper
         # §4 default). Otherwise it's applied once after the entire stack.
         # Mutually exclusive to avoid double-broadcasting the workspace.
+        # use_gwtb=False (O 系列) skips the layer entirely — no O(T²) causal
+        # mask allocation.
         self.gwtb_per_block = config.gwtb_per_block
-        if not config.gwtb_per_block:
+        if getattr(config, "use_gwtb", True) and not config.gwtb_per_block:
             if getattr(config, "use_competitive_gwtb", False):
                 from .gwtb import CompetitiveGWTBLayer
                 self.gwtb = CompetitiveGWTBLayer(config)
