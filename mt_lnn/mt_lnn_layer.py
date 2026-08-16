@@ -124,6 +124,7 @@ class VectorizedMultiScaleResonance(nn.Module):
         # "tanh" keeps the historical path bit-identical.
         self.sel_mode = getattr(config, "selective_decay_mode", "tanh")
         self.snap = getattr(config, "selective_decay_snap", False)
+        self.ste = getattr(config, "selective_decay_ste", False)
         if getattr(config, "selective_decay", False) and self.sel_mode == "exp":
             self.sel_w = nn.Parameter(torch.empty(P, S, D))
             nn.init.normal_(self.sel_w, mean=0.0, std=0.02)
@@ -326,7 +327,12 @@ class VectorizedMultiScaleResonance(nn.Module):
                 lam_t = 2.0 * torch.exp(
                     -delta / tau_active.view(1, 1, P, K_active).clamp_min(1e-3)
                 ) - 1.0                                             # (B,T,P,K)
-                if self.snap and not self.training:
+                if self.ste and self.training:
+                    # STE 训练时离散化：forward 精确 ±1（sign），backward
+                    # 梯度来自 soft（straight-through）。训练/推理语义一致，
+                    # 翻转决策在训练中学会精确 ±1。
+                    lam_t = torch.sign(lam_t) + (lam_t - lam_t.detach())
+                elif self.snap and not self.training:
                     # 推理翻转硬化 (2026-08-16)：snap 到精确 ±1，消除 soft
                     # 偏离在超长序列的累积误差（parity 外推 1k 崩的根因）。
                     lam_t = torch.where(lam_t >= 0, 1.0, -1.0)

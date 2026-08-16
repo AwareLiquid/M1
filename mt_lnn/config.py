@@ -171,6 +171,11 @@ class MTLNNConfig:
     # 把 λ_t snap 到精确 ±1（sign），训练保持连续可导。parity 的
     # flip/hold 语义因此精确，无累积误差。
     selective_decay_snap: bool = False
+    # STE 训练时离散化（2026-08-16）：训练 forward 用 sign(λ)（精确 ±1），
+    # backward 用 soft 梯度（straight-through）。训练/推理语义一致，修复
+    # 推理 snap 的 OOD 问题（snap 使 in-dist 都崩）。parity 翻转决策在训练
+    # 中学会精确 ±1，外推不再受 soft 累积误差限制。
+    selective_decay_ste: bool = False
 
     # Householder NDIT — NON-DIAGONAL input-dependent transition
     # (docs/NONDIAGONAL_TRANSITION.md, 2026-08-15). A5 (NC1-complete) needs a
