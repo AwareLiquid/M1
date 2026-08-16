@@ -61,6 +61,13 @@ Transformer 结构上做不到的 parity 能力；参数化（tanh vs exp）决�
 - 成本全景：hybrid 有 O(T) KV + O(T²) mask 双重成本；O 系列两者皆无，
   唯一 O(T) 残留是 RoPE 表（218MB@1M，可用位置无关时序进一步去除）
 
+**O 系列 125M 从零训练（2026-08-16 云 A100，20K 步 bf16 wikitext-103）**：
+110.5M 参数纯 LNN（attention_layers=() + use_gwtb=False），20K 步稳定收敛
+无 NaN，13000 tok/s，val PPL **1059.72**（持续下降，未完全收敛）。对比
+hybrid 125M 的 88.93——无注意力 LM 质量差 ~12 倍是 O 系列的已知定位
+（研究预览级），但**规模化验证通过**：O 系列能稳定训练到 125M/20K 步，
+这是 O(1) 状态 + 零 O(T²) 成本的规模化前提。
+
 **可发表陈述**：这是结构差异（Transformer KV 是 O(T) 硬约束），不是工程
 优化。长上下文推理的每 token 成本曲线是类脑架构的天然主场。
 
