@@ -391,13 +391,13 @@ def train(args):
                 diag = base_model.get_mt_diagnostics()
                 hist = base_model.get_mt_histograms()
                 print(f"  val PPL: {val_ppl:.2f} | "
-                      f"tau={diag['tau_mean']:.2f}+/-{diag['tau_std']:.2f} "
-                      f"[{diag['tau_min']:.2f}, {diag['tau_max']:.2f}] | "
-                      f"gamma={diag['gamma_mean']:.3f} | "
-                      f"polarity_std={diag['polarity_std']:.3f} | "
-                      f"rmc_gate={diag['rmc_gate_mean']:.3f} | "
-                      f"collapse_gate={diag['collapse_gate_last']:.3f} | "
-                      f"coherence_scale={diag['coherence_scale']:.3f}")
+                      f"tau={diag.get('tau_mean', 0):.2f}+/-{diag.get('tau_std', 0):.2f} "
+                      f"[{diag.get('tau_min', 0):.2f}, {diag.get('tau_max', 0):.2f}] | "
+                      f"gamma={diag.get('gamma_mean', 0):.3f} | "
+                      f"polarity_std={diag.get('polarity_std', 0):.3f} | "
+                      f"rmc_gate={diag.get('rmc_gate_mean', 0):.3f} | "
+                      f"collapse_gate={diag.get('collapse_gate_last', 0):.3f} | "
+                      f"coherence_scale={diag.get('coherence_scale', 0):.3f}")
                 log({"val/ppl": val_ppl, **{f"mt/{k}": v for k, v in diag.items()}},
                     step=step, histograms=hist)
                 t0 = time.time()  # don't penalise tok/s for eval time
