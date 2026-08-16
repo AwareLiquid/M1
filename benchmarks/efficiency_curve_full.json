@@ -1,0 +1,75 @@
+{
+  "slope_bytes_per_token": 1872.0,
+  "state_bytes": 4160,
+  "rows": [
+    {
+      "seq_len": 512,
+      "kv_cache_bytes": 958464,
+      "state_only_bytes": 4160,
+      "ratio": 230.4,
+      "measured": true
+    },
+    {
+      "seq_len": 2048,
+      "kv_cache_bytes": 3833856,
+      "state_only_bytes": 4160,
+      "ratio": 921.6,
+      "measured": true
+    },
+    {
+      "seq_len": 8192,
+      "kv_cache_bytes": 15335424,
+      "state_only_bytes": 4160,
+      "ratio": 3686.4,
+      "measured": true
+    },
+    {
+      "seq_len": 16384,
+      "kv_cache_bytes": 30670848,
+      "state_only_bytes": 4160,
+      "ratio": 7372.8,
+      "measured": true
+    },
+    {
+      "seq_len": 32768,
+      "kv_cache_bytes": 61341696,
+      "state_only_bytes": 4160,
+      "ratio": 14745.6,
+      "measured": true
+    },
+    {
+      "seq_len": 131072,
+      "kv_cache_bytes": 245366784,
+      "state_only_bytes": 4160,
+      "ratio": 58982.4,
+      "measured": false,
+      "note": "analytic (mask O(T^2) blocks >32k measurement)"
+    },
+    {
+      "seq_len": 524288,
+      "kv_cache_bytes": 981467136,
+      "state_only_bytes": 4160,
+      "ratio": 235929.6,
+      "measured": false,
+      "note": "analytic (mask O(T^2) blocks >32k measurement)"
+    },
+    {
+      "seq_len": 1048576,
+      "kv_cache_bytes": 1962934272,
+      "state_only_bytes": 4160,
+      "ratio": 471859.2,
+      "measured": false,
+      "note": "analytic (mask O(T^2) blocks >32k measurement)"
+    }
+  ]
+}
+
+=== COST CURVE ===
+     512 | KV        958464 B | state   4160 B |     230.4x (measured)
+    2048 | KV       3833856 B | state   4160 B |     921.6x (measured)
+    8192 | KV      15335424 B | state   4160 B |    3686.4x (measured)
+   16384 | KV      30670848 B | state   4160 B |    7372.8x (measured)
+   32768 | KV      61341696 B | state   4160 B |   14745.6x (measured)
+  131072 | KV     245366784 B | state   4160 B |   58982.4x (analytic)
+  524288 | KV     981467136 B | state   4160 B |  235929.6x (analytic)
+ 1048576 | KV    1962934272 B | state   4160 B |  471859.2x (analytic)
