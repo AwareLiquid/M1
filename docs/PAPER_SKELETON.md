@@ -51,6 +51,16 @@ Transformer 结构上做不到的 parity 能力；参数化（tanh vs exp）决�
   128k≈190GB 超内存）——这本身是 hybrid 的另一个成本点：Transformer 侧
   的 O(T²) mask 与 KV O(T) 双重增长，O 系列纯 LNN 两者皆无。
 
+**O 系列 1M 上下文实测（2026-08-16 云 A100）**：`use_gwtb=False` +
+`attention_layers=()` 的 O 系列，1M 上下文：
+- 模型 buffer 仅 **218MB**（RoPE 表 O(T)，无 O(T²) causal mask）
+  —— hybrid 128k 就需 190GB 直接 OOM
+- **1M token state-only 推理实测完成**（2703 秒，386 tok/s）：携带状态
+  从 t=0 到 t=1M 恒定 **4160B**（peak=4160B）——O(1) 状态在 1M 上下文的
+  实测闭环（此前 1M 是解析式 KV + 小窗口实测 state）
+- 成本全景：hybrid 有 O(T) KV + O(T²) mask 双重成本；O 系列两者皆无，
+  唯一 O(T) 残留是 RoPE 表（218MB@1M，可用位置无关时序进一步去除）
+
 **可发表陈述**：这是结构差异（Transformer KV 是 O(T) 硬约束），不是工程
 优化。长上下文推理的每 token 成本曲线是类脑架构的天然主场。
 
