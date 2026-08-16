@@ -224,7 +224,11 @@ def train(args):
                                        min_lr=args.lr * 0.1)
 
     use_amp = device == "cuda"
-    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    # NGC 容器 torch 2.3.0a0 只有 torch.cuda.amp（无 torch.amp 新 API）
+    if hasattr(torch.amp, "GradScaler"):
+        scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    else:
+        scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
     amp_dtype = torch.bfloat16 if (device == "cuda" and torch.cuda.is_bf16_supported()) else torch.float16
 
     # ------------------------------------------------------------------
@@ -300,7 +304,9 @@ def train(args):
             inp = inp.to(device, non_blocking=True)
             lbl = lbl.to(device, non_blocking=True)
 
-            with torch.amp.autocast(device_type="cuda", enabled=use_amp, dtype=amp_dtype):
+            with torch.amp.autocast(device_type="cuda", enabled=use_amp, dtype=amp_dtype) \
+                    if hasattr(torch.amp, "autocast") else \
+                    torch.cuda.amp.autocast(enabled=use_amp, dtype=amp_dtype):
                 if args.train_target_head or args.target_loss_weight > 0.0:
                     direct_len = args.direct_target_len
                     direct_labels = lbl[:, -direct_len:].contiguous()
