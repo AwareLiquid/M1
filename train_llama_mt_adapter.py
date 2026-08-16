@@ -227,7 +227,10 @@ def train(args):
     model.config.use_cache = False
     model.gradient_checkpointing_enable()
 
-    if getattr(args, "adapter", "v1") == "v2":
+    if getattr(args, "no_mt", False):
+        # 纯 LoRA 对照臂（无 MT adapter）——隔离 MT adapter 的贡献
+        wrapped = []
+    elif getattr(args, "adapter", "v1") == "v2":
         from mt_lnn.mt_lnn_v2 import attach_mt_v2_adapters
         wrapped = attach_mt_v2_adapters(
             model,
@@ -384,6 +387,8 @@ def parse_args():
     # trainable vs v1's 62.8M on TinyLlama. The choice is recorded in the
     # checkpoint's args so serve/server_hf.py rebuilds the matching graph.
     p.add_argument("--adapter", choices=["v1", "v2"], default="v1")
+    p.add_argument("--no_mt", action="store_true",
+                   help="纯 LoRA 对照（不挂任何 MT adapter）")
     p.add_argument("--v2_d_proto", type=int, default=64)
     p.add_argument("--v2_rank", type=int, default=128)
     p.add_argument("--v2_selective", action="store_true",
