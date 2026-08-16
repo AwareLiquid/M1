@@ -166,3 +166,8 @@ python train_distill.py --teacher Qwen/Qwen2.5-0.5B-Instruct \
 （~79M）从 Qwen2.5-0.5B 蒸馏，CE 10.6 → 7.65（最终 7.648，KL+CE 混合损失
 正常收敛），checkpoint 483MB（151936 vocab embedding 占大头）。下一步：词表
 裁剪 + int8 量化到 <5MB（部署段，未跑）。
+
+**P2 端侧量化已跑（2026-08-16）**：词表裁剪 151643→8211（wikitext 高频 +
+特殊 token）+ per-tensor int8 → **13.81MB**（从 482.9MB，35×压缩）。
+距离 <5MB 目标还差 2.7×（下一步：4-bit 量化或 2K 词表或 208d 学生）；
+路径已验证可行。O1-Sound 的 1.27MB（小词表 + 小模型）是同路线的更小实例。
