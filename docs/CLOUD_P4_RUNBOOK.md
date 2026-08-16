@@ -97,6 +97,28 @@ wikitext-2 PPL（10-20 batches）：
 - 附带修复：`attach_adapters_from_checkpoint` 现在按 checkpoint 的
   `--adapter` 标记选择 V2/V1 重建（之前 V2 评估会 key 不匹配崩溃）。
 
+### 3d. 完整决策门已跑（2026-08-16 云 A100，1.5B × 5000 步 × seq_len 2048）
+
+四臂 + 无 adapter 基座，wikitext-2 PPL（5-20 batches）：
+
+| arm | 2048（in-dist） | 4096（2×） | 8192（4×） |
+|---|---:|---:|---:|
+| base（无 adapter） | 7.682 | 7.236 | 8.035 |
+| **纯 LoRA** | **6.546** | **6.434** | **7.302** |
+| V1 adapter + LoRA | 6.547 | 6.443 | 7.290 |
+| V2-mamba + LoRA | 6.576 | 6.477 | 7.355 |
+| V2-exp + LoRA | 6.592 | 6.477 | 7.344 |
+
+- **G-A 决策门判定（完整版）**：LoRA 是全部贡献（−15% PPL），**MT adapter
+  （V1/V2）增量 ≈ 0**（纯 LoRA 6.546 vs V1 6.547 vs V2 6.576/6.592）；mamba
+  vs exp 打平（<0.3%）。与本地 0.5B 降级版、22M PPL 检查、历史 adapter
+  retraction（"MT adds ≈0 PPL beyond LoRA"）三方一致。
+- **类脑机制的定位因此明确**：选择性/记忆机制的价值不在 LM PPL 质量，
+  在 O(1) 内存（S2）、跨会话记忆（S3）、电路级任务（S1）。P4 的规模化
+  （7B）不再作为"质量追赶"路线——质量交给 LoRA/蒸馏，类脑机制作为
+  差异化能力注入（记忆 API、长上下文效率）。
+- 评估协议：`eval_p4.sh`（远程）；纯 LoRA 臂由新增 `--no_mt` 支持。
+
 ## 4. 算力与时间
 
 - 1×A100（80GB）：1.5B 基座 + LoRA + MT adapter，5000 步 seq_len 2048
@@ -139,3 +161,8 @@ python train_distill.py --teacher Qwen/Qwen2.5-0.5B-Instruct \
   （~58M @ d_model 384），端侧 <5MB 需第二段词表裁剪 + int8 量化。
 - 验证标准（G-B）：蒸馏学生达到教师 80% 下游性能 @ 4% 体积。
 - 算力：1×A100 × 2-3 天（5000 步 + 下游评估）。
+
+**P2 蒸馏已跑（2026-08-16 云 A100，5000 步 21 分钟）**：384d×8L O 系列学生
+（~79M）从 Qwen2.5-0.5B 蒸馏，CE 10.6 → 7.65（最终 7.648，KL+CE 混合损失
+正常收敛），checkpoint 483MB（151936 vocab embedding 占大头）。下一步：词表
+裁剪 + int8 量化到 <5MB（部署段，未跑）。
