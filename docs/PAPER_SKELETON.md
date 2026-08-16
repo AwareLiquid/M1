@@ -111,6 +111,12 @@ parity 外推（train≤24，full-seq acc）在 64 满分（复现 E5e），但 
   parity 精确计算"是两回事**——内存优势真实（结构差异），但精确计算
   能力受 soft 转移的数值极限约束。这不削弱 S2（成本）主张，只是明确
   S1（电路能力）的适用长度范围。
+- **根因诊断（λ_t 分布，2026-08-16）**：token=0（hold）时 |λ|>0.99 仅
+  62%（mean 0.39），token=1（flip）时 50%（mean 0.01）——**翻转决策本身
+  不精确**，38-50% channel 的符号/幅度错误在长序列累积。推理 snap 硬化
+  （`selective_decay_snap`，sign 到 ±1）**失败**（连 in-dist 都崩）——
+  因为 snap 把错误符号的 channel 也硬化放大。下一步方向：训练时离散化
+  （Gumbel-softmax/STE）让模型学习精确 ±1 语义，而非推理时 OOD snap。
 
 **可发表陈述**：这是结构差异（Transformer KV 是 O(T) 硬约束），不是工程
 优化。长上下文推理的每 token 成本曲线是类脑架构的天然主场。
