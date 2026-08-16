@@ -191,3 +191,8 @@ python train_distill.py --teacher Qwen/Qwen2.5-0.5B-Instruct \
 特殊 token）+ per-tensor int8 → **13.81MB**（从 482.9MB，35×压缩）。
 距离 <5MB 目标还差 2.7×（下一步：4-bit 量化或 2K 词表或 208d 学生）；
 路径已验证可行。O1-Sound 的 1.27MB（小词表 + 小模型）是同路线的更小实例。
+
+**P2 4-bit 量化已跑（2026-08-16）**：int4 打包（两 int4 进一 int8）→
+**7.11MB**（fp32 483MB → int8 13.81MB → 4bit 7.11MB，总 68× 压缩）。
+端侧规模 7.11MB 已接近实用（O1-Sound 1.27MB 是更小模型）；<5MB 需
+4K 词表或 208d 学生，路径明确。
