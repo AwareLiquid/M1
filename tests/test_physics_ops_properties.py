@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_physics_ops_properties.py -- property-based physical invariants for
 the Newtonian dynamics operators.

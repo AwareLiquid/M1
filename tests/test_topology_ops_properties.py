@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_topology_ops_properties.py -- property-based TDA invariants for the
 composable topology operators.

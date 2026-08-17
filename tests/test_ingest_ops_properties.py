@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_ingest_ops_properties.py -- property-based contracts for the sensor
 ingestion / stream-alignment operators.

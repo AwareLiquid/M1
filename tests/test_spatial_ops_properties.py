@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_spatial_ops_properties.py -- property-based geometric invariants for
 the composable spatial operators.

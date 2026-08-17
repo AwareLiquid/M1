@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_attractor_ops_properties.py -- property-based invariants for the
 composable attractor / self-stabilization operators.

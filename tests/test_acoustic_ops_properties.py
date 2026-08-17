@@ -1,6 +1,3 @@
-import pytest
-pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
-
 """
 tests/test_acoustic_ops_properties.py -- property-based acoustic invariants for
 the composable binaural-hearing operators.
