@@ -35,19 +35,34 @@ $exclude = @(
     "scripts/sync_oss.ps1"
 )
 
+function Test-Excluded {
+    param([string]$rel)
+    foreach ($ex in $exclude) {
+        $exN = $ex.Replace("/", "\")
+        if ($rel -eq $ex -or $rel -eq $exN -or
+            $rel.StartsWith("$ex\") -or $rel.StartsWith("$exN\") -or
+            $rel.StartsWith("$ex/") -or $rel.StartsWith("$exN/")) {
+            return $true
+        }
+    }
+    return $false
+}
+
+# Copy every file individually so per-file exclusions inside subdirectories work.
 function Sync-Tree {
     param([string]$src, [string]$dst)
-    foreach ($item in Get-ChildItem -Path $src -Force | Where-Object { $_.Name -ne ".git" }) {
-        $rel = $item.FullName.Substring($src.Length).TrimStart("\", "/").Replace("\", "/")
-        $excluded = $false
-        foreach ($ex in $exclude) {
-            if ($rel -eq $ex -or $rel.StartsWith("$ex/") -or $rel.StartsWith("$ex\")) {
-                $excluded = $true; break
-            }
-        }
-        if ($excluded) { Write-Host "  EXCLUDED $rel"; continue }
-        Copy-Item -Path $item.FullName -Destination $dst -Recurse -Force
+    $files = Get-ChildItem -Path $src -Recurse -Force -File | Where-Object { $_.FullName -notmatch "\\\.git\\" }
+    $n = 0
+    foreach ($f in $files) {
+        $rel = $f.FullName.Substring($src.Length).TrimStart("\", "/")
+        if (Test-Excluded -rel $rel) { Write-Host "  EXCLUDED $rel"; continue }
+        $target = Join-Path $dst $rel
+        $dir = Split-Path $target -Parent
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        Copy-Item -Path $f.FullName -Destination $target -Force
+        $n++
     }
+    Write-Host "  copied $n files"
 }
 
 # 1. Update dev source
