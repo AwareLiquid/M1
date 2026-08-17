@@ -16,7 +16,7 @@
 
 **评估日期**: 2026-06-01  
 **架构版本**: v2.1 (Position-Free)  
-**代码库**: github.com/everest-an/M1  
+**代码库**: github.com/AwareLiquid/M1  
 **分析范围**: 核心架构设计 + Phase 5/5b/Track 1A实测数据
 
 ---

@@ -33,7 +33,7 @@ image = (
     # branch tip at RUN time so a rebuilt image is not needed per commit.
     .run_commands(
         "git clone --depth 1 --branch %s "
-        "https://github.com/everest-an/M1.git /opt/M1" % BRANCH
+        "https://github.com/AwareLiquid/M1.git /opt/M1" % BRANCH
     )
 )
 

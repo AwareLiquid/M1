@@ -35,7 +35,7 @@ import sys
 import time
 
 t_start = time.time()
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"                      # NOT /kaggle/working -> keep output clean
 WORK = "/kaggle/working"
 DATA_DIR = os.path.join(WORK, "data")

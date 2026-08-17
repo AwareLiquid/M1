@@ -2,7 +2,7 @@
 """AwareLiquid-M2 -- 125M-class MT-LNN from-scratch pretraining with v2.0 modules.
 
 This kernel:
-  1. Clones the M1 repo (everest-an/M1) at HEAD.
+  1. Clones the M1 repo (AwareLiquid/M1) at HEAD.
   2. Tokenises WikiText-103 (gpt2 tokenizer) to data/{train,validation}.bin.
   3. Pretrains the MT-LNN backbone with all four v2.0 bio-inspired modules ON
      (Phase A competitive GWT, Phase C predictive world model, Phase D Hebbian).
@@ -30,7 +30,7 @@ print("=" * 70)
 print("AwareLiquid-M2 pretraining -- setup")
 print("=" * 70)
 
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"   # clone OUTSIDE /kaggle/working so the output stays clean
 if not os.path.exists(DIR):                # (only checkpoints/ + metrics.jsonl ->
     subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)  # fast DL)

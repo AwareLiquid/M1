@@ -31,7 +31,7 @@ sudo systemctl enable --now docker
 
 ```bash
 cd ~
-git clone https://github.com/everest-an/M1.git
+git clone https://github.com/AwareLiquid/M1.git
 cd M1
 
 # 上传 checkpoint（本地已跑通的是 o1_48m_serve.pt；线上用 m2_final.pt 同构）

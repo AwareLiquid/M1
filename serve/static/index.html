@@ -38,7 +38,7 @@
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
-<link rel="me" href="https://github.com/everest-an/M1">
+<link rel="me" href="https://github.com/AwareLiquid/M1">
 <!-- Favicon -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
 <!-- JSON-LD structured data -->
@@ -51,18 +51,18 @@
   "alternateName": "MT-LNN",
   "description": "AwareLiquid is a bio-inspired cognitive AI framework. M-Series (M1): GWT + sleep consolidation + adapter recall — cognitive engine. O-Series (O1): liquid-ODE constant-memory fast inference for edge, with O(1) carried state (0.381 MB flat, 8063x smaller than a KV-cache at 1M tokens) and cross-session associative recall attention cannot express.",
   "url": "https://awareliquid.ai",
-  "codeRepository": "https://github.com/everest-an/M1",
+  "codeRepository": "https://github.com/AwareLiquid/M1",
   "applicationCategory": "AIApplication",
   "operatingSystem": "Any",
   "keywords": ["continual learning","liquid neural networks","MT-LNN","EWC","anti-forgetting","catastrophic forgetting"],
-  "license": "https://github.com/everest-an/M1/blob/main/LICENSE",
+  "license": "https://github.com/AwareLiquid/M1/blob/main/LICENSE",
   "isAccessibleForFree": true,
   "datePublished": "2026-02-01",
   "dateModified": "2026-06-25",
   "subjectOf": {
     "@type": "ScholarlyArticle",
     "name": "MT-LNN v2: Reliable Long Pre-training",
-    "url": "https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf"
+    "url": "https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf"
   }
 },
 {
@@ -73,7 +73,7 @@
   "alternateName": "MT-LNN Project",
   "url": "https://awareliquid.ai",
   "logo": "https://awareliquid.ai/static/og-image.png",
-  "sameAs": ["https://github.com/everest-an/M1"],
+  "sameAs": ["https://github.com/AwareLiquid/M1"],
   "description": "Open research project on continual learning and anti-catastrophic-forgetting in liquid neural networks."
 },
 {
@@ -92,8 +92,8 @@
   "@type": "Person",
   "@id": "https://awareliquid.ai/#author",
   "name": "Everest An",
-  "url": "https://github.com/everest-an",
-  "sameAs": ["https://github.com/everest-an"],
+  "url": "https://github.com/AwareLiquid",
+  "sameAs": ["https://github.com/AwareLiquid"],
   "worksFor": {
     "@id": "https://awareliquid.ai/#organization"
   },
@@ -317,6 +317,30 @@ html[data-theme="dark"] .model-badge{background:rgba(22,22,26,.7)}
 .future-chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:36px}
 .chip{font-size:12.5px;font-weight:600;border:1px solid var(--line);border-radius:999px;padding:6px 14px;color:var(--muted);background:var(--bg);transition:all .15s;cursor:default}
 .chip:hover{border-color:var(--fg);color:var(--fg)}
+
+/* ── MODELS ── */
+.models-section{background:transparent}
+.models-grid{display:grid;grid-template-columns:repeat(2,1fr);border-top:1px solid var(--rule);margin-top:40px}
+.model-card{padding:40px 32px;border-bottom:1px solid var(--rule);position:relative}
+.model-card:nth-child(odd){padding-left:0;border-right:1px solid var(--rule)}
+.model-card:nth-child(even){padding-right:0}
+@media(max-width:860px){
+  .models-grid{grid-template-columns:1fr}
+  .model-card{padding:32px 0}
+  .model-card:nth-child(odd){border-right:0}
+}
+.mc-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.mc-series{color:var(--muted)}
+.mc-status{font-family:var(--font-label);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border:1px solid var(--rule)}
+.s-live{color:#10a37f;border-color:#10a37f}
+.s-dl{color:var(--fg);border-color:var(--fg)}
+.s-tr{color:#d97706;border-color:#d97706}
+.mc-name{font-family:var(--font-serif);font-size:24px;font-weight:400;letter-spacing:-.02em;margin-bottom:10px}
+.mc-desc{font-size:14px;line-height:1.6;color:var(--muted);margin-bottom:18px}
+.mc-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+.mc-meta span{font-family:var(--font-label);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);padding:3px 9px}
+.mc-cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mc-note{font-size:10.5px;color:var(--muted)}
 
 /* ── STATS STRIP ── */
 .stats-strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:48px 0}
@@ -605,12 +629,13 @@ html[data-theme="light"] .chart-fig img{background:#fff}
     </a>
     <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
       <a href="#industries">Industries</a>
+      <a href="#models">Models</a>
       <a href="#demo" aria-current="page">Demo</a>
       <a href="/api">API</a>
       <a href="/research">Research</a>
       <a href="/about">About</a>
-      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper</a>
-      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper</a>
+      <a href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
     <div class="nav-actions">
       <button class="theme-btn lang-toggle" id="langBtn" title="切换语言 / Switch language">中文</button>
@@ -647,7 +672,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         </div>
         <div class="hero-ctas">
           <a class="btn btn-primary btn-lg" href="#demo">Try the live demo</a>
-          <a class="btn btn-ghost btn-lg" href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read the paper →</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Read the paper →</a>
         </div>
       </div>
       <aside class="hero-aside" aria-label="Latest updates">
@@ -663,6 +688,12 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       </aside>
     </div>
     <div class="model-lineup" aria-label="Model lineup">
+      <div class="model-badge">
+        <span class="model-series">M-Series</span>
+        <span class="model-name">M1-128M</span>
+        <span class="model-tag">From-scratch hybrid · Attention + Liquid</span>
+      </div>
+      <span class="model-sep" aria-hidden="true">·</span>
       <div class="model-badge">
         <span class="model-series">M-Series</span>
         <span class="model-name">M1</span>
@@ -697,8 +728,81 @@ html[data-theme="light"] .chart-fig img{background:#fff}
     </div>
     <div class="stat-div"></div>
     <div class="stat-item">
-      <span class="stat-n">48M</span>
-      <span class="stat-l">From-scratch edge model<br>attention-free O-series</span>
+      <span class="stat-n">128M</span>
+      <span class="stat-l">From-scratch hybrid model<br>attention + liquid core</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── MODELS ── -->
+<section class="section models-section" id="models">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Model Lineup</span>
+      <h2>Every Release, One Place</h2>
+      <p class="section-lead">Each AwareLiquid release states its status plainly: <strong>live</strong> (served on this site, try it now), <strong>download</strong> (weights published, run it yourself), or <strong>training</strong> (checkpoint exists, run not finished). No version is silently half-shipped.</p>
+    </div>
+    <div class="models-grid">
+      <article class="model-card hov" data-status="live">
+        <div class="mc-head">
+          <span class="mc-series label">M-Series</span>
+          <span class="mc-status s-live">● Live on site</span>
+        </div>
+        <h3 class="mc-name">M1-128M</h3>
+        <p class="mc-desc">From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103. Continues English text; raw research backbone, not a chat model.</p>
+        <div class="mc-meta">
+          <span>128.6M params</span><span>12 layers · 832d</span><span>512-token window</span>
+        </div>
+        <div class="mc-cta">
+          <a class="btn btn-primary" href="#demo" onclick="setDemoModel('');">Try it live →</a>
+          <span class="mc-note label">Served by the native decoder on this site</span>
+        </div>
+      </article>
+      <article class="model-card hov" data-status="live">
+        <div class="mc-head">
+          <span class="mc-series label">M-Series</span>
+          <span class="mc-status s-live">● Live on site</span>
+        </div>
+        <h3 class="mc-name">M1 · TinyLlama-1.1B + MT v2s</h3>
+        <p class="mc-desc">Frozen TinyLlama-1.1B-Chat base with trained liquid-core residual adapters + LoRA. The conversational model — English and Chinese, with fast-weight memory across turns.</p>
+        <div class="mc-meta">
+          <span>1.1B base + 2.3M adapter</span><span>chat-capable</span><span>bilingual EN/ZH</span>
+        </div>
+        <div class="mc-cta">
+          <a class="btn btn-primary" href="#demo" onclick="setDemoModel('/adapter');">Try it live →</a>
+          <span class="mc-note label">Served by the adapter service on this site</span>
+        </div>
+      </article>
+      <article class="model-card hov" data-status="download">
+        <div class="mc-head">
+          <span class="mc-series label">O-Series</span>
+          <span class="mc-status s-dl">↓ Download</span>
+        </div>
+        <h3 class="mc-name">O1-48M</h3>
+        <p class="mc-desc">Attention-free O-series edge model, trained from scratch. Constant 0.381 MB carried state regardless of context — the O(1) memory line. Run it on CPU.</p>
+        <div class="mc-meta">
+          <span>48M params</span><span>attention-free</span><span>CPU-friendly</span>
+        </div>
+        <div class="mc-cta">
+          <a class="btn btn-ghost" href="https://github.com/AwareLiquid/M1/releases/tag/o1-48m-v1" target="_blank" rel="noopener noreferrer">Download weights ↓</a>
+          <span class="mc-note label">GitHub release · serve with server.py</span>
+        </div>
+      </article>
+      <article class="model-card hov" data-status="training">
+        <div class="mc-head">
+          <span class="mc-series label">M-Series</span>
+          <span class="mc-status s-tr">◐ Training</span>
+        </div>
+        <h3 class="mc-name">M1-2B</h3>
+        <p class="mc-desc">1.9B-parameter hybrid (2912d × 35L) on the A100. Checkpoint exists, run in progress — not yet a release. Listed so the roadmap is visible, not hidden.</p>
+        <div class="mc-meta">
+          <span>1.9B params</span><span>35 layers · 2912d</span><span>early steps</span>
+        </div>
+        <div class="mc-cta">
+          <span class="btn btn-ghost" style="cursor:default">Weights when it converges</span>
+          <span class="mc-note label">Training on rented A100</span>
+        </div>
+      </article>
     </div>
   </div>
 </section>
@@ -802,7 +906,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
             <tr class="highlight-row"><td>Irregular-sampling robustness (battery SoH)</td><td class="good">4× steadier than LSTM/GRU when samples drop</td></tr>
           </tbody>
         </table>
-        <p class="table-note">Full methodology, raw data and reproduction scripts: <a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.</p>
+        <p class="table-note">Full methodology, raw data and reproduction scripts: <a href="https://github.com/AwareLiquid/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.</p>
       </div>
       <a class="btn btn-ghost" style="margin-top:20px;display:inline-flex" href="/research">Full methodology & results →</a>
     </div>
@@ -821,14 +925,14 @@ html[data-theme="light"] .chart-fig img{background:#fff}
     <div class="section-header">
       <span class="eyebrow">Live Demo</span>
       <h2>Try Both Models in Your Browser</h2>
-      <p class="section-lead">Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base — a general assistant. <strong>O1</strong> (small, edge) is the native 48M liquid architecture trained from scratch with no base model — the raw backbone for hardware / always-on inference. Switch between them below. Ask in English or Chinese.</p>
+      <p class="section-lead">Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base — a general assistant. <strong>M1-128M</strong> is the native 128M hybrid trained from scratch with no base model — attention + liquid core in every layer. Switch between them below. Ask in English or Chinese.</p>
     </div>
     <div class="demo-widget">
       <div class="demo-bar">
         <div class="modelsel">
           <select id="modelSel" aria-label="Select model">
             <option value="/adapter">M1 · TinyLlama-1.1B + MT adapter</option>
-            <option value="">O1 · 48M edge, from scratch</option>
+            <option value="">M1-128M · from-scratch hybrid</option>
           </select>
         </div>
         <div style="display:flex;align-items:center;gap:10px">
@@ -895,7 +999,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <div class="vs-title">Cognitive Continuity<br>&amp; Lifelong Learning</div>
         <ul>
           <li>Continuous-time RNN + GWT + Sleep + EWC</li>
-          <li>48M – 60.7M, open research prototype</li>
+          <li>48M – 128M, open research prototype</li>
           <li>Online weight updates — learns without forgetting</li>
           <li>Targets episodic memory, agent cognition &amp; adaptation</li>
         </ul>
@@ -920,9 +1024,9 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         AwareLiquid
       </a>
       <p>Bio-inspired cognitive AI framework. M-Series: cognitive slow-thinking with GWT + sleep. O-Series: liquid-ODE fast-thinking for edge. Open research.</p>
-      <a class="footer-gh" href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">
+      <a class="footer-gh" href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
-        github.com/everest-an/M1
+        github.com/AwareLiquid/M1
       </a>
     </div>
     <nav class="footer-col" aria-label="Research navigation">
@@ -931,13 +1035,13 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       <a href="/research#ewc">EWC Results</a>
       <a href="/research#hebbian">Hebbian Ablation</a>
       <a href="/research#spatial">Spatial Computing</a>
-      <a href="https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper (PDF)</a>
+      <a href="https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper (PDF)</a>
     </nav>
     <nav class="footer-col" aria-label="Project navigation">
       <h4>Project</h4>
       <a href="/about">About</a>
       <a href="#demo">Live Demo</a>
-      <a href="https://github.com/everest-an/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
     <nav class="footer-col" aria-label="Legal navigation">
       <h4>Legal</h4>
@@ -1020,7 +1124,7 @@ window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{
 // ── i18n ──
 const I18N={
   en:{
-    'nav.demo':'Demo','nav.research':'Research','nav.about':'About','nav.paper':'Paper','nav.github':'GitHub',
+    'nav.demo':'Demo','nav.models':'Models','nav.research':'Research','nav.about':'About','nav.paper':'Paper','nav.github':'GitHub',
     'nav.try':'Try Demo',
     'hero.title':'Constant memory.',
     'hero.accent':'Unbounded',
@@ -1040,8 +1144,10 @@ const I18N={
     'rh.eyebrow':'Engineering Reality','rh.h2':'Measured.\nReproducible.',
     'rh.lead':'Every claim below is measured on real runs and backed by open code and data.',
     'rh.full':'Full methodology & results →',
+    'models.eyebrow':'Model Lineup','models.h2':'Every Release, One Place',
+    'models.lead':'Each AwareLiquid release states its status plainly: <strong>live</strong> (served on this site, try it now), <strong>download</strong> (weights published, run it yourself), or <strong>training</strong> (checkpoint exists, run not finished). No version is silently half-shipped.',
     'demo.eyebrow':'Live Demo','demo.h2':'Try Both Models in Your Browser',
-    'demo.lead':'Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. <strong>O1</strong> (small, edge) is the native 48M architecture trained from scratch, no base model. Ask in English or Chinese.',
+    'demo.lead':'Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. <strong>M1-128M</strong> is the native 128M hybrid trained from scratch, no base model. Ask in English or Chinese.',
     'demo.fullpage':'Open Full-Page Demo →',
     'demo.note':'Research-grade demo — quality is experimental. ',
     'demo.notelink':'What to expect →',
@@ -1096,10 +1202,10 @@ const I18N={
     'rh.r3c':'Cross-session snapshot → restore','rh.r3v':'bit-exact lossless',
     'rh.r4c':'Stable training at 125M scale','rh.r4v':'no NaN, 20K steps, 3 seeds',
     'rh.r5c':'Irregular-sampling robustness (battery SoH)','rh.r5v':'4× steadier than LSTM/GRU when samples drop',
-    'rh.note':'Full methodology, raw data and reproduction scripts: <a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.',
+    'rh.note':'Full methodology, raw data and reproduction scripts: <a href="https://github.com/AwareLiquid/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>.',
     'rh.chartcap':'Inference memory vs. context length. The KV-cache grows O(n); the O-series carried state is flat. Measured to 1M tokens: 0.381 MB state vs. 3,072 MB KV-cache — 8063× smaller. This measures inference carried-state bytes only — it is not evidence of model quality beyond the 512-token training length (out-of-window LM results are null; see RESULTS.md).',
     'demo.opt1':'M1 · TinyLlama-1.1B + MT adapter',
-    'demo.opt2':'O1 · 48M edge, from scratch',
+    'demo.opt2':'M1-128M · from-scratch hybrid',
     'vs.t1':'Maximum Inference<br>Efficiency',
     'vs.t2':'Cognitive Continuity<br>&amp; Lifelong Learning',
     'vs.o1':'SSM + linear attention + MoE hybrid',
@@ -1107,7 +1213,7 @@ const I18N={
     'vs.o3':'Weights frozen post-training; in-context only',
     'vs.o4':'Targets industrial time-series & edge devices',
     'vs.u1':'Continuous-time RNN + GWT + Sleep + EWC',
-    'vs.u2':'48M – 60.7M, open research prototype',
+    'vs.u2':'48M – 128M，开放研究原型',
     'vs.u3':'Online weight updates — learns without forgetting',
     'vs.u4':'Targets episodic memory, agent cognition & adaptation',
     'footer.arch':'Architecture','footer.ewc':'EWC Results','footer.hebbian':'Hebbian Ablation',
@@ -1117,7 +1223,7 @@ const I18N={
     'footer.privacy2':'Privacy','footer.terms2':'Terms',
   },
   zh:{
-    'nav.demo':'演示','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
+    'nav.demo':'演示','nav.models':'模型','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
     'nav.try':'试用演示',
     'hero.title':'恒定内存。',
     'hero.accent':'无界',
@@ -1137,8 +1243,10 @@ const I18N={
     'rh.eyebrow':'工程实验结果','rh.h2':'实测。\n可复现。',
     'rh.lead':'以下每一项均来自真实运行，并有开源代码与数据支撑。',
     'rh.full':'完整方法论与结果 →',
+    'models.eyebrow':'模型阵容','models.h2':'每个版本，一目了然',
+    'models.lead':'每个 AwareLiquid 版本都如实标注状态：<strong>在线</strong>（本站提供服务，即刻可试）、<strong>可下载</strong>（权重已发布，可自行运行）、<strong>训练中</strong>（checkpoint 已存在，训练尚未完成）。没有哪个版本会被含糊地"半发布"。',
     'demo.eyebrow':'在线演示','demo.h2':'在浏览器中试用两款模型',
-    'demo.lead':'两款独立模型，均在线。<strong>M1</strong>（大模型、认知向）在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上运行已训练的液态核心适配器。<strong>O1</strong>（小模型、边缘向）是从零训练的原生 4800 万参数架构，无基座。支持中英文提问。',
+    'demo.lead':'两款独立模型，均在线。<strong>M1</strong>（大模型、认知向）在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上运行已训练的液态核心适配器。<strong>M1-128M</strong> 是从零训练的 1.28 亿参数混合模型（注意力 + 液态核心），无基座。支持中英文提问。',
     'demo.fullpage':'打开全屏演示 →',
     'demo.note':'研究级演示——质量处于实验阶段。',
     'demo.notelink':'了解预期效果 →',
@@ -1193,10 +1301,10 @@ const I18N={
     'rh.r3c':'跨会话快照 → 恢复','rh.r3v':'比特级无损',
     'rh.r4c':'125M 规模稳定训练','rh.r4v':'无 NaN，20K 步，3 个种子',
     'rh.r5c':'不规则采样鲁棒性（电池 SoH）','rh.r5v':'采样丢失时比 LSTM/GRU 稳 4×',
-    'rh.note':'完整方法论、原始数据与复现脚本：<a href="https://github.com/everest-an/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>。',
+    'rh.note':'完整方法论、原始数据与复现脚本：<a href="https://github.com/AwareLiquid/M1/blob/main/BENCHMARKS.md" target="_blank" rel="noopener noreferrer">BENCHMARKS.md</a>。',
     'rh.chartcap':'推理内存 vs. 上下文长度。KV cache 以 O(n) 增长；O 系列携带状态保持恒定。实测至 1M tokens：0.381 MB 状态 vs. 3,072 MB KV cache——小 8063×。此项仅测量推理携带状态字节数——不构成超出 512 token 训练长度之外模型质量的证据（窗口外 LM 结果为空；见 RESULTS.md）。',
     'demo.opt1':'M1 · TinyLlama-1.1B + MT 适配器',
-    'demo.opt2':'O1 · 48M 边缘模型 · 从零训练',
+    'demo.opt2':'M1-128M · 从零训练混合模型',
     'vs.t1':'极致推理<br>效率',
     'vs.t2':'认知连续性<br>与终身学习',
     'vs.o1':'SSM + 线性注意力 + MoE 混合架构',
@@ -1204,7 +1312,7 @@ const I18N={
     'vs.o3':'训练后权重冻结；仅上下文内学习',
     'vs.o4':'瞄准工业时间序列与边缘设备',
     'vs.u1':'连续时间 RNN + GWT + 睡眠 + EWC',
-    'vs.u2':'48M – 60.7M，开源研究原型',
+    'vs.u2':'48M – 128M，开源研究原型',
     'vs.u3':'在线权重更新——学习而不遗忘',
     'vs.u4':'瞄准情节记忆、智能体认知与适应',
     'footer.arch':'架构','footer.ewc':'EWC 结果','footer.hebbian':'Hebbian 消融',
@@ -1221,6 +1329,7 @@ function ti(k){return(I18N[PAGE_LANG]||I18N.en)[k]||(I18N.en)[k]||k;}
 // selector → {key, attr} where attr is 'text' or 'html'
 const I18N_MAP=[
   ['.nav-links a[href="#demo"]','nav.demo','text'],
+  ['.nav-links a[href="#models"]','nav.models','text'],
   ['.nav-links a[href="/research"]','nav.research','text'],
   ['.nav-links a[href="/about"]','nav.about','text'],
   ['.nav-links a[href*="arxiv.pdf"]','nav.paper','text'],
@@ -1240,6 +1349,9 @@ const I18N_MAP=[
   ['.rh-section .rh-text h2','rh.h2','html'],
   ['.rh-section .rh-text p:first-of-type','rh.lead','text'],
   ['.rh-section .btn-ghost','rh.full','text'],
+  ['.models-section .eyebrow','models.eyebrow','text'],
+  ['.models-section .section-header h2','models.h2','text'],
+  ['.models-section .section-lead','models.lead','html'],
   ['.demo-section .eyebrow','demo.eyebrow','text'],
   ['.demo-section .section-header h2','demo.h2','text'],
   ['.demo-section .section-lead','demo.lead','html'],
@@ -1459,9 +1571,9 @@ const CONTENT={
       examples:[['什么是灾难性遗忘？EWC 是如何解决的？','研究问答'],['AwareLiquid M1 和 Liquid AI 有什么区别？','概念解析'],['我叫小明，正在研究持续学习。','记忆演示'],['写一首关于永不遗忘的神经网络的短诗。','创意写作']]},
   },
   scratch:{
-    en:{lead:'<strong>AwareLiquid O1</strong> — 48M parameters trained from scratch, no base model. The small, edge model: a raw liquid backbone for hardware / always-on inference. It <strong>continues short English text only</strong>, not a general assistant. Give it a story opening:',
+    en:{lead:'<strong>AwareLiquid M1-128M</strong> — 128M parameters trained from scratch, no base model. A hybrid backbone: attention + liquid core in every layer. It <strong>continues English text</strong> — a raw research prototype, not a chat assistant. Give it a story opening:',
       examples:[['Once upon a time, there was a little cat named Lily.','Continue story'],['The sun was shining and Tom wanted to play outside.','Continue story'],['One day, a girl found a big red box under the tree.','Continue story'],['There was a happy dog who liked to run very fast.','Continue story']]},
-    zh:{lead:'<strong>AwareLiquid O1</strong> — 从零训练的 4800 万参数模型，无基座。小模型、边缘向：面向硬件 / 常驻推理的纯液态骨干。<strong>仅能续写短篇英文文本</strong>，非通用助手。请给出故事开头：',
+    zh:{lead:'<strong>AwareLiquid M1-128M</strong> — 从零训练的 1.28 亿参数模型，无基座。混合骨干：每层同时含注意力与液态核心。<strong>英文文本续写</strong>——研究原型，非对话助手。请给出故事开头：',
       examples:[['Once upon a time, there was a little cat named Lily.','续写故事'],['The sun was shining and Tom wanted to play outside.','续写故事'],['One day, a girl found a big red box under the tree.','续写故事'],['There was a happy dog who liked to run very fast.','续写故事']]},
   },
 };
@@ -1549,6 +1661,12 @@ async function autoSelect(){
   if(await selectModel('/adapter'))return;
   if(await selectModel(''))return;
   showOffline();
+}
+// Cross-section model picker: the lineup cards call this to jump straight to
+// the demo with a specific model preselected (default = the native 128M).
+async function setDemoModel(base){
+  document.getElementById('demo').scrollIntoView({behavior:'smooth'});
+  await selectModel(base);
 }
 autoSelect();
 modelSel.addEventListener('change',()=>{selectModel(modelSel.value);});

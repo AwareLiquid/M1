@@ -20,7 +20,7 @@ can launch in one command on a free/cheap GPU session.
 ## Zero-setup option: web Colab (recommended on Windows)
 
 Open `grid_cell_colab.ipynb` in Colab (the badge at the top of the notebook, or
-`https://colab.research.google.com/github/everest-an/M1/blob/main/kaggle_kernels/grid_cell_emergence/grid_cell_colab.ipynb`),
+`https://colab.research.google.com/github/AwareLiquid/M1/blob/main/kaggle_kernels/grid_cell_emergence/grid_cell_colab.ipynb`),
 set `Runtime → Change runtime type → GPU (T4)`, then `Run all`. It clones, trains
 both models, scores grid emergence, and renders the figures inline. No terminal,
 no WSL — ideal if you are on Windows.
@@ -51,7 +51,7 @@ for **MTLNN** (the GRU row is the sanity baseline that the pipeline works).
 2. In the Studio terminal:
 
    ```bash
-   git clone --depth 1 https://github.com/everest-an/M1.git
+   git clone --depth 1 https://github.com/AwareLiquid/M1.git
    cd M1
    bash kaggle_kernels/grid_cell_emergence/run_gpu.sh --install
    ```
@@ -69,7 +69,7 @@ Free tier gives ~4h GPU sessions — enough for an `8000`-step run.
 2. Same three commands:
 
    ```bash
-   git clone --depth 1 https://github.com/everest-an/M1.git
+   git clone --depth 1 https://github.com/AwareLiquid/M1.git
    cd M1
    bash kaggle_kernels/grid_cell_emergence/run_gpu.sh --install
    ```

@@ -17,7 +17,7 @@ The underlying architecture is MT-LNN (Multi-Timescale Liquid Neural Network), a
 Tagline: "Beyond Next-Token Prediction. Towards Cognitive Artificial Life."
 
 Canonical URL: https://awareliquid.ai
-Repository: https://github.com/everest-an/M1
+Repository: https://github.com/AwareLiquid/M1
 Paper: AwareLiquid M1 — Bio-inspired Continual Learning with GWT, Sleep Consolidation, and EWC (arXiv preprint, also known as MT-LNN v2: Reliable Long Pre-training)
 License: Open (see GitHub repository)
 Last updated: June 2026
@@ -240,11 +240,11 @@ BibTeX:
   year         = {2026},
   howpublished = {\url{https://awareliquid.ai}},
   note         = {M-Series cognitive engine. Open research prototype.
-                  Code: \url{https://github.com/everest-an/M1}}
+                  Code: \url{https://github.com/AwareLiquid/M1}}
 }
 
 APA:
-AwareLiquid Project. (2026). AwareLiquid M1: Bio-inspired Continual Learning with Global Workspace, Sleep Consolidation, and EWC [Open research prototype, M-Series]. Retrieved from https://awareliquid.ai. Code: https://github.com/everest-an/M1
+AwareLiquid Project. (2026). AwareLiquid M1: Bio-inspired Continual Learning with Global Workspace, Sleep Consolidation, and EWC [Open research prototype, M-Series]. Retrieved from https://awareliquid.ai. Code: https://github.com/AwareLiquid/M1
 
 ---
 
@@ -266,4 +266,4 @@ Q: Does the needle-in-haystack benchmark work?
 A: Yes, within the base model's context window. Re-tested 2026-06-26 with the instruct chat template (the earlier "0%" was a harness artefact from concatenating raw tokens without the template). Within TinyLlama-1.1B's 2048-token window retrieval is near-perfect: base 0.867/1.000 at 1K/2K, adapter 1.000/1.000. At 4096 tokens both drop to 0.000 — that exceeds the base's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; a measurable uplift stays inconclusive at 5 samples/cell. Extending long-context retrieval is logged as future work.
 
 Q: What is the API?
-A: GET /v1/model (model info), POST /v1/completions (batch), POST /v1/completions/stream (SSE), POST /adapter/v1/completions/stream (M1 adapter SSE). Research-grade, no SLAs. See https://github.com/everest-an/M1 for local setup.
+A: GET /v1/model (model info), POST /v1/completions (batch), POST /v1/completions/stream (SSE), POST /adapter/v1/completions/stream (M1 adapter SSE). Research-grade, no SLAs. See https://github.com/AwareLiquid/M1 for local setup.

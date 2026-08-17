@@ -91,7 +91,7 @@ Expected outcome:
 
 ```bash
 # On a cloud A100 instance
-git clone https://github.com/everest-an/M1
+git clone https://github.com/AwareLiquid/M1
 cd O1
 pip install torch transformers datasets peft einops tqdm
 

@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 BRANCH = "physics-informed-head"
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"
 OUT = "/kaggle/working/scaling_out"   # small JSONs -> kernel output artifacts
 

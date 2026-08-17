@@ -6,7 +6,7 @@
 ## 0. 前置（GPU 机一到就执行）
 
 ```bash
-git clone https://github.com/everest-an/M1.git && cd M1
+git clone https://github.com/AwareLiquid/M1.git && cd M1
 pip install -r requirements.txt
 # 确认 GPU
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"

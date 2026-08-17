@@ -5,7 +5,7 @@
 # to re-run after a code change or a checkpoint upload.
 #
 #   ssh root@<server-ip>
-#   curl -fsSL https://raw.githubusercontent.com/everest-an/M1/main/deploy/golive.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/AwareLiquid/M1/main/deploy/golive.sh | bash
 #   # ...or, if the repo is already cloned:  bash ~/M1/deploy/golive.sh
 #
 # What it does, in order:
@@ -20,7 +20,7 @@
 # separately from your laptop via scp (see the printed instructions at the end).
 set -euo pipefail
 
-REPO_URL="https://github.com/everest-an/M1.git"
+REPO_URL="https://github.com/AwareLiquid/M1.git"
 REPO_DIR="${REPO_DIR:-$HOME/M1}"
 COMPOSE_FILE="deploy/docker-compose.prod.yml"
 DOMAIN="awareliquid.ai"

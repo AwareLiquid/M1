@@ -2,7 +2,7 @@
 
 **Version:** 1.1  
 **Date:** 2026-05-12  
-**Repo:** https://github.com/everest-an/M1
+**Repo:** https://github.com/AwareLiquid/M1
 
 ---
 

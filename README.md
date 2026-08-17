@@ -6,7 +6,7 @@
 
 **Brain-inspired LLM architecture with $O(1)$ working memory, multi-scale predictive coding, and dynamic compute skipping.**
 
-[![Stars](https://img.shields.io/github/stars/everest-an/M1?style=flat&color=1f75fe)](https://github.com/everest-an/M1)
+[![Stars](https://img.shields.io/github/stars/AwareLiquid/M1?style=flat&color=1f75fe)](https://github.com/AwareLiquid/M1)
 [![Paper EN](https://img.shields.io/badge/PDF-EN-red)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv.pdf)
 [![Paper ZH](https://img.shields.io/badge/PDF-ZH-red)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv_zh.pdf)
 [![HF Model](https://img.shields.io/badge/HF-MT--LNN-yellow)](https://huggingface.co/EverestAn/MT-LNN)
@@ -88,7 +88,7 @@ MT-LNN's design *draws on* neuroscience — neuronal microtubules and the 13-pro
 ### Install
 
 ```bash
-git clone https://github.com/everest-an/M1.git && cd M1
+git clone https://github.com/AwareLiquid/M1.git && cd M1
 pip install -r requirements.txt
 ```
 

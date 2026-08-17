@@ -34,7 +34,7 @@ print("=" * 70)
 print("AwareLiquid cross-domain continual-learning validation -- setup")
 print("=" * 70)
 
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"
 if not os.path.exists(DIR):
     subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)

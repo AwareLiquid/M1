@@ -3,7 +3,7 @@
 **Version:** 2.2
 **Date:** 2026-06-06
 **Status:** Active
-**Repo:** https://github.com/everest-an/M1
+**Repo:** https://github.com/AwareLiquid/M1
 **Supersedes:** v2.1 (2026-05-30), which added Position-Free Architecture. v2.2 adds EEG-inspired Rhythm Gate (LAVI + GlobalRhythmController).
 
 > **⚠️ CORRECTION (2026-07-11) — read [RESULTS.md](RESULTS.md) first.** The "~28% PPL at ≤0.2% trainable params" adapter claim below is **retracted** (those runs trained LoRA only; the MT adapter was frozen and adds ≈0 PPL beyond LoRA). The real, proven differentiators are cross-window/cross-session **associative recall** (0.56 where attention/LoRA are 0.000) and **O(1) inference memory** in the attention-free O-series (1008× smaller than a KV cache at 128k). RESULTS.md is the source of truth; where this PRD disagrees, RESULTS.md wins.

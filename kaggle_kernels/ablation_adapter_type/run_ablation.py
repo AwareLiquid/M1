@@ -6,7 +6,7 @@ from pathlib import Path
 print("Setup...")
 subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'torch==2.4.1', '--index-url', 'https://download.pytorch.org/whl/cu121'], check=True)
 
-REPO, DIR = 'https://github.com/everest-an/M1.git', '/kaggle/working/M1'
+REPO, DIR = 'https://github.com/AwareLiquid/M1.git', '/kaggle/working/M1'
 if not os.path.exists(DIR):
     subprocess.run(['git', 'clone', '--depth', '1', REPO, DIR], check=True)
 os.chdir(DIR)

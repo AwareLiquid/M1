@@ -18,7 +18,7 @@ import os
 import subprocess
 import sys
 
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/kaggle/working/M1"
 
 if not os.path.exists(DIR):

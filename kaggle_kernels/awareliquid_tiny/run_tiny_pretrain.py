@@ -36,7 +36,7 @@ print("=" * 70)
 # ---------------------------------------------------------------------------
 # 1. Environment -- clone to /tmp (keep /kaggle/working output minimal)
 # ---------------------------------------------------------------------------
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"                                   # NOT /kaggle/working -> clean output
 if not os.path.exists(DIR):
     subprocess.run(["git", "clone", "--depth", "1", REPO, DIR], check=True)

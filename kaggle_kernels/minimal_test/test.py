@@ -11,7 +11,7 @@ except Exception as e:
     sys.exit(1)
 
 print("\n=== Step 2: Clone M1 ===")
-REPO, DIR = 'https://github.com/everest-an/M1.git', '/kaggle/working/M1'
+REPO, DIR = 'https://github.com/AwareLiquid/M1.git', '/kaggle/working/M1'
 try:
     if not os.path.exists(DIR):
         subprocess.run(['git', 'clone', '--depth', '1', REPO, DIR], check=True, timeout=300)

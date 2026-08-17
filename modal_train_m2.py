@@ -30,7 +30,7 @@ image = (
         "wandb",
     )
     .run_commands(
-        "git clone --depth 1 https://github.com/everest-an/M1.git /opt/M1"
+        "git clone --depth 1 https://github.com/AwareLiquid/M1.git /opt/M1"
     )
 )
 

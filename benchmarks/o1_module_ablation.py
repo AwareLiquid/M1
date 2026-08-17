@@ -15,7 +15,7 @@ configs (per-config .log present with a final val line) are skipped, so the
 sweep can span multiple free-GPU sessions.
 
 Platform-neutral: no Kaggle/Colab paths. Typical Colab cell:
-    !git clone --depth 1 https://github.com/everest-an/M1.git /content/M1
+    !git clone --depth 1 https://github.com/AwareLiquid/M1.git /content/M1
     %cd /content/M1
     !python benchmarks/o1_module_ablation.py --out /content/drive/MyDrive/ablate_out
 """

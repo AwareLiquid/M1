@@ -15,7 +15,7 @@ loses more than ~1000 steps — just re-run and it resumes.
 
 1. <https://colab.research.google.com> → **File → Upload notebook** → pick
    `colab/train_tiny_colab.ipynb` from this repo (or open it from GitHub:
-   File → Open notebook → GitHub → `everest-an/M1` → `colab/train_tiny_colab.ipynb`).
+   File → Open notebook → GitHub → `AwareLiquid/M1` → `colab/train_tiny_colab.ipynb`).
 2. **Runtime → Change runtime type → Hardware accelerator → GPU** (T4 is fine).
 
 ## 2. Run

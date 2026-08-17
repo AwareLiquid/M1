@@ -69,7 +69,7 @@ print(f"[cfg] batch={BATCH}  steps={STEPS}  lr={LR}  wd={WD}  n_bins={N_BINS}")
 # ---------------------------------------------------------------------------
 # 1. Environment: clone repo (for the MT-LNN core) + torch GPU compatibility
 # ---------------------------------------------------------------------------
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = os.path.join(WORK, "M1")
 HAVE_REPO = True
 # Local-run guard: if WORK already sits *inside* a checkout of this repo (e.g.

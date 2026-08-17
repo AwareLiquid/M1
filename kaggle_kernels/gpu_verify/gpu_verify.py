@@ -15,7 +15,7 @@ import sys
 import time
 
 BRANCH = "physics-informed-head"
-REPO = "https://github.com/everest-an/M1.git"
+REPO = "https://github.com/AwareLiquid/M1.git"
 DIR = "/tmp/M1"  # NOT /kaggle/working: the clone must not become an output artifact
 
 print("=== Phase 1: clone + deps ===", flush=True)

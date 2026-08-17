@@ -88,7 +88,7 @@ nslookup awareliquid.ai 8.8.8.8            # -> <your server IPv4>
 curl -fsSL https://get.docker.com | sh
 
 # get the code
-git clone https://github.com/everest-an/M1.git
+git clone https://github.com/AwareLiquid/M1.git
 cd M1
 
 # drop the trained checkpoint in (see step 5). The stack runs a FRESH untrained
