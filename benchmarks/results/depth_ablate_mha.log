@@ -1,0 +1,69 @@
+== FIXED sweep pointer_chase difficulty=2 n_values=8 T=30 vocab=18 device=cuda depths=[1] ==
+  [seed 0] mt_lnn depth=1 fixed (225K params, n_layers=2, scan=on)
+    step     0  loss 2.9470
+    step   200  loss 2.0486
+    step   400  loss 1.9992
+    step   600  loss 2.0766
+    step   800  loss 2.0407
+    step  1000  loss 2.0335
+    step  1200  loss 2.0244
+    step  1400  loss 2.0677
+    step  1600  loss 2.0597
+    step  1800  loss 1.9926
+    step  2000  loss 2.0380
+    step  2200  loss 2.0629
+    step  2400  loss 1.9964
+    step  2600  loss 2.0532
+    step  2800  loss 1.9607
+    step  3000  loss 2.0641
+    step  3200  loss 2.0249
+    step  3400  loss 2.0222
+    step  3600  loss 1.9983
+    step  3800  loss 2.0043
+    step  4000  loss 1.9975
+    step  4200  loss 2.0168
+    step  4400  loss 2.0614
+    step  4600  loss 2.0634
+    step  4800  loss 2.0235
+    step  5000  loss 2.0209
+    step  5200  loss 2.0491
+    step  5400  loss 2.0633
+    step  5600  loss 2.0118
+    step  5800  loss 2.0023
+    step  6000  loss 2.0684
+    step  6200  loss 2.0019
+    step  6400  loss 2.0083
+    step  6600  loss 2.0251
+    step  6800  loss 2.0541
+    step  7000  loss 2.0163
+    step  7200  loss 2.0244
+    step  7400  loss 2.0379
+    step  7600  loss 1.9781
+    step  7800  loss 2.0000
+    step  8000  loss 2.0157
+    step  8200  loss 2.0154
+    step  8400  loss 1.9781
+    step  8600  loss 2.0159
+    step  8800  loss 2.0226
+    step  9000  loss 1.9727
+    step  9200  loss 2.0882
+    step  9400  loss 2.0035
+    step  9600  loss 1.9735
+    step  9800  loss 2.0105
+    step 10000  loss 2.0209
+    step 10200  loss 1.9825
+    step 10400  loss 2.0510
+    step 10600  loss 1.9673
+    step 10800  loss 1.9903
+    step 11000  loss 2.0132
+    step 11200  loss 2.0249
+    step 11400  loss 1.9778
+    step 11600  loss 2.0015
+    step 11800  loss 2.0194
+    step 11999  loss 2.0229
+    eval depth 1: acc 0.2479
+
+== summary (mean over seeds, each depth = fresh fixed-depth model) ==
+  mt_lnn depth 1: 0.2479 ± 0.0000
+
+results appended to E:\M1\benchmarks\results\reasoning_depth.jsonl
