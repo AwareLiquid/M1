@@ -11,8 +11,8 @@
 - **Also known as**: MT-LNN (Multi-Timescale Liquid Neural Network v2)
 - **Type**: Open research framework — not a commercial product
 - **URL**: https://awareliquid.ai
-- **Repository**: https://github.com/everest-an/M1
-- **Paper**: https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf
+- **Repository**: https://github.com/AwareLiquid/M1
+- **Paper**: https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf
 - **License**: Open (MIT-derived, see GitHub)
 - **Status**: Active research, June 2026
 
