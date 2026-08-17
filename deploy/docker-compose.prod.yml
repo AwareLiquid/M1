@@ -1,0 +1,171 @@
+# Production deployment: MT-LNN inference server behind a Caddy TLS reverse proxy.
+#
+# This is the public go-live stack for awareliquid.ai. It runs two containers:
+#   - mtlnn : the FastAPI inference server (CPU), built from the repo-root Dockerfile.
+#   - caddy : terminates HTTPS for the domain and proxies to mtlnn:8000.
+#
+# Prereqs on the host (see deploy/DEPLOY_VULTR.md):
+#   1. Docker + docker compose plugin installed.
+#   2. DNS A records for awareliquid.ai AND www.awareliquid.ai -> this host's IP.
+#   3. Ports 80 and 443 open in the Vultr firewall / ufw.
+#   4. The trained checkpoint at ./checkpoints/m2_final.pt (the slim serve.pt from
+#      the Kaggle M2 run, renamed). The server runs a FRESH untrained model until
+#      this file exists -- drop it in and `docker compose ... restart mtlnn`.
+#
+# Bring up:   docker compose -f deploy/docker-compose.prod.yml up -d --build
+# Logs:       docker compose -f deploy/docker-compose.prod.yml logs -f
+# Reload ckpt:docker compose -f deploy/docker-compose.prod.yml restart mtlnn
+# Tear down:  docker compose -f deploy/docker-compose.prod.yml down
+#
+# Run this from the REPO ROOT (build context `..` resolves the Dockerfile + code).
+
+services:
+  mtlnn:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: mtlnn:latest
+    container_name: mtlnn_prod
+    restart: unless-stopped
+    expose:
+      - "8000"                       # internal only; Caddy is the public edge
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+      # Bind-mount the static UI so frontend tweaks deploy with a plain
+      # `git pull` + `restart` -- no image rebuild needed for HTML/CSS/JS edits.
+      - ../serve/static:/app/serve/static:ro
+      # Partner-referral counts are runtime data; bind-mount so they survive a
+      # container rebuild (`golive.sh` re-creates the container). RW, on the host.
+      - ../data/partners:/app/data/partners
+    environment:
+      CKPT_PATH: /app/checkpoints/m2_final.pt
+      TOKENIZER: gpt2
+      DEVICE: cpu
+      MAX_NEW_TOKENS_CAP: "512"
+      # Cap intra-op threads to the box's vCPU count for steady latency
+      # (4 on the upgraded 4 vCPU / 8 GB plan).
+      OMP_NUM_THREADS: "4"
+      # Gate GET /partners (referral totals) behind a token. Set the value in a
+      # local .env next to this file (PARTNER_STATS_TOKEN=...) — do NOT commit it.
+      PARTNER_STATS_TOKEN: "${PARTNER_STATS_TOKEN:-}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  # The MT-LNN ADAPTER model: a frozen instruct base (TinyLlama-1.1B-Chat) +
+  # AwareLiquid's TRAINED MT-LNN residual adapter + LoRA, served through
+  # serve/server_hf.py with the SAME REST API + UI. This is genuinely MT-LNN-
+  # powered (server_hf.py refuses to claim the MT-LNN identity unless the
+  # checkpoint tensors actually map onto the graph). The frontend model menu can
+  # target it. NOTE: an earlier "-28.5% PPL" claim for this adapter is RETRACTED
+  # (it was LoRA-only; the MT adapter adds ~0 PPL — see RESULTS.md). Its real,
+  # un-retracted value is cross-window / cross-session recall (0.56 vs 0.000).
+  #
+  # Profile-gated so it never auto-starts (it pulls ~4 GB of base weights and
+  # adds RAM load -- size your box for ~8 GB if running it alongside mtlnn).
+  # Launch explicitly:
+  #   docker compose -f deploy/docker-compose.prod.yml --profile adapter up -d adapter
+  # Try it directly on the box (bound to localhost):
+  #   curl -X POST localhost:8001/v1/completions -H 'content-type: application/json' \
+  #        -d '{"prompt":"Tell me a short story about a robot.","max_new_tokens":80}'
+  adapter:
+    image: mtlnn:latest                # reuse the already-built image (transformers + peft)
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: mtlnn_adapter
+    restart: unless-stopped
+    profiles: ["adapter"]
+    command: ["uvicorn", "serve.server_hf:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:8001:8000"          # localhost only; Caddy routes /adapter/* to it internally
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+      # Bind-mount the full source (not just static) so server_hf.py AND the
+      # mt_lnn graph code (e.g. the adapter recipe / predictive-coding match)
+      # deploy with a plain `git pull` + `restart adapter` -- no image rebuild.
+      - ../serve:/app/serve:ro
+      - ../mt_lnn:/app/mt_lnn:ro
+      - hf_cache:/app/.hf_cache        # persist the downloaded base-model weights
+    environment:
+      BASE_MODEL: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+      # v2s bilingual SFT adapter (2026-07-05): same alpaca EN+ZH recipe as the
+      # previous 003000, but the MT-v2s adapter generation — selective decay +
+      # fast-weight memory, 8.4M adapter params vs v1's 62.8M, 24 MB file vs
+      # 129 MB, and the architecture that won the cross-window recall ablation
+      # (see BENCHMARKS.md). server_hf.py rebuilds the v2 graph automatically
+      # from the checkpoint's recorded args; smoke-tested locally (honest guard
+      # 344/344 tensors mapped, EN+ZH instruction following OK). Upload the .pt
+      # to the host then `restart adapter`. ROLLBACK: point ADAPTER_CKPT back
+      # to llama_mt_adapter_003000.pt (v1) and restart.
+      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_v2s_003000.pt
+      RECIPE: phase5b                  # LoRA on q/k/v/o (adapter kind auto-detected from ckpt)
+      DEVICE: cpu
+      MAX_NEW_TOKENS_CAP: "512"
+      OMP_NUM_THREADS: "4"
+      # Self-thinking decode (mt_lnn.thinking): the FIRST higher cognitive module
+      # wired into serving. Routes each token through the deliberation policy and
+      # runs a self-consistency re-decode on uncertain tokens (KV-cached, ~same
+      # tok/s as plain decode). Honest scope: variance-reduction / stability on
+      # uncertain spans, NOT a correctness oracle, and it never fabricates facts
+      # (no cloud client wired -> CLOUD degrades to local self-critique). Clients
+      # can opt out per request with {"think": false}. Set THINKING=0 to disable.
+      THINKING: "1"
+      THINK_ENTROPY_LOW: "0.6"         # tuned to this 1.1B's entropy scale
+      THINK_ENTROPY_HIGH: "4.0"
+      THINK_SAMPLES: "5"
+      # INT8 dynamic quantization of nn.Linear weights (CPU only). Cuts the
+      # bandwidth-bound decode cost ~3-4x on this AVX2 box. Set to "0" + restart
+      # to revert to fp32 if generation quality regresses.
+      QUANTIZE: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s               # first start downloads the base model
+      retries: 3
+
+  # API gateway / account-pool panel (new-api). Independent product surface:
+  # manages provider accounts (Anthropic/OpenAI/... keys) AND exposes M1 as an
+  # OpenAI-compatible channel so third parties can call it with per-user
+  # tokens, quotas and billing. Profile-gated: needs a DNS A record for
+  # relay.awareliquid.ai first, then:
+  #   docker compose -f deploy/docker-compose.prod.yml --profile relay up -d relay
+  # First login: root / 123456 — CHANGE IT IMMEDIATELY, then add the M1
+  # channel (type: OpenAI, base_url http://adapter:8000, model awareliquid-m1).
+  # SESSION_SECRET must be set in deploy/.env (any long random string).
+  relay:
+    image: calciumion/new-api:latest
+    container_name: mtlnn_relay
+    restart: unless-stopped
+    profiles: ["relay"]
+    ports:
+      - "127.0.0.1:3001:3000"          # localhost only; Caddy fronts it with TLS
+    environment:
+      TZ: Asia/Shanghai
+      SESSION_SECRET: ${RELAY_SESSION_SECRET:?set RELAY_SESSION_SECRET in deploy/.env}
+    volumes:
+      - relay_data:/data               # SQLite DB: accounts, tokens, usage logs
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy_prod
+    restart: unless-stopped
+    depends_on:
+      - mtlnn
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data               # persists the issued TLS certs across restarts
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
+  relay_data:                          # gateway DB (accounts/tokens/usage)
+  hf_cache:                            # cached base-model weights for the baseline service

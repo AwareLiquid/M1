@@ -1,0 +1,80 @@
+
+============================================================
+POSITION-FREE ARCHITECTURE TEST SUITE
+============================================================
+============================================================
+TEST 1: Basic Forward Pass
+============================================================
+
+Original (RoPE) mode:
+  Parameters: 370,920
+  Output shape: torch.Size([2, 16, 200])
+  [OK] Forward pass successful
+
+Position-Free mode:
+  Parameters: 408,314
+  Output shape: torch.Size([2, 16, 200])
+  [OK] Forward pass successful
+
+============================================================
+TEST 2: Incremental Decoding with KV Cache
+============================================================
+
+Original (RoPE) mode:
+  [OK] Incremental decode successful
+  Final token count: 11
+
+Position-Free mode:
+  [OK] Incremental decode successful
+  Final token count: 11
+
+============================================================
+TEST 3: Selective Copy Benchmark
+============================================================
+
+Original (RoPE) mode:
+------------------------------------------------------------
+Model parameters: 323,816
+
+Training:
+  step     1  loss 2.9786  tok_acc 0.031
+  step    50  loss 1.2651  tok_acc 0.469
+  step   100  loss 0.8403  tok_acc 0.594
+  step   150  loss 0.9718  tok_acc 0.594
+  step   200  loss 0.9359  tok_acc 0.625
+
+Evaluating:
+
+Final Results:
+  Token Accuracy:    0.609
+  Sequence Exact:    0.062
+
+Position-Free mode:
+------------------------------------------------------------
+Model parameters: 361,210
+
+Training:
+  step     1  loss 2.6684  tok_acc 0.156
+  step    50  loss 1.3465  tok_acc 0.312
+  step   100  loss 1.0008  tok_acc 0.594
+  step   150  loss 1.2110  tok_acc 0.438
+  step   200  loss 1.2089  tok_acc 0.438
+
+Evaluating:
+
+Final Results:
+  Token Accuracy:    0.531
+  Sequence Exact:    0.031
+
+============================================================
+COMPARISON
+============================================================
+Original (RoPE):    0.609
+Position-Free:      0.531
+Ratio:              87.18%
+
+[PARTIAL] Position-free reaches 80-95% of baseline
+
+============================================================
+ALL TESTS COMPLETE
+============================================================

@@ -1,0 +1,58 @@
+{
+  "config": {
+    "n_seq": 320,
+    "seq_len": 96,
+    "d_in": 1,
+    "epochs": 40,
+    "batch": 64,
+    "lr": 0.003,
+    "prime": 48,
+    "seed": 0
+  },
+  "persistence_mse": 0.3281154930591583,
+  "main": {
+    "PCLiquidCore": {
+      "params": 14356,
+      "one_step_mse": 0.01650131307542324,
+      "rollout_mse": 0.12868569791316986
+    },
+    "GRU": {
+      "params": 15401,
+      "one_step_mse": 0.025753600522875786,
+      "rollout_mse": 0.050924260169267654
+    },
+    "LSTM": {
+      "params": 15181,
+      "one_step_mse": 0.03447676822543144,
+      "rollout_mse": 0.03187807276844978
+    },
+    "Transformer": {
+      "params": 22305,
+      "one_step_mse": 0.2809464633464813,
+      "rollout_mse": 0.8755349516868591
+    }
+  },
+  "forgetting": {
+    "PCLiquidCore": {
+      "A_before": 0.004126082640141249,
+      "A_after_B": 1.336731195449829,
+      "forgetting": 1.3326051128096879
+    },
+    "GRU": {
+      "A_before": 0.0061547281220555305,
+      "A_after_B": 2.126971960067749,
+      "forgetting": 2.1208172319456935
+    },
+    "LSTM": {
+      "A_before": 0.008912570774555206,
+      "A_after_B": 2.133537769317627,
+      "forgetting": 2.1246251985430717
+    },
+    "Transformer": {
+      "A_before": 0.010089553892612457,
+      "A_after_B": 1.1567347049713135,
+      "forgetting": 1.146645151078701
+    }
+  },
+  "seconds": 227.5
+}

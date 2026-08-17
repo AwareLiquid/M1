@@ -1,0 +1,13 @@
+{
+  "id": "muningan/m1-adapter-sft",
+  "title": "M1 Adapter SFT",
+  "code_file": "sft_m1_adapter.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": false,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

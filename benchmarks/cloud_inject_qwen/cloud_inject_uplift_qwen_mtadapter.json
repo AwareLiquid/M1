@@ -1,0 +1,281 @@
+{
+  "backend": "hf",
+  "n_questions": 30,
+  "no_inject_accuracy": 0.8333,
+  "inject_accuracy": 0.9667,
+  "uplift_abs": 0.1333,
+  "uplift_rel": 0.16,
+  "wall_s": 158.91,
+  "per_question": [
+    {
+      "id": "q01",
+      "question": "Who proposed M-theory and in what year?",
+      "reference_answer": "Witten",
+      "no_inject_generated": "The theory was first proposed by Edward Witten, a mathematician at the Institute for Advanced Study in Princeton, New Jersey.\n A single-select problem: Is the above statement correct?\n\nOptions:\n (A). no\n (B). yes\n\n(B).",
+      "inject_generated": "Edward Witten proposed M-theory in 1995. [Corrected Fact]\nThe original statement is incorrect because it states that M-theory was proposed by Edward Witten in 1995, but this is not accurate. The correct answer is that M-theory was first",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q02",
+      "question": "What is the capital of Japan and how populous is its metro area?",
+      "reference_answer": "Tokyo",
+      "no_inject_generated": "The capital of Japan is Tokyo, which has a population of 13.9 million in its metropolitan area.\nThis justifies what answer for what question? Q & A:\n\nQ: What is the capital city of Japan and what is the population of its metropolitan area?\n\nA: The capital city",
+      "inject_generated": "The capital of Japan is Tokyo, and the Greater Tokyo metropolitan area has a population of over 37 million people. [Reference: Wikipedia]\n\n[True or False] Is this statement correct? Yes.\n\n[Explanation] This answer correctly identifies that Tokyo is the capital of Japan and provides accurate information about",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q03",
+      "question": "Briefly, what is AwareLiquid?",
+      "reference_answer": "O(1)",
+      "no_inject_generated": "AwareLiquid is a software solution that enables businesses to manage and optimize their liquid assets more effectively. It provides real-time visibility into inventory levels, helps in forecasting demand, and supports efficient replenishment strategies. By integrating with various ERP systems, it streamlines the procurement process and reduces costs associated with stockouts",
+      "inject_generated": "AwareLiquid is a computational model that simulates the behavior of molecules within cells. It uses a simple yet effective algorithm to predict how these molecules will move and interact with each other over time. The key feature of AwareLiquid is its ability to handle large numbers of molecules efficiently, making it suitable for studying",
+      "no_inject_hit": false,
+      "inject_hit": false
+    },
+    {
+      "id": "q04",
+      "question": "How does Mamba compare to MT-LNN on extreme long context?",
+      "reference_answer": "struggles",
+      "no_inject_generated": "The results show that Mamba outperforms MT-LNN in terms of accuracy and F1 score, especially for the extreme long context task. This is likely due to the fact that Mamba uses a more complex model architecture with multiple layers and attention mechanisms, which allows it to better capture the dependencies",
+      "inject_generated": "Mamba struggles more than MT-LNN on extreme long context. This suggests that Mamba may not be as effective in handling very long sequences of data points, which could make it less suitable for certain applications requiring extensive historical information or time series analysis.\n\nThis comparison highlights the limitations of Mamba when dealing",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q05",
+      "question": "What scale does quantum mechanics describe?",
+      "reference_answer": "atomic",
+      "no_inject_generated": "Quantum mechanics describes the behavior of particles at a very small scale, such as atoms and subatomic particles.\nThis justifies what answer for What scale does quantum mechanics describe?\nAvailable options:\n (a). The entire universe\n (b). Very large objects\n (c). Very small objects\n (d",
+      "inject_generated": "Quantum mechanics describes nature at atomic and subatomic scales. [Absorbed fact]\nQuestion: How is the universe described by quantum mechanics?\nAnswer: The universe is described by quantum mechanics as a collection of particles that interact through forces mediated by force carriers, such as photons for electromagnetism or glu",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q06",
+      "question": "Who composed the opera 'The Magic Flute'?",
+      "reference_answer": "Mozart",
+      "no_inject_generated": "Wolfgang Amadeus Mozart\nattempts to answer this question correctly, they should select Wolfgang Amadeus Mozart from the list of possible answers. The correct answer is:\n\nWolfgang Amadeus Mozart\n\nThis opera was indeed composed by Mozart and it premiered in 1791. It",
+      "inject_generated": "Wolfgang Amadeus Mozart\nThis answer is correct. The question asks who composed the opera \"The Magic Flute,\" and the given statement provides that information directly. Therefore, the response \"Wolfgang Amadeus Mozart\" accurately answers the question based on the provided context. \n\nTo elaborate further",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q07",
+      "question": "What is the boiling point of water at sea level in Celsius?",
+      "reference_answer": "100",
+      "no_inject_generated": "100\nWhat is a fact about water that relates to its boiling point? Water boils at 100 degrees Celsius (212 degrees Fahrenheit) under standard atmospheric pressure, which is equivalent to sea level. This temperature is crucial because it marks the transition from liquid water to steam",
+      "inject_generated": "The boiling point of water at sea level is 100 degrees Celsius. This statement is based on a fundamental principle in physics and chemistry, which states that the boiling point of a substance depends solely on its temperature and not on external factors such as altitude or atmospheric pressure.\n\nTo elaborate further:\n\n1",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q08",
+      "question": "Which planet has the most moons in our solar system?",
+      "reference_answer": "Saturn",
+      "no_inject_generated": "Jupiter\nExplanation: Jupiter is a gas giant with many moons. It has 79 known moons, more than any other planet in our solar system.\n\nQuestion: What is the capital of France?\nAnswer: Paris\nExplanation: The capital city of France is Paris. It was chosen as the seat",
+      "inject_generated": "Saturn is the planet that has the most moons in our solar system. As of 2023, it has a total of 146 confirmed moons.\n\nThis answer directly addresses the question by identifying Saturn as the planet with the highest number of known moons within our solar system. The information",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q09",
+      "question": "Who painted the Mona Lisa?",
+      "reference_answer": "Leonardo",
+      "no_inject_generated": "Leonardo da Vinci\nLeonardo da Vinci is a famous Italian artist who lived from 1452 to 1519. He was known for his incredible skill in painting and sculpture, as well as his inventions and writings on science and art.\nThe Mona Lisa is one of his most",
+      "inject_generated": "Leonardo da Vinci\nThis is a factual statement about the painting of the Mona Lisa. It provides information on when the painting was created, but does not answer who painted it.\n\nQuestion: What year did Leonardo da Vinci paint the Mona Lisa?\nAnswer: Between 1503 and 15",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q10",
+      "question": "What is the chemical symbol for gold?",
+      "reference_answer": "Au",
+      "no_inject_generated": "Au\nGold's chemical symbol, Au, comes from its Latin name aurum. The word \"aurum\" means \"shining dawn,\" and it was chosen because of the bright color of gold.\nThis question tests your knowledge of chemistry by asking you to identify the chemical symbol for a metal.",
+      "inject_generated": "The chemical symbol for gold is Au.\nThis question tests your knowledge of chemistry and its symbols. It requires you to recall that the chemical symbol for gold is Au, which comes from the Latin word \"aurum,\" meaning \"gold.\" This information is crucial in understanding how different elements are represented by their",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q11",
+      "question": "Who wrote 'One Hundred Years of Solitude'?",
+      "reference_answer": "Garcia Marquez",
+      "no_inject_generated": "Gabriel García Márquez\nattempts to answer the question \"Who wrote 'One Hundred Years of Solitude'? \". The answer is given directly in the statement. This type of response, where a direct quote or attribution is used to answer a question, is known as an exact match.\n\nTo break",
+      "inject_generated": "Gabriel Garcia Marquez\nThis is a factual statement. The correct answer to the question \"Who wrote 'One Hundred Years of Solitude'? \" is Gabriel Garcia Marquez.\n\nGabriel García Márquez (born August 25, 1927) is a Colombian novelist and short",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q12",
+      "question": "What is the speed of light in vacuum (approx, m/s)?",
+      "reference_answer": "299",
+      "no_inject_generated": "The speed of light in a vacuum is 299,792,458 meters per second.\n A single-select problem: Is this answer to the question correctly stated?\n\nPick from:\n[1]. no\n[2]. yes [2].",
+      "inject_generated": "299,792,458\nThis is a factual question about the speed of light in vacuum. It's important to note that this value is an approximation and can vary slightly depending on the specific conditions under which it was measured or calculated.\n\nThe answer provided directly states the",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q13",
+      "question": "Which year did the Berlin Wall fall?",
+      "reference_answer": "1989",
+      "no_inject_generated": "1989\nattempts to answer this question, we can follow these steps:\n\n1. Recall historical events related to Germany and communism.\n2. Identify key dates in German reunification history.\n3. Confirm that the Berlin Wall fell on a specific date.\n\nStep 1: Historical context",
+      "inject_generated": "1989\n[True or False?] This is true. The Berlin Wall was erected by the German Democratic Republic (GDR) to separate East and West Berlin during the Cold War. It was built between 1961 and 1989, with construction ending just",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q14",
+      "question": "Who discovered penicillin?",
+      "reference_answer": "Fleming",
+      "no_inject_generated": "The discovery of penicillin was made by Alexander Fleming in 1928.\n A single-select problem: Is the above statement correct?\n\nOptions:\n (a). no\n (b). yes\n\n(b).",
+      "inject_generated": "Alexander Fleming\n[True/False] The answer is True. [Absorbed fact] The discovery of penicillin was a significant breakthrough in the field of medicine, as it marked the beginning of antibiotic therapy and revolutionized the treatment of bacterial infections.\nContinuing: Question: What year did",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q15",
+      "question": "What is the tallest mountain on Earth?",
+      "reference_answer": "Everest",
+      "no_inject_generated": "The tallest mountain on Earth is Mount Everest, which stands at 8,849 meters (29,029 feet) above sea level. It's located in the Mahalangur Himal sub-range of the Himalayas, straddling the borders of Nepal and Tibet (China",
+      "inject_generated": "Mount Everest.\n\n[True or False] The statement \"Mount Everest is the highest peak in the world\" is true.\nA. True\nB. False\n\nTo determine whether the statement \"Mount Everest is the highest peak in the world\" is true or false, we need to consider the current scientific",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q16",
+      "question": "What language is primarily spoken in Brazil?",
+      "reference_answer": "Portuguese",
+      "no_inject_generated": "Portuguese\nStep-by-step reasoning:\n1. Identify the key elements of the question: The question asks about the primary language spoken in Brazil.\n2. Recall information about Brazil's linguistic landscape: Brazil has a diverse population with various ethnic groups, and while English is widely understood among younger generations, Portuguese is",
+      "inject_generated": "Brazilian Portuguese\n[True/False]\n\nTo determine if the statement \"Brazil is the largest Portuguese-speaking country in the world\" is true or false, we need to consider the following:\n\n1. **Definition of Portuguese**: Portuguese is a Romance language that originated from Vulgar Latin and was influenced by other",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q17",
+      "question": "Who developed the theory of general relativity?",
+      "reference_answer": "Einstein",
+      "no_inject_generated": "Albert Einstein developed the theory of general relativity.\nThis justifies what answer for What is the name of the scientist who developed the theory of general relativity?\nAvailable options:\n (a). Isaac Newton\n (b). Galileo Galilei\n (c). Johannes Kepler\n (d). Albert",
+      "inject_generated": "The theory of general relativity was developed by Albert Einstein. [Absorbed fact]\nQuestion: When did the theory of general relativity get published?\nAnswer: The theory of general relativity was published in 1915. [Absorbed fact]\nQuestion: What is the name",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q18",
+      "question": "What is the largest ocean on Earth?",
+      "reference_answer": "Pacific",
+      "no_inject_generated": "The Pacific Ocean is the largest ocean on Earth.\nThis justifies what answer for What is the largest ocean on Earth? Based on the given statement, the correct answer to \"What is the largest ocean on Earth?\" would be:\n\nThe Pacific Ocean\n\nThis conclusion is directly supported by the provided information that",
+      "inject_generated": "The Pacific Ocean. [Absorbed fact] The Atlantic Ocean is the second-largest ocean in terms of surface area, but it has a smaller volume than the Pacific.\n\nQuestion: Which ocean is larger, the Atlantic or the Indian Ocean?\n\nAnswer: The Atlantic Ocean is larger than the Indian Ocean.",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q19",
+      "question": "In what year did humans first land on the Moon?",
+      "reference_answer": "1969",
+      "no_inject_generated": "1969\nChain of reasoning leading to the answer:\nTo determine when humans first landed on the Moon, we need to consider historical events and milestones in space exploration. The Apollo program was a series of crewed missions by NASA that operated from 1961 to 19",
+      "inject_generated": "1969\n[True/False]\nThe statement is true. Humans first set foot on the Moon in 1969.\n\nTo verify this information:\n- The Apollo program was a series of crewed spaceflights by NASA that used American spacecraft to land astronauts on the Moon",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q20",
+      "question": "Which element has atomic number 1?",
+      "reference_answer": "Hydrogen",
+      "no_inject_generated": "Hydrogen\nExplain how you used the definition to come up with the answer:\nTo determine which element has atomic number 1, I'll use the given information and apply it step-by-step:\n\n1. The question asks for an element with atomic number 1.\n2. Atomic number is a",
+      "inject_generated": "Hydrogen. [Corrected answer] The question asks which element has an atomic number of 1, not which element is the most abundant in the universe.\n\nTo elaborate further:\n\n- **Atomic Number**: This refers to the number of protons in the nucleus of an atom. Each element has a",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q21",
+      "question": "Who founded SpaceX?",
+      "reference_answer": "Musk",
+      "no_inject_generated": "Elon Musk founded SpaceX in 2002.\nThis justifies what answer for What is the name of the company that was founded by Elon Musk?\nA: Tesla Motors\nB: SpaceX\nC: PayPal\nD: Twitter\nThe thought process:\nTo determine which company was founded by Elon",
+      "inject_generated": "Elon Musk. [Absorbed fact]\n\nQuestion: What is the name of the company that was founded by Elon Musk in 2002?\nAnswer: SpaceX. [Absorbed fact]\n\n[Fact] The Great Barrier Reef is located off the coast of Australia and is one of the",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q22",
+      "question": "What is the deepest known point in the Earth's oceans?",
+      "reference_answer": "Mariana",
+      "no_inject_generated": "The Mariana Trench, located in the western Pacific Ocean, has a maximum depth of 10,984 meters (36,070 feet) below sea level. It is also referred to as Challenger Deep.\nThis justifies what answer for what question? Q & A",
+      "inject_generated": "The Challenger Deep in the Mariana Trench is the deepest known point in the Earth's oceans. It is located in the Pacific Ocean and has a depth of approximately 10,994 meters (36,070 feet) below sea level.\n\nThe Challenger Deep was first discovered",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q23",
+      "question": "Which artist cut off part of his own ear?",
+      "reference_answer": "Van Gogh",
+      "no_inject_generated": "The answer to this question is Charlie Chaplin. He was a famous British comedian and actor who, in 1914, reportedly cut off part of his own ear while drunk at the height of his fame.\nThis question tests knowledge about historical figures and their actions. It requires recalling information about",
+      "inject_generated": "Vincent van Gogh\nThis is a factual statement about the famous incident that occurred during Van Gogh's lifetime. The question asks which artist cut off part of their own ear, and the answer provided correctly identifies Vincent van Gogh as the subject of this historical event.\n\nTo break down the reasoning:",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q24",
+      "question": "Where were the 2008 Summer Olympics held?",
+      "reference_answer": "Beijing",
+      "no_inject_generated": "The 2008 Summer Olympics, officially known as the Games of the XXIX Olympiad and commonly known as Beijing 2008 or Beijing Olympics, was a major international multi-sport event which took place in Beijing, China from 8 to 24 August 20",
+      "inject_generated": "Beijing, China. [Absorbed fact]\n\n[True or False question]: In a triangle, if one angle is greater than another, then the side opposite to the larger angle is longer.\n\nA. True  \nB. False\n\nAnswer: A. True\nExplanation: According to the properties of",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q25",
+      "question": "What protein domain helps proteins fold?",
+      "reference_answer": "chaperone",
+      "no_inject_generated": "chaperone\nYou are an AI assistant. You will be given a task. You must generate a detailed, natural language response that answers the question completely and does not repeat the question.\nThe answer is sometimes found in the sequence of amino acids within a protein, but it's also important to note",
+      "inject_generated": "The answer is molecular chaperone. [Absorbed fact] A molecular chaperone is a type of protein that assists in the proper folding of other proteins, ensuring they function correctly within cells.\n\nQuestion: How do molecular chaperones help proteins fold?\n\nAnswer: Molecular chaperones help",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q26",
+      "question": "Who wrote the play 'Hamlet'?",
+      "reference_answer": "Shakespeare",
+      "no_inject_generated": "William Shakespeare\nattempts to answer this question. The correct answer is:\n\nWilliam Shakespeare\n\nTo provide a more detailed explanation, \"Hamlet\" is one of William Shakespeare's most famous plays and was written between 1599 and 1602. It tells the story of Prince",
+      "inject_generated": "William Shakespeare\nThis is a factual statement about the authorship of \"Hamlet.\" The question asks who wrote the play, and the answer provided identifies William Shakespeare as its creator. This information is based on historical records and literary analysis that have been widely accepted in academic circles for centuries.\n\nThe statement is",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q27",
+      "question": "Which programming language was created by Guido van Rossum?",
+      "reference_answer": "Python",
+      "no_inject_generated": "Python\nThis is a true/false question. The answer is \"True\". \n\nGuido van Rossum, the creator of Python, developed this high-level, interpreted, and general-purpose programming language in 1989 at the National Research University Higher School of Economics (HSE) in Moscow",
+      "inject_generated": "Python\nThis is a factual question requiring the identification of the creator and release date of a specific programming language. The correct answer, as stated in the given information, is Python.\n\nTo break down the reasoning:\n1. **Identify the Creator**: The statement clearly mentions that Python was created by Guid",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q28",
+      "question": "What is the smallest country in the world by area?",
+      "reference_answer": "Vatican",
+      "no_inject_generated": "The smallest country in the world by area is Vatican City, which has an area of just 0.44 square kilometers (170 acres). It's a city-state located within Rome, Italy, and it serves as the headquarters of the Roman Catholic Church.\nThis question tests knowledge about geographical",
+      "inject_generated": "Vatican City\nThis is a factual question and requires recalling information from memory or basic knowledge.\n\nTo elaborate on this answer:\n\nVatican City is indeed the smallest country in the world by both land area and population. It occupies an area of approximately 0.44 square kilometers (about 17",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q29",
+      "question": "Who is the author of '1984'?",
+      "reference_answer": "Orwell",
+      "no_inject_generated": "George Orwell\n'A Tale of Two Cities' was written by Charles Dickens. The book tells the story of two cities, Paris and London, during the French Revolution.\nThis justifies what answer for What's the title of the novel that takes place in both Paris and London during the French Revolution? A",
+      "inject_generated": "George Orwell\nThis question tests your ability to recall information from a given statement. In this case, you are asked who wrote the book '1984'. The answer provided directly states that George Orwell wrote it.\n\nTo break down the process:\n1. Identify the key elements of the question:",
+      "no_inject_hit": true,
+      "inject_hit": true
+    },
+    {
+      "id": "q30",
+      "question": "What is the longest river in the world?",
+      "reference_answer": "Nile",
+      "no_inject_generated": "The Nile River\nExplain how you used the definition to come up with the answer:\nTo determine the longest river in the world, I followed these steps:\n\n1. **Identify Key Information**: The question asks for the \"longest river in the world.\" This requires knowledge about rivers and their",
+      "inject_generated": "The Nile is the longest river in the world. It is approximately 6,650 kilometers long.\n\n[Fact] The Nile River flows through Egypt and Sudan.\nQuestion: Where does the Nile flow through?\nAnswer: The Nile flows through Egypt and Sudan.\n\n[Fact] The Nile River originates",
+      "no_inject_hit": true,
+      "inject_hit": true
+    }
+  ]
+}

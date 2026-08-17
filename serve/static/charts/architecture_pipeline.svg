@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="477.6pt" height="146.31pt" viewBox="0 0 477.6 146.31" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-07-31T04:44:06.640491</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 146.31 
+L 477.6 146.31 
+L 477.6 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 18.3168 104.89855 
+L 77.1432 104.89855 
+L 77.1432 49.915862 
+L 18.3168 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #e8e8ef; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 87.7968 104.89855 
+L 146.6232 104.89855 
+L 146.6232 49.915862 
+L 87.7968 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #c9c9d2; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 157.2768 104.89855 
+L 216.1032 104.89855 
+L 216.1032 49.915862 
+L 157.2768 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #6b6b80; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 226.7568 104.89855 
+L 285.5832 104.89855 
+L 285.5832 49.915862 
+L 226.7568 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #0d0d0d; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 296.2368 104.89855 
+L 355.0632 104.89855 
+L 355.0632 49.915862 
+L 296.2368 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #c9c9d2; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 365.7168 104.89855 
+L 424.5432 104.89855 
+L 424.5432 49.915862 
+L 365.7168 49.915862 
+z
+" clip-path="url(#pf8dae2c3d2)" style="fill: #0d0d0d; stroke: #d0d0d8; stroke-width: 0.8; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #888888" transform="translate(39.179063 75.148968)">Input</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #888888" transform="translate(35.735938 83.294507)">Tokens</text>
+   </g>
+   <g id="text_2">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #0d0d0d" transform="translate(98.155781 75.057093)">Embedding</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #0d0d0d" transform="translate(107.871016 83.294507)">Layer</text>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(171.198672 75.045445)">LTC Core</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(172.489844 83.306155)">(τ-gates)</text>
+   </g>
+   <g id="text_4">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(236.728047 75.191624)">Liquid Core</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(241.976406 83.337163)">Modules</text>
+   </g>
+   <g id="text_5">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #0d0d0d" transform="translate(314.183672 75.191624)">Output</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #0d0d0d" transform="translate(317.091953 83.337163)">Head</text>
+   </g>
+   <g id="text_6">
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(378.995 75.10303)">Continual</text>
+    <text style="font-weight: 700; font-size: 7px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(380.351797 83.24857)">Learning</text>
+   </g>
+   <g id="patch_8">
+    <path d="M 76.362794 77.407206 
+Q 82.468296 77.407206 87.679371 77.407206 
+" style="fill: none; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+    <path d="M 84.879371 76.007206 
+L 87.679371 77.407206 
+L 84.879371 78.807206 
+z
+" style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 145.842794 77.407206 
+Q 151.948296 77.407206 157.159371 77.407206 
+" style="fill: none; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+    <path d="M 154.359371 76.007206 
+L 157.159371 77.407206 
+L 154.359371 78.807206 
+z
+" style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 215.322794 77.407206 
+Q 221.428296 77.407206 226.639371 77.407206 
+" style="fill: none; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+    <path d="M 223.839371 76.007206 
+L 226.639371 77.407206 
+L 223.839371 78.807206 
+z
+" style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 284.802794 77.407206 
+Q 290.908296 77.407206 296.119371 77.407206 
+" style="fill: none; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+    <path d="M 293.319371 76.007206 
+L 296.119371 77.407206 
+L 293.319371 78.807206 
+z
+" style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 354.282794 77.407206 
+Q 360.388296 77.407206 365.599371 77.407206 
+" style="fill: none; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+    <path d="M 362.799371 76.007206 
+L 365.599371 77.407206 
+L 362.799371 78.807206 
+z
+" style="fill: #aaaaaa; stroke: #aaaaaa; stroke-width: 0.8; stroke-linecap: round"/>
+   </g>
+   <g id="text_7">
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle" x="242.7372" y="122.132987" transform="rotate(-0 242.7372 122.132987)">GWT-B</text>
+   </g>
+   <g id="text_8">
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif" transform="translate(262.421863 116.315706)">World</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif" transform="translate(262.113347 122.132987)">Model</text>
+   </g>
+   <g id="text_9">
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: middle" x="242.7372" y="136.795037" transform="rotate(-0 242.7372 136.795037)">Hebbian</text>
+   </g>
+   <g id="text_10">
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif" transform="translate(263.0303 130.849194)">Pred.</text>
+    <text style="font-style: italic; font-size: 5.5px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif" transform="translate(260.888738 136.746912)">Coding</text>
+   </g>
+   <g id="text_11">
+    <text style="font-weight: 700; font-size: 8px; font-family: 'Arial', 'Helvetica', 'DejaVu Sans', sans-serif; text-anchor: start" x="16.464" y="12.92625" transform="rotate(-0 16.464 12.92625)">MT-LNN architecture pipeline</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pf8dae2c3d2">
+   <rect x="7.2" y="16.92625" width="463.2" height="122.18375"/>
+  </clipPath>
+ </defs>
+</svg>

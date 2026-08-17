@@ -1,0 +1,45 @@
+Long-context Selective Copy sweep
+Device: cpu
+
+================================================================
+ T_noise = 32  (T_total = 37)  steps = 600  batch = 16
+================================================================
+  Transformer   tok 0.471  seq 0.031  final-loss 0.2688  time 7s
+  LNN           tok 0.479  seq 0.031  final-loss 0.3656  time 6s
+  MT-LNN        tok 0.738  seq 0.367  final-loss 0.3130  time 34s
+
+================================================================
+ T_noise = 96  (T_total = 101)  steps = 600  batch = 16
+================================================================
+  Transformer   tok 0.434  seq 0.016  final-loss 0.3774  time 24s
+  LNN           tok 0.432  seq 0.016  final-loss 0.4936  time 46s
+  MT-LNN        tok 0.779  seq 0.547  final-loss 0.3089  time 85s
+
+================================================================
+ T_noise = 224  (T_total = 229)  steps = 500  batch = 8
+================================================================
+  Transformer   tok 0.414  seq 0.016  final-loss 0.7662  time 22s
+  LNN           tok 0.430  seq 0.016  final-loss 0.5859  time 16s
+  MT-LNN        tok 0.559  seq 0.078  final-loss 0.7349  time 97s
+
+Total wall-clock: 341s
+Saved raw results -> benchmarks/long_context_results.json
+
+================================================================
+ Summary: held-out sequence-exact accuracy vs T_total
+================================================================
+ T_total     Transformer             LNN          MT-LNN
+--------  --------------  --------------  --------------
+      37           0.031           0.031           0.367
+     101           0.016           0.016           0.547
+     229           0.016           0.016           0.078
+
+================================================================
+ Summary: held-out token accuracy vs T_total
+================================================================
+ T_total     Transformer             LNN          MT-LNN
+--------  --------------  --------------  --------------
+      37           0.471           0.479           0.738
+     101           0.434           0.432           0.779
+     229           0.414           0.430           0.559
+

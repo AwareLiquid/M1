@@ -1,0 +1,24 @@
+torch>=2.0.0
+numpy>=1.24.0
+datasets>=2.14.0
+tokenizers>=0.15.0
+transformers>=4.40.0
+peft>=0.10.0
+tqdm>=4.65.0
+einops>=0.7.0
+wandb>=0.16.0
+gradio>=4.0.0
+huggingface_hub>=0.22.0
+
+# --- Test / dev only (not needed to run or train the model) ---
+pytest>=7.0.0
+hypothesis>=6.0.0          # property-based operator tests (tests/test_*_properties.py)
+
+# For reproducible smoke tests and benchmark reruns, prefer requirements.lock.
+
+# --- Optional: scientific-rigour modules ---
+# Uncomment to enable real IIT-Φ computation (Tononi lab's PyPhi):
+# pyphi>=1.2.0
+#
+# Uncomment to enable quantum-circuit lateral coupling (PennyLane):
+# pennylane>=0.34.0

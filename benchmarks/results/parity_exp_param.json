@@ -1,0 +1,64 @@
+{
+  "args": {
+    "steps": 4000,
+    "seeds": 3,
+    "batch": 64,
+    "train_len": 24,
+    "test_len": 64,
+    "d_model": 32,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "out": "benchmarks/results/parity_exp_param.json"
+  },
+  "results": {
+    "exp_param": {
+      "runs": [
+        {
+          "in_dist": 0.9765625,
+          "extrapolate": 0.859375,
+          "seed": 0,
+          "secs": 77.2
+        },
+        {
+          "in_dist": 1.0,
+          "extrapolate": 1.0,
+          "seed": 1,
+          "secs": 74.6
+        },
+        {
+          "in_dist": 1.0,
+          "extrapolate": 1.0,
+          "seed": 2,
+          "secs": 75.0
+        }
+      ],
+      "in_dist_mean": 0.9921875,
+      "extrapolate_mean": 0.953125
+    },
+    "tanh_param": {
+      "runs": [
+        {
+          "in_dist": 0.02734375,
+          "extrapolate": 0.00390625,
+          "seed": 0,
+          "secs": 66.1
+        },
+        {
+          "in_dist": 0.708984375,
+          "extrapolate": 0.06640625,
+          "seed": 1,
+          "secs": 65.8
+        },
+        {
+          "in_dist": 0.154296875,
+          "extrapolate": 0.0,
+          "seed": 2,
+          "secs": 66.3
+        }
+      ],
+      "in_dist_mean": 0.296875,
+      "extrapolate_mean": 0.0234375
+    }
+  }
+}

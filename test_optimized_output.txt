@@ -1,0 +1,99 @@
+======================================================================
+OPTIMIZED POSITION-FREE ARCHITECTURE TEST
+======================================================================
+Training steps: 1000
+Device: cpu
+
+Optimizations:
+  [+] h_prev_position_weight: 0.01 -> 0.05 (5x stronger)
+  [+] polarity_rank: 8 -> 16 (2x capacity)
+  [+] tau_weights init: uniform -> 1/sqrt(tau) (prioritize fast scales)
+======================================================================
+
+======================================================================
+ORIGINAL (ROPE)
+======================================================================
+Parameters: 323,816
+
+Training (1000 steps):
+  step     1  loss 2.8499  tok_acc 0.062
+  step   100  loss 0.9097  tok_acc 0.656
+  step   200  loss 0.6550  tok_acc 0.688
+  step   300  loss 0.5325  tok_acc 0.781
+  step   400  loss 0.7216  tok_acc 0.672
+  step   500  loss 0.6513  tok_acc 0.750
+  step   600  loss 0.4574  tok_acc 0.859
+  step   700  loss 0.6060  tok_acc 0.781
+  step   800  loss 0.3212  tok_acc 0.844
+  step   900  loss 0.6051  tok_acc 0.781
+  step  1000  loss 0.5497  tok_acc 0.750
+
+Evaluating:
+
+Final Results:
+  Token Accuracy:    0.7627
+  Sequence Exact:    0.4766
+
+======================================================================
+POSITION-FREE (OPTIMIZED)
+======================================================================
+Parameters: 365,306
+
+Tau-weight initialization:
+  tau= 0.01 -> weight=10.000
+  tau= 0.06 -> weight=4.217
+  tau= 0.32 -> weight=1.778
+  tau= 1.78 -> weight=0.750
+  tau=10.00 -> weight=0.316
+  (Fast scales get higher initial weight)
+
+Training (1000 steps):
+  step     1  loss 2.7164  tok_acc 0.234
+  step   100  loss 0.7201  tok_acc 0.609
+  step   200  loss 0.7155  tok_acc 0.656
+  step   300  loss 0.7617  tok_acc 0.719
+  step   400  loss 0.7278  tok_acc 0.688
+  step   500  loss 0.8471  tok_acc 0.625
+  step   600  loss 0.5796  tok_acc 0.734
+  step   700  loss 0.6998  tok_acc 0.625
+  step   800  loss 0.5728  tok_acc 0.750
+  step   900  loss 0.5878  tok_acc 0.766
+  step  1000  loss 0.5285  tok_acc 0.750
+
+Evaluating:
+
+Final Results:
+  Token Accuracy:    0.7178
+  Sequence Exact:    0.2930
+
+======================================================================
+RESULTS COMPARISON
+======================================================================
+
+Token Accuracy:
+  Original (RoPE):           0.7627
+  Position-Free (Optimized): 0.7178
+  Ratio:                     94.11%
+
+Sequence Exact Match:
+  Original (RoPE):           0.4766
+  Position-Free (Optimized): 0.2930
+
+Improvement over baseline (87.18%):
+  Current ratio:   94.11%
+  Previous ratio:  87.18%
+  Improvement:     +6.93%
+
+[VERY GOOD] Position-free reaches 90-95% of baseline
+
+======================================================================
+PARAMETER EFFICIENCY
+======================================================================
+  Original:       323,816 params
+  Position-Free:  365,306 params
+  Overhead:       12.8%
+  Performance/Param: 83.42%
+
+======================================================================
+TEST COMPLETE
+======================================================================

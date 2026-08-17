@@ -1,0 +1,50 @@
+{
+  "config": {
+    "steps": 120,
+    "batch": 8,
+    "seq_len": 96,
+    "lr": 0.0003,
+    "d_model": 128,
+    "n_layers": 4,
+    "n_heads": 8,
+    "recal_every": 15,
+    "eval_batches": 40,
+    "device": "cpu",
+    "seed": 0,
+    "cap": 0.05
+  },
+  "off": {
+    "use_refactor": false,
+    "n_params_M": 13.35,
+    "final_ppl": 380.5028,
+    "nan_count": 0,
+    "final_grad_norm": 0.73438,
+    "gate_std_mean": null,
+    "gate_std_min": null,
+    "grad_frac_max": null,
+    "grad_frac_mean": null,
+    "scale_mean": null,
+    "seconds": 97.8
+  },
+  "on": {
+    "use_refactor": true,
+    "n_params_M": 13.35,
+    "final_ppl": 380.5028,
+    "nan_count": 0,
+    "final_grad_norm": 0.73438,
+    "gate_std_mean": 0.040528,
+    "gate_std_min": 0.028847,
+    "grad_frac_max": 6e-06,
+    "grad_frac_mean": 3e-06,
+    "scale_mean": 1.0,
+    "seconds": 114.1
+  },
+  "delta_ppl_on_minus_off": 0.0,
+  "stage2_checks": {
+    "no_nan": true,
+    "grad_finite": true,
+    "gate_active": true,
+    "grad_frac_within_cap": true
+  },
+  "stage2_pass": true
+}

@@ -1,0 +1,103 @@
+# MT-LNN adapter service (server_hf) -- HF base + MT adapter + cognitive modules.
+#
+# This is the SECOND, feature-rich serving surface, distinct from the native
+# demo in docker-compose.demo.yml. It runs serve/server_hf.py, which loads a
+# frozen HuggingFace base (Qwen2.5-0.5B-Instruct), attaches the MT-LNN residual
+# adapter, and exposes the wired cognitive modules:
+#   - self-thinking decode      (THINKING=1; entropy-routed self-consistency)
+#   - declarative knowledge memory (KB_PATH; SQLite retrieval augmentation)
+#   - episodic conversation memory (CONV_MEMORY=1; "remembers you" -- auto-stores
+#                                the user's own statements and recalls the relevant
+#                                ones on later turns, persisted to SQLite. Uses a
+#                                dedicated bge sentence encoder, NOT the LM hidden
+#                                state, because mean-pooled 0.5B keys cannot
+#                                separate paraphrases. Honest scope: RAG recall,
+#                                not understanding -- see conversation_memory.py)
+#   - causal-consistency check  (CAUSAL_CHECK; OFF by default -- non-discriminative
+#                                on a Transformer base, kept honest, see server_hf.py)
+#
+# It SHARES the `mtlnn:latest` image with the native demo but overrides the
+# container CMD via `command:` so the same image serves either surface. No
+# Dockerfile change is needed.
+#
+#   Build the image first (one time):  docker build -t mtlnn .
+#   Start:                             docker compose -f docker-compose.hf.yml up -d
+#   Tail logs:                         docker compose -f docker-compose.hf.yml logs -f
+#   Stop:                              docker compose -f docker-compose.hf.yml down
+#
+# First-boot note: unlike the native demo (offline, local checkpoint), this
+# service downloads Qwen2.5-0.5B-Instruct (~1 GB) from HuggingFace on first
+# start. The `hf_cache` named volume persists it so restarts are offline/fast.
+# Give the container internet access on first boot.
+#
+# Memory persistence: the `kb` named volume holds BOTH stores -- knowledge.db
+# (the declarative KB) and conversation.db (the episodic conversation memory).
+# Facts written via /v1/memory/write and the user's own statements both survive
+# restarts and redeploys -- verified by _test_kb_persist.py (write -> drop
+# connection -> reopen file -> data + retrieval intact across the simulated
+# container restart) and _test_server_conv_memory.py (in-process 3-turn recall).
+# First boot also downloads the bge sentence encoder (~130 MB) into hf_cache.
+#
+# Port 8089 avoids the native demo (8088), the awareness-* stack (8000/8001),
+# and ad-hoc verification runs (8080).
+
+services:
+  mtlnn-hf:
+    image: mtlnn:latest
+    container_name: mtlnn_hf
+    restart: unless-stopped
+    command: ["uvicorn", "serve.server_hf:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8089:8000"
+    volumes:
+      # Read-only adapter checkpoints (step-3000 bilingual SFT adapter loaded below).
+      - ./checkpoints:/app/checkpoints:ro
+      # Writable declarative-memory store -- persists facts across restarts.
+      - kb:/app/kb
+      # HF model cache so Qwen is downloaded once, not on every boot.
+      - hf_cache:/app/.hf_cache
+    environment:
+      BASE_MODEL: Qwen/Qwen2.5-0.5B-Instruct
+      # Bilingual SFT adapter (matches the native deploy's step-3000 selection).
+      # Comment out to serve the bare base (memory stays adapter-agnostic).
+      ADAPTER_CKPT: /app/checkpoints/llama_mt_adapter/llama_mt_adapter_003000.pt
+      DEVICE: cpu
+      # INT8 dynamic quantization on CPU decode (scoped to MLP projections).
+      QUANTIZE: "1"
+      # Self-thinking decode on by default (entropy-routed self-consistency).
+      THINKING: "1"
+      # Declarative memory: SQLite file on the writable `kb` volume.
+      KB_PATH: /app/kb/knowledge.db
+      KB_SCORE_FLOOR: "0.15"
+      KB_TOP_K: "3"
+      # Episodic conversation memory ("remembers you"): its own SQLite file on the
+      # same writable volume, encoded by the multilingual-e5-small sentence model
+      # (bilingual EN+ZH). Floor 0.75 is e5-calibrated (its cosines sit in a high
+      # ~0.7-0.9 band): English off-topic turns recall nothing; for Chinese the
+      # off-topic guarantee is softer (documented in _diag_typed_recall.py).
+      # CONV_TYPED on = typed cards (identity/preference/emotion/plan/relationship/
+      # health/detail) with cardTypeBoost; this fixes bilingual recall RANKING
+      # (raw 0/3 -> typed 3/3 on Chinese, see _test_memory_cards.py). It tags
+      # recall, not affect/intent understanding.
+      CONV_MEMORY: "1"
+      CONV_DB_PATH: /app/kb/conversation.db
+      CONV_MODEL: intfloat/multilingual-e5-small
+      CONV_SCORE_FLOOR: "0.75"
+      CONV_TOP_K: "3"
+      CONV_TYPED: "1"
+      CONV_TYPE_BOOST: "0.15"
+      # Causal-consistency check stays OFF (honest: non-discriminative on a
+      # Transformer base; flip to "1" only after recalibrating on native LNN state).
+      CAUSAL_CHECK: "0"
+      HF_HOME: /app/.hf_cache
+      MAX_NEW_TOKENS_CAP: "512"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+
+volumes:
+  kb:
+  hf_cache:

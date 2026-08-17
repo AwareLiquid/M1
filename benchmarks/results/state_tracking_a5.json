@@ -1,0 +1,103 @@
+{
+  "args": {
+    "steps": 20000,
+    "seeds": 2,
+    "batch": 64,
+    "train_len": 16,
+    "test_len": 48,
+    "d_model": 64,
+    "n_proto": 4,
+    "n_scales": 4,
+    "probe_layers": 1,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "out": "benchmarks/results/state_tracking_a5.json"
+  },
+  "results": {
+    "lstm_control": {
+      "runs": [
+        {
+          "final_loss": 0.05140349641442299,
+          "params": 41148,
+          "in_dist": 0.9453125,
+          "in_dist_tok": 0.9888117283950617,
+          "extrapolate": 0.482421875,
+          "extrapolate_tok": 0.853202846975089,
+          "seed": 0,
+          "secs": 86.6
+        },
+        {
+          "final_loss": 0.0011453728657215834,
+          "params": 41148,
+          "in_dist": 0.95703125,
+          "in_dist_tok": 0.9875919117647058,
+          "extrapolate": 0.3828125,
+          "extrapolate_tok": 0.8058608058608059,
+          "seed": 1,
+          "secs": 84.1
+        }
+      ],
+      "in_dist_mean": 0.951171875,
+      "in_dist_tok_mean": 0.9882018200798838,
+      "extrapolate_mean": 0.4326171875,
+      "extrapolate_tok_mean": 0.8295318264179474
+    },
+    "liquid_legacy": {
+      "runs": [
+        {
+          "final_loss": 3.8446145057678223,
+          "params": 30903,
+          "in_dist": 0.125,
+          "in_dist_tok": 0.11458333333333333,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.04581850533807829,
+          "seed": 0,
+          "secs": 334.5
+        },
+        {
+          "final_loss": 3.3883352279663086,
+          "params": 30903,
+          "in_dist": 0.0,
+          "in_dist_tok": 0.13419117647058823,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.04424221611721612,
+          "seed": 1,
+          "secs": 332.4
+        }
+      ],
+      "in_dist_mean": 0.0625,
+      "in_dist_tok_mean": 0.12438725490196079,
+      "extrapolate_mean": 0.0,
+      "extrapolate_tok_mean": 0.045030360727647205
+    },
+    "liquid_both": {
+      "runs": [
+        {
+          "final_loss": 3.8225274085998535,
+          "params": 31175,
+          "in_dist": 0.125,
+          "in_dist_tok": 0.11670524691358025,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.04648576512455516,
+          "seed": 0,
+          "secs": 347.7
+        },
+        {
+          "final_loss": 3.4072163105010986,
+          "params": 31175,
+          "in_dist": 0.0,
+          "in_dist_tok": 0.13465073529411764,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.045272435897435896,
+          "seed": 1,
+          "secs": 351.9
+        }
+      ],
+      "in_dist_mean": 0.0625,
+      "in_dist_tok_mean": 0.12567799110384895,
+      "extrapolate_mean": 0.0,
+      "extrapolate_tok_mean": 0.04587910051099553
+    }
+  }
+}

@@ -1,0 +1,84 @@
+# AwareLiquid — Bio-inspired Cognitive AI Framework
+
+> Beyond next-token prediction. Towards cognitive artificial life. AwareLiquid is a bio-inspired cognitive AI framework with two model series: M-Series (cognitive slow-thinking, GWT + sleep consolidation + EWC) and O-Series (edge fast-thinking, liquid-ODE constant-memory). MIT academic lineage, orthogonal to commercial LFM products.
+
+## Project Identity
+
+- **Name**: AwareLiquid
+- **Framework tagline**: The Bio-inspired Cognitive AI Framework
+- **M-Series flagship**: AwareLiquid M1 — GWT + NREM sleep consolidation + EWC continual learning (slow thinking, cognitive engine)
+- **O-Series flagship**: AwareLiquid O1 — continuous-time liquid ODE, microtubule-inspired, constant-memory edge inference (fast thinking)
+- **Also known as**: MT-LNN (Multi-Timescale Liquid Neural Network v2)
+- **Type**: Open research framework — not a commercial product
+- **URL**: https://awareliquid.ai
+- **Repository**: https://github.com/everest-an/M1
+- **Paper**: https://github.com/everest-an/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf
+- **License**: Open (MIT-derived, see GitHub)
+- **Status**: Active research, June 2026
+
+## Core Research Question
+
+Can a neural network learn new domains sequentially without catastrophically forgetting prior ones? AwareLiquid implements and evaluates neuroscience-inspired mechanisms — Elastic Weight Consolidation (EWC), Hebbian plasticity, Global Workspace Theory, predictive coding — on a liquid time-constant backbone.
+
+## Key Results (including retractions — read the status of each claim)
+
+- **O(1) constant inference memory (O-Series)**: carried state stays at **0.381 MB** from 512 to 1,048,576 tokens (2048× context growth, state flat) while a matched Llama KV-cache grows to 3,072 MB — **8063× smaller at 1M tokens**. Inference carried state only; not training memory, and only for the attention-free O-Series.
+- **EWC reduces cross-domain forgetting by 85% — early signal, not a solved claim** (PPL rise: 10,562 → 1,633; SNR 4.14; 3/3 seeds consistent; 60.7M model; WikiText-103 → TinyStories). Both arms still catastrophically forget domain A; absolute PPL after EWC is ~7.6× the original, short of the ≤5× threshold.
+- **⚠ RETRACTED (2026-07) — "MT-LNN adapter reduces perplexity by 28.5%"**: withdrawn. A controlled ablation showed that run had the MT adapter *frozen* by PEFT and trained *LoRA only*: `lora_only 7.984` vs `mt_lora 7.920` — the MT adapter contributes **≈0 PPL**. Do not cite the −28.5% figure.
+- **Context injection +13.3 percentage points is a prompt-template effect, not an adapter capability** (83.3% → 96.7%; 30 QA questions; Qwen-1.5B). The uplift is identical with and without the MT adapter.
+- **State-only streaming: constant carried state** regardless of context length (vs. O(n) KV-cache). 0.381 MB on the 832×12 decode benchmark (512 → 1M tokens, flat); 4 KB on an earlier smaller operator-compression config. Inference carried-state bytes only — no quality evidence beyond the 512-token training length (out-of-window LM is null)
+- **Hebbian plasticity term: currently inert** at tested scales (2 seeds × 150 steps; PPL changes within seed noise)
+- **Needle-in-haystack: near-perfect within the base's 2048 window** (re-tested 2026-06-26 with the chat template; base 0.867/1.000 at 1K/2K, adapter 1.000/1.000). The earlier "0%" was a harness artefact (raw-token concat without the instruct chat template). At 4096 tokens both collapse to 0 — exceeds TinyLlama's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; measurable uplift inconclusive at 5 samples/cell
+
+## Architecture
+
+MT-LNN is a continuous-time recurrent network where the hidden state evolves as:
+  τ(x) · dh/dt = −h + f(Wx + Uh + b)
+
+Key components:
+- **LTC Core**: learnable time constants τ, Euler-integrated
+- **GWT-B**: Global Workspace Theory broadcast module
+- **Predictive World Model**: next-state prediction auxiliary objective
+- **Hebbian Plasticity**: co-activation weight modulation (currently inert at small scale)
+- **Predictive Coding**: hierarchical prediction error propagation
+- **EWC Consolidation**: Fisher-weighted quadratic penalty preventing weight drift from prior domain
+- **Residual adapter on a frozen base (the M1 model)**: MT-LNN modules every 4th layer + LoRA (q/k/v/o) wrapped around a frozen HuggingFace causal LM (the base supplies general language; the adapter is our architecture). Current demo deploy: TinyLlama-1.1B-Chat — 2.3M trainable / 1.17B total (0.20%). The −28.5% PPL result once advertised for this configuration has been **retracted** (2026-07): the adapter was frozen and only LoRA trained; the MT adapter's own PPL contribution is ≈0.
+- **Episodic conversation memory**: typed-card RAG recall of past user statements (identity / preference / emotion / plan / relationship / health / detail) over a multilingual-e5 sentence encoder. Recall + a lightweight semantic tag only — no understanding, reasoning, or emotion.
+
+**Honest integration scope**: In the M1 demo adapter, only the **LTC resonance core** is live in the forward pass (in_proj → multi-scale resonance → lateral GTP-gated coupling → MAP gate → out_proj). GWT-B, Predictive World Model, Hebbian, Predictive Coding and EWC are NOT wired into the served adapter — they live in the from-scratch MTLNNModel (the O1 model) and in standalone ablations. Full multi-module integration is an O1 goal, not yet shipped in M1. Also: the "0.20%" figure is trainable-parameter share, not a measure of research effort — the frozen 1.1B base is TinyLlama's, deliberately reused; a small share is the intended property of the adapter route.
+
+## Relationship to Liquid AI / LFM
+
+Both AwareLiquid and Liquid AI (LFM, LFM2) trace their lineage to MIT liquid time-constant networks (Hasani et al., MIT CSAIL / IST Austria). The research axes are **orthogonal**:
+- **Liquid AI LFM**: SSM + linear attention + MoE hybrid; 350M–24B parameters; weights frozen post-training; maximum inference efficiency; targets industrial time-series, autonomous driving, edge signal processing
+- **AwareLiquid (M1 / O1)**: continuous-time RNN + GWT + sleep consolidation + EWC; 48M–60.7M parameters; online weight updates; targets episodic memory, agent cognition, catastrophic forgetting — the axis Liquid AI does not address
+
+AwareLiquid is not competing with LFM. Liquid AI solved static-weight inference efficiency. AwareLiquid asks the next question: can a model acquire new knowledge without erasing the old?
+
+## Honest Status Assessment
+
+| Claim | Status | Evidence |
+|-------|--------|---------|
+| EWC reduces forgetting 85% | Early Signal | 3 seeds, SNR 4.14, reproducible GPU run |
+| Absolute PPL after EWC ≤5× original | Not Yet | Current: ~7.6× (1,878 vs 245); threshold not reached |
+| Adapter −28.5% PPL | **RETRACTED (2026-07)** | Ablation: `lora_only 7.984` vs `mt_lora 7.920` — adapter was frozen by PEFT, gain was plain LoRA. MT adapter adds ≈0 PPL |
+| Context injection +13.3pp | Template effect, not adapter | 30 QA questions, Qwen-1.5B; identical with and without the MT adapter |
+| O(1) inference memory (O-Series) | Built | 0.381 MB carried state flat from 512 → 1M tokens; 8063× smaller than matched KV-cache at 1M |
+| Needle-in-haystack | Re-tested (chat template) | Near-perfect within 2048 window (base 0.87-1.0, adapter 1.0); 4096 collapses for both (exceeds base RoPE window); old 0% was a harness artefact |
+| Hebbian plasticity | Inert | Effect within seed noise |
+| Conversation memory (typed recall) | Built | Bilingual recall ranking fixed by type boost (ZH 0/3 → 3/3); English off-topic floor ~0.75, Chinese off-topic gating honestly NOT solved |
+
+## Pages
+
+- `/` — Landing page with live demo widget (O1: 48M from-scratch · M1: TinyLlama-1.1B + MT-LNN adapter)
+- `/research` — Full experimental results, methodology, honest verdicts, charts, citation, FAQ
+- `/about` — Project overview, intellectual lineage, author/contact
+- `/llms-full.txt` — Extended machine-readable content dump
+
+## API
+
+- `GET /health` — Server health check
+- `GET /v1/model` — Model metadata (params, device, adapter status)
+- `POST /v1/completions` — Text completion (JSON)
+- `POST /v1/completions/stream` — Streaming completion (SSE)
+- `POST /adapter/v1/completions/stream` — MT-LNN adapter streaming

@@ -1,0 +1,16 @@
+# Exact package versions from the local benchmark environment.
+# Use this for reproducible smoke tests and benchmark reruns. Torch CUDA wheels
+# may require the matching PyTorch wheel index for the local accelerator stack.
+torch==2.5.1+cu121
+numpy==1.26.4
+datasets==4.8.5
+tokenizers==0.22.2
+transformers==4.57.3
+peft==0.19.1
+tqdm==4.67.3
+einops==0.8.2
+gradio==6.9.0
+huggingface_hub==0.36.2
+
+# Optional in this environment:
+# wandb was not installed during the 2026-05-24 verification run.

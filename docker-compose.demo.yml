@@ -1,0 +1,48 @@
+# MT-LNN public demo service (persistent, CPU).
+#
+# Brings up the verified `mtlnn` image as a long-running service that survives
+# restarts and auto-picks-up the trained checkpoint once it lands.
+#
+#   Build the image first (one time):   docker build -t mtlnn .
+#   Start the demo:                      docker compose -f docker-compose.demo.yml up -d
+#   Reload after a new checkpoint:       docker compose -f docker-compose.demo.yml restart
+#   Tail logs:                           docker compose -f docker-compose.demo.yml logs -f
+#   Stop:                                docker compose -f docker-compose.demo.yml down
+#
+# Checkpoint handling:
+#   ./checkpoints is mounted read-only at /app/checkpoints. CKPT_PATH points at
+#   the trained eager state-dict. The server (serve/server.py:_build_model)
+#   gracefully falls back to a FRESH (untrained) model when the file is absent,
+#   so the service stays up before m2_final.pt arrives — just `restart` to load
+#   the real weights once the Kaggle download completes.
+#
+#   Port 8088 is used to avoid the awareness-* stack (8000/8001) and ad-hoc
+#   verification runs (8080).
+
+services:
+  mtlnn-demo:
+    image: mtlnn:latest
+    container_name: mtlnn_demo
+    restart: unless-stopped
+    ports:
+      - "8088:8000"
+    volumes:
+      - ./checkpoints:/app/checkpoints:ro
+    environment:
+      # Trained eager checkpoint (state-dict + embedded config). Falls back to a
+      # fresh untrained model until the file exists, then loads on next restart.
+      CKPT_PATH: /app/checkpoints/m2_final.pt
+      TOKENIZER: gpt2
+      DEVICE: cpu
+      MAX_NEW_TOKENS_CAP: "512"
+      # --- Multimodal (CLIP image->text) is opt-in: it downloads the vision
+      # --- tower from HuggingFace at startup (~600MB) and slows boot. Uncomment
+      # --- to enable the /v1/multimodal/completions endpoint for demos.
+      # ENABLE_MULTIMODAL: "1"
+      # CLIP_MODEL: openai/clip-vit-base-patch32
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3

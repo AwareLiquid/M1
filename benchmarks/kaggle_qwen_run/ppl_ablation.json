@@ -1,0 +1,24 @@
+[
+  {
+    "name": "base",
+    "adapter": null,
+    "tokens": 25600,
+    "batches": 50,
+    "ppl": 11.103070684427845,
+    "seconds": 15.961461544036865,
+    "tok_per_sec": 1603.8631505874882,
+    "trainable_params": 1543714304,
+    "total_params": 1543714304
+  },
+  {
+    "name": "mt+lora:llama_mt_adapter_001000.pt",
+    "adapter": "/kaggle/working/checkpoints/qwen_mt_adapter/llama_mt_adapter_001000.pt",
+    "tokens": 25600,
+    "batches": 50,
+    "ppl": 8.028802954786432,
+    "seconds": 17.79294776916504,
+    "tok_per_sec": 1438.7722783272868,
+    "trainable_params": 2219056,
+    "total_params": 1592894071
+  }
+]

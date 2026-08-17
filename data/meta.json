@@ -1,0 +1,7 @@
+{
+  "tokenizer": "gpt2",
+  "vocab_size": 50257,
+  "n_train_tokens": 2391884,
+  "n_validation_tokens": 247289,
+  "n_test_tokens": 283287
+}

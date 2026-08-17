@@ -1,0 +1,13 @@
+{
+  "id": "muningan/awareliquid-real-trace-adapter",
+  "title": "AwareLiquid Real Trace Adapter",
+  "code_file": "awareliquid_real_trace_adapter.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": ["muningan/awareliquid-phase-5b"]
+}

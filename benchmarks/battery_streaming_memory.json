@@ -1,0 +1,41 @@
+{
+  "d_model": 65,
+  "n_layers": 2,
+  "rows": [
+    {
+      "stream_len": 128,
+      "lstm": 1040,
+      "gru": 520,
+      "mt_lnn": 2600,
+      "transformer": 133120
+    },
+    {
+      "stream_len": 512,
+      "lstm": 1040,
+      "gru": 520,
+      "mt_lnn": 2600,
+      "transformer": 532480
+    },
+    {
+      "stream_len": 2048,
+      "lstm": 1040,
+      "gru": 520,
+      "mt_lnn": 2600,
+      "transformer": 2129920
+    },
+    {
+      "stream_len": 8192,
+      "lstm": 1040,
+      "gru": 520,
+      "mt_lnn": 2600,
+      "transformer": 8519680
+    },
+    {
+      "stream_len": 32768,
+      "lstm": 1040,
+      "gru": 520,
+      "mt_lnn": 2600,
+      "transformer": 34078720
+    }
+  ]
+}
