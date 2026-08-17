@@ -1,3 +1,6 @@
+import pytest
+pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
+
 """
 tests/test_geometry_ops_properties.py -- property-based information-geometry
 invariants for the composable Fisher-Rao operators.

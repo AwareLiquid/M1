@@ -1,3 +1,6 @@
+import pytest
+pytest.importorskip("hypothesis")  # optional dev dep — see requirements-dev.txt
+
 """
 tests/test_salience_events_properties.py -- property-based invariants for the
 global-workspace ignition / state-change event detector.
