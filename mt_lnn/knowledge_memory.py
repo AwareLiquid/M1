@@ -301,6 +301,11 @@ class PersistentKnowledgeMemory:
         keys = torch.stack(
             [_bytes_to_key(r[1], self.key_dim) for r in rows], dim=0
         )                                                   # (N, key_dim), already unit-norm
+        # Stored keys live on CPU (SQLite round-trip); the caller's query may
+        # arrive on any device. Align BEFORE the centered-cosine math below,
+        # otherwise `keys @ q` raises a CPU/CUDA device mismatch (observed on
+        # GPU serve hosts in the /v1/sleep build_graph path).
+        q = q.to(keys.device)
         if center and keys.shape[0] >= 2:
             # Remove the shared dominant direction (corpus mean) from keys AND
             # query, then renormalise so the scores are cosines on the residual

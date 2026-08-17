@@ -1,0 +1,43 @@
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda
+    lengen-sel s0 step      0 k=28 loss 2.5535
+    lengen-sel s0 step   2000 k= 2 loss 0.0062
+    lengen-sel s0 step   4000 k= 7 loss 0.5454
+    lengen-sel s0 step   6000 k=32 loss 0.6934
+    lengen-sel s0 step   8000 k=32 loss 0.7013
+    lengen-sel s0 step  10000 k=17 loss 0.1406
+    lengen-sel s0 step  12000 k= 6 loss 0.4955
+    lengen-sel s0 step  14000 k=24 loss 0.4874
+    lengen-sel s0 step  16000 k=19 loss 0.0486
+    lengen-sel s0 step  18000 k=15 loss 0.0888
+    lengen-sel s0 step  20000 k=32 loss 0.4002
+    lengen-sel s0 step  22000 k= 7 loss 0.0001
+    lengen-sel s0 step  24000 k=24 loss 0.0001
+    lengen-sel s0 step  26000 k= 5 loss 0.0000
+    lengen-sel s0 step  28000 k=24 loss 0.0001
+    lengen-sel s0 step  29999 k= 9 loss 0.0000
+  lengen-sel s0  in-dist [L8:1.0  L16:0.9995  L32:0.9604]  EXTRAP [L48:0.4077  L64:0.4897  L96:0.4956  L128:0.4653]
+    lengen-stock s0 step      0 k=28 loss 2.5878
+    lengen-stock s0 step   2000 k= 2 loss 0.0068
+    lengen-stock s0 step   4000 k= 7 loss 1.1605
+    lengen-stock s0 step   6000 k=32 loss 0.6928
+    lengen-stock s0 step   8000 k=32 loss 0.7003
+Traceback (most recent call last):
+  File "E:\M1\benchmarks\parity_lengthgen.py", line 128, in <module>
+    main()
+  File "E:\M1\benchmarks\parity_lengthgen.py", line 123, in main
+    run_arm("lengen-stock", seed, False, args.steps, args.batch, args.lr, device)
+  File "E:\M1\benchmarks\parity_lengthgen.py", line 72, in run_arm
+    loss.backward()
+  File "E:\Python311\Lib\site-packages\torch\_tensor.py", line 631, in backward
+    torch.autograd.backward(
+  File "E:\Python311\Lib\site-packages\torch\autograd\__init__.py", line 381, in backward
+    _engine_run_backward(
+  File "E:\Python311\Lib\site-packages\torch\autograd\graph.py", line 869, in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: out of memory
+Search for `cudaErrorMemoryAllocation' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+

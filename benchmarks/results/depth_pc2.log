@@ -1,0 +1,128 @@
+== pointer_chase difficulty=2 n_values=16 T=54 vocab=26 device=cuda ==
+  [seed 0] mt_lnn 205K params, train depths 1..8
+    step     0  loss 3.2975
+    step   200  loss 2.7863
+    step   400  loss 2.7795
+    step   600  loss 2.7640
+    step   800  loss 2.7229
+    step  1000  loss 2.7472
+    step  1200  loss 2.7614
+    step  1400  loss 2.7354
+    step  1600  loss 2.7449
+    step  1800  loss 2.7599
+    step  2000  loss 2.7654
+    step  2200  loss 2.7418
+    step  2400  loss 2.7429
+    step  2600  loss 2.7610
+    step  2800  loss 2.7709
+    step  2999  loss 2.7656
+    eval depth 1: acc 0.1225
+    eval depth 2: acc 0.1225
+    eval depth 4: acc 0.1225
+    eval depth 8: acc 0.1225
+  [seed 0] transformer 247K params
+    step     0  loss 3.2942
+    step   200  loss 2.7954
+    step   400  loss 2.7806
+    step   600  loss 2.7699
+    step   800  loss 2.7180
+    step  1000  loss 2.7537
+    step  1200  loss 2.7604
+    step  1400  loss 2.7339
+    step  1600  loss 2.7397
+    step  1800  loss 2.7590
+    step  2000  loss 2.7627
+    step  2200  loss 2.7429
+    step  2400  loss 2.7456
+    step  2600  loss 2.7595
+    step  2800  loss 2.7669
+    step  2999  loss 2.7659
+    eval: acc 0.1225
+  [seed 1] mt_lnn 205K params, train depths 1..8
+    step     0  loss 3.2722
+    step   200  loss 2.7679
+    step   400  loss 2.7893
+    step   600  loss 2.7466
+    step   800  loss 2.7778
+    step  1000  loss 2.7405
+    step  1200  loss 2.7504
+    step  1400  loss 2.7400
+    step  1600  loss 2.7383
+    step  1800  loss 2.7736
+    step  2000  loss 2.7348
+    step  2200  loss 2.7678
+    step  2400  loss 2.7667
+    step  2600  loss 2.7399
+    step  2800  loss 2.7468
+    step  2999  loss 2.7298
+    eval depth 1: acc 0.1313
+    eval depth 2: acc 0.1313
+    eval depth 4: acc 0.1313
+    eval depth 8: acc 0.1313
+  [seed 1] transformer 247K params
+    step     0  loss 3.3225
+    step   200  loss 2.7804
+    step   400  loss 2.7880
+    step   600  loss 2.7339
+    step   800  loss 2.7833
+    step  1000  loss 2.7407
+    step  1200  loss 2.7470
+    step  1400  loss 2.7403
+    step  1600  loss 2.7388
+    step  1800  loss 2.7689
+    step  2000  loss 2.7339
+    step  2200  loss 2.7693
+    step  2400  loss 2.7643
+    step  2600  loss 2.7412
+    step  2800  loss 2.7469
+    step  2999  loss 2.7304
+    eval: acc 0.1313
+  [seed 2] mt_lnn 205K params, train depths 1..8
+    step     0  loss 3.3325
+    step   200  loss 2.7785
+    step   400  loss 2.7346
+    step   600  loss 2.7747
+    step   800  loss 2.7289
+    step  1000  loss 2.7642
+    step  1200  loss 2.7335
+    step  1400  loss 2.7830
+    step  1600  loss 2.7698
+    step  1800  loss 2.7637
+    step  2000  loss 2.7742
+    step  2200  loss 2.7797
+    step  2400  loss 2.7507
+    step  2600  loss 2.7660
+    step  2800  loss 2.7678
+    step  2999  loss 2.7420
+    eval depth 1: acc 0.1203
+    eval depth 2: acc 0.1203
+    eval depth 4: acc 0.1203
+    eval depth 8: acc 0.1203
+  [seed 2] transformer 247K params
+    step     0  loss 3.3424
+    step   200  loss 2.7861
+    step   400  loss 2.7603
+    step   600  loss 2.7719
+    step   800  loss 2.7316
+    step  1000  loss 2.7638
+    step  1200  loss 2.7331
+    step  1400  loss 2.7829
+    step  1600  loss 2.7709
+    step  1800  loss 2.7626
+    step  2000  loss 2.7803
+    step  2200  loss 2.7822
+    step  2400  loss 2.7536
+    step  2600  loss 2.7664
+    step  2800  loss 2.7642
+    step  2999  loss 2.7429
+    eval: acc 0.1203
+
+== summary (mean over seeds) ==
+  mt_lnn depth 1: 0.1247 ± 0.0047
+  mt_lnn depth 2: 0.1247 ± 0.0047
+  mt_lnn depth 4: 0.1247 ± 0.0047
+  mt_lnn depth 8: 0.1247 ± 0.0047
+  transformer   : 0.1247 ± 0.0047
+
+results appended to E:\M1\benchmarks\results\reasoning_depth.jsonl
+ALL DONE

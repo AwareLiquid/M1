@@ -1,0 +1,114 @@
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-sel s0 step      0 k=28 loss 2.5535
+    lengen-sel s0 step   2000 k= 2 loss 0.3788
+    lengen-sel s0 step   4000 k= 7 loss 0.6806
+    lengen-sel s0 step   6000 k=32 loss 0.6917
+    lengen-sel s0 step   8000 k=32 loss 0.7129
+    lengen-sel s0 step  10000 k=17 loss 0.7098
+    lengen-sel s0 step  12000 k= 6 loss 0.0671
+    lengen-sel s0 step  14000 k=24 loss 0.6954
+    lengen-sel s0 step  16000 k=19 loss 0.6951
+    lengen-sel s0 step  18000 k=15 loss 0.7139
+    lengen-sel s0 step  20000 k=32 loss 0.7006
+    lengen-sel s0 step  22000 k= 7 loss 0.0142
+    lengen-sel s0 step  24000 k=24 loss 0.6986
+    lengen-sel s0 step  26000 k= 5 loss 0.0026
+    lengen-sel s0 step  28000 k=24 loss 0.6864
+    lengen-sel s0 step  29999 k= 9 loss 0.0151
+  lengen-sel s0  in-dist [L8:1.0  L16:0.7534  L32:0.4976]  EXTRAP [L48:0.4917  L64:0.5127  L96:0.4976  L128:0.5156]
+ALL DONE
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-stock s0 step      0 k=28 loss 2.5878
+    lengen-stock s0 step   2000 k= 2 loss 0.3159
+    lengen-stock s0 step   4000 k= 7 loss 0.6730
+    lengen-stock s0 step   6000 k=32 loss 0.6958
+    lengen-stock s0 step   8000 k=32 loss 0.7164
+    lengen-stock s0 step  10000 k=17 loss 0.6888
+    lengen-stock s0 step  12000 k= 6 loss 0.0792
+    lengen-stock s0 step  14000 k=24 loss 0.7053
+    lengen-stock s0 step  16000 k=19 loss 0.6883
+    lengen-stock s0 step  18000 k=15 loss 0.1467
+    lengen-stock s0 step  20000 k=32 loss 0.7172
+    lengen-stock s0 step  22000 k= 7 loss 0.0049
+    lengen-stock s0 step  24000 k=24 loss 0.2774
+    lengen-stock s0 step  26000 k= 5 loss 0.0037
+    lengen-stock s0 step  28000 k=24 loss 0.1978
+    lengen-stock s0 step  29999 k= 9 loss 0.0021
+  lengen-stock s0  in-dist [L8:1.0  L16:0.9961  L32:0.5664]  EXTRAP [L48:0.4917  L64:0.4946  L96:0.499  L128:0.498]
+ALL DONE
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-sel s1 step      0 k=16 loss 2.5446
+    lengen-sel s1 step   2000 k= 9 loss 0.6946
+    lengen-sel s1 step   4000 k=15 loss 0.6907
+    lengen-sel s1 step   6000 k=26 loss 0.6875
+    lengen-sel s1 step   8000 k=22 loss 0.6907
+    lengen-sel s1 step  10000 k=30 loss 0.6957
+    lengen-sel s1 step  12000 k=30 loss 0.6927
+    lengen-sel s1 step  14000 k= 4 loss 0.0375
+    lengen-sel s1 step  16000 k= 9 loss 0.6447
+    lengen-sel s1 step  18000 k=32 loss 0.6964
+    lengen-sel s1 step  20000 k= 6 loss 0.1695
+    lengen-sel s1 step  22000 k= 9 loss 0.6524
+    lengen-sel s1 step  24000 k=18 loss 0.6965
+    lengen-sel s1 step  26000 k=28 loss 0.6933
+    lengen-sel s1 step  28000 k=29 loss 0.6909
+    lengen-sel s1 step  29999 k= 1 loss 0.0005
+  lengen-sel s1  in-dist [L8:0.6812  L16:0.4746  L32:0.519]  EXTRAP [L48:0.5039  L64:0.4746  L96:0.4824  L128:0.5]
+ALL DONE
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-stock s1 step      0 k=16 loss 2.3677
+    lengen-stock s1 step   2000 k= 9 loss 0.6879
+    lengen-stock s1 step   4000 k=15 loss 0.6919
+    lengen-stock s1 step   6000 k=26 loss 0.6921
+    lengen-stock s1 step   8000 k=22 loss 0.6923
+    lengen-stock s1 step  10000 k=30 loss 0.6916
+    lengen-stock s1 step  12000 k=30 loss 0.6923
+    lengen-stock s1 step  14000 k= 4 loss 0.0444
+    lengen-stock s1 step  16000 k= 9 loss 0.6766
+    lengen-stock s1 step  18000 k=32 loss 0.6921
+    lengen-stock s1 step  20000 k= 6 loss 0.3082
+    lengen-stock s1 step  22000 k= 9 loss 0.6581
+    lengen-stock s1 step  24000 k=18 loss 0.6975
+    lengen-stock s1 step  26000 k=28 loss 0.6944
+    lengen-stock s1 step  28000 k=29 loss 0.6942
+    lengen-stock s1 step  29999 k= 1 loss 0.0007
+  lengen-stock s1  in-dist [L8:0.7002  L16:0.4912  L32:0.5146]  EXTRAP [L48:0.5088  L64:0.4756  L96:0.4839  L128:0.5]
+ALL DONE
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-sel s2 step      0 k=27 loss 2.6082
+    lengen-sel s2 step   2000 k= 4 loss 0.4375
+    lengen-sel s2 step   4000 k=32 loss 0.7020
+    lengen-sel s2 step   6000 k=11 loss 0.6419
+    lengen-sel s2 step   8000 k= 3 loss 0.1914
+    lengen-sel s2 step  10000 k=13 loss 0.6917
+    lengen-sel s2 step  12000 k=14 loss 0.6968
+    lengen-sel s2 step  14000 k=13 loss 0.6519
+    lengen-sel s2 step  16000 k=26 loss 0.6939
+    lengen-sel s2 step  18000 k= 4 loss 0.4973
+    lengen-sel s2 step  20000 k=20 loss 0.6850
+    lengen-sel s2 step  22000 k=20 loss 0.0107
+    lengen-sel s2 step  24000 k= 1 loss 0.0017
+    lengen-sel s2 step  26000 k=15 loss 0.0008
+    lengen-sel s2 step  28000 k=32 loss 0.0335
+    lengen-sel s2 step  29999 k= 2 loss 0.0016
+  lengen-sel s2  in-dist [L8:1.0  L16:0.9995  L32:0.9951]  EXTRAP [L48:0.749  L64:0.5356  L96:0.4819  L128:0.4927]
+ALL DONE
+parity length-gen: train L<=32, extrapolate to (48, 64, 96, 128); device=cuda beta2=0.999 clip=0.0
+    lengen-stock s2 step      0 k=27 loss 2.5206
+    lengen-stock s2 step   2000 k= 4 loss 0.6847
+    lengen-stock s2 step   4000 k=32 loss 0.6891
+    lengen-stock s2 step   6000 k=11 loss 0.6993
+    lengen-stock s2 step   8000 k= 3 loss 0.0786
+    lengen-stock s2 step  10000 k=13 loss 0.6582
+    lengen-stock s2 step  12000 k=14 loss 0.6453
+    lengen-stock s2 step  14000 k=13 loss 0.6830
+    lengen-stock s2 step  16000 k=26 loss 0.6936
+    lengen-stock s2 step  18000 k= 4 loss 0.0771
+    lengen-stock s2 step  20000 k=20 loss 0.6906
+    lengen-stock s2 step  22000 k=20 loss 0.6995
+    lengen-stock s2 step  24000 k= 1 loss 0.0017
+    lengen-stock s2 step  26000 k=15 loss 0.5688
+    lengen-stock s2 step  28000 k=32 loss 0.6939
+    lengen-stock s2 step  29999 k= 2 loss 0.0017
+  lengen-stock s2  in-dist [L8:0.9741  L16:0.5649  L32:0.502]  EXTRAP [L48:0.4839  L64:0.4902  L96:0.5264  L128:0.5039]
+ALL DONE

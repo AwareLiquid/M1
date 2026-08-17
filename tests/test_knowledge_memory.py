@@ -135,5 +135,19 @@ def test_invalid_construction_raises():
         PersistentKnowledgeMemory(key_dim=4, db_path=":memory:", max_entries=0)
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(),
+                    reason="CUDA not available")
+def test_query_accepts_cuda_key():
+    """回归：查询键在 CUDA 上时不得与 CPU 存储键设备失配（/v1/sleep
+    build_graph 在 GPU serve 主机上的实测故障）。"""
+    kb = PersistentKnowledgeMemory(key_dim=8, db_path=":memory:")
+    kb.write(_basis(8, 0), "a")
+    hits = kb.query(_basis(8, 0).to("cuda"), top_k=1)
+    assert len(hits) == 1 and hits[0][0] == "a"
+    # 带 center 的分支同样对齐（此前 q - mu 同样会失配）
+    hits_c = kb.query(_basis(8, 0).to("cuda"), top_k=1, center=True)
+    assert len(hits_c) == 1
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
