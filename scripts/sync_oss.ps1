@@ -73,11 +73,12 @@ if (-not (Test-Path "$WorkDir\dev")) {
 }
 Write-Host "dev at $(git -C "$WorkDir\dev" log --oneline -1)"
 
-# 2. Update mirror
+# 2. Update mirror (hard-reset: mirror history may be rewritten/squashed)
 if (-not (Test-Path "$WorkDir\mirror")) {
     gh repo clone AwareLiquid/M1 "$WorkDir\mirror" -- --quiet
 } else {
-    git -C "$WorkDir\mirror" pull -q --ff-only origin main
+    git -C "$WorkDir\mirror" fetch -q origin main
+    git -C "$WorkDir\mirror" reset -q --hard origin/main
 }
 
 # 3. Wipe mirror working tree (keep .git) and re-copy from dev
