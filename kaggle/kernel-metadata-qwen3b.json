@@ -1,0 +1,13 @@
+{
+  "id": "muningan/awareliquid-phase-1a-qwen3b",
+  "title": "AwareLiquid Phase 1A Qwen3B",
+  "code_file": "awareliquid_train_qwen3b.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": false,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

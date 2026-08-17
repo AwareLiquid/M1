@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>404 — Page Not Found · AwareLiquid</title>
+<meta name="robots" content="noindex, follow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
+
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a}
+}
+html{color-scheme:light dark}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);min-height:100dvh;
+     display:flex;flex-direction:column;align-items:center;justify-content:center;
+     padding:40px 24px;text-align:center;-webkit-font-smoothing:antialiased}
+.logo-wrap{margin-bottom:32px;opacity:.35}
+.code{font-size:clamp(80px,20vw,140px);font-weight:800;letter-spacing:-.06em;
+      line-height:1;color:var(--fg);opacity:.08;user-select:none}
+.brand{display:inline-flex;align-items:center;gap:8px;font-size:17px;font-weight:650;
+       margin-bottom:20px;text-decoration:none;color:var(--fg)}
+h1{font-size:clamp(22px,4vw,32px);font-weight:700;letter-spacing:-.025em;margin-bottom:12px}
+p{font-size:16px;color:var(--muted);max-width:400px;line-height:1.7;margin-bottom:32px}
+.links{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.btn{display:inline-flex;align-items:center;font-size:14px;font-weight:600;
+     padding:10px 20px;border-radius:10px;text-decoration:none;transition:all .15s;border:1px solid transparent}
+.btn-primary{background:var(--fg);color:var(--bg)}.btn-primary:hover{opacity:.82}
+.btn-ghost{border-color:var(--line);color:var(--fg)}.btn-ghost:hover{background:var(--card)}
+footer{margin-top:64px;font-size:12px;color:var(--muted)}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+</style>
+</head>
+<body>
+  <div class="code">404</div>
+  <a class="brand" href="/">
+    <svg width="20" height="20" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+      <path d="M6 11.3 Q14 8.3 22 11.3"/>
+      <path d="M6 14.6 Q14 11.6 22 14.6"/>
+      <path d="M6 17.9 Q14 14.9 22 17.9"/>
+    </svg>
+    AwareLiquid
+  </a>
+  <h1>Page not found</h1>
+  <p>The page you're looking for doesn't exist or has been moved. Try one of these instead:</p>
+  <div class="links">
+    <a class="btn btn-primary" href="/">Go home</a>
+    <a class="btn btn-ghost" href="/research">Research</a>
+    <a class="btn btn-ghost" href="/about">About</a>
+    <a class="btn btn-ghost" href="/#demo">Try M1 Demo</a>
+  </div>
+  <footer>© 2026 AwareLiquid M1 · open research · <a href="/privacy" style="color:inherit;text-decoration:underline;text-underline-offset:3px">Privacy</a> · <a href="/terms" style="color:inherit;text-decoration:underline;text-underline-offset:3px">Terms</a><br><span style="opacity:.7">Shenzhen Santi Anyuan Technology Co., Ltd</span></footer>
+</body>
+</html>

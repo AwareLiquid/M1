@@ -1,0 +1,25 @@
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 42125.8359375, "steps": 2000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 30889.451171875, "steps": 2000}
+{"seed": 2, "selective": false, "params": 10652667, "val_ppl": 44844.94140625, "steps": 2000}
+{"seed": 0, "selective": true, "params": 10653837, "val_ppl": 56200.8125, "steps": 2000}
+{"seed": 1, "selective": true, "params": 10653837, "val_ppl": 39668.328125, "steps": 2000}
+{"seed": 2, "selective": true, "params": 10653837, "val_ppl": 28910.44921875, "steps": 2000}
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 37672.1875, "steps": 2000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 25379.908203125, "steps": 2000}
+{"seed": 2, "selective": false, "params": 10652667, "val_ppl": 37539.203125, "steps": 2000}
+{"seed": 0, "selective": true, "params": 10653837, "val_ppl": 44820.05859375, "steps": 2000}
+{"seed": 1, "selective": true, "params": 10653837, "val_ppl": 33634.71875, "steps": 2000}
+{"seed": 2, "selective": true, "params": 10653837, "val_ppl": 25751.669921875, "steps": 2000}
+
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 666.1592407226562, "steps": 2000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 674.8008422851562, "steps": 2000}
+{"seed": 2, "selective": false, "params": 10652667, "val_ppl": 678.2344970703125, "steps": 2000}
+{"seed": 0, "selective": true, "params": 10653837, "val_ppl": 662.9612426757812, "steps": 2000}
+{"seed": 1, "selective": true, "params": 10653837, "val_ppl": 671.9390258789062, "steps": 2000}
+{"seed": 2, "selective": true, "params": 10653837, "val_ppl": 677.2468872070312, "steps": 2000}
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 475.97357177734375, "steps": 8000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 470.8699951171875, "steps": 8000}
+{"seed": 2, "selective": false, "params": 10652667, "val_ppl": 471.1477966308594, "steps": 8000}
+{"seed": 0, "selective": true, "params": 10653837, "val_ppl": 465.51690673828125, "steps": 8000}
+{"seed": 1, "selective": true, "params": 10653837, "val_ppl": 476.726318359375, "steps": 8000}
+{"seed": 2, "selective": true, "params": 10653837, "val_ppl": 472.9900207519531, "steps": 8000}

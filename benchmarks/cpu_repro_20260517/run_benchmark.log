@@ -1,0 +1,86 @@
+================================================================
+ MT-LNN end-to-end benchmark: Selective Copy + AVP
+================================================================
+ device: cpu
+ torch:  2.12.0+cu130
+
+ Task: Selective Copy
+   K_mem=4, T_noise=32, T_total=37
+   vocab_size=16, SEP=15, batch=16, steps=1500
+
+ Model: MT-LNN
+   params=203.7k  d_model=104  n_layers=2
+   d_proto=8  d_proto_total=104
+   d_gw (GWTB) = 26
+
+────────────────────────────────────────────────────────────────
+ PHASE 1 — Training
+────────────────────────────────────────────────────────────────
+  step     1  loss 2.7823  tok_acc 0.125
+  step   200  loss 0.8026  tok_acc 0.656
+  step   400  loss 0.2841  tok_acc 0.906
+  step   600  loss 0.3807  tok_acc 0.812
+  step   800  loss 0.1447  tok_acc 0.938
+  step  1000  loss 0.0576  tok_acc 1.000
+  step  1200  loss 0.0971  tok_acc 0.953
+  step  1400  loss 0.0323  tok_acc 0.984
+
+ training done in 88.6s
+ final loss: 0.0323   final batch acc: 0.984
+
+────────────────────────────────────────────────────────────────
+ PHASE 2 — Held-out Selective Copy evaluation
+────────────────────────────────────────────────────────────────
+   token accuracy   : 0.956
+   sequence exact   : 0.910
+   n sequences      : 256
+   eval time        : 0.5s
+
+   random baseline (token):    0.250
+   random baseline (sequence): 0.0039
+
+────────────────────────────────────────────────────────────────
+ PHASE 3 — Anesthesia Validation Protocol (AVP)
+────────────────────────────────────────────────────────────────
+   Phi_hat vs anesthesia level:
+      kappa =  1.0   Phi_hat = -27.4912
+      kappa =  2.0   Phi_hat = -24.5030
+      kappa =  5.0   Phi_hat = -18.5141
+      kappa = 10.0   Phi_hat = -15.2110
+   Phi_hat(clean)     = -27.4912
+   Phi_hat(full)      = -15.2110
+   absolute change    = +12.2802
+   signed rel change  = +44.7%
+   collapse_pct       = 0.0%  (threshold 70%)
+   monotone decrease  = False
+   AVP                = FAILED
+   eval time      : 0.7s
+
+────────────────────────────────────────────────────────────────
+ Final MT diagnostics
+────────────────────────────────────────────────────────────────
+   coherence_scale                     : -0.0077
+   collapse_gate_last                  : +0.0000
+   collapse_threshold                  : +0.3428
+   gamma_mean                          : +0.0873
+   gwtb_broadcast_gate                 : +0.0017
+   gwtb_d_gw                           : +26.0000
+   lat_coupling_mean_off_diag_norm     : +0.6750
+   polarity_mean                       : +0.0420
+   polarity_std                        : +0.4660
+   rmc_gate_mean                       : +0.1236
+   tau_max                             : +10.0000
+   tau_mean                            : +2.4281
+   tau_min                             : +0.0100
+   tau_std                             : +3.8531
+
+ Checkpoint saved → checkpoints/selective_copy.pt
+
+================================================================
+ SUMMARY
+================================================================
+   Selective Copy token accuracy:    0.956  (random 0.250)
+   Selective Copy sequence exact:    0.910  (random 0.0039)
+   AVP Phi_hat collapse:             0.0%  (fail)
+   wall-clock (train + eval + AVP):  89.8s
+================================================================

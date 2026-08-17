@@ -1,0 +1,281 @@
+{
+  "backend": "echo",
+  "n_questions": 30,
+  "no_inject_accuracy": 0.0,
+  "inject_accuracy": 1.0,
+  "uplift_abs": 1.0,
+  "uplift_rel": null,
+  "wall_s": 0.0,
+  "per_question": [
+    {
+      "id": "q01",
+      "question": "Who proposed M-theory and in what year?",
+      "reference_answer": "Witten",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "M-theory was proposed by Edward Witten in 1995, unifying the five superstring theories.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q02",
+      "question": "What is the capital of Japan and how populous is its metro area?",
+      "reference_answer": "Tokyo",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Tokyo is the capital of Japan; the Greater Tokyo metro area is the most populous in the world.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q03",
+      "question": "Briefly, what is AwareLiquid?",
+      "reference_answer": "O(1)",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "AwareLiquid is an O(1) recurrent state engine inspired by microtubule dynamics.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q04",
+      "question": "How does Mamba compare to MT-LNN on extreme long context?",
+      "reference_answer": "struggles",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Mamba is a selective state-space model; struggles on extreme long context vs MT-LNN.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q05",
+      "question": "What scale does quantum mechanics describe?",
+      "reference_answer": "atomic",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Quantum mechanics describes nature at atomic and subatomic scales.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q06",
+      "question": "Who composed the opera 'The Magic Flute'?",
+      "reference_answer": "Mozart",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The Magic Flute is an opera composed by Wolfgang Amadeus Mozart, premiered in 1791.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q07",
+      "question": "What is the boiling point of water at sea level in Celsius?",
+      "reference_answer": "100",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "At standard atmospheric pressure (sea level), water boils at 100 degrees Celsius.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q08",
+      "question": "Which planet has the most moons in our solar system?",
+      "reference_answer": "Saturn",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Saturn currently has the most confirmed moons in the solar system, with 146 as of 2023.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q09",
+      "question": "Who painted the Mona Lisa?",
+      "reference_answer": "Leonardo",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The Mona Lisa was painted by Leonardo da Vinci between roughly 1503 and 1519.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q10",
+      "question": "What is the chemical symbol for gold?",
+      "reference_answer": "Au",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The chemical symbol for gold is Au, from the Latin 'aurum'.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q11",
+      "question": "Who wrote 'One Hundred Years of Solitude'?",
+      "reference_answer": "Garcia Marquez",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "'One Hundred Years of Solitude' was written by Gabriel Garcia Marquez, published in 1967.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q12",
+      "question": "What is the speed of light in vacuum (approx, m/s)?",
+      "reference_answer": "299",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The speed of light in vacuum is approximately 299,792,458 meters per second.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q13",
+      "question": "Which year did the Berlin Wall fall?",
+      "reference_answer": "1989",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The Berlin Wall fell on November 9, 1989, marking a turning point in the Cold War.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q14",
+      "question": "Who discovered penicillin?",
+      "reference_answer": "Fleming",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Penicillin was discovered by Alexander Fleming in 1928.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q15",
+      "question": "What is the tallest mountain on Earth?",
+      "reference_answer": "Everest",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Mount Everest is the tallest mountain on Earth, with a summit at 8,848.86 meters above sea level.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q16",
+      "question": "What language is primarily spoken in Brazil?",
+      "reference_answer": "Portuguese",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Brazil is the largest Portuguese-speaking country in the world.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q17",
+      "question": "Who developed the theory of general relativity?",
+      "reference_answer": "Einstein",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "General relativity was developed by Albert Einstein, published in 1915.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q18",
+      "question": "What is the largest ocean on Earth?",
+      "reference_answer": "Pacific",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The Pacific Ocean is the largest of Earth's five oceans by area and volume.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q19",
+      "question": "In what year did humans first land on the Moon?",
+      "reference_answer": "1969",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Apollo 11 landed humans on the Moon on July 20, 1969.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q20",
+      "question": "Which element has atomic number 1?",
+      "reference_answer": "Hydrogen",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Hydrogen has atomic number 1 and is the most abundant chemical element in the universe.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q21",
+      "question": "Who founded SpaceX?",
+      "reference_answer": "Musk",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "SpaceX was founded by Elon Musk in 2002.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q22",
+      "question": "What is the deepest known point in the Earth's oceans?",
+      "reference_answer": "Mariana",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The deepest known point is the Challenger Deep in the Mariana Trench, around 10,994 m.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q23",
+      "question": "Which artist cut off part of his own ear?",
+      "reference_answer": "Van Gogh",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Vincent van Gogh famously cut off part of his left ear in December 1888.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q24",
+      "question": "Where were the 2008 Summer Olympics held?",
+      "reference_answer": "Beijing",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The 2008 Summer Olympic Games were held in Beijing, China.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q25",
+      "question": "What protein domain helps proteins fold?",
+      "reference_answer": "chaperone",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Molecular chaperones are proteins that assist the folding of other proteins.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q26",
+      "question": "Who wrote the play 'Hamlet'?",
+      "reference_answer": "Shakespeare",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Hamlet was written by William Shakespeare around 1600.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q27",
+      "question": "Which programming language was created by Guido van Rossum?",
+      "reference_answer": "Python",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Python was created by Guido van Rossum and first released in 1991.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q28",
+      "question": "What is the smallest country in the world by area?",
+      "reference_answer": "Vatican",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "Vatican City is the smallest country in the world by area, about 0.49 km^2.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q29",
+      "question": "Who is the author of '1984'?",
+      "reference_answer": "Orwell",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The novel '1984' was written by George Orwell, published in 1949.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    },
+    {
+      "id": "q30",
+      "question": "What is the longest river in the world?",
+      "reference_answer": "Nile",
+      "no_inject_generated": "I do not know.",
+      "inject_generated": "The Nile is widely regarded as the longest river in the world at about 6,650 km.",
+      "no_inject_hit": false,
+      "inject_hit": true
+    }
+  ]
+}

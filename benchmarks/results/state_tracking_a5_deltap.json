@@ -1,0 +1,109 @@
+{
+  "args": {
+    "steps": 20000,
+    "seeds": 2,
+    "batch": 64,
+    "train_len": 16,
+    "test_len": 48,
+    "d_model": 64,
+    "n_proto": 4,
+    "n_scales": 4,
+    "probe_layers": 1,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "sel_mode": "exp",
+    "arms": [
+      "lstm_control",
+      "liquid_both",
+      "liquid_deltap"
+    ],
+    "out": "benchmarks/results/state_tracking_a5_deltap.json"
+  },
+  "results": {
+    "lstm_control": {
+      "runs": [
+        {
+          "final_loss": 0.05140349641442299,
+          "params": 41148,
+          "in_dist": 0.9453125,
+          "in_dist_tok": 0.9888117283950617,
+          "extrapolate": 0.482421875,
+          "extrapolate_tok": 0.853202846975089,
+          "seed": 0,
+          "secs": 91.9
+        },
+        {
+          "final_loss": 0.0011453728657215834,
+          "params": 41148,
+          "in_dist": 0.95703125,
+          "in_dist_tok": 0.9875919117647058,
+          "extrapolate": 0.3828125,
+          "extrapolate_tok": 0.8058608058608059,
+          "seed": 1,
+          "secs": 83.8
+        }
+      ],
+      "in_dist_mean": 0.951171875,
+      "in_dist_tok_mean": 0.9882018200798838,
+      "extrapolate_mean": 0.4326171875,
+      "extrapolate_tok_mean": 0.8295318264179474
+    },
+    "liquid_both": {
+      "runs": [
+        {
+          "final_loss": 3.5265026092529297,
+          "params": 31175,
+          "in_dist": 0.125,
+          "in_dist_tok": 0.20891203703703703,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.07645685053380782,
+          "seed": 0,
+          "secs": 410.7
+        },
+        {
+          "final_loss": 2.767758369445801,
+          "params": 31175,
+          "in_dist": 0.0,
+          "in_dist_tok": 0.24034926470588236,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.07251602564102565,
+          "seed": 1,
+          "secs": 351.2
+        }
+      ],
+      "in_dist_mean": 0.0625,
+      "in_dist_tok_mean": 0.2246306508714597,
+      "extrapolate_mean": 0.0,
+      "extrapolate_tok_mean": 0.07448643808741673
+    },
+    "liquid_deltap": {
+      "runs": [
+        {
+          "final_loss": NaN,
+          "params": 35663,
+          "in_dist": 0.001953125,
+          "in_dist_tok": 0.019675925925925927,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.017293149466192172,
+          "seed": 0,
+          "secs": 1056.4
+        },
+        {
+          "final_loss": NaN,
+          "params": 35663,
+          "in_dist": 0.0,
+          "in_dist_tok": 0.018612132352941176,
+          "extrapolate": 0.0,
+          "extrapolate_tok": 0.01665521978021978,
+          "seed": 1,
+          "secs": 1123.1
+        }
+      ],
+      "in_dist_mean": 0.0009765625,
+      "in_dist_tok_mean": 0.01914402913943355,
+      "extrapolate_mean": 0.0,
+      "extrapolate_tok_mean": 0.016974184623205976
+    }
+  }
+}

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AwareLiquid · Reasoning Trace Timeline</title>
+<style>
+  :root {
+    --bg:#0d1117; --fg:#e6edf3; --muted:#7d8590;
+    --local:#3fb950; --critique:#d29922; --cloud:#58a6ff; --inject:#bc8cff;
+    --panel:#161b22; --border:#30363d;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system,Segoe UI,Helvetica,sans-serif; font-size:14px; }
+  header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:16px; }
+  header h1 { margin:0; font-size:16px; font-weight:600; }
+  header .sub { color:var(--muted); font-size:12px; }
+  input[type=file] { color:var(--muted); }
+  main { display:grid; grid-template-columns: 1fr 320px; gap:0; height:calc(100vh - 65px); }
+  #timeline-wrap { padding:24px; overflow-y:auto; }
+  #legend { display:flex; gap:16px; margin-bottom:16px; font-size:12px; color:var(--muted); flex-wrap:wrap; }
+  .chip { display:inline-flex; align-items:center; gap:6px; }
+  .chip-dot { width:10px; height:10px; border-radius:2px; display:inline-block; }
+  #timeline { display:flex; flex-wrap:wrap; gap:2px; align-content:flex-start; }
+  .tok {
+    position:relative; min-width:14px; height:32px; cursor:pointer;
+    border-radius:3px; transition:transform 0.1s;
+    display:flex; align-items:flex-end; justify-content:center;
+    font-size:10px; color:rgba(255,255,255,0.85);
+    padding:1px 2px;
+  }
+  .tok:hover { transform:scale(1.3); z-index:10; outline:1px solid #fff; }
+  .tok.local    { background:var(--local); }
+  .tok.self_critique { background:var(--critique); }
+  .tok.cloud    { background:var(--cloud); }
+  .tok.inject   { background:var(--inject); border:2px solid #fff; }
+  .tok.has-phi::after {
+    content:""; position:absolute; top:-5px; left:50%; width:6px; height:6px;
+    background:#f78166; border-radius:50%; transform:translateX(-50%);
+  }
+  aside { background:var(--panel); border-left:1px solid var(--border); padding:20px; overflow-y:auto; }
+  aside h2 { margin:0 0 12px; font-size:13px; text-transform:uppercase; color:var(--muted); letter-spacing:1px; }
+  .stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .stat-val { color:var(--fg); font-variant-numeric:tabular-nums; }
+  #detail { font-size:12px; line-height:1.6; }
+  #detail pre { background:#0d1117; padding:8px; border-radius:4px; overflow-x:auto; font-size:11px; color:var(--muted); }
+  .empty { color:var(--muted); padding:40px; text-align:center; }
+  .badge { display:inline-block; padding:1px 6px; border-radius:3px; font-size:10px; font-weight:600; }
+  .badge.local { background:var(--local); color:#000; }
+  .badge.self_critique { background:var(--critique); color:#000; }
+  .badge.cloud { background:var(--cloud); color:#000; }
+  .badge.inject { background:var(--inject); color:#000; }
+  #compare { margin-top:24px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+  #compare strong { color:var(--fg); }
+</style>
+</head>
+<body>
+<header>
+  <h1>AwareLiquid · Reasoning Trace Timeline</h1>
+  <span class="sub">drop a <code>*.trace.jsonl</code> file →</span>
+  <input id="file" type="file" accept=".jsonl,.json,.log">
+  <span id="status" class="sub"></span>
+</header>
+<main>
+  <section id="timeline-wrap">
+    <div id="legend">
+      <span class="chip"><span class="chip-dot" style="background:var(--local)"></span>LOCAL (low entropy → direct decode)</span>
+      <span class="chip"><span class="chip-dot" style="background:var(--critique)"></span>SELF_CRITIQUE (mid entropy)</span>
+      <span class="chip"><span class="chip-dot" style="background:var(--cloud)"></span>CLOUD (high entropy + fact_gap)</span>
+      <span class="chip"><span class="chip-dot" style="background:var(--inject)"></span>INJECT (cloud fact absorbed)</span>
+      <span class="chip"><span class="chip-dot" style="background:#f78166;border-radius:50%"></span>Φ̂ sampled</span>
+      <span class="chip" style="margin-left:auto">bar height ∝ entropy</span>
+    </div>
+    <div id="timeline">
+      <div class="empty">Load a reasoning trace to see the timeline.<br><br>
+      Generate one with:<br>
+      <code style="color:var(--fg)">python demo_awareliquid_v2.py --phi_every 8 --prompt "..."</code><br>
+      then drop <code style="color:var(--fg)">session_v2.trace.jsonl</code> here.</div>
+    </div>
+  </section>
+  <aside>
+    <h2>Session Stats</h2>
+    <div id="stats" class="empty" style="padding:0; text-align:left">No trace loaded.</div>
+    <h2 style="margin-top:24px">Selected Step</h2>
+    <div id="detail" class="empty" style="padding:0; text-align:left">Click any token bar.</div>
+    <div id="compare">
+      <strong>Why this view matters:</strong><br><br>
+      Gemini's "thinking summary" gives you a paragraph after the fact.<br><br>
+      AwareLiquid emits one JSONL row per token: entropy, route, source of any injected fact. Every reasoning step is replayable, auditable, and diffable.
+    </div>
+  </aside>
+</main>
+
+<script>
+const fileInput = document.getElementById('file');
+const timeline = document.getElementById('timeline');
+const statsEl = document.getElementById('stats');
+const detailEl = document.getElementById('detail');
+const statusEl = document.getElementById('status');
+
+fileInput.addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const text = await f.text();
+  const rows = text.split('\n').filter(l => l.trim()).map(l => {
+    try { return JSON.parse(l); } catch { return null; }
+  }).filter(Boolean);
+  statusEl.textContent = `loaded ${rows.length} rows · ${f.name}`;
+  render(rows);
+});
+
+function render(rows) {
+  const tokens = rows.filter(r => r.event === 'token');
+  const routes = rows.filter(r => r.event === 'route');
+  const injects = rows.filter(r => r.event === 'cloud_inject');
+
+  if (!tokens.length) {
+    timeline.innerHTML = '<div class="empty">No "token" events in this file.</div>';
+    return;
+  }
+
+  // Stats
+  const total = tokens.length;
+  const byRoute = {local:0, self_critique:0, cloud:0};
+  let entSum = 0, entMax = 0;
+  const phiVals = [];
+  tokens.forEach(t => {
+    byRoute[t.route] = (byRoute[t.route]||0) + 1;
+    entSum += t.entropy;
+    entMax = Math.max(entMax, t.entropy);
+    if (typeof t.phi === 'number') phiVals.push(t.phi);
+  });
+
+  statsEl.innerHTML = `
+    <div class="stat"><span>Total tokens</span><span class="stat-val">${total}</span></div>
+    <div class="stat"><span>LOCAL</span><span class="stat-val">${byRoute.local} (${pct(byRoute.local,total)})</span></div>
+    <div class="stat"><span>SELF_CRITIQUE</span><span class="stat-val">${byRoute.self_critique} (${pct(byRoute.self_critique,total)})</span></div>
+    <div class="stat"><span>CLOUD</span><span class="stat-val">${byRoute.cloud} (${pct(byRoute.cloud,total)})</span></div>
+    <div class="stat"><span>Cloud injects</span><span class="stat-val">${injects.length}</span></div>
+    <div class="stat"><span>Mean entropy</span><span class="stat-val">${(entSum/total).toFixed(2)}</span></div>
+    <div class="stat"><span>Max entropy</span><span class="stat-val">${entMax.toFixed(2)}</span></div>
+    <div class="stat"><span>Φ̂ samples</span><span class="stat-val">${phiVals.length}</span></div>
+    ${phiVals.length ? `<div class="stat"><span>Mean Φ̂</span><span class="stat-val">${(phiVals.reduce((a,b)=>a+b,0)/phiVals.length).toFixed(3)}</span></div>` : ''}
+    <div class="stat"><span>Session</span><span class="stat-val" style="font-size:11px">${tokens[0].session_id||'-'}</span></div>
+  `;
+
+  // Timeline bars
+  timeline.innerHTML = '';
+  // Stitch in inject markers at their step boundaries
+  const injectAtStep = {};
+  injects.forEach(i => { injectAtStep[i.step] = i; });
+
+  tokens.forEach(t => {
+    const div = document.createElement('div');
+    const route = t.route in {local:1,self_critique:1,cloud:1} ? t.route : 'local';
+    div.className = 'tok ' + route + (typeof t.phi === 'number' ? ' has-phi' : '');
+    const heightPct = Math.max(20, Math.min(100, 100 * t.entropy / (entMax || 1)));
+    div.style.height = (12 + 0.36 * heightPct) + 'px';
+    div.title = `step ${t.step} · ${route} · H=${t.entropy.toFixed(2)}${t.phi!=null?' · Φ̂='+t.phi.toFixed(3):''}`;
+    div.addEventListener('click', () => showDetail(t, injectAtStep[t.step]));
+    timeline.appendChild(div);
+
+    if (injectAtStep[t.step]) {
+      const mark = document.createElement('div');
+      mark.className = 'tok inject';
+      mark.style.height = '36px';
+      mark.textContent = '◆';
+      mark.title = `INJECT @ step ${t.step} · ${injectAtStep[t.step].source} · "${injectAtStep[t.step].query}"`;
+      mark.addEventListener('click', () => showDetail(injectAtStep[t.step], injectAtStep[t.step]));
+      timeline.appendChild(mark);
+    }
+  });
+}
+
+function showDetail(t, inj) {
+  const lines = [];
+  lines.push(`<div><span class="badge ${t.route||t.source||'local'}">${(t.route||t.event||'').toUpperCase()}</span> step <strong>${t.step}</strong></div>`);
+  if (typeof t.entropy === 'number') lines.push(`entropy: <strong>${t.entropy.toFixed(3)}</strong>`);
+  if (typeof t.phi === 'number') lines.push(`Φ̂: <strong>${t.phi.toFixed(4)}</strong>`);
+  if (t.token_id != null) lines.push(`token_id: <strong>${t.token_id}</strong>`);
+  if (inj) {
+    lines.push(`<br><strong>Cloud Inject</strong>`);
+    lines.push(`source: <strong>${inj.source}</strong>`);
+    lines.push(`query: <em>${escapeHtml(inj.query)}</em>`);
+    lines.push(`fact_len: ${inj.fact_len}B`);
+  }
+  lines.push(`<br><pre>${escapeHtml(JSON.stringify(t, null, 2))}</pre>`);
+  detailEl.innerHTML = lines.join('<br>');
+}
+
+function pct(a,b){ return b ? (100*a/b).toFixed(1)+'%' : '0%'; }
+function escapeHtml(s){ return String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>

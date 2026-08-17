@@ -1,0 +1,21 @@
+# Keep the serving image small — only mt_lnn/ + serve/ are needed at runtime.
+.venv*/
+__pycache__/
+*.pyc
+.git/
+.github/
+checkpoints/
+data/
+assets/
+benchmarks/
+tests/
+docs/
+*.pt
+*.db
+*.log
+*.json
+*.tex
+*.pdf
+*.png
+wandb/
+.mt_lnn_state.db

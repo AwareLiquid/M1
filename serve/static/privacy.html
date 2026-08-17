@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy | AwareLiquid</title>
+<meta name="description" content="Privacy Policy for AwareLiquid — what data the research demo collects, how it is stored, and your rights.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://awareliquid.ai/privacy">
+<meta property="og:title" content="Privacy Policy · AwareLiquid">
+<meta property="og:description" content="Privacy Policy for the AwareLiquid research demo.">
+<meta property="og:image" content="https://awareliquid.ai/static/og-image.png">
+<meta property="og:site_name" content="AwareLiquid">
+<link rel="canonical" href="https://awareliquid.ai/privacy">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#0e0e10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<script type="application/ld+json">
+[
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Privacy Policy — AwareLiquid",
+  "url": "https://awareliquid.ai/privacy",
+  "isPartOf": {"@type": "WebSite", "name": "AwareLiquid", "url": "https://awareliquid.ai"}
+},
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "AwareLiquid", "item": "https://awareliquid.ai/"},
+    {"@type": "ListItem", "position": 2, "name": "Privacy Policy", "item": "https://awareliquid.ai/privacy"}
+  ]
+}
+]
+</script>
+<style>
+:root{
+  --bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;
+  --card:#f9f9fb;--radius:16px;--col:1120px;--prose:720px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
+
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;}
+  .nav{background:rgba(14,14,16,.85)}
+  a{color:var(--fg)}
+}
+html{color-scheme:light dark;scroll-behavior:smooth}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:16px;line-height:1.75;overflow-x:hidden}
+a{color:var(--fg);text-decoration:none}
+.skip-nav{position:absolute;top:-999px;left:8px;background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:4px;font-size:14px;font-weight:600;z-index:9999;text-decoration:none}
+.skip-nav:focus{top:8px}
+.container{max-width:var(--col);margin:0 auto;padding:0 24px}
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);background:rgba(255,255,255,.85);border-bottom:1px solid var(--line)}
+.nav-inner{height:64px;display:flex;align-items:center}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:.1px;flex:none;color:var(--fg)}
+.logo{width:20px;height:20px;color:var(--fg);flex:none}
+.nav-links{display:flex;align-items:center;gap:2px;margin-left:32px;flex:1}
+.nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:4px;transition:color .15s,background .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--fg);background:var(--card)}
+.nav-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.btn{display:inline-flex;align-items:center;font:inherit;font-size:14px;font-weight:500;border-radius:4px;cursor:pointer;transition:all .15s;border:1px solid transparent;text-decoration:none;padding:8px 18px}
+.btn-primary{background:var(--fg);color:var(--bg)}.btn-primary:hover{opacity:.85}
+.btn-ghost{background:transparent;color:var(--fg);border-color:var(--line)}.btn-ghost:hover{background:var(--card)}
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--fg);padding:8px}
+.theme-btn{background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:border-color .15s,color .15s;flex:none;padding:0}
+.theme-btn:hover{border-color:var(--fg);color:var(--fg)}
+@media(max-width:720px){
+  .nav-links{display:none;position:fixed;top:64px;left:0;right:0;background:var(--bg);border-bottom:1px solid var(--line);flex-direction:column;padding:12px 16px 16px;gap:2px;z-index:99}
+  .nav-links.open{display:flex}
+  .nav-toggle{display:flex;align-items:center;justify-content:center;margin-left:auto}
+  .nav-actions .btn{display:none}
+}
+.page-hero{padding:120px 0 56px;border-bottom:1px solid var(--line)}
+.page-hero .eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.page-hero h1{font-size:clamp(28px,4vw,42px);font-weight:400;letter-spacing:-.03em;line-height:1.15;margin-bottom:12px}
+.page-hero .meta{font-size:14px;color:var(--muted)}
+.prose{max-width:var(--prose);margin:0 auto;padding:64px 24px 96px}
+.prose h2{font-size:19px;font-weight:400;letter-spacing:-.02em;margin:48px 0 12px;padding-top:8px;border-top:1px solid var(--line)}
+.prose h2:first-child{margin-top:0;border-top:none;padding-top:0}
+.prose p{margin-bottom:14px;font-size:15.5px;line-height:1.75;color:var(--fg)}
+.prose ul{margin:0 0 16px 20px}
+.prose li{margin:6px 0;font-size:15.5px;line-height:1.7}
+.prose strong{font-weight:650}
+.prose a{color:var(--fg);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.prose a:hover{text-decoration-color:var(--fg)}
+.callout{background:transparent;border:0;border-top:1px solid var(--rule);border-left:3px solid var(--fg);padding:18px 22px;margin:20px 0;font-size:15px;line-height:1.7}
+.data-table{width:100%;border-collapse:collapse;font-size:14px;border:0;border-top:1px solid var(--rule);overflow:hidden;margin:20px 0}
+.data-table th,.data-table td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+.data-table th{font-weight:600;font-size:12px;color:var(--muted);background:var(--card)}
+.data-table tr:last-child td{border-bottom:none}
+.footer{background:var(--card);border-top:1px solid var(--line);padding:48px 0 0}
+.footer-inner{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:48px;padding-bottom:48px}
+@media(max-width:860px){.footer-inner{grid-template-columns:1fr 1fr;gap:32px}}
+@media(max-width:480px){.footer-inner{grid-template-columns:1fr;gap:28px}}
+.footer-brand .brand{font-size:15px;font-weight:650;display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.footer-brand p{font-size:13.5px;color:var(--muted);line-height:1.65;max-width:260px;margin-bottom:16px}
+.footer-gh{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:6px 12px;transition:border-color .15s}
+.footer-gh:hover{border-color:var(--fg);color:var(--fg)}
+.footer-col h4{font-size:12px;font-weight:400;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+.footer-col a{display:block;font-size:13.5px;color:var(--muted);margin-bottom:8px;transition:color .15s}
+.footer-col a:hover{color:var(--fg)}
+.footer-bottom{border-top:1px solid var(--line);padding:20px 0}
+.footer-bottom-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--muted)}
+.footer-bottom a{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
+.footer-legal{display:flex;flex-direction:column;gap:3px;min-width:0}
+.footer-entity{opacity:.7}
+html[data-theme="dark"]{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;color-scheme:dark}
+html[data-theme="dark"] .nav{background:rgba(14,14,16,.85)}
+html[data-theme="dark"] a{color:var(--fg)}
+html[data-theme="light"]{--bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;color-scheme:light}
+html[data-theme="light"] .nav{background:rgba(255,255,255,.85)}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+</style>
+</head>
+<body>
+<a class="skip-nav" href="#main-content">Skip to main content</a>
+
+<header class="nav" id="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="/">
+      <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+        <path d="M6 11.3 Q14 8.3 22 11.3"/>
+        <path d="M6 14.6 Q14 11.6 22 14.6"/>
+        <path d="M6 17.9 Q14 14.9 22 17.9"/>
+      </svg>
+      AwareLiquid
+    </a>
+    <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
+      <a href="/#demo">Demo</a>
+      <a href="/research">Research</a>
+      <a href="/about">About</a>
+      <a href="https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper</a>
+      <a href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <div class="nav-actions">
+      <button class="theme-btn" id="themeBtn" aria-label="Toggle dark mode">
+        <svg id="themeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+      <a class="btn btn-ghost" href="/#demo">Try Demo</a>
+      <a class="btn btn-primary" href="/research">Research</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M3 5h14M3 10h14M3 15h14"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<main id="main-content">
+
+<section class="page-hero">
+  <div class="container">
+    <span class="eyebrow">Legal</span>
+    <h1>Privacy Policy</h1>
+    <p class="meta">Effective date: <time datetime="2026-06-25">25 June 2026</time> &nbsp;·&nbsp; Last updated: <time datetime="2026-06-25">25 June 2026</time></p>
+  </div>
+</section>
+
+<div class="prose">
+
+  <div class="callout">
+    <strong>Short version:</strong> AwareLiquid is an open research demo. We collect the minimum data necessary to operate the live demo and episodic memory features. We do not sell data, run third-party ad trackers, or store payment information. We never will.
+  </div>
+
+  <h2>1. Who We Are</h2>
+  <p><strong>AwareLiquid</strong> (also referred to as "MT-LNN", "the Project", "we", "us") is an open research project maintained by its contributors. The live demo is hosted at <strong>awareliquid.ai</strong>. This project is <strong>not affiliated with Liquid AI, Inc.</strong> or any of its products.</p>
+  <p>Contact for privacy matters: via <a href="https://github.com/AwareLiquid/M1/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a> (label: <code>privacy</code>).</p>
+
+  <h2>2. What Data We Collect</h2>
+  <table class="data-table">
+    <thead><tr><th>Data type</th><th>Why</th><th>Where stored</th><th>Retention</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Demo inputs</strong> — text you type into the live demo</td><td>Required to generate a model response</td><td>In-memory only during inference; not written to disk by default</td><td>Cleared on request completion</td></tr>
+      <tr><td><strong>Episodic memory cards</strong> — identity / preference / emotion / plan / relationship / health / detail tags extracted from your conversation</td><td>Powers the "persistent memory" feature — the model recalls what you told it in the same session</td><td>Server-side SQLite (<code>SESSION_DB</code>) if the memory feature is active</td><td>Per-session; cleared when the session expires or on request</td></tr>
+      <tr><td><strong>Server logs</strong> — IP address, timestamp, HTTP method, path, response code</td><td>Standard web server operation; error diagnosis</td><td>Host server log files</td><td>Up to 30 days, then rotated</td></tr>
+      <tr><td><strong>No cookies</strong></td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td><strong>No analytics trackers</strong></td><td>No Google Analytics, Mixpanel, or similar</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Third-Party Model Processing</h2>
+  <p>The <strong>M1</strong> demo model runs on top of <strong>TinyLlama-1.1B-Chat</strong>, a model loaded from the <a href="https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0" target="_blank" rel="noopener noreferrer">Hugging Face Hub</a> at server startup. Your inputs are processed entirely on the AwareLiquid server — they are <strong>not</strong> sent to Hugging Face or any third party at inference time. The model weights are downloaded once and run locally.</p>
+
+  <h2>4. How We Use Data</h2>
+  <ul>
+    <li>To generate text responses to your demo inputs.</li>
+    <li>To maintain within-session episodic memory (if the feature is active).</li>
+    <li>To diagnose server errors and maintain uptime.</li>
+    <li>We do <strong>not</strong> use your inputs to retrain or fine-tune any model.</li>
+    <li>We do <strong>not</strong> share, sell, or license any user data to third parties.</li>
+  </ul>
+
+  <h2>5. Data Subject Rights</h2>
+  <p>You may request deletion of any stored session memory or server logs referencing your IP address by opening a <a href="https://github.com/AwareLiquid/M1/issues" target="_blank" rel="noopener noreferrer">GitHub Issue</a> labelled <code>privacy</code>. We will respond within 30 days. Because we do not collect account information or email addresses, verification is by IP address or session token you provide.</p>
+
+  <h2>6. Research Demo Scope</h2>
+  <p>AwareLiquid is an <strong>open research prototype</strong>. The demo is provided for research and evaluation purposes only. There is no paid service, no user accounts, and no personal data collected beyond what is described above. The demo carries no SLA and may be taken offline without notice.</p>
+  <p>Do not input sensitive personal data — medical information, passwords, financial details, or third-party confidential information — into the demo. The demo is not designed or audited for handling such data.</p>
+
+  <h2>7. Security</h2>
+  <p>The server enforces HTTPS, <code>Content-Security-Policy</code>, <code>X-Content-Type-Options</code>, <code>X-Frame-Options: DENY</code>, and <code>Strict-Transport-Security</code> headers. GZip compression is applied to responses. No user passwords or payment data are stored.</p>
+
+  <h2>8. Children</h2>
+  <p>AwareLiquid is not directed at children under 13. We do not knowingly collect data from children.</p>
+
+  <h2>9. Changes to This Policy</h2>
+  <p>We may update this policy as the project evolves. Changes are reflected in the "Last updated" date above and committed to the <a href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">GitHub repository</a>. Continued use of the demo after a change constitutes acceptance.</p>
+
+  <h2>10. Contact</h2>
+  <p>Privacy enquiries: <a href="https://github.com/AwareLiquid/M1/issues" target="_blank" rel="noopener noreferrer">github.com/AwareLiquid/M1 → Issues</a> (label: <code>privacy</code>).</p>
+
+</div>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="/">
+        <svg class="logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+          <path d="M6 11.3 Q14 8.3 22 11.3"/>
+          <path d="M6 14.6 Q14 11.6 22 14.6"/>
+          <path d="M6 17.9 Q14 14.9 22 17.9"/>
+        </svg>
+        AwareLiquid
+      </a>
+      <p>Bio-inspired cognitive AI framework. M-Series: cognitive slow-thinking. O-Series: liquid-ODE edge. Open research.</p>
+      <a class="footer-gh" href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        github.com/AwareLiquid/M1
+      </a>
+    </div>
+    <nav class="footer-col" aria-label="Research navigation">
+      <h4>Research</h4>
+      <a href="/research#architecture">Architecture</a>
+      <a href="/research#ewc">EWC Results</a>
+      <a href="/research#hebbian">Hebbian Ablation</a>
+      <a href="/research#spatial">Spatial Computing</a>
+      <a href="https://github.com/AwareLiquid/M1/blob/main/mt_lnn_v2_reliable_long_pretraining_arxiv.pdf" target="_blank" rel="noopener noreferrer">Paper (PDF)</a>
+    </nav>
+    <nav class="footer-col" aria-label="Project navigation">
+      <h4>Project</h4>
+      <a href="/about">About</a>
+      <a href="/#demo">Live Demo</a>
+      <a href="https://github.com/AwareLiquid/M1" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+    <nav class="footer-col" aria-label="Legal navigation">
+      <h4>Legal</h4>
+      <a href="/privacy" aria-current="page">Privacy Policy</a>
+      <a href="/terms">Terms of Use</a>
+      <a href="/v1/model" target="_blank">Model API</a>
+      <a href="/health" target="_blank">Health</a>
+    </nav>
+  </div>
+  <div class="footer-bottom">
+    <div class="container footer-bottom-inner">
+      <span class="footer-legal">
+        <span class="footer-copy">© 2026 AwareLiquid · open research demo</span>
+        <span class="footer-entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
+      </span>
+      <span>
+        <a href="/privacy">Privacy</a> &nbsp;·&nbsp;
+        <a href="/terms">Terms</a> &nbsp;·&nbsp;
+        Built on <a href="https://github.com/raminmh/liquid_time_constant_networks" target="_blank" rel="noopener noreferrer">MIT LNN</a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const navToggle=document.getElementById('navToggle'),navLinks=document.getElementById('navLinks');
+navToggle.addEventListener('click',()=>navLinks.classList.toggle('open'));
+navLinks.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>navLinks.classList.remove('open')));
+const navEl=document.getElementById('nav');
+window.addEventListener('scroll',()=>{navEl.style.boxShadow=window.scrollY>10?'0 1px 24px rgba(0,0,0,.08)':'none';},{passive:true});
+const themeBtn=document.getElementById('themeBtn'),themeIcon=document.getElementById('themeIcon');
+const SUN='<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="5"/>',
+      MOON='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+// applyTheme() used to persist on every call, and it ran on load — so merely
+// opening this page pinned the whole site to whatever theme was current and it
+// stopped following the OS. Only an explicit click writes now.
+const saved=localStorage.getItem('theme');
+function applyTheme(t,persist){document.documentElement.setAttribute('data-theme',t);themeIcon.innerHTML=t==='dark'?SUN:MOON;if(persist)localStorage.setItem('theme',t);}
+applyTheme(saved||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'),false);
+if(!saved){window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{if(!localStorage.getItem('theme'))applyTheme(e.matches?'dark':'light',false);});}
+themeBtn.addEventListener('click',()=>applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark',true));
+</script>
+</body>
+</html>

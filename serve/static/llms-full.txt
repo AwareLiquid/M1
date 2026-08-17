@@ -1,0 +1,269 @@
+# AwareLiquid — Full Content Reference for AI Crawlers
+# Generated: 2026-07-30 | Version: 2.3 (retractions applied — see EXPERIMENT 2 and 3)
+# This file provides a machine-readable, citation-friendly dump of all
+# key facts, experimental results, and methodology for AI indexing.
+
+---
+
+## ENTITY DEFINITION
+
+AwareLiquid is a bio-inspired cognitive AI framework organised into two model series:
+
+- **M-Series** (flagship: M1) — cognitive slow-thinking engine: GWT (Global Workspace Theory) competitive broadcast + NREM sleep consolidation with SHY synaptic downscaling + EWC (Elastic Weight Consolidation) continual learning. Targets episodic memory, agent cognition, catastrophic forgetting research.
+- **O-Series** (flagship: O1) — edge fast-thinking engine: continuous-time liquid ODE with learnable time constants, microtubule-inspired dynamics, constant-memory state (no KV-cache growth). Targets CPU / edge deployment at millisecond latency.
+
+The underlying architecture is MT-LNN (Multi-Timescale Liquid Neural Network), a continuous-time recurrent neural network (LTC — liquid time-constant network) augmented with neuroscience-inspired modules.
+
+Tagline: "Beyond Next-Token Prediction. Towards Cognitive Artificial Life."
+
+Canonical URL: https://awareliquid.ai
+Repository: https://github.com/AwareLiquid/M1
+Paper: AwareLiquid M1 — Bio-inspired Continual Learning with GWT, Sleep Consolidation, and EWC (arXiv preprint, also known as MT-LNN v2: Reliable Long Pre-training)
+License: Open (see GitHub repository)
+Last updated: June 2026
+
+---
+
+## MODEL SERIES
+
+### M-Series (Cognitive / Slow Thinking)
+Flagship: AwareLiquid M1
+Core mechanisms: GWT-B competitive global workspace broadcast + NREM sleep consolidation with SHY synaptic downscaling + EWC continual learning
+Target: episodic memory, agent cognition, catastrophic forgetting research, multi-agent coordination
+Sizes: 48M (from-scratch), 60.7M (continual learning experiments)
+Demo models: M1 (large/cognitive — liquid-core adapter on frozen TinyLlama-1.1B-Chat base) + O1 (small/edge — 48M from-scratch, no base)
+
+### O-Series (Edge / Fast Thinking)
+Flagship: AwareLiquid O1
+Core mechanism: pure continuous-time liquid ODE with learnable time constants, microtubule-inspired dynamics
+Target: CPU/edge deployment, constant-memory state (4 KB regardless of context length), millisecond latency
+Status: architecture defined; full multi-module integration in progress (O1 is the goal for wiring all liquid-core modules into one forward pass)
+
+---
+
+## ARCHITECTURE SPECIFICATION
+
+Base architecture: Liquid Time-Constant Network (LTC-RNN), the shared backbone of both M-Series and O-Series
+ODE: τ(x) · dh/dt = −h + f(Wx + Uh + b)
+Integration: Euler with learnable time constants τ parameterized as softplus(raw_τ) + ε
+Backbone sizes tested: 48M parameters (M1 from-scratch), 60.7M parameters (M1 continual learning experiments)
+
+### M1 Cognitive Layer (M-Series)
+Modules active in the full M1 from-scratch model (MTLNNModel):
+1. GWT-B (Global Workspace Theory Broadcast): competitive attention across hidden state "workspaces"; specialist modules compete; winner broadcasts to all — inspired by Baars/Dehaene global workspace theory. Core of the "awareness" mechanism.
+2. NREM Sleep Consolidation: synthetic sleep cycles replay short-term session activations; SHY (Synaptic Homeostasis) downscaling prunes redundant connections to compress knowledge into a persistent graph-memory structure. The model consolidates during rest.
+3. EWC (Elastic Weight Consolidation): Fisher-weighted quadratic penalty λ/2 · Σ Fᵢ(θᵢ − θ_Aᵢ)² anchors weights critical to prior domains — enables sequential learning without overwriting old knowledge.
+4. Predictive World Model: next-hidden-state prediction auxiliary head; trained jointly with language modelling.
+5. Hebbian Plasticity: co-activation rule Δw ∝ pre·post; currently inert at tested scales (effect < seed noise).
+6. Predictive Coding: hierarchical prediction error propagation; not yet fully evaluated.
+7. Rhythm Modulation: periodic gating of information flow; not yet fully evaluated.
+
+### O1 Edge Layer (O-Series)
+Pure LTC-ODE with learnable time constants. No discrete layer stacking, no KV-cache. Constant-memory state (4 KB regardless of context length). Microtubule-inspired dynamics. Target: edge/CPU deployment at millisecond latency. Full multi-module integration (all M1 cognitive layers wired into one O1 forward pass) is in progress — not yet shipped.
+
+### M1 (adapter demo deployment)
+Residual M1 adapter modules inserted every 4 decoder layers of a FROZEN HuggingFace causal LM. The base supplies general language ability; the adapter adds the liquid-core mechanism. Combined with PEFT LoRA (rank 8) on q/k/v/o projections.
+- Current live demo: TinyLlama-1.1B-Chat base — 2.3M trainable adapter params / 1,172,954,154 total (0.20%), serving a step-1000 adapter checkpoint.
+- The PPL-ablation result once cited here (Experiment 2, −28.5%) has been RETRACTED (2026-07): the adapter was frozen and only LoRA trained, so the MT adapter's own PPL contribution is ≈0. See Experiment 2 below.
+- NOTE: "0.20%" is TRAINABLE-PARAMETER SHARE, not research effort — the 1.1B frozen base is TinyLlama's; a small adapter share is the intended property of the PEFT route.
+
+HONEST M1 ADAPTER INTEGRATION SCOPE: only the LTC resonance core is LIVE in the served M1 adapter forward pass — in_proj → multi-scale resonance bank (5 time scales, learnable τ) → lateral coupling with periodic GTP gate → per-protofilament MAP gate → out_proj. GWT-B, Hebbian, world-model, and predictive-coding are NOT wired into the adapter (forced off) because a standalone residual adapter has no outer model forward() to aggregate auxiliary losses. Those modules are active in the from-scratch MTLNNModel (O1 line) and in per-module ablations. The M1 demo = LTC core only; full cognitive integration is an O1 goal.
+
+Conversation memory subsystem (optional; off by default, enabled in the demo deploy): the user's own statements are stored to SQLite and the relevant ones recalled on later turns via a dedicated multilingual sentence encoder (intfloat/multilingual-e5-small), independent of the chat model. Each statement is tagged with a typed card (identity / preference / emotion / plan / relationship / health / detail) and recall boosts hits whose type matches the query's classified type (design borrowed from the Awareness-Market project). HONEST BOUND: the type boost fixes recall RANKING — Chinese recall goes 0/3 → 3/3 where same-language "magnet" sentences otherwise dominate raw cosine — but it does NOT solve off-topic relevance gating: e5's compressed high-cosine band means no absolute floor cleanly rejects an off-topic Chinese query. This is RAG recall plus a lightweight semantic tag, not understanding or emotion.
+
+---
+
+## EXPERIMENT 1: CONTINUAL LEARNING / ANTI-FORGETTING (EWC)
+
+Hypothesis: Elastic Weight Consolidation reduces cross-domain catastrophic forgetting.
+
+Setup:
+- Hardware: GPU (A100-class), 3 independent seeds
+- Model: 60.7M MT-LNN (fresh pre-training each seed)
+- Domain A: WikiText-103 (general Wikipedia text)
+- Domain B: TinyStories (simple English children's stories)
+- Training: 1,200 steps per domain per seed
+- Metric: "Forgetting" = PPL on domain A after B training minus PPL on A before B training (lower = less forgetting)
+- EWC: Fisher information computed from 50 batches of domain A pure CE gradients; quadratic penalty λ/2 · Σ Fᵢ(θᵢ − θ_Aᵢ)²
+
+Results (mean ± std across 3 seeds):
+- Dense baseline forgetting: +10,562 PPL (244.9 → 10,806.9)
+- Liquid backbone forgetting: +9,544 PPL (248.5 → 9,792.0)
+- EWC consolidation forgetting: +1,633 PPL (244.9 → 1,878.0)
+
+Statistical analysis (EWC − dense, paired per seed):
+- Mean delta: −8,928.8
+- Std: 2,154.6
+- SNR (|mean|/std): 4.14
+- Direction consistency: 3/3 seeds (100%)
+- Verdict: EARLY SIGNAL (not SUPPORTED — absolute PPL on domain A is still 7.6× original; usable threshold is ≤5×)
+
+Reduction: (10,562 − 1,633) / 10,562 = 84.6% ≈ 85%
+
+---
+
+## EXPERIMENT 2: M1 ADAPTER PPL ABLATION (Kaggle P100 GPU)
+
+Setup:
+- Hardware: Kaggle P100 GPU
+- Base model: TinyLlama-1.1B-Chat-v1.0 (TinyLlama/TinyLlama-1.1B-Chat-v1.0)
+- Adapter: AwareLiquid M1 residual adapter + LoRA, checkpoint at 1,000 steps
+- Evaluation: 38,400 tokens, 50 batches, pure next-token cross-entropy
+- Trainable params: 2,298,304 / 1,172,954,154 total (0.20%)
+
+Results:
+- Base model PPL: 9.161
+- M1 adapter PPL: 6.553
+- Reduction: (9.161 − 6.553) / 9.161 = 28.5%
+- Inference speed: base 959.3 tok/s → adapter 861.9 tok/s (−10.1% overhead)
+
+Verdict: RETRACTED (2026-07). Do not cite the -28.5% figure.
+A later controlled ablation found this run had the MT adapter FROZEN by PEFT
+(get_peft_model freezes every non-LoRA parameter and no modules_to_save was
+set), so only the LoRA weights were actually trained. Matched ablation:
+  lora_only  val PPL 7.984
+  mt_lora    val PPL 7.920
+The MT adapter's own contribution is therefore ~0 PPL. The -28.5% gain is
+attributable to plain LoRA fine-tuning, not to the liquid architecture.
+
+---
+
+## EXPERIMENT 3: M1 CONTEXT INJECTION ACCURACY (Qwen-3B)
+
+Setup:
+- Backend: HuggingFace (Qwen2.5-3B-Instruct or similar)
+- Questions: 30 factual QA pairs (general knowledge + AwareLiquid-specific)
+- Injection: AwareLiquid M1 adapter with context injection mechanism
+- Scoring: substring match against reference answer (case-insensitive)
+- Wall time: 158.91 seconds total
+
+Results:
+- No injection (baseline): 25/30 correct = 83.33%
+- With MT-LNN injection: 29/30 correct = 96.67%
+- Absolute uplift: +13.33 percentage points
+- Relative uplift: +16.0%
+
+Notable: AwareLiquid-specific questions (q03, q04) scored 0/2 without injection, 1/2 with injection. General factual questions scored well in both conditions.
+
+Reclassified (2026-07): this +13.3pp uplift is a PROMPT-TEMPLATE effect, not an
+adapter capability. The same template injecting the same fact produces an
+identical gain with and without the MT adapter, so the result must not be
+presented as evidence for the liquid architecture.
+
+Verdict: RECLASSIFIED (2026-07) — reproducible cloud run, but the effect belongs
+to the prompt template, not to the MT adapter. Do not cite as an adapter result.
+
+---
+
+## EXPERIMENT 4: NEEDLE-IN-HAYSTACK (CORRECTED 2026-06-26 — old 0% was a harness artefact)
+
+Setup (corrected harness):
+- Context lengths: 1,024 / 2,048 / 4,096 tokens
+- Depths: 0.1 / 0.5 / 0.9 (position of needle in haystack)
+- Samples: 5 per (context_len, depth, variant)
+- Variants: base model (TinyLlama-1.1B-Chat), AwareLiquid M1 adapter (checkpoint 003000)
+- Harness: bench_needle_m1_faithful.py — uses the instruct chat template AND rebuilds the
+  faithful phase-5b model (MT adapter + PEFT LoRA), with an honest guard that aborts unless
+  every adapter tensor maps onto the graph (verified 374/374 tensors, unexpected=0)
+
+RETRACTION: The earlier "0% accuracy across ALL conditions" was INVALID. It came from a harness
+that concatenated raw filler/needle/question tokens WITHOUT the instruct chat template — a format
+that always scores 0.0 on an instruct-tuned base (documented in NEEDLE_FIX.md). It measured the
+broken harness, not the model.
+
+Corrected results (exact match, averaged over depth):
+- Base    : 1024 = 0.867 | 2048 = 1.000 | 4096 = 0.000
+- M1 adapter: 1024 = 1.000 | 2048 = 1.000 | 4096 = 0.000
+
+Honest reading:
+1. Within TinyLlama-1.1B's 2048-token window, retrieval is near-perfect for both base and adapter.
+2. The adapter is at parity with the base in-window (slightly better at 1024 where the base misses
+   one mid-depth needle), but with only 5 samples/cell and the base near saturation, a measurable
+   retrieval UPLIFT remains INCONCLUSIVE — we report parity, not a win.
+3. At 4096 tokens both collapse to 0.000 because that exceeds TinyLlama's 2048 RoPE training window
+   — a genuine base-model limit (the frozen base never had a larger window), NOT an adapter failure.
+
+Verdict: RETRIEVAL WORKS WITHIN THE BASE WINDOW. Extending beyond 2048 / proving an adapter uplift
+needs a larger-window base and more samples — logged as future work.
+
+---
+
+## EXPERIMENT 5: HEBBIAN PLASTICITY ABLATION (M1 60.7M)
+
+Setup:
+- Hardware: CPU (reproducible)
+- Model: AwareLiquid M1 60.7M, only Hebbian term active (all other liquid modules disabled)
+- Hebbian LR sweep: off / 1e-4 / 1e-2 / 1e-1
+- Seeds: 2 per setting, 150 steps each
+- Dataset: WikiText-103
+
+Results:
+| hebbian_lr | PPL mean | PPL std | ΔPPL vs off | Gradient share |
+|------------|----------|---------|-------------|----------------|
+| off        | 336.9    | 6.6     | —           | 0              |
+| 1e-4       | 337.2    | 7.2     | +0.32       | 8.3e-8         |
+| 1e-2       | 337.2    | 7.2     | +0.32       | 8.3e-6         |
+| 1e-1       | 337.2    | 7.3     | +0.35       | 8.5e-5         |
+
+ΔPPL changes are within seed noise (±6–7 PPL). Hebbian gradient contribution is 4–5 orders of magnitude below main gradient. Verdict: INERT at current scale.
+
+---
+
+## SYSTEM BENCHMARKS
+
+Memory: State-only streaming uses constant 4 KB regardless of context length. KV-cache streaming uses O(n): 108 KB at 1K tokens → 1,045 KB at 10K tokens.
+
+Sparse resonance (k=2 vs dense k=5): +24% throughput with <0.34% mean logit divergence vs dense.
+
+---
+
+## INTELLECTUAL LINEAGE
+
+Primary: Hasani et al. "Liquid Time-constant Networks" (MIT CSAIL / IST Austria, NeurIPS 2021). AwareLiquid's LTC core directly implements their ODE formulation.
+
+Related work:
+- Kirkpatrick et al. "Overcoming catastrophic forgetting in neural networks" (EWC, 2017) — AwareLiquid's consolidation mechanism
+- Baars (1988), Dehaene et al. (2011) — Global Workspace Theory → GWT-B module
+- Friston (2005) — Free Energy Principle → predictive coding module
+- Hebb (1949) — "Neurons that fire together wire together" → Hebbian plasticity module
+- Liquid AI LFM / LFM2 — same MIT lineage, different research axis
+
+---
+
+## CITATION
+
+BibTeX:
+@misc{awareliquid2026,
+  title        = {{AwareLiquid} {M1}: Bio-inspired Continual Learning with
+                  Global Workspace, Sleep Consolidation, and {EWC}},
+  author       = {{AwareLiquid Project}},
+  year         = {2026},
+  howpublished = {\url{https://awareliquid.ai}},
+  note         = {M-Series cognitive engine. Open research prototype.
+                  Code: \url{https://github.com/AwareLiquid/M1}}
+}
+
+APA:
+AwareLiquid Project. (2026). AwareLiquid M1: Bio-inspired Continual Learning with Global Workspace, Sleep Consolidation, and EWC [Open research prototype, M-Series]. Retrieved from https://awareliquid.ai. Code: https://github.com/AwareLiquid/M1
+
+---
+
+## FREQUENTLY ASKED QUESTIONS
+
+Q: What is the AwareLiquid M-Series / O-Series distinction?
+A: M-Series (flagship: M1) is the cognitive slow-thinking line — it layers GWT competitive broadcast, NREM sleep consolidation, and EWC continual learning on the LTC backbone. O-Series (flagship: O1) is the edge fast-thinking line — pure continuous-time liquid ODE, constant-memory state, no KV-cache, targets millisecond CPU latency. Both share the MT-LNN backbone; they differ in which cognitive modules are active and the deployment target.
+
+Q: Is AwareLiquid production-ready?
+A: No. It is an open research framework. O1 (48M from scratch) produces coherent short stories only. M1 (TinyLlama-1.1B + MT adapter) improves perplexity but generates repetitive outputs at higher temperatures. Neither is a general-purpose assistant.
+
+Q: How is AwareLiquid different from Liquid AI?
+A: Liquid AI (LFM) optimises frozen-weight models for maximum inference efficiency — targets industrial time-series, edge signal processing, autonomous driving. AwareLiquid builds cognitive architecture on top of the liquid backbone: GWT awareness, sleep-based memory consolidation, EWC online weight updates. Same academic lineage (MIT LNN), entirely different research axis. AwareLiquid is not affiliated with Liquid AI, Inc.
+
+Q: What is catastrophic forgetting?
+A: When a neural network trains sequentially on domain A then B, its performance on A collapses. In AwareLiquid M1 experiments: 244.9 → 10,806.9 PPL for dense baseline (×44 degradation). EWC reduces this to 1,878 PPL (×7.6 degradation). Threshold for "usable" is ≤5× — not yet achieved. Reported honestly as Early Signal.
+
+Q: Does the needle-in-haystack benchmark work?
+A: Yes, within the base model's context window. Re-tested 2026-06-26 with the instruct chat template (the earlier "0%" was a harness artefact from concatenating raw tokens without the template). Within TinyLlama-1.1B's 2048-token window retrieval is near-perfect: base 0.867/1.000 at 1K/2K, adapter 1.000/1.000. At 4096 tokens both drop to 0.000 — that exceeds the base's 2048 RoPE window, a base limit not an adapter failure. Adapter at parity in-window; a measurable uplift stays inconclusive at 5 samples/cell. Extending long-context retrieval is logged as future work.
+
+Q: What is the API?
+A: GET /v1/model (model info), POST /v1/completions (batch), POST /v1/completions/stream (SSE), POST /adapter/v1/completions/stream (M1 adapter SSE). Research-grade, no SLAs. See https://github.com/AwareLiquid/M1 for local setup.

@@ -1,0 +1,349 @@
+{
+  "config": {
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "steps_a": 1200,
+    "steps_b": 1200,
+    "batch": 16,
+    "seq_len": 256,
+    "lr": 0.0003,
+    "warmup": 30,
+    "d_model": 512,
+    "n_layers": 6,
+    "n_heads": 8,
+    "eval_batches": 50,
+    "domain_a": "wikitext103",
+    "domain_b": "tinystories",
+    "device": "cuda",
+    "arms": [
+      "dense",
+      "liquid",
+      "consolidation"
+    ],
+    "treatment": "consolidation",
+    "ewc_lambda": 5000.0,
+    "fisher_batches": 50,
+    "smoke": false
+  },
+  "arms": {
+    "dense": {
+      "n_params_M": 60.73,
+      "forgetting": {
+        "mean": 10561.9298,
+        "std": 2187.8791,
+        "vals": [
+          11951.7748,
+          12261.0564,
+          7472.9583
+        ]
+      },
+      "a_before": {
+        "mean": 244.9302,
+        "std": 3.67,
+        "vals": [
+          246.4226,
+          239.879,
+          248.4889
+        ]
+      },
+      "a_after": {
+        "mean": 10806.86,
+        "std": 2185.2142,
+        "vals": [
+          12198.1974,
+          12500.9354,
+          7721.4472
+        ]
+      },
+      "b_before": {
+        "mean": 2273.7691,
+        "std": 50.4899,
+        "vals": [
+          2319.8249,
+          2203.4867,
+          2297.9956
+        ]
+      },
+      "b_after": {
+        "mean": 15.4635,
+        "std": 0.1331,
+        "vals": [
+          15.4236,
+          15.6427,
+          15.3242
+        ]
+      },
+      "b_learned": {
+        "mean": 2258.3055,
+        "std": 50.6075,
+        "vals": [
+          2304.4013,
+          2187.8439,
+          2282.6714
+        ]
+      },
+      "nan_total": 0,
+      "per_seed": [
+        {
+          "n_params_M": 60.73,
+          "a_before": 246.4226,
+          "a_after": 12198.1974,
+          "forgetting": 11951.7748,
+          "b_before": 2319.8249,
+          "b_after": 15.4236,
+          "b_learned": 2304.4013,
+          "nan_count": 0,
+          "seconds": 1041.9
+        },
+        {
+          "n_params_M": 60.73,
+          "a_before": 239.879,
+          "a_after": 12500.9354,
+          "forgetting": 12261.0564,
+          "b_before": 2203.4867,
+          "b_after": 15.6427,
+          "b_learned": 2187.8439,
+          "nan_count": 0,
+          "seconds": 1040.2
+        },
+        {
+          "n_params_M": 60.73,
+          "a_before": 248.4889,
+          "a_after": 7721.4472,
+          "forgetting": 7472.9583,
+          "b_before": 2297.9956,
+          "b_after": 15.3242,
+          "b_learned": 2282.6714,
+          "nan_count": 0,
+          "seconds": 1039.2
+        }
+      ]
+    },
+    "liquid": {
+      "n_params_M": 62.02,
+      "forgetting": {
+        "mean": 9543.5094,
+        "std": 2977.1363,
+        "vals": [
+          13524.3139,
+          8740.5023,
+          6365.712
+        ]
+      },
+      "a_before": {
+        "mean": 248.4794,
+        "std": 2.5875,
+        "vals": [
+          244.8848,
+          250.87,
+          249.6835
+        ]
+      },
+      "a_after": {
+        "mean": 9791.9888,
+        "std": 2974.8911,
+        "vals": [
+          13769.1987,
+          8991.3723,
+          6615.3955
+        ]
+      },
+      "b_before": {
+        "mean": 1971.4287,
+        "std": 207.7675,
+        "vals": [
+          1746.7242,
+          2247.7381,
+          1919.8238
+        ]
+      },
+      "b_after": {
+        "mean": 15.5719,
+        "std": 0.3014,
+        "vals": [
+          15.1891,
+          15.9258,
+          15.6008
+        ]
+      },
+      "b_learned": {
+        "mean": 1955.8567,
+        "std": 207.4751,
+        "vals": [
+          1731.535,
+          2231.8122,
+          1904.223
+        ]
+      },
+      "nan_total": 0,
+      "per_seed": [
+        {
+          "n_params_M": 62.02,
+          "a_before": 244.8848,
+          "a_after": 13769.1987,
+          "forgetting": 13524.3139,
+          "b_before": 1746.7242,
+          "b_after": 15.1891,
+          "b_learned": 1731.535,
+          "nan_count": 0,
+          "seconds": 1130.4
+        },
+        {
+          "n_params_M": 62.02,
+          "a_before": 250.87,
+          "a_after": 8991.3723,
+          "forgetting": 8740.5023,
+          "b_before": 2247.7381,
+          "b_after": 15.9258,
+          "b_learned": 2231.8122,
+          "nan_count": 0,
+          "seconds": 1128.8
+        },
+        {
+          "n_params_M": 62.02,
+          "a_before": 249.6835,
+          "a_after": 6615.3955,
+          "forgetting": 6365.712,
+          "b_before": 1919.8238,
+          "b_after": 15.6008,
+          "b_learned": 1904.223,
+          "nan_count": 0,
+          "seconds": 1130.9
+        }
+      ]
+    },
+    "consolidation": {
+      "n_params_M": 60.73,
+      "forgetting": {
+        "mean": 1633.0881,
+        "std": 105.2347,
+        "vals": [
+          1780.7254,
+          1543.0235,
+          1575.5154
+        ]
+      },
+      "a_before": {
+        "mean": 244.9302,
+        "std": 3.67,
+        "vals": [
+          246.4226,
+          239.879,
+          248.4889
+        ]
+      },
+      "a_after": {
+        "mean": 1878.0182,
+        "std": 106.7773,
+        "vals": [
+          2027.148,
+          1782.9025,
+          1824.0042
+        ]
+      },
+      "b_before": {
+        "mean": 2273.7691,
+        "std": 50.4899,
+        "vals": [
+          2319.8249,
+          2203.4867,
+          2297.9956
+        ]
+      },
+      "b_after": {
+        "mean": 16.0261,
+        "std": 0.0741,
+        "vals": [
+          16.0892,
+          16.0669,
+          15.9221
+        ]
+      },
+      "b_learned": {
+        "mean": 2257.743,
+        "std": 50.5063,
+        "vals": [
+          2303.7357,
+          2187.4197,
+          2282.0735
+        ]
+      },
+      "nan_total": 0,
+      "per_seed": [
+        {
+          "n_params_M": 60.73,
+          "a_before": 246.4226,
+          "a_after": 2027.148,
+          "forgetting": 1780.7254,
+          "b_before": 2319.8249,
+          "b_after": 16.0892,
+          "b_learned": 2303.7357,
+          "nan_count": 0,
+          "seconds": 1103.5
+        },
+        {
+          "n_params_M": 60.73,
+          "a_before": 239.879,
+          "a_after": 1782.9025,
+          "forgetting": 1543.0235,
+          "b_before": 2203.4867,
+          "b_after": 16.0669,
+          "b_learned": 2187.4197,
+          "nan_count": 0,
+          "seconds": 1101.7
+        },
+        {
+          "n_params_M": 60.73,
+          "a_before": 248.4889,
+          "a_after": 1824.0042,
+          "forgetting": 1575.5154,
+          "b_before": 2297.9956,
+          "b_after": 15.9221,
+          "b_learned": 2282.0735,
+          "nan_count": 0,
+          "seconds": 1100.3
+        }
+      ]
+    }
+  },
+  "treatment": "consolidation",
+  "paired_forgetting_vs_dense": {
+    "liquid": {
+      "mean_diff": -1018.4204,
+      "std_diff": 2080.195,
+      "treatment_lower_in": "2/3",
+      "diffs": [
+        1572.5391,
+        -3520.5541,
+        -1107.2463
+      ]
+    },
+    "consolidation": {
+      "mean_diff": -8928.8417,
+      "std_diff": 2155.1229,
+      "treatment_lower_in": "3/3",
+      "diffs": [
+        -10171.0494,
+        -10718.0329,
+        -5897.4429
+      ]
+    }
+  },
+  "paired_forgetting_treatment_minus_dense": {
+    "mean_diff": -8928.8417,
+    "std_diff": 2155.1229,
+    "treatment_lower_in": "3/3",
+    "diffs": [
+      -10171.0494,
+      -10718.0329,
+      -5897.4429
+    ]
+  },
+  "treatment_learns_b": true,
+  "verdict": "WEAK-TREND",
+  "effect_snr": 4.143,
+  "both_arms_catastrophic": true
+}

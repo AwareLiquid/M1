@@ -1,0 +1,153 @@
+{
+  "test_cell": "B0018",
+  "train_cells": [
+    "B0005",
+    "B0006",
+    "B0007"
+  ],
+  "seq_len": 128,
+  "d_model": 65,
+  "n_layers": 2,
+  "epochs": 60,
+  "baseline_rmse": 0.15722911059856415,
+  "summary": {
+    "mt_lnn": {
+      "params": 42474,
+      "rmse_mean": 0.08134317894776662,
+      "rmse_std": 0.008285063037554562,
+      "mae_mean": 0.06649452075362206,
+      "n": 3
+    },
+    "lstm": {
+      "params": 69096,
+      "rmse_mean": 0.0954357882340749,
+      "rmse_std": 0.015055294642742696,
+      "mae_mean": 0.07828589528799057,
+      "n": 3
+    },
+    "gru": {
+      "params": 51936,
+      "rmse_mean": 0.10413433611392975,
+      "rmse_std": 0.01070686703093501,
+      "mae_mean": 0.08507636934518814,
+      "n": 3
+    },
+    "transformer": {
+      "params": 111866,
+      "rmse_mean": 0.10300656159718831,
+      "rmse_std": 0.007300249021522332,
+      "mae_mean": 0.08713998397191365,
+      "n": 3
+    }
+  },
+  "runs": [
+    {
+      "arch": "mt_lnn",
+      "seed": 0,
+      "params": 42474,
+      "stable": true,
+      "rmse": 0.07342751324176788,
+      "mae": 0.059878457337617874,
+      "train_s": 126.8
+    },
+    {
+      "arch": "mt_lnn",
+      "seed": 1,
+      "params": 42474,
+      "stable": true,
+      "rmse": 0.08064816892147064,
+      "mae": 0.06336706876754761,
+      "train_s": 117.5
+    },
+    {
+      "arch": "mt_lnn",
+      "seed": 2,
+      "params": 42474,
+      "stable": true,
+      "rmse": 0.08995385468006134,
+      "mae": 0.07623803615570068,
+      "train_s": 112.5
+    },
+    {
+      "arch": "lstm",
+      "seed": 0,
+      "params": 69096,
+      "stable": true,
+      "rmse": 0.09784360975027084,
+      "mae": 0.08229415863752365,
+      "train_s": 14.4
+    },
+    {
+      "arch": "lstm",
+      "seed": 1,
+      "params": 69096,
+      "stable": true,
+      "rmse": 0.07932168990373611,
+      "mae": 0.06283855438232422,
+      "train_s": 14.5
+    },
+    {
+      "arch": "lstm",
+      "seed": 2,
+      "params": 69096,
+      "stable": true,
+      "rmse": 0.10914206504821777,
+      "mae": 0.08972497284412384,
+      "train_s": 15.4
+    },
+    {
+      "arch": "gru",
+      "seed": 0,
+      "params": 51936,
+      "stable": true,
+      "rmse": 0.1098266988992691,
+      "mae": 0.09005273133516312,
+      "train_s": 13.9
+    },
+    {
+      "arch": "gru",
+      "seed": 1,
+      "params": 51936,
+      "stable": true,
+      "rmse": 0.09178369492292404,
+      "mae": 0.07339812070131302,
+      "train_s": 14.3
+    },
+    {
+      "arch": "gru",
+      "seed": 2,
+      "params": 51936,
+      "stable": true,
+      "rmse": 0.1107926145195961,
+      "mae": 0.09177825599908829,
+      "train_s": 14.7
+    },
+    {
+      "arch": "transformer",
+      "seed": 0,
+      "params": 111866,
+      "stable": true,
+      "rmse": 0.09676133841276169,
+      "mae": 0.08200293034315109,
+      "train_s": 30.5
+    },
+    {
+      "arch": "transformer",
+      "seed": 1,
+      "params": 111866,
+      "stable": true,
+      "rmse": 0.10122595727443695,
+      "mae": 0.08577647805213928,
+      "train_s": 28.4
+    },
+    {
+      "arch": "transformer",
+      "seed": 2,
+      "params": 111866,
+      "stable": true,
+      "rmse": 0.1110323891043663,
+      "mae": 0.09364054352045059,
+      "train_s": 30.0
+    }
+  ]
+}

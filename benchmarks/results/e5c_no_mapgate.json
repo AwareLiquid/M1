@@ -1,0 +1,59 @@
+{
+  "args": {
+    "steps": 4000,
+    "seeds": 3,
+    "batch": 64,
+    "train_len": 24,
+    "test_len": 64,
+    "d_model": 32,
+    "n_proto": 4,
+    "n_scales": 4,
+    "probe_layers": 1,
+    "lr": 0.003,
+    "tau_max": 200.0,
+    "eval_batches": 8,
+    "arms": [
+      "selective"
+    ],
+    "no_lateral": false,
+    "no_map_gate": true,
+    "out": "benchmarks/results/e5c_no_mapgate.json"
+  },
+  "results": {
+    "selective": {
+      "runs": [
+        {
+          "in_dist": 1.0,
+          "extrapolate": 0.30859375,
+          "eig_min": -0.9943156242370605,
+          "eig_max": 0.9943529367446899,
+          "final_loss": 3.5092339203401934e-06,
+          "seed": 0,
+          "secs": 98.2
+        },
+        {
+          "in_dist": 1.0,
+          "extrapolate": 0.0546875,
+          "eig_min": -0.9942917823791504,
+          "eig_max": 0.9942924976348877,
+          "final_loss": 2.1287371865241766e-09,
+          "seed": 1,
+          "secs": 87.8
+        },
+        {
+          "in_dist": 0.427734375,
+          "extrapolate": 0.0,
+          "eig_min": -0.9941655397415161,
+          "eig_max": 0.9943212270736694,
+          "final_loss": 0.39657217264175415,
+          "seed": 2,
+          "secs": 75.3
+        }
+      ],
+      "in_dist_mean": 0.8092447916666666,
+      "extrapolate_mean": 0.12109375,
+      "signed": false,
+      "selective": true
+    }
+  }
+}

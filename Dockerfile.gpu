@@ -1,0 +1,42 @@
+# MT-LNN inference server -- CUDA / GPU image.
+#
+# This mirrors the CPU Dockerfile but installs the CUDA 12.1 torch wheel
+# (which bundles its own CUDA runtime libraries, so a slim Python base is
+# sufficient -- you do NOT need an nvidia/cuda base image). The HOST must have:
+#   - an NVIDIA driver (verify: nvidia-smi)
+#   - nvidia-container-toolkit (verify: docker run --rm --gpus all \
+#       nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi)
+#
+# Build + run is driven by deploy/docker-compose.gpu.yml (which sets
+# DEVICE=cuda and reserves the GPU). Standalone:
+#   docker build -f Dockerfile.gpu -t mtlnn:gpu .
+#   docker run --rm --gpus all -p 8000:8000 -e DEVICE=cuda \
+#     -v $(pwd)/checkpoints:/app/checkpoints \
+#     -e CKPT_PATH=/app/checkpoints/m2_final.pt -e TOKENIZER=gpt2 mtlnn:gpu
+
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/app/.hf_cache
+
+WORKDIR /app
+
+# CUDA 12.1 torch wheel (ships cuDNN/CUDA libs), then the serve stack.
+# NB: quote every "pkg>=ver" -- an unquoted '>' is a shell redirection.
+COPY serve/requirements-serve.txt /app/serve/requirements-serve.txt
+RUN pip install --index-url https://download.pytorch.org/whl/cu121 "torch>=2.0.0" \
+ && pip install "fastapi>=0.110.0" "uvicorn[standard]>=0.27.0" "pydantic>=2.0.0" \
+        "transformers>=4.40.0" "tokenizers>=0.15.0" "peft>=0.10.0"
+
+# App code (mt_lnn package + serve entrypoint).
+COPY mt_lnn /app/mt_lnn
+COPY serve /app/serve
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD python -c "import urllib.request,sys; \
+      sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)" || exit 1
+
+CMD ["uvicorn", "serve.server:app", "--host", "0.0.0.0", "--port", "8000"]

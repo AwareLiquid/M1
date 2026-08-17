@@ -1,0 +1,73 @@
+# Caddy reverse proxy for the MT-LNN inference server.
+#
+# Caddy obtains and renews a Let's Encrypt TLS certificate automatically for the
+# domain below (HTTP-01 / TLS-ALPN over ports 80/443 -- both must be open and the
+# domain's A record must already point at this server's public IP).
+#
+# It forwards all traffic to the `mtlnn` container (FastAPI/uvicorn on :8000),
+# which serves the streaming chat UI at / and the /v1/* JSON API. SSE streaming
+# (/v1/completions/stream) works through Caddy with no extra config.
+#
+# Edit the domain if you use something other than awareliquid.ai. The email is
+# used only for Let's Encrypt expiry notices.
+
+{
+	email everest9812@gmail.com
+}
+
+awareliquid.ai, www.awareliquid.ai {
+	encode zstd gzip
+
+	# Model menu backend routing. `handle`/`handle_path` blocks are mutually
+	# exclusive and evaluated top-down:
+	#   /adapter/*  -> the MT-LNN adapter model (serve/server_hf.py, `adapter`
+	#                  compose service). handle_path strips the /adapter prefix so
+	#                  the frontend calls /adapter/v1/... and the backend sees
+	#                  /v1/... unchanged. 502s if the `adapter` service isn't up
+	#                  (it is profile-gated) -- the UI surfaces that as an error.
+	#   everything else -> the native from-scratch MT-LNN server (mtlnn:8000).
+	# flush_interval -1 disables buffering so SSE arrives token-by-token.
+	handle_path /adapter/* {
+		reverse_proxy adapter:8000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy mtlnn:8000 {
+			flush_interval -1
+		}
+	}
+
+	# Basic hardening + a sane request cap (the API itself also caps tokens).
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# API gateway (account pool / third-party access). Separate subdomain and
+# container so it shares nothing with the model UI. Requires a DNS A record:
+#   relay.awareliquid.ai -> this server's IP
+relay.awareliquid.ai {
+	encode zstd gzip
+	reverse_proxy relay:3000 {
+		flush_interval -1
+	}
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+	}
+}

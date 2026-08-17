@@ -1,0 +1,52 @@
+# GPU override for the production stack.
+#
+# Layer it ON TOP of the base prod compose so the CPU file stays the source of
+# truth for everything else (ports, volumes, Caddy, healthcheck):
+#
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.gpu.yml \
+#     up -d --build mtlnn
+#
+# For the 1.1B adapter (the one you want snappy) add the profile:
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.gpu.yml \
+#     --profile adapter up -d --build adapter
+#
+# PRECONDITIONS on the host (verify BEFORE running):
+#   nvidia-smi
+#   docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+# Both must list your GPU. If the second fails, install nvidia-container-toolkit.
+#
+# What this override changes vs the CPU base:
+#   - build from Dockerfile.gpu (CUDA torch wheel)
+#   - DEVICE: cuda
+#   - reserve the GPU for the container (Compose Spec device reservation)
+
+services:
+  mtlnn:
+    build:
+      context: ..
+      dockerfile: Dockerfile.gpu
+    image: mtlnn:gpu
+    environment:
+      DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  adapter:
+    build:
+      context: ..
+      dockerfile: Dockerfile.gpu
+    image: mtlnn:gpu
+    environment:
+      DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

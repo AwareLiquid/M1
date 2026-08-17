@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AwareLiquid — Live Demo (O1 + M1)</title>
+<meta name="description" content="Try AwareLiquid O1 (48M edge, from scratch) and M1 (TinyLlama-1.1B + MT adapter) live. Bio-inspired liquid neural network with episodic memory. Ask in English or Chinese.">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://awareliquid.ai/demo">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;
+  --card:#f9f9fb;--radius:14px;
+  --send-bg:#0d0d0d;--send-icon:#ffffff;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --hdr:56px;--ftr:76px;
+
+  /* Editorial serif for headings. System faces only — CSP is font-src 'self',
+     so no webfont may be loaded. Weight stays 400, never bold. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--line);
+  --section-gap:80px; --section-pad:128px;
+}
+@media(prefers-color-scheme:dark){
+  html:not([data-theme="light"]){--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;--send-bg:#ebebeb;--send-icon:#111}
+  html:not([data-theme="light"]) .hdr{background:rgba(14,14,16,.92)}
+  html:not([data-theme="light"]) .ftr{background:rgba(14,14,16,.95)}
+  html:not([data-theme="light"]) textarea{background:var(--card);color:var(--fg)}
+  html:not([data-theme="light"]) .turn.user .bubble{background:#1e1e28}
+  html:not([data-theme="light"]) .bubble.md code,
+  html:not([data-theme="light"]) .bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}
+  html:not([data-theme="light"]) select{background:transparent;color:var(--fg)}
+  html:not([data-theme="light"]) .chat-wrap::-webkit-scrollbar-thumb{background:#2c2c3c}
+}
+html[data-theme="dark"]{--bg:#0e0e10;--fg:#ebebeb;--muted:#9090a8;--line:#252530;--card:#16161a;--send-bg:#ebebeb;--send-icon:#111;color-scheme:dark}
+html[data-theme="dark"] .hdr{background:rgba(14,14,16,.92)}
+html[data-theme="dark"] .ftr{background:rgba(14,14,16,.95)}
+html[data-theme="dark"] textarea{background:var(--card);color:var(--fg)}
+html[data-theme="dark"] .turn.user .bubble{background:#1e1e28}
+html[data-theme="dark"] .bubble.md code,html[data-theme="dark"] .bubble.md pre{background:#1e1e28;border-color:var(--line);color:#c8c8e8}
+html[data-theme="dark"] select{background:transparent;color:var(--fg)}
+html[data-theme="dark"] .chat-wrap::-webkit-scrollbar-thumb{background:#2c2c3c}
+html[data-theme="light"]{--bg:#ffffff;--fg:#0d0d0d;--muted:#6b6b80;--line:#e8e8ef;--card:#f9f9fb;--send-bg:#0d0d0d;--send-icon:#ffffff;color-scheme:light}
+html[data-theme="light"] .hdr{background:rgba(255,255,255,.92)}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══════════════════════════════════════════════
+   Same structural language as index.html: serif headings at weight 400 with
+   negative tracking, 1px hairlines instead of cards, uppercase mono metadata
+   labels, hover-only motion. Monochrome — no accent hue anywhere.
+   Applied to the LAYOUT layer only (header, welcome screen, examples, footer).
+   The conversational controls — bubbles, textarea, send button — keep their
+   radii and fills: legibility of the transcript outranks the grid. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+@media(prefers-color-scheme:dark){html:not([data-theme="light"]) .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}}
+
+html,body{height:100dvh;overflow:hidden;margin:0}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);font-size:15px}
+html{color-scheme:light dark}
+
+/* ── HEADER ── */
+.hdr{
+  position:fixed;top:0;left:0;right:0;height:var(--hdr);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);z-index:100;
+  display:flex;align-items:center;padding:0 16px;gap:10px;
+}
+.hdr-brand{display:flex;align-items:center;gap:7px;font-weight:650;font-size:14px;letter-spacing:.1px;text-decoration:none;color:var(--fg);flex:none}
+.hdr-logo{width:18px;height:18px;color:var(--fg);flex:none}
+/* Eyebrow, not a chip: mono uppercase on the bare surface (spec §6). */
+.hdr-badge{font-family:var(--font-label);font-size:10.5px;font-weight:500;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);background:transparent;border:0;border-radius:0;padding:0;flex:none}
+.hdr-sep{width:1px;height:22px;background:var(--rule);flex:none}
+.modelsel select{
+  font-family:var(--font-label);font-size:11px;color:var(--fg);background:transparent;
+  border:1px solid var(--rule);border-radius:0;padding:5px 26px 5px 10px;
+  letter-spacing:.02em;
+  cursor:pointer;outline:none;-webkit-appearance:none;appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238e8ea0' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 9px center;
+  transition:border-color .15s;
+}
+.modelsel select:hover{border-color:var(--fg)}
+.status-wrap{display:flex;align-items:center;gap:7px;font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);flex:none}
+/* Status indicator is monochrome: filled square = live, hollow = unreachable,
+   faded = still probing. Hue is not available to us to carry meaning. */
+.live{width:7px;height:7px;border-radius:0;background:var(--muted);opacity:.35;flex:none;border:1px solid transparent}
+.live.ok{background:var(--fg);opacity:1}
+.live.err{background:transparent;opacity:1;border-color:var(--fg)}
+.hdr-spacer{flex:1}
+.icon-btn{
+  background:none;border:1px solid var(--line);border-radius:4px;cursor:pointer;color:var(--muted);
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  transition:all .3s ease-out;flex:none;padding:0;
+}
+.icon-btn:hover{border-color:var(--fg);color:var(--fg)}
+.lang-btn{font-family:var(--font-label);font-size:11px;font-weight:500;width:auto;padding:0 10px;letter-spacing:var(--tracking-label)}
+.back-btn{font-family:var(--font-label);font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:4px;padding:6px 10px;transition:all .3s ease-out;flex:none}
+.back-btn:hover{border-color:var(--fg);color:var(--fg)}
+@media(max-width:540px){.hdr-badge,.status-wrap{display:none}.back-btn span{display:none}}
+
+/* ── CHAT AREA ── */
+.chat-wrap{
+  position:fixed;top:var(--hdr);bottom:var(--ftr);left:0;right:0;
+  overflow-y:auto;overflow-x:hidden;
+}
+.chat-wrap::-webkit-scrollbar{width:6px}
+.chat-wrap::-webkit-scrollbar-thumb{background:#e3e3e8;border-radius:3px}
+
+/* ── WELCOME ── */
+.welcome{
+  min-height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:40px 24px;text-align:center;
+}
+/* The mark stands on the page unframed — the 52px rounded tile was the last
+   piece of card chrome on the welcome screen. */
+.welcome-icon{
+  width:40px;height:40px;border-radius:0;background:transparent;
+  border:0;color:var(--fg);display:flex;align-items:center;justify-content:center;margin:0 auto 22px;
+}
+.welcome-icon svg{width:32px;height:32px}
+.welcome h2{font-size:clamp(30px,4.4vw,38px);line-height:1.08;letter-spacing:var(--tracking-display);margin-bottom:14px}
+.welcome-lead{font-size:16px;color:var(--muted);max-width:46ch;margin:0 auto 44px;line-height:1.6}
+/* Hairline grid, not tiles: gap 0, one rule between siblings, flush outer edge. */
+.examples{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;width:100%;max-width:560px;border-top:1px solid var(--rule)}
+.example{border:0;border-radius:0;border-bottom:1px solid var(--rule);padding:22px 24px;text-align:left;cursor:pointer;background:transparent}
+.example:nth-child(odd){padding-left:0;border-right:1px solid var(--rule)}
+.example:nth-child(even){padding-right:0}
+@media(max-width:480px){
+  .examples{grid-template-columns:1fr}
+  .example,.example:nth-child(odd),.example:nth-child(even){padding:20px 0;border-right:0}
+}
+.example .t{font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.example .s{font-family:var(--font-serif);font-size:15px;font-weight:400;line-height:1.4;letter-spacing:-.015em;color:var(--fg);margin-top:8px}
+.example:hover .s{text-decoration:underline;text-underline-offset:3px}
+
+/* ── THREAD ── */
+.thread{padding:28px 20px 36px;display:flex;flex-direction:column;gap:20px;max-width:780px;margin:0 auto}
+.turn{display:flex;flex-direction:column;gap:5px}
+.turn.user{align-items:flex-end}
+.turn.assistant{align-items:flex-start}
+.bubble{max-width:90%;border-radius:18px;font-size:15px;line-height:1.65;white-space:pre-wrap;word-wrap:break-word}
+.turn.user .bubble{background:#f4f4f5;padding:10px 16px;border-bottom-right-radius:5px;color:var(--fg)}
+.turn.assistant .bubble{padding:2px 0;max-width:100%}
+.turn.assistant .who{font-family:var(--font-label);font-size:10.5px;font-weight:500;text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.turn.assistant .who .av{width:8px;height:8px;border-radius:0;background:var(--muted);opacity:.4;display:inline-flex;align-items:center;justify-content:center;flex:none}
+/* The avatar collapses into the same 8px square the .label-sq eyebrow uses,
+   so the speaker line reads as metadata rather than a chat-app affordance. */
+.turn.assistant .who .av i{display:none}
+.bubble.empty::after{content:'▋';animation:blink 1.05s step-start infinite;color:var(--muted)}
+@keyframes blink{50%{opacity:0}}
+.meta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+.bubble.md p{margin:0 0 8px}.bubble.md p:last-child{margin-bottom:0}
+.bubble.md code{font-family:var(--mono);font-size:12.5px;background:#f3f3f5;border:1px solid var(--line);border-radius:5px;padding:1px 5px}
+.bubble.md pre{background:#f3f3f5;border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;margin:6px 0}
+.bubble.md pre code{background:none;border:none;padding:0}
+.bubble.md ul,.bubble.md ol{margin:0 0 8px;padding-left:18px}
+.bubble.md li{margin:2px 0}
+.bubble.md strong{font-weight:650}
+.copy-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:3px;border-radius:5px;display:flex;align-items:center;opacity:0;transition:opacity .15s,color .15s;margin-left:6px}
+.turn.assistant:hover .copy-btn,.copy-btn.copied{opacity:1}
+.copy-btn.copied{color:#10b981}
+.copy-btn svg{pointer-events:none}
+
+/* ── FOOTER / COMPOSER ── */
+.ftr{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg);border-top:1px solid var(--line);
+  padding:10px 16px 10px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.composer-row{display:flex;align-items:flex-end;gap:8px}
+.clear-btn{background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);font:inherit;font-size:12px;padding:5px 10px;transition:all .15s;display:none;align-items:center;gap:4px;flex:none;height:36px;white-space:nowrap}
+.clear-btn.visible{display:inline-flex}
+.clear-btn:hover{border-color:var(--fg);color:var(--fg)}
+textarea{
+  flex:1;border:1px solid var(--line);outline:none;resize:none;background:var(--card);
+  border-radius:12px;font-family:inherit;font-size:15px;line-height:1.5;
+  padding:7px 14px;max-height:120px;color:var(--fg);transition:border-color .15s;
+}
+textarea:focus{border-color:var(--fg)}
+textarea::placeholder{color:#b4b4c0}
+.send{width:36px;height:36px;border:none;border-radius:50%;background:var(--send-bg);color:var(--send-icon);cursor:pointer;display:flex;align-items:center;justify-content:center;flex:none;transition:opacity .15s}
+.send:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+.send svg{width:16px;height:16px}
+.send.stop .sq{width:10px;height:10px;background:var(--send-icon);border-radius:2px}
+.ftr-note{font-size:11.5px;color:var(--muted);text-align:center;line-height:1.45}
+.ftr-note a{color:var(--muted);text-decoration:underline;text-underline-offset:2px}
+.ftr-entity{opacity:.7}
+.retry-wrap{display:flex;justify-content:center;margin-top:14px}
+.retry-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--muted);font:inherit;font-size:13px;padding:8px 16px;transition:all .15s}
+.retry-btn:hover{border-color:var(--fg);color:var(--fg)}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="hdr">
+  <a class="hdr-brand" href="/">
+    <svg class="hdr-logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+      <path d="M6 11.3 Q14 8.3 22 11.3"/>
+      <path d="M6 14.6 Q14 11.6 22 14.6"/>
+      <path d="M6 17.9 Q14 14.9 22 17.9"/>
+    </svg>
+    AwareLiquid
+  </a>
+  <span class="hdr-badge" id="hdrBadge">Live Demo</span>
+  <div class="hdr-sep"></div>
+  <div class="modelsel">
+    <select id="modelSel" aria-label="Select model">
+      <option value="/adapter" id="optAdapter">M1 · TinyLlama-1.1B + MT adapter</option>
+      <option value="" id="optScratch">O1 · 48M edge, from scratch</option>
+    </select>
+  </div>
+  <div class="status-wrap">
+    <span class="live" id="live"></span>
+    <span id="statusText">Connecting…</span>
+  </div>
+  <div class="hdr-spacer"></div>
+  <button class="icon-btn lang-btn" id="langBtn" title="切换语言 / Switch language">中文</button>
+  <button class="icon-btn" id="themeBtn" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+    <svg id="themeIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+  </button>
+  <a class="back-btn" href="/"><span>← </span><span id="backLabel">Back</span></a>
+</header>
+
+<!-- ── CHAT AREA ── -->
+<main class="chat-wrap" id="chatWrap">
+  <div id="welcome" class="welcome">
+    <div class="welcome-icon">
+      <svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
+        <path d="M6 11.3 Q14 8.3 22 11.3"/>
+        <path d="M6 14.6 Q14 11.6 22 14.6"/>
+        <path d="M6 17.9 Q14 14.9 22 17.9"/>
+      </svg>
+    </div>
+    <h2 id="welcomeTitle">AwareLiquid M1</h2>
+    <p class="welcome-lead" id="welcomeLead">Connecting…</p>
+    <div class="examples" id="examples"></div>
+  </div>
+  <div class="thread" id="thread" style="display:none"></div>
+</main>
+
+<!-- ── COMPOSER ── -->
+<footer class="ftr">
+  <div class="composer-row">
+    <button class="clear-btn" id="clearBtn" aria-label="Clear conversation">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+      <span id="clearLabel">Clear</span>
+    </button>
+    <textarea id="input" rows="1" placeholder="Ask in English or Chinese…"></textarea>
+    <button class="send" id="sendBtn" disabled aria-label="Send">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="ftr-note" id="ftrNote">
+    AwareLiquid M1 · research prototype · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a><br><span class="ftr-entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script>
+window.addEventListener('load',function(){
+  if(typeof marked!=='undefined')return;
+  window.marked={parse:function(text){
+    if(!text)return'';
+    var e=function(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+    text=text.replace(/```[\w]*\n?([\s\S]*?)```/g,function(_,c){return'<pre><code>'+e(c.trim())+'</code></pre>';});
+    var paras=text.split(/\n{2,}/);
+    return paras.map(function(p){
+      p=p.trim();if(!p)return'';
+      if(p.startsWith('<pre>'))return p;
+      p=p.replace(/`([^`]+)`/g,function(_,c){return'<code>'+e(c)+'</code>';});
+      p=p.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+      p=p.replace(/\*(.+?)\*/g,'<em>$1</em>');
+      p=p.replace(/\n/g,'<br>');
+      return'<p>'+p+'</p>';
+    }).join('');
+  }};
+});
+
+// ── TRANSLATIONS ──
+const LANGS={
+  en:{
+    badge:'Live Demo',back:'Back',clear:'Clear',
+    connecting:'Connecting…',offline:'Demo offline',
+    offlineNote:'The interactive model backend is not reachable. The rest of the site is live. The demo runs on a self-hosted inference server (serve/server.py).',
+    placeholder:'Ask in English or Chinese…',
+    retryBtn:'↺ Retry connection',
+    note:'AwareLiquid · research prototype · ',
+    opt_adapter:'M1 · TinyLlama-1.1B + MT adapter',
+    opt_scratch:'128M · from-scratch hybrid',
+    w_adapter_title:'M1',
+    w_adapter_lead:'<strong>AwareLiquid M1</strong> — trained liquid-core residual adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. The large, cognitive model. Episodic memory is active: it remembers what you tell it across turns. Ask anything in English or Chinese.',
+    w_adapter_examples:[
+      ['What is catastrophic forgetting, and how does EWC solve it?','Research Q&A'],
+      ['How is AwareLiquid M1 different from Liquid AI?','Concept'],
+      ['My name is Alex and I\'m researching continual learning.','Memory demo'],
+      ['Write a short poem about neural networks that never forget.','Creative'],
+    ],
+    w_scratch_title:'128M',
+    w_scratch_lead:'<strong>AwareLiquid 128M</strong> — 128M parameters trained from scratch, no base model. A liquid-core hybrid backbone (attention + liquid layers). It <strong>continues English text</strong> — a raw research prototype, not a chat assistant. Give it a story opening:',
+    w_scratch_examples:[
+      ['Once upon a time, there was a little cat named Lily.','Continue story'],
+      ['The sun was shining and Tom wanted to play outside.','Continue story'],
+      ['One day, a girl found a big red box under the tree.','Continue story'],
+      ['There was a happy dog who liked to run very fast.','Continue story'],
+    ],
+  },
+  zh:{
+    badge:'在线演示',back:'返回',clear:'清除',
+    connecting:'连接中…',offline:'演示离线',
+    offlineNote:'交互模型后端暂时无法连接。网站其余部分正常。演示运行在自托管推理服务器上（serve/server.py）。',
+    placeholder:'用中文或英文提问…',
+    retryBtn:'↺ 重试连接',
+    note:'AwareLiquid · 研究原型 · ',
+    opt_adapter:'M1 · TinyLlama-1.1B + MT 适配器',
+    opt_scratch:'1.28亿参数 · 从零训练',
+    w_adapter_title:'M1',
+    w_adapter_lead:'<strong>AwareLiquid M1</strong> — 在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上插入已训练的液态核心残差适配器。大模型、认知向。情节记忆已激活：模型会记住你在对话中告诉它的内容。支持中英文提问。',
+    w_adapter_examples:[
+      ['什么是灾难性遗忘？EWC 是如何解决的？','研究问答'],
+      ['AwareLiquid M1 和 Liquid AI 有什么区别？','概念解析'],
+      ['我叫小明，正在研究持续学习。','记忆演示'],
+      ['写一首关于永不遗忘的神经网络的短诗。','创意写作'],
+    ],
+    w_scratch_title:'128M',
+    w_scratch_lead:'<strong>AwareLiquid 128M</strong> — 从零训练的 1.28 亿参数模型，无基座。液态核心混合骨干（注意力 + 液态层）。<strong>英文文本续写</strong>——研究原型，非对话助手。请给出故事开头：',
+    w_scratch_examples:[
+      ['Once upon a time, there was a little cat named Lily.','续写故事'],
+      ['The sun was shining and Tom wanted to play outside.','续写故事'],
+      ['One day, a girl found a big red box under the tree.','续写故事'],
+      ['There was a happy dog who liked to run very fast.','续写故事'],
+    ],
+  }
+};
+
+let LANG=localStorage.getItem('lang')||'en';
+function t(k){return(LANGS[LANG]||LANGS.en)[k]||(LANGS.en)[k]||k;}
+
+function applyLang(l){
+  LANG=l;localStorage.setItem('lang',l);
+  document.documentElement.lang=l==='zh'?'zh-CN':'en';
+  langBtn.textContent=l==='zh'?'EN':'中文';
+  document.getElementById('hdrBadge').textContent=t('badge');
+  document.getElementById('backLabel').textContent=t('back');
+  document.getElementById('clearLabel').textContent=t('clear');
+  document.getElementById('input').placeholder=t('placeholder');
+  document.getElementById('optAdapter').textContent=t('opt_adapter');
+  document.getElementById('optScratch').textContent=t('opt_scratch');
+  const ftrNote=document.getElementById('ftrNote');
+  ftrNote.innerHTML=t('note')+'<a href="/privacy">'+(l==='zh'?'隐私政策':'Privacy')+'</a> · <a href="/terms">'+(l==='zh'?'使用条款':'Terms')+'</a>'
+    +'<br><span class="ftr-entity">'+(l==='zh'?'深圳三体暗源科技有限公司':'Shenzhen Santi Anyuan Technology Co., Ltd')+'</span>';
+  // re-render welcome if visible
+  const kind=API_BASE==='/adapter'?'adapter':'scratch';
+  if(document.getElementById('welcome').style.display!=='none')renderWelcome(kind);
+}
+
+// ── THEME ──
+const themeBtn=document.getElementById('themeBtn'),
+      themeIcon=document.getElementById('themeIcon');
+const SUN='<path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="5"/>',
+      MOON='<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+function isDark(){const t=document.documentElement.dataset.theme;if(t==='dark')return true;if(t==='light')return false;return window.matchMedia('(prefers-color-scheme:dark)').matches;}
+function applyThemeIcon(){themeIcon.innerHTML=isDark()?SUN:MOON;themeBtn.title=isDark()?'Switch to light mode':'Switch to dark mode';}
+function initTheme(){const saved=localStorage.getItem('theme');if(saved)document.documentElement.dataset.theme=saved;applyThemeIcon();}
+themeBtn.addEventListener('click',()=>{const next=isDark()?'light':'dark';document.documentElement.dataset.theme=next;localStorage.setItem('theme',next);applyThemeIcon();});
+initTheme();
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>{if(!localStorage.getItem('theme'))applyThemeIcon();});
+
+// ── LANG INIT ──
+const langBtn=document.getElementById('langBtn');
+langBtn.addEventListener('click',()=>applyLang(LANG==='zh'?'en':'zh'));
+// apply stored lang on load (but don't override icons already set)
+(function(){
+  const l=localStorage.getItem('lang');
+  if(l&&l!=='en'){langBtn.textContent='EN';document.documentElement.lang='zh-CN';}
+})();
+
+// ── CHAT CONSTANTS ──
+const MAXTOK=400,TEMP=0.7,TOPP=0.92;
+let generating=false,abortCtl=null,API_BASE='/adapter';
+
+const input=document.getElementById('input'),
+      sendBtn=document.getElementById('sendBtn'),
+      chatWrap=document.getElementById('chatWrap'),
+      welcome=document.getElementById('welcome'),
+      thread=document.getElementById('thread'),
+      clearBtn=document.getElementById('clearBtn'),
+      modelSel=document.getElementById('modelSel'),
+      live=document.getElementById('live'),
+      statusText=document.getElementById('statusText');
+
+function refresh(){
+  input.style.height='auto';
+  input.style.height=Math.min(input.scrollHeight,120)+'px';
+  sendBtn.disabled=generating?false:input.value.trim()==='';
+}
+input.addEventListener('input',refresh);
+
+function renderWelcome(kind){
+  const l=LANG;
+  const d=kind==='adapter'?{
+    title:t('w_adapter_title'),
+    lead:t('w_adapter_lead'),
+    examples:LANGS[l]?LANGS[l].w_adapter_examples:LANGS.en.w_adapter_examples
+  }:{
+    title:t('w_scratch_title'),
+    lead:t('w_scratch_lead'),
+    examples:LANGS[l]?LANGS[l].w_scratch_examples:LANGS.en.w_scratch_examples
+  };
+  document.getElementById('welcomeTitle').textContent=d.title;
+  document.getElementById('welcomeLead').innerHTML=d.lead;
+  const box=document.getElementById('examples');
+  box.innerHTML=d.examples.map(([p,tag])=>{
+    const safe=p.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+    const short=p.length>44?p.slice(0,44)+'…':p;
+    return`<div class="example" data-p="${safe}"><div class="t">${tag}</div><div class="s">${short}</div></div>`;
+  }).join('');
+  box.querySelectorAll('.example').forEach(el=>{
+    el.onclick=()=>{input.value=el.dataset.p;refresh();input.focus();send();};
+  });
+}
+
+function applyModel(m,kind){
+  live.className='live ok';
+  const name=(m.base_model||'').split('/').pop()||'O1';
+  const size=m.n_params>=1e9?`${(m.n_params/1e9).toFixed(1)}B`:`${(m.n_params/1e6).toFixed(0)}M`;
+  let tag=m.adapter_loaded?' · M1':m.is_baseline?' · O1':'';
+  statusText.textContent=`${name} · ${size} · ${m.device}${tag}`;
+  renderWelcome(kind);
+}
+
+async function probe(base,timeoutMs=8000){
+  try{
+    const ctl=new AbortController();const tid=setTimeout(()=>ctl.abort(),timeoutMs);
+    const r=await fetch(`${base}/v1/model`,{cache:'no-store',signal:ctl.signal});
+    clearTimeout(tid);
+    if(!r.ok)return null;return await r.json();
+  }catch(e){return null;}
+}
+async function selectModel(base){
+  live.className='live';
+  statusText.textContent=t('connecting');
+  const m=await probe(base);
+  if(m){API_BASE=base;modelSel.value=base;applyModel(m,base==='/adapter'?'adapter':'scratch');return true;}
+  return false;
+}
+
+// Manual switch: roll the <select> back to whatever is actually serving, and
+// say so, rather than leaving a label that lies about which model answers.
+async function selectModelInteractive(base){
+  const prev=API_BASE;
+  if(await selectModel(base))return true;
+  modelSel.value=prev;
+  live.className='live';
+  statusText.textContent=t('offline');
+  return false;
+}
+async function autoSelect(){
+  if(await selectModel('/adapter'))return;
+  if(await selectModel(''))return;
+  live.className='live err';statusText.textContent=t('offline');
+  renderWelcome('scratch');
+  const note=document.createElement('div');
+  note.style.cssText='margin-top:10px;color:var(--muted);font-size:13px;line-height:1.5;text-align:center';
+  note.textContent=t('offlineNote');
+  const retryWrap=document.createElement('div');retryWrap.className='retry-wrap';
+  const rb=document.createElement('button');rb.className='retry-btn';
+  rb.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.61"/></svg> '+t('retryBtn');
+  rb.onclick=()=>{note.remove();retryWrap.remove();autoSelect();};
+  retryWrap.appendChild(rb);
+  welcome.appendChild(note);welcome.appendChild(retryWrap);
+}
+
+function startThread(){
+  if(welcome.style.display!=='none'){
+    welcome.style.display='none';thread.style.display='flex';thread.style.flexDirection='column';thread.style.gap='20px';
+    clearBtn.classList.add('visible');
+  }
+}
+clearBtn.addEventListener('click',()=>{
+  thread.innerHTML='';thread.style.display='none';
+  welcome.style.display='';clearBtn.classList.remove('visible');
+  input.value='';refresh();
+});
+
+function addUser(text){
+  startThread();
+  const t=document.createElement('div');t.className='turn user';
+  const b=document.createElement('div');b.className='bubble';b.textContent=text;
+  t.appendChild(b);thread.appendChild(t);chatWrap.scrollTop=chatWrap.scrollHeight;
+}
+function addAssistant(){
+  const t=document.createElement('div');t.className='turn assistant';
+  const who=document.createElement('div');who.className='who';
+  const cpBtn=document.createElement('button');cpBtn.className='copy-btn';cpBtn.disabled=true;cpBtn.setAttribute('aria-label','Copy reply');
+  cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  who.innerHTML='<span class="av"><i></i></span> AwareLiquid';
+  who.appendChild(cpBtn);
+  const b=document.createElement('div');b.className='bubble empty';
+  t.appendChild(who);t.appendChild(b);thread.appendChild(t);
+  chatWrap.scrollTop=chatWrap.scrollHeight;
+  b._copyBtn=cpBtn;return b;
+}
+function setSendIcon(stop){
+  if(stop){sendBtn.classList.add('stop');sendBtn.innerHTML='<span class="sq"></span>';}
+  else{sendBtn.classList.remove('stop');sendBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';}
+}
+
+async function send(){
+  if(generating){if(abortCtl)abortCtl.abort();return;}
+  const prompt=input.value.trim();if(!prompt)return;
+  addUser(prompt);input.value='';refresh();
+  const bot=addAssistant();
+  generating=true;setSendIcon(true);sendBtn.disabled=false;
+  abortCtl=new AbortController();
+  const t0=performance.now();let ntok=0,acc='',errored=false;
+  try{
+    const res=await fetch(`${API_BASE}/v1/completions/stream`,{
+      method:'POST',headers:{'Content-Type':'application/json'},signal:abortCtl.signal,
+      body:JSON.stringify({prompt,max_new_tokens:MAXTOK,temperature:TEMP,do_sample:true,top_p:TOPP,stop_at_eos:true})
+    });
+    if(!res.ok){errored=true;bot.classList.remove('empty');bot.textContent='[error '+res.status+'] '+await res.text();return;}
+    const reader=res.body.getReader(),dec=new TextDecoder();let buf='';
+    while(true){
+      const{value,done}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){
+        const line=buf.slice(0,idx).trim();buf=buf.slice(idx+2);
+        if(!line.startsWith('data:'))continue;
+        const payload=line.slice(5).trim();if(payload==='[DONE]')continue;
+        try{
+          const ev=JSON.parse(payload);
+          if(ev.text!=null){
+            acc+=ev.text;ntok++;
+            bot.classList.remove('empty');bot.classList.add('md');
+            bot.innerHTML=typeof marked!=='undefined'?marked.parse(acc):acc.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+            if(chatWrap.scrollHeight-chatWrap.scrollTop-chatWrap.clientHeight<140)chatWrap.scrollTop=chatWrap.scrollHeight;
+          }
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    if(e.name!=='AbortError'){errored=true;bot.classList.remove('empty');bot.textContent=acc+' [connection lost]';}
+  }finally{
+    bot.classList.remove('empty');
+    // Only claim "[no output]" when nothing streamed AND no error message was
+    // written — return still runs finally, so this would erase the diagnostic.
+    if(!acc&&!errored){bot.classList.remove('md');bot.textContent='[no output]';}
+    const dt=(performance.now()-t0)/1000;
+    const meta=document.createElement('div');meta.className='meta';
+    meta.textContent=`${ntok} tokens · ${dt.toFixed(1)}s · ${(ntok/dt||0).toFixed(1)} tok/s`;
+    bot.parentElement.appendChild(meta);
+    if(bot._copyBtn&&acc){
+      const cpBtn=bot._copyBtn;cpBtn.disabled=false;
+      cpBtn.onclick=()=>{
+        navigator.clipboard.writeText(acc).then(()=>{
+          cpBtn.classList.add('copied');
+          cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          setTimeout(()=>{
+            cpBtn.classList.remove('copied');
+            cpBtn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+          },2000);
+        }).catch(()=>{});
+      };
+    }
+    generating=false;setSendIcon(false);refresh();abortCtl=null;
+    chatWrap.scrollTop=chatWrap.scrollHeight;
+  }
+}
+
+sendBtn.onclick=send;
+input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+modelSel.addEventListener('change',()=>selectModelInteractive(modelSel.value));
+
+// apply stored lang then connect
+applyLang(LANG);
+refresh();
+autoSelect();
+</script>
+</body>
+</html>

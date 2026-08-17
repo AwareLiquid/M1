@@ -1,0 +1,31 @@
+[
+  {
+    "path": "demo_trace.jsonl",
+    "session_id": "demo_synth",
+    "total_tokens": 120,
+    "routes": {
+      "local": 113,
+      "self_critique": 6,
+      "cloud": 1
+    },
+    "cloud_injects": 1,
+    "absorbed_bytes": 212,
+    "self_sufficiency": 0.9917,
+    "entropy": {
+      "mean": 2.115,
+      "p50": 1.927,
+      "p95": 4.679,
+      "max": 5.004
+    },
+    "phi_hat": {
+      "samples": 14,
+      "mean": 0.221,
+      "max": 0.5355
+    },
+    "estimated_cost_usd": {
+      "saved_vs_full_cloud_output": 0.001785,
+      "spent_on_cloud_inject_input": 0.000159,
+      "net_savings": 0.001626
+    }
+  }
+]

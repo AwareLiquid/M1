@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Access | AwareLiquid M1</title>
+<meta name="description" content="Call the AwareLiquid M1 liquid-recurrence model through an OpenAI-compatible API.">
+<style>
+:root{--bg:#0e0e10;--fg:#ececf1;--muted:#9a9aa5;--card:#17171b;--border:#2a2a31;--accent:#59b0f6  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+
+  /* Editorial system — see index.html. System serif only: CSP is font-src 'self'. */
+  --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Songti SC","Source Han Serif SC",serif;
+  --font-label:var(--mono);
+  --tracking-display:-.05em; --tracking-h2:-.023em; --tracking-h3:-.025em;
+  --tracking-label:.1em;
+  --rule:var(--border);
+  --section-gap:80px; --section-pad:128px;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:48px 20px 80px}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:36px 0 10px}
+p,li{color:var(--muted)}strong{color:var(--fg)}
+pre{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55;color:var(--fg)}
+code{font-family:ui-monospace,Consolas,monospace}
+.pill{display:inline-block;background:var(--card);border:1px solid var(--border);border-radius:2px;padding:2px 12px;font-size:13px;color:var(--muted);margin-right:6px}
+.back{font-size:14px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{border:1px solid var(--border);padding:8px 10px;text-align:left}th{color:var(--fg)}td{color:var(--muted)}
+.site-footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted);line-height:1.6}
+.site-footer .entity{opacity:.7}
+
+/* ══ EDITORIAL DESIGN SYSTEM ══ shared with index.html.
+   Serif headings at weight 400, hairlines instead of cards, uppercase mono
+   metadata labels, hover-only motion. Monochrome by design. */
+h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
+.em-italic{font-style:italic;font-size:1.05em;letter-spacing:-.03em}
+.label{font-family:var(--font-label);font-size:11px;line-height:18px;font-weight:500;
+  text-transform:uppercase;letter-spacing:var(--tracking-label);color:var(--muted)}
+.label-sq{display:inline-block;width:8px;height:8px;background:var(--muted);opacity:.4;margin-right:8px;vertical-align:1px}
+.hov{position:relative}
+.hov::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;
+  transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
+.hov:hover::before{opacity:1}
+html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="/">&larr; awareliquid.ai</a></p>
+  <h1>API Access</h1>
+  <p><span class="pill">OpenAI-compatible</span><span class="pill">model: awareliquid-m1</span><span class="pill">streaming</span></p>
+
+  <p><strong>M1</strong> is a 1.1B hybrid model with an MT-v2s liquid-recurrence
+  adapter (fast-weight episodic memory + selective decay — the architecture
+  documented in our <a href="https://github.com/AwareLiquid/M1/blob/main/BENCHMARKS.md">benchmarks</a>).
+  You can call it with any OpenAI SDK or plain HTTP.</p>
+
+  <h2>1&nbsp;&nbsp;Get a token / 获取令牌</h2>
+  <p>Sign in at <a href="https://relay.awareliquid.ai">relay.awareliquid.ai</a>
+  and create an API token (console → Tokens). Quotas and usage are shown per
+  token. 在控制台注册并创建令牌,配额与用量按令牌统计。</p>
+
+  <h2>2&nbsp;&nbsp;Call the model</h2>
+<pre><code>curl https://relay.awareliquid.ai/v1/chat/completions \
+  -H "Authorization: Bearer $YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "awareliquid-m1",
+    "messages": [{"role": "user", "content": "用一句话介绍你自己"}],
+    "max_tokens": 128,
+    "stream": true
+  }'</code></pre>
+
+  <p>Or with the OpenAI Python SDK:</p>
+<pre><code>from openai import OpenAI
+client = OpenAI(base_url="https://relay.awareliquid.ai/v1",
+                api_key="YOUR_TOKEN")
+r = client.chat.completions.create(
+    model="awareliquid-m1",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(r.choices[0].message.content)</code></pre>
+
+  <h2>Parameters</h2>
+  <table>
+    <tr><th>field</th><th>notes</th></tr>
+    <tr><td><code>model</code></td><td><code>awareliquid-m1</code></td></tr>
+    <tr><td><code>messages</code></td><td>standard OpenAI roles; your <code>system</code> message is honored verbatim</td></tr>
+    <tr><td><code>max_tokens</code></td><td>capped at 512</td></tr>
+    <tr><td><code>temperature</code>, <code>top_p</code></td><td><code>temperature: 0</code> = greedy</td></tr>
+    <tr><td><code>stream</code></td><td>SSE chunks in OpenAI format, ends with <code>[DONE]</code></td></tr>
+  </table>
+
+  <h2>Notes / 说明</h2>
+  <ul>
+    <li>Each request runs with a fresh recurrent state; the API does not use
+        the chat UI's persistent memory. 每次请求使用干净的递归状态,不注入网页版的记忆。</li>
+    <li>CPU-served; expect ~seconds-per-response latency. Streaming is
+        recommended. 当前为 CPU 推理,建议开启流式。</li>
+    <li>Model card, honest benchmarks and retractions:
+        <a href="https://github.com/AwareLiquid/M1/blob/main/BENCHMARKS.md">BENCHMARKS.md</a>.</li>
+  </ul>
+
+  <footer class="site-footer">
+    © 2026 AwareLiquid · open research demo · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a><br>
+    <span class="entity">Shenzhen Santi Anyuan Technology Co., Ltd</span>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,214 @@
+{
+  "benchmark": "operator_compression_report",
+  "created_at": "2026-06-08T09:18:13.486097+00:00",
+  "device": "cpu",
+  "torch": "2.5.1+cu121",
+  "config": {
+    "vocab_size": 128,
+    "max_seq_len": 1001,
+    "pad_token_id": 0,
+    "d_model": 104,
+    "n_layers": 2,
+    "n_heads": 4,
+    "n_kv_heads": 2,
+    "d_head": 26,
+    "n_protofilaments": 13,
+    "map_hidden_dim": 64,
+    "tau_init": 1.0,
+    "tau_min": 0.01,
+    "tau_max": 10.0,
+    "dt": 1.0,
+    "polarity_mode": "scalar",
+    "polarity_rank": 16,
+    "gamma_init": 0.1,
+    "gtp_period": 256,
+    "n_time_scales": 5,
+    "resonance_freqs": [
+      0.01,
+      0.05623413251903491,
+      0.31622776601683794,
+      1.7782794100389228,
+      10.0
+    ],
+    "gwtb_compression_ratio": 4,
+    "gwtb_n_heads": 2,
+    "gwtb_broadcast_init": 0.01,
+    "gwtb_per_block": false,
+    "use_competitive_gwtb": false,
+    "n_competitive_bids": 3,
+    "competitive_hard_winner": false,
+    "competitive_score_noise": 0.5,
+    "competitive_ortho_weight": 0.01,
+    "gwtb_external_bids": false,
+    "gwtb_external_bid_gate_init": 0.0,
+    "use_graceful_degradation": true,
+    "coherence_sparsity": 0.1,
+    "coherence_heads": 2,
+    "use_decay_wm": true,
+    "wm_decay_rate_init": 0.99,
+    "compute_skip_threshold": 0.0,
+    "dropout": 0.0,
+    "attention_dropout": 0.0,
+    "tie_embeddings": true,
+    "use_predictive_coding": true,
+    "predictive_loss_weight": 0.05,
+    "direct_target_max_len": 16,
+    "use_position_free_attention": false,
+    "h_prev_position_weight": 0.05,
+    "keep_relative_bias": true,
+    "position_free_mode": "hybrid",
+    "use_causal_head": false,
+    "use_self_monitor_head": false,
+    "dynamic_scale_gates": true,
+    "scale_gate_init_bias": 2.0,
+    "scale_gate_active_threshold": 0.5,
+    "scale_gate_skip_threshold": 0.0,
+    "sparse_resonance_kernel": false,
+    "sparse_resonance_top_k": 1,
+    "use_hebbian": false,
+    "hebbian_lr": 0.0001,
+    "hebbian_lavi_gate": true,
+    "use_world_model": false,
+    "world_model_loss_weight": 0.01,
+    "world_model_hidden_ratio": 0.5,
+    "world_model_proj_ratio": 0.5,
+    "world_model_ema_decay": 0.99,
+    "world_model_use_ema_target": true,
+    "world_model_warmup_steps": 1000,
+    "causal_check_method": "cosine",
+    "causal_check_window": 5,
+    "causal_check_threshold": 0.3,
+    "use_rhythm": false,
+    "rhythm_scale_init": 0.1,
+    "global_rhythm": false,
+    "d_proto": 8,
+    "d_proto_total": 104
+  },
+  "runs": [
+    {
+      "steps": 100,
+      "batch": 1,
+      "scale_gate_diagnostics": {
+        "scale_gate_mean": 0.8806972503662109,
+        "scale_gate_active_ratio": 1.0,
+        "scale_gate_nonzero_ratio": 1.0,
+        "sparse_resonance_scale_ratio": 1.0,
+        "scale_gate_s0_mean": 0.8807753324508667,
+        "scale_gate_s1_mean": 0.8805087804794312,
+        "scale_gate_s2_mean": 0.8808428645133972,
+        "scale_gate_s3_mean": 0.8806242942810059,
+        "scale_gate_s4_mean": 0.8807345628738403,
+        "sparse_resonance_s0_selected": 1.0,
+        "sparse_resonance_s1_selected": 1.0,
+        "sparse_resonance_s2_selected": 1.0,
+        "sparse_resonance_s3_selected": 1.0,
+        "sparse_resonance_s4_selected": 1.0
+      },
+      "modes": [
+        {
+          "mode": "full_sequence_oracle",
+          "elapsed_s": 0.020668700017267838,
+          "tokens_per_s": 4838.23365361412,
+          "final_cache_bytes": 0,
+          "peak_cache_bytes": 0,
+          "note": "single full causal forward; used as logit reference"
+        },
+        {
+          "mode": "kv_cache_stream",
+          "elapsed_s": 0.4374843999976292,
+          "tokens_per_s": 228.57957906737226,
+          "final_cache_bytes": 108992,
+          "peak_cache_bytes": 108992,
+          "divergence_vs_full_sequence": {
+            "max_abs": 4.10713255405426e-06,
+            "mean_abs": 6.60112618788844e-07
+          }
+        },
+        {
+          "mode": "state_only_stream",
+          "elapsed_s": 0.4363467000075616,
+          "tokens_per_s": 229.1755615391776,
+          "final_cache_bytes": 4160,
+          "peak_cache_bytes": 4160,
+          "divergence_vs_full_sequence": {
+            "max_abs": 0.45261263847351074,
+            "mean_abs": 0.08871200680732727
+          },
+          "note": "drops historical KV; preserves recurrent h_prev only",
+          "cache_constant": true
+        },
+        {
+          "mode": "prefix_replay_stream",
+          "elapsed_s": 1.1364533999876585,
+          "tokens_per_s": 87.99304925400898,
+          "final_cache_bytes": 0,
+          "peak_cache_bytes": 0,
+          "divergence_vs_full_sequence": {
+            "max_abs": 4.395842552185059e-06,
+            "mean_abs": 3.669699708552798e-07
+          },
+          "processed_tokens": 5050
+        }
+      ]
+    },
+    {
+      "steps": 1000,
+      "batch": 1,
+      "scale_gate_diagnostics": {
+        "scale_gate_mean": 0.8807713389396667,
+        "scale_gate_active_ratio": 1.0,
+        "scale_gate_nonzero_ratio": 1.0,
+        "sparse_resonance_scale_ratio": 1.0,
+        "scale_gate_s0_mean": 0.8810802698135376,
+        "scale_gate_s1_mean": 0.8806363940238953,
+        "scale_gate_s2_mean": 0.880742609500885,
+        "scale_gate_s3_mean": 0.880537748336792,
+        "scale_gate_s4_mean": 0.8808598518371582,
+        "sparse_resonance_s0_selected": 1.0,
+        "sparse_resonance_s1_selected": 1.0,
+        "sparse_resonance_s2_selected": 1.0,
+        "sparse_resonance_s3_selected": 1.0,
+        "sparse_resonance_s4_selected": 1.0
+      },
+      "modes": [
+        {
+          "mode": "full_sequence_oracle",
+          "elapsed_s": 0.15448490000562742,
+          "tokens_per_s": 6473.124557568882,
+          "final_cache_bytes": 0,
+          "peak_cache_bytes": 0,
+          "note": "single full causal forward; used as logit reference"
+        },
+        {
+          "mode": "kv_cache_stream",
+          "elapsed_s": 4.715880099975038,
+          "tokens_per_s": 212.04949634009844,
+          "final_cache_bytes": 1044992,
+          "peak_cache_bytes": 1044992,
+          "divergence_vs_full_sequence": {
+            "max_abs": 3.6098062992095947e-06,
+            "mean_abs": 5.449681452773802e-07
+          }
+        },
+        {
+          "mode": "state_only_stream",
+          "elapsed_s": 4.348518899991177,
+          "tokens_per_s": 229.96335602957342,
+          "final_cache_bytes": 4160,
+          "peak_cache_bytes": 4160,
+          "divergence_vs_full_sequence": {
+            "max_abs": 0.5234009027481079,
+            "mean_abs": 0.08919680863618851
+          },
+          "note": "drops historical KV; preserves recurrent h_prev only",
+          "cache_constant": true
+        },
+        {
+          "mode": "prefix_replay_stream",
+          "skipped": true,
+          "reason": "steps=1000 exceeds --max_prefix_replay_steps=128"
+        }
+      ]
+    }
+  ]
+}

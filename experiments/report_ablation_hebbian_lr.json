@@ -1,0 +1,166 @@
+{
+  "config": {
+    "seeds": [
+      0,
+      1
+    ],
+    "steps": 150,
+    "batch": 8,
+    "seq_len": 64,
+    "lr": 0.0003,
+    "d_model": 128,
+    "n_layers": 2,
+    "n_heads": 8,
+    "measure_every": 25,
+    "eval_batches": 30,
+    "device": "cpu",
+    "data": "E:\\M1\\kaggle_out\\tiny\\data"
+  },
+  "settings": {
+    "off": {
+      "hebbian_lr": null,
+      "ppl_mean": 336.86555,
+      "ppl_std": 6.589149999999989,
+      "ppl_vals": [
+        330.2764,
+        343.4547
+      ],
+      "nan_total": 0,
+      "hebb_mag_mean": 0.0,
+      "hebb_frac_mean": 0.0,
+      "g_full_mean": 1.5888471797910144,
+      "g_hebb_mean": 0.0,
+      "per_seed": [
+        {
+          "final_ppl": 330.2764,
+          "nan_count": 0,
+          "final_grad_norm": 0.92419,
+          "hebb_mag_mean": 0.0,
+          "hebb_frac_mean": 0.0,
+          "g_full_mean": 1.5749912413862506,
+          "g_hebb_mean": 0.0,
+          "seconds": 73.7
+        },
+        {
+          "final_ppl": 343.4547,
+          "nan_count": 0,
+          "final_grad_norm": 0.94914,
+          "hebb_mag_mean": 0.0,
+          "hebb_frac_mean": 0.0,
+          "g_full_mean": 1.6027031181957785,
+          "g_hebb_mean": 0.0,
+          "seconds": 72.8
+        }
+      ]
+    },
+    "1e-4": {
+      "hebbian_lr": 0.0001,
+      "ppl_mean": 337.18539999999996,
+      "ppl_std": 7.247199999999992,
+      "ppl_vals": [
+        329.9382,
+        344.4326
+      ],
+      "nan_total": 0,
+      "hebb_mag_mean": 4.715106626899482e-09,
+      "hebb_frac_mean": 8.306900513114442e-08,
+      "g_full_mean": 1.58832374914433,
+      "g_hebb_mean": 1.0355715025881875e-07,
+      "per_seed": [
+        {
+          "final_ppl": 329.9382,
+          "nan_count": 0,
+          "final_grad_norm": 0.93387,
+          "hebb_mag_mean": 6.0105919177007765e-09,
+          "hebb_frac_mean": 9.316960551743927e-08,
+          "g_full_mean": 1.5763814086596322,
+          "g_hebb_mean": 1.127991976582129e-07,
+          "seconds": 74.5
+        },
+        {
+          "final_ppl": 344.4326,
+          "nan_count": 0,
+          "final_grad_norm": 0.90687,
+          "hebb_mag_mean": 3.4196213360981886e-09,
+          "hebb_frac_mean": 7.296840474484957e-08,
+          "g_full_mean": 1.600266089629028,
+          "g_hebb_mean": 9.43151028594246e-08,
+          "seconds": 75.0
+        }
+      ]
+    },
+    "1e-2": {
+      "hebbian_lr": 0.01,
+      "ppl_mean": 337.188,
+      "ppl_std": 7.248400000000004,
+      "ppl_vals": [
+        329.9396,
+        344.4364
+      ],
+      "nan_total": 0,
+      "hebb_mag_mean": 4.748676998289625e-07,
+      "hebb_frac_mean": 8.32193113288194e-06,
+      "g_full_mean": 1.5883216748846278,
+      "g_hebb_mean": 1.0369626049502168e-05,
+      "per_seed": [
+        {
+          "final_ppl": 329.9396,
+          "nan_count": 0,
+          "final_grad_norm": 0.93386,
+          "hebb_mag_mean": 6.055549709079363e-07,
+          "hebb_frac_mean": 9.339333898076734e-06,
+          "g_full_mean": 1.5763805357559475,
+          "g_hebb_mean": 1.1300345759553106e-05,
+          "seconds": 73.4
+        },
+        {
+          "final_ppl": 344.4364,
+          "nan_count": 0,
+          "final_grad_norm": 0.90684,
+          "hebb_mag_mean": 3.441804287499887e-07,
+          "hebb_frac_mean": 7.304528367687145e-06,
+          "g_full_mean": 1.600262814013308,
+          "g_hebb_mean": 9.438906339451229e-06,
+          "seconds": 72.6
+        }
+      ]
+    },
+    "1e-1": {
+      "hebbian_lr": 0.1,
+      "ppl_mean": 337.21164999999996,
+      "ppl_std": 7.257750000000016,
+      "ppl_vals": [
+        329.9539,
+        344.4694
+      ],
+      "nan_total": 0,
+      "hebb_mag_mean": 5.060595250701757e-06,
+      "hebb_frac_mean": 8.472328668767854e-05,
+      "g_full_mean": 1.588302310274479,
+      "g_hebb_mean": 0.00010507190389043233,
+      "per_seed": [
+        {
+          "final_ppl": 329.9539,
+          "nan_count": 0,
+          "final_grad_norm": 0.93378,
+          "hebb_mag_mean": 6.470698695674552e-06,
+          "hebb_frac_mean": 9.55521694346737e-05,
+          "g_full_mean": 1.5763713066462064,
+          "g_hebb_mean": 0.00011496130439687332,
+          "seconds": 73.0
+        },
+        {
+          "final_ppl": 344.4694,
+          "nan_count": 0,
+          "final_grad_norm": 0.90661,
+          "hebb_mag_mean": 3.6504918057289615e-06,
+          "hebb_frac_mean": 7.38944039406834e-05,
+          "g_full_mean": 1.600233313902752,
+          "g_hebb_mean": 9.518250338399135e-05,
+          "seconds": 73.4
+        }
+      ]
+    }
+  },
+  "seconds": 593.0
+}

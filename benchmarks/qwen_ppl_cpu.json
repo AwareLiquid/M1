@@ -1,0 +1,13 @@
+[
+  {
+    "name": "base",
+    "adapter": null,
+    "tokens": 1280,
+    "batches": 5,
+    "ppl": 14.706637767232916,
+    "seconds": 5.4337358474731445,
+    "tok_per_sec": 235.56537084798475,
+    "trainable_params": 1543714304,
+    "total_params": 1543714304
+  }
+]
