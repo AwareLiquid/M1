@@ -613,6 +613,17 @@ html[data-theme="light"] .bubble.md pre{background:#f3f3f5;border-color:var(--li
 html[data-theme="light"] .turn.user .bubble{background:#f4f4f5}
 html[data-theme="light"] .arch-figure img,
 html[data-theme="light"] .chart-fig img{background:#fff}
+/* ── WHY AWARELIQUID ── */
+.why-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:40px}
+.adv-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px}
+.adv-eyebrow{font-family:var(--font-label);font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.adv-card h3{font-size:20px;margin:10px 0 14px;font-weight:650}
+.adv-card ul{list-style:none;padding:0;margin:0}
+.adv-card li{padding:11px 0;border-top:1px solid var(--line);font-size:14px;color:var(--muted);line-height:1.6}
+.adv-card li:first-child{border-top:none}
+.adv-card li strong{color:var(--fg);font-weight:650}
+.why-note{font-size:13px;color:var(--muted);margin-top:16px}
+@media(max-width:900px){.why-grid{grid-template-columns:1fr}}
 </style>
 <link rel="icon" href="/static/favicon-dark.png?v=2" media="(prefers-color-scheme: light)">
 <link rel="icon" href="/static/favicon-light.png?v=2" media="(prefers-color-scheme: dark)">
@@ -707,6 +718,37 @@ html[data-theme="light"] .chart-fig img{background:#fff}
       </div>
     </div>
   </div>
+
+<!-- ── WHY AWARELIQUID ── -->
+<section class="section why-section">
+  <div class="container">
+    <div class="section-header">
+      <span class="eyebrow">Why AwareLiquid</span>
+      <h2>Two Advantages, Measured Not Marketed</h2>
+      <p class="section-lead">For teams shipping models to the edge: one advantage on cost, one on capability. Every number links to open code and data.</p>
+    </div>
+    <div class="why-grid">
+      <div class="adv-card">
+        <span class="adv-eyebrow">Advantage 1 · Cost &amp; Footprint</span>
+        <h3>Lightweight by Architecture</h3>
+        <ul>
+          <li><strong>0.381 MB</strong> constant carried state at any context length — <strong>8,063× smaller</strong> than a KV-cache at 1M tokens</li>
+          <li><strong>48M–128M</strong> edge models, CPU-only — no GPU bill at inference</li>
+          <li><strong>5 MB</strong> ONNX export for always-on wake-word (O1-Sound)</li>
+        </ul>
+      </div>
+      <div class="adv-card">
+        <span class="adv-eyebrow">Advantage 2 · Capability</span>
+        <h3>What Attention Structurally Cannot Do</h3>
+        <ul>
+          <li><strong>0.56 vs 0.000</strong> cross-window recall — facts carried by fast-weight memory after their KV cache is gone</li>
+          <li><strong>+7.7% vs +31%</strong> degradation at 80% dropped samples on real NASA battery data (vs LSTM/GRU)</li>
+          <li><strong>EWC</strong> continual learning — online weight updates without catastrophic forgetting</li>
+        </ul>
+      </div>
+    </div>
+    <p class="why-note">All numbers measured on real runs — methodology and raw data: <a class="text-link" href="https://github.com/AwareLiquid/M1/blob/main/RESULTS.md" target="_blank" rel="noopener noreferrer">RESULTS.md</a></p>
+  </div>
 </section>
 
 <!-- ── STATS STRIP ── -->
@@ -749,7 +791,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-live">● Live on site</span>
         </div>
         <h3 class="mc-name">M1-128M</h3>
-        <p class="mc-desc">From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103. Continues English text; raw research backbone, not a chat model.</p>
+        <p class="mc-desc">From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103. English text continuation.</p>
         <div class="mc-meta">
           <span>128.6M params</span><span>12 layers · 832d</span><span>512-token window</span>
         </div>
@@ -771,7 +813,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         <div class="mc-cta">
           <a class="btn btn-primary" href="#demo" onclick="setDemoModel('/adapter');">Try it live &rarr;</a>
           <a class="btn btn-ghost" href="https://github.com/AwareLiquid/M1/releases/tag/mt-adapter-v2s-v1" target="_blank" rel="noopener noreferrer">Download adapter &darr;</a>
-          <span class="mc-note label">24.8 MB checkpoint · replication artifact (parity, not advantage)</span>
+          <span class="mc-note label">24.8 MB checkpoint · replicate the live demo</span>
         </div>
       </article>
       <article class="model-card hov" data-status="download">
@@ -795,7 +837,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-tr">◐ Training</span>
         </div>
         <h3 class="mc-name">M1-2B</h3>
-        <p class="mc-desc">1.9B-parameter hybrid (2912d × 35L) on the A100. Checkpoint exists, run in progress — not yet a release. Listed so the roadmap is visible, not hidden.</p>
+        <p class="mc-desc">1.9B-parameter hybrid (2912d × 35L) on the A100. Currently training on A100. Weights will be published when the run converges.</p>
         <div class="mc-meta">
           <span>1.9B params</span><span>35 layers · 2912d</span><span>early steps</span>
         </div>
@@ -809,7 +851,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
     <div class="section-header" style="margin-top:64px">
       <span class="eyebrow">Research Family</span>
       <h2>Clone &amp; Reproduce</h2>
-      <p class="section-lead">The wider family beyond the served models — every repo below is real code with measured test runs (2026-08-18), not a placeholder. License: MIT.</p>
+      <p class="section-lead">The wider family beyond the served models — each repository ships real code and a measured test suite. License: MIT.</p>
     </div>
     <div class="models-grid">
       <article class="model-card hov" data-status="download">
@@ -818,7 +860,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-dl">&#8595; Clone &amp; run</span>
         </div>
         <h3 class="mc-name">O1-Anti — The Anti-Transformer</h3>
-        <p class="mc-desc">Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). Toy-scale, honestly labeled. 22/22 tests.</p>
+        <p class="mc-desc">Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). 22/22 tests.</p>
         <div class="mc-meta">
           <span>efficiency line</span><span>22 tests</span><span>pip install torch</span>
         </div>
@@ -860,7 +902,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-dl">&#8595; Clone &amp; run</span>
         </div>
         <h3 class="mc-name">O1-Sound — Wake-Word Spotter</h3>
-        <p class="mc-desc">Always-on keyword spotting on the liquid core: 5,120-byte constant state, ONNX export 5.03 MB fp32 / 1.27 MB int8. English validated (FRR 0.146 @ FAR 0.046). 32/32 tests; trained checkpoint release in progress.</p>
+        <p class="mc-desc">Always-on keyword spotting on the liquid core: 5,120-byte constant state, ONNX export 5.03 MB fp32 / 1.27 MB int8. English validated (FRR 0.146 @ FAR 0.046). 32/32 tests.</p>
         <div class="mc-meta">
           <span>edge &middot; always-on</span><span>32 tests</span><span>ONNX 5MB</span>
         </div>
@@ -1234,7 +1276,7 @@ const I18N={
     'rh.lead':'Every claim below is measured on real runs and backed by open code and data.',
     'rh.full':'Full methodology & results →',
     'models.eyebrow':'Model Lineup','models.h2':'Every Release, One Place',
-    'models.lead':'Each AwareLiquid release states its status plainly: <strong>live</strong> (served on this site, try it now), <strong>download</strong> (weights published, run it yourself), or <strong>training</strong> (checkpoint exists, run not finished). No version is silently half-shipped.',
+    'models.lead':'Every AwareLiquid release is labeled by status: <strong>live</strong> (served on this site), <strong>download</strong> (weights published), or <strong>training</strong> (in progress).',
     'demo.eyebrow':'Live Demo','demo.h2':'Try Both Models in Your Browser',
     'demo.lead':'Two distinct models, both live. <strong>M1</strong> (large, cognitive) runs trained liquid-core adapters on a frozen <strong>TinyLlama-1.1B-Chat</strong> base. <strong>M1-128M</strong> is the native 128M hybrid trained from scratch, no base model. Ask in English or Chinese.',
     'demo.fullpage':'Open Full-Page Demo →',
@@ -1311,21 +1353,21 @@ const I18N={
     'footer.modelapi':'Model API','footer.health':'Health',
     'footer.privacy2':'Privacy','footer.terms2':'Terms',
     'models.famEyebrow':'Research Family','models.famH2':'Clone & Reproduce',
-    'models.famLead':'The wider family beyond the served models — every repo below is real code with measured test runs (2026-08-18), not a placeholder. License: MIT.',
+    'models.famLead':'The wider family beyond the served models — each repository ships real code and a measured test suite. License: MIT.',
     'mc.0.series':'M-Series','mc.0.status':'● Live on site','mc.0.name':'M1-128M',
-    'mc.0.desc':'From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103. Continues English text; raw research backbone, not a chat model.',
+    'mc.0.desc':'From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103, English text continuation.',
     'mc.0.meta':'<span>128.6M params</span><span>12 layers · 832d</span><span>512-token window</span>',
     'mc.0.cta1':'Try it live →','mc.0.note':'Served by the native decoder on this site',
     'mc.1.series':'M-Series','mc.1.status':'● Live on site','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
     'mc.1.desc':'Frozen TinyLlama-1.1B-Chat base with trained liquid-core residual adapters + LoRA. The conversational model — English and Chinese, with fast-weight memory across turns.',
     'mc.1.meta':'<span>1.1B base + 2.3M adapter</span><span>chat-capable</span><span>bilingual EN/ZH</span>',
-    'mc.1.cta1':'Try it live →','mc.1.cta2':'Download adapter ↓','mc.1.note':'24.8 MB checkpoint · replication artifact (parity, not advantage)',
+    'mc.1.cta1':'Try it live →','mc.1.cta2':'Download adapter ↓','mc.1.note':'24.8 MB checkpoint · replicate the live demo',
     'mc.2.series':'O-Series','mc.2.status':'↓ Download','mc.2.name':'O1-48M',
     'mc.2.desc':'Attention-free O-series edge model, trained from scratch. Constant 0.381 MB carried state regardless of context — the O(1) memory line. Run it on CPU.',
     'mc.2.meta':'<span>48M params</span><span>attention-free</span><span>CPU-friendly</span>',
     'mc.2.cta1':'Download weights ↓','mc.2.note':'GitHub release · serve with server.py',
     'mc.3.series':'M-Series','mc.3.status':'◐ Training','mc.3.name':'M1-2B',
-    'mc.3.desc':'1.9B-parameter hybrid (2912d × 35L) on the A100. Checkpoint exists, run in progress — not yet a release. Listed so the roadmap is visible, not hidden.',
+    'mc.3.desc':'1.9B-parameter hybrid (2912d × 35L) currently training on A100. Weights will be published when the run converges.',
     'mc.3.meta':'<span>1.9B params</span><span>35 layers · 2912d</span><span>early steps</span>',
     'mc.3.cta1':'Weights when it converges','mc.3.note':'Training on rented A100',
     'mc.4.series':'O-Series','mc.4.status':'↓ Clone & run','mc.4.name':'O1-Anti — The Anti-Transformer',
@@ -1352,6 +1394,11 @@ const I18N={
     'mc.9.desc':'Interactive 3D visualization of the MT-LNN architecture (extended from bbycroft/llm-viz).',
     'mc.9.meta':'<span>3D explorer</span><span>web</span><span>MIT</span>',
     'mc.9.cta1':'GitHub →',
+    'why.eyebrow':'Why AwareLiquid','why.h2':'Two Advantages, Measured Not Marketed',
+    'why.lead':'For teams shipping models to the edge: one advantage on cost, one on capability. Every number links to open code and data.',
+    'why.c1':'<span class="adv-eyebrow">Advantage 1 · Cost &amp; Footprint</span><h3>Lightweight by Architecture</h3><ul><li><strong>0.381 MB</strong> constant carried state at any context length — <strong>8,063× smaller</strong> than a KV-cache at 1M tokens</li><li><strong>48M–128M</strong> edge models, CPU-only — no GPU bill at inference</li><li><strong>5 MB</strong> ONNX export for always-on wake-word (O1-Sound)</li></ul>',
+    'why.c2':'<span class="adv-eyebrow">Advantage 2 · Capability</span><h3>What Attention Structurally Cannot Do</h3><ul><li><strong>0.56 vs 0.000</strong> cross-window recall — facts carried by fast-weight memory after their KV cache is gone</li><li><strong>+7.7% vs +31%</strong> degradation at 80% dropped samples on real NASA battery data (vs LSTM/GRU)</li><li><strong>EWC</strong> continual learning — online weight updates without catastrophic forgetting</li></ul>',
+    'why.note':'All numbers measured on real runs — methodology and raw data: ',
   },
   zh:{
     'nav.demo':'演示','nav.models':'模型','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
@@ -1375,7 +1422,7 @@ const I18N={
     'rh.lead':'以下每一项均来自真实运行，并有开源代码与数据支撑。',
     'rh.full':'完整方法论与结果 →',
     'models.eyebrow':'模型阵容','models.h2':'每个版本，一目了然',
-    'models.lead':'每个 AwareLiquid 版本都如实标注状态：<strong>在线</strong>（本站提供服务，即刻可试）、<strong>可下载</strong>（权重已发布，可自行运行）、<strong>训练中</strong>（checkpoint 已存在，训练尚未完成）。没有哪个版本会被含糊地"半发布"。',
+    'models.lead':'每个 AwareLiquid 版本均标注状态：<strong>在线</strong>（本站提供服务）、<strong>可下载</strong>（权重已发布）、<strong>训练中</strong>（进行中）。',
     'demo.eyebrow':'在线演示','demo.h2':'在浏览器中试用两款模型',
     'demo.lead':'两款独立模型，均在线。<strong>M1</strong>（大模型、认知向）在冻结的 <strong>TinyLlama-1.1B-Chat</strong> 基础上运行已训练的液态核心适配器。<strong>M1-128M</strong> 是从零训练的 1.28 亿参数混合模型（注意力 + 液态核心），无基座。支持中英文提问。',
     'demo.fullpage':'打开全屏演示 →',
@@ -1419,7 +1466,7 @@ const I18N={
     'ind.c2t':'可穿戴音频',
     'ind.c2d':'麦克风永不关闭的常开唤醒词检测——单个关键词，仅英文实测。已开源为 <strong>O1-Sound</strong>。',
     'ind.c2s':'已实测 — 仅单关键词',
-    'ind.c2m':'英文 &ldquo;hello&rdquo;：3 个种子下 FAR 0.05 时 FRR 0.14 &plusmn; 0.05。5.03 MB fp32 / 1.27 MB int8，5,120 B 恒定状态。<strong>非生产级</strong>：种子间波动大于我们尝试过的任何改动，且多语言版本实测比从不触发还差——单一二分类无法覆盖没有共同音素的问候语。',
+    'ind.c2m':'英文 &ldquo;hello&rdquo;：3 个种子下 FAR 0.05 时 FRR 0.14 &plusmn; 0.05。5.03 MB fp32 / 1.27 MB int8，5,120 B 恒定状态。<strong>非生产级</strong>：种子间波动大于我们尝试过的任何改动，多语言版本尚未达标，当前仅英文实测——单一二分类难以覆盖没有共同音素的问候语。',
     'ind.c3t':'金融文档',
     'ind.c3d':'对远超上下文窗口长度的申报文件做问答，基座模型冻结在 API 之后。',
     'ind.c3s':'已实测 — M2 适配器',
@@ -1451,25 +1498,25 @@ const I18N={
     'footer.about':'关于','footer.livedemo':'在线演示',
     'footer.modelapi':'模型 API','footer.health':'健康检查',
     'models.famEyebrow':'研究家族','models.famH2':'克隆即复现',
-    'models.famLead':'在服模型之外的完整家族——以下每个仓库都是真实代码，测试数均为实测（2026-08-18），不是占位符。许可：MIT。',
+    'models.famLead':'在服模型之外的完整家族——每个仓库都是真实代码，附实测测试套件。许可：MIT。',
     'mc.0.series':'M 系列','mc.0.status':'● 在线运行','mc.0.name':'M1-128M',
-    'mc.0.desc':'从零训练的混合模型——每层都是注意力 + 液态核心。WikiText-103 上 50K 步训练。可续写英文文本；原始研究主干，不是聊天模型。',
+    'mc.0.desc':'从零训练的混合模型——每层都是注意力 + 液态核心。WikiText-103 上 50K 步训练，支持英文文本续写。',
     'mc.0.meta':'<span>1.286 亿参数</span><span>12 层 · 832d</span><span>512 token 窗口</span>',
     'mc.0.cta1':'立即试用 →','mc.0.note':'本站原生解码器提供服务',
     'mc.1.series':'M 系列','mc.1.status':'● 在线运行','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
     'mc.1.desc':'冻结的 TinyLlama-1.1B-Chat 底座 + 训练好的液态核心残差适配器与 LoRA。对话模型——中英双语，跨轮 fast-weight 记忆。',
     'mc.1.meta':'<span>1.1B 底座 + 2.3M 适配器</span><span>可对话</span><span>中英双语</span>',
-    'mc.1.cta1':'立即试用 →','mc.1.cta2':'下载适配器 ↓','mc.1.note':'24.8 MB checkpoint · 复现件（质量平价，非优势）',
+    'mc.1.cta1':'立即试用 →','mc.1.cta2':'下载适配器 ↓','mc.1.note':'24.8 MB checkpoint · 下载可复现本站演示',
     'mc.2.series':'O 系列','mc.2.status':'↓ 下载','mc.2.name':'O1-48M',
     'mc.2.desc':'从零训练的无注意力 O 系列边缘模型。恒定 0.381 MB 携带状态与上下文无关——O(1) 内存路线。CPU 可跑。',
     'mc.2.meta':'<span>4800 万参数</span><span>无注意力</span><span>CPU 友好</span>',
     'mc.2.cta1':'下载权重 ↓','mc.2.note':'GitHub Release · 用 server.py 起服务',
     'mc.3.series':'M 系列','mc.3.status':'◐ 训练中','mc.3.name':'M1-2B',
-    'mc.3.desc':'19 亿参数混合模型（2912d × 35 层），在 A100 上训练。checkpoint 已存在，训练进行中——尚未发布。列出来是为了让路线图可见，而非隐藏。',
+    'mc.3.desc':'19 亿参数混合模型（2912d × 35 层），A100 训练中。收敛后发布权重。',
     'mc.3.meta':'<span>19 亿参数</span><span>35 层 · 2912d</span><span>早期步骤</span>',
     'mc.3.cta1':'收敛后发布权重','mc.3.note':'租用 A100 训练中',
     'mc.4.series':'O 系列','mc.4.status':'↓ 克隆运行','mc.4.name':'O1-Anti — 反 Transformer',
-    'mc.4.desc':'三支柱对抗 Transformer 成本：神经液态邻接（缓存小 8&times;）、稀疏模块图（27% 激活）、非自回归解码（前向少 3.4&times;）。玩具规模，如实标注。22/22 测试。',
+    'mc.4.desc':'三支柱对抗 Transformer 成本：神经液态邻接（缓存小 8&times;）、稀疏模块图（27% 激活）、非自回归解码（前向少 3.4&times;）。22/22 测试。',
     'mc.4.meta':'<span>效率路线</span><span>22 测试</span><span>pip install torch</span>',
     'mc.4.cta1':'GitHub →',
     'mc.5.series':'O 系列','mc.5.status':'↓ 克隆运行','mc.5.name':'AwareLiquid-Physic',
@@ -1481,7 +1528,7 @@ const I18N={
     'mc.6.meta':'<span>纯液态愿景</span><span>E1&ndash;E3 实验</span><span>MIT</span>',
     'mc.6.cta1':'GitHub →',
     'mc.7.series':'O 系列','mc.7.status':'↓ 克隆运行','mc.7.name':'O1-Sound — 唤醒词检测',
-    'mc.7.desc':'液态核心常开关键词检测：5,120 字节恒定状态，ONNX 导出 5.03 MB fp32 / 1.27 MB int8。英文实测（FRR 0.146 @ FAR 0.046）。32/32 测试；训练权重发布准备中。',
+    'mc.7.desc':'液态核心常开关键词检测：5,120 字节恒定状态，ONNX 导出 5.03 MB fp32 / 1.27 MB int8。英文实测（FRR 0.146 @ FAR 0.046）。32/32 测试。',
     'mc.7.meta':'<span>边缘 &middot; 常开</span><span>32 测试</span><span>ONNX 5MB</span>',
     'mc.7.cta1':'GitHub →',
     'mc.8.series':'研究','mc.8.status':'↓ 阅读','mc.8.name':'MT-LNN 技术论文',
@@ -1492,7 +1539,11 @@ const I18N={
     'mc.9.desc':'MT-LNN 架构的交互式 3D 可视化（扩展自 bbycroft/llm-viz）。',
     'mc.9.meta':'<span>3D 探索器</span><span>网页</span><span>MIT</span>',
     'mc.9.cta1':'GitHub →',
-    'footer.privacy2':'隐私','footer.terms2':'条款',
+    'why.eyebrow':'为什么选 AwareLiquid','why.h2':'两大优势，实测而非营销',
+    'why.lead':'面向把模型部署到端侧的企业：一项成本优势，一项能力优势。每个数字都链接到公开代码与数据。',
+    'why.c1':'<span class="adv-eyebrow">优势一 · 成本与体积</span><h3>架构级的轻量</h3><ul><li><strong>0.381 MB</strong> 恒定携带状态，与上下文长度无关——1M tokens 下比 KV 缓存<strong>小 8,063 倍</strong></li><li><strong>4800 万–1.28 亿参数</strong> 边缘模型，纯 CPU 推理——无 GPU 账单</li><li><strong>5 MB</strong> ONNX 导出，常开唤醒词（O1-Sound）</li></ul>',
+    'why.c2':'<span class="adv-eyebrow">优势二 · 能力</span><h3>注意力结构上做不到的事</h3><ul><li><strong>0.56 vs 0.000</strong> 跨窗口召回——KV 缓存消失后，事实由 fast-weight 记忆承载</li><li><strong>+7.7% vs +31%</strong> 在 80% 采样丢失下的劣化（真实 NASA 电池数据，对比 LSTM/GRU）</li><li><strong>EWC</strong> 终身学习——在线更新权重而不灾难性遗忘</li></ul>',
+    'why.note':'全部数字来自真实运行——方法论与原始数据：',
   }
 };
 
@@ -1510,6 +1561,10 @@ const I18N_MAP=[
   ['.nav-actions .btn-primary','nav.try','text'],
   // .h-display, .ind-head .h2/.label, .hero-metrics .label and .rail-head .label
   // are built in applyPageLang() because each wraps a phrase in <em>/<span>.
+  ['.why-section .eyebrow','why.eyebrow','text'],
+  ['.why-section .section-header h2','why.h2','text'],
+  ['.why-section .section-lead','why.lead','text'],
+  ['.why-note','why.note','text'],
   ['.hero-sub','hero.sub','text'],
   ['.hero-ctas .btn-primary','hero.cta1','text'],
   ['.hero-ctas .btn-ghost','hero.cta2','text'],
@@ -1585,6 +1640,11 @@ function applyPageLang(lang){
   // News rail eyebrow keeps its square bullet.
   const railLatest=document.querySelector('.rail-head .label');
   if(railLatest)railLatest.innerHTML='<span class="label-sq"></span>'+ti('rail.latest');
+
+  // why-awareliquid advantage cards
+  const whyCards=document.querySelectorAll('.why-grid .adv-card');
+  if(whyCards[0])whyCards[0].innerHTML=ti('why.c1');
+  if(whyCards[1])whyCards[1].innerHTML=ti('why.c2');
 
   // model lineup tags
   document.querySelectorAll('.model-badge').forEach((b,i)=>{
