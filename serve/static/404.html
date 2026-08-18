@@ -29,6 +29,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font);min-height:100
      display:flex;flex-direction:column;align-items:center;justify-content:center;
      padding:40px 24px;text-align:center;-webkit-font-smoothing:antialiased}
 .logo-wrap{margin-bottom:32px;opacity:.35}
+.logo{width:24px;height:22px;display:inline-block;background:url('/static/logo-dark.png') center/contain no-repeat}
+@media(prefers-color-scheme:dark){html:not([data-theme='light']) .logo{background-image:url('/static/logo-light.png')}}
 .code{font-size:clamp(80px,20vw,140px);font-weight:800;letter-spacing:-.06em;
       line-height:1;color:var(--fg);opacity:.08;user-select:none}
 .brand{display:inline-flex;align-items:center;gap:8px;font-size:17px;font-weight:650;
@@ -60,12 +62,7 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
 <body>
   <div class="code">404</div>
   <a class="brand" href="/">
-    <svg width="20" height="20" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
-      <path d="M6 11.3 Q14 8.3 22 11.3"/>
-      <path d="M6 14.6 Q14 11.6 22 14.6"/>
-      <path d="M6 17.9 Q14 14.9 22 17.9"/>
-    </svg>
+    <span class="logo" role="img" aria-label="AwareLiquid"></span>
     AwareLiquid
   </a>
   <h1>Page not found</h1>

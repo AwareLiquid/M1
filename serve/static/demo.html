@@ -80,7 +80,10 @@ html{color-scheme:light dark}
   display:flex;align-items:center;padding:0 16px;gap:10px;
 }
 .hdr-brand{display:flex;align-items:center;gap:7px;font-weight:650;font-size:14px;letter-spacing:.1px;text-decoration:none;color:var(--fg);flex:none}
-.hdr-logo{width:18px;height:18px;color:var(--fg);flex:none}
+.hdr-logo{width:24px;height:22px;background:url('/static/logo-dark.png') center/contain no-repeat;flex:none}
+@media(prefers-color-scheme:dark){
+html:not([data-theme="light"]) .hdr-logo{background-image:url('/static/logo-light.png')}
+}
 /* Eyebrow, not a chip: mono uppercase on the bare surface (spec §6). */
 .hdr-badge{font-family:var(--font-label);font-size:10.5px;font-weight:500;letter-spacing:var(--tracking-label);text-transform:uppercase;color:var(--muted);background:transparent;border:0;border-radius:0;padding:0;flex:none}
 .hdr-sep{width:1px;height:22px;background:var(--rule);flex:none}
@@ -210,12 +213,7 @@ textarea::placeholder{color:#b4b4c0}
 <!-- ── HEADER ── -->
 <header class="hdr">
   <a class="hdr-brand" href="/">
-    <svg class="hdr-logo" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z"/>
-      <path d="M6 11.3 Q14 8.3 22 11.3"/>
-      <path d="M6 14.6 Q14 11.6 22 14.6"/>
-      <path d="M6 17.9 Q14 14.9 22 17.9"/>
-    </svg>
+    <span class="hdr-logo" role="img" aria-label="AwareLiquid"></span>
     AwareLiquid
   </a>
   <span class="hdr-badge" id="hdrBadge">Live Demo</span>
