@@ -1310,6 +1310,48 @@ const I18N={
     'footer.about':'About','footer.livedemo':'Live Demo',
     'footer.modelapi':'Model API','footer.health':'Health',
     'footer.privacy2':'Privacy','footer.terms2':'Terms',
+    'models.famEyebrow':'Research Family','models.famH2':'Clone & Reproduce',
+    'models.famLead':'The wider family beyond the served models — every repo below is real code with measured test runs (2026-08-18), not a placeholder. License: MIT.',
+    'mc.0.series':'M-Series','mc.0.status':'● Live on site','mc.0.name':'M1-128M',
+    'mc.0.desc':'From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103. Continues English text; raw research backbone, not a chat model.',
+    'mc.0.meta':'<span>128.6M params</span><span>12 layers · 832d</span><span>512-token window</span>',
+    'mc.0.cta1':'Try it live →','mc.0.note':'Served by the native decoder on this site',
+    'mc.1.series':'M-Series','mc.1.status':'● Live on site','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
+    'mc.1.desc':'Frozen TinyLlama-1.1B-Chat base with trained liquid-core residual adapters + LoRA. The conversational model — English and Chinese, with fast-weight memory across turns.',
+    'mc.1.meta':'<span>1.1B base + 2.3M adapter</span><span>chat-capable</span><span>bilingual EN/ZH</span>',
+    'mc.1.cta1':'Try it live →','mc.1.cta2':'Download adapter ↓','mc.1.note':'24.8 MB checkpoint · replication artifact (parity, not advantage)',
+    'mc.2.series':'O-Series','mc.2.status':'↓ Download','mc.2.name':'O1-48M',
+    'mc.2.desc':'Attention-free O-series edge model, trained from scratch. Constant 0.381 MB carried state regardless of context — the O(1) memory line. Run it on CPU.',
+    'mc.2.meta':'<span>48M params</span><span>attention-free</span><span>CPU-friendly</span>',
+    'mc.2.cta1':'Download weights ↓','mc.2.note':'GitHub release · serve with server.py',
+    'mc.3.series':'M-Series','mc.3.status':'◐ Training','mc.3.name':'M1-2B',
+    'mc.3.desc':'1.9B-parameter hybrid (2912d × 35L) on the A100. Checkpoint exists, run in progress — not yet a release. Listed so the roadmap is visible, not hidden.',
+    'mc.3.meta':'<span>1.9B params</span><span>35 layers · 2912d</span><span>early steps</span>',
+    'mc.3.cta1':'Weights when it converges','mc.3.note':'Training on rented A100',
+    'mc.4.series':'O-Series','mc.4.status':'↓ Clone & run','mc.4.name':'O1-Anti — The Anti-Transformer',
+    'mc.4.desc':'Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). Toy-scale, honestly labeled. 22/22 tests.',
+    'mc.4.meta':'<span>efficiency line</span><span>22 tests</span><span>pip install torch</span>',
+    'mc.4.cta1':'GitHub →',
+    'mc.5.series':'O-Series','mc.5.status':'↓ Clone & run','mc.5.name':'AwareLiquid-Physic',
+    'mc.5.desc':'Physics written into the architecture: liquid (LTC) substrate + hard-constraint Hamiltonian head + symplectic integration. 13/13 tests.',
+    'mc.5.meta':'<span>physics-native</span><span>13 tests</span><span>MIT</span>',
+    'mc.5.cta1':'GitHub →',
+    'mc.6.series':'Cortex','mc.6.status':'↓ Clone & run','mc.6.name':'C1 — Five-Layer Cognition Stack',
+    'mc.6.desc':'Sensory stream &rarr; O(1) memory &rarr; sparse temporal routing &rarr; predictive coding &rarr; liquid GRPO + System 1/2. Experiments E1&ndash;E3 auto-bootstrap dependencies from the public M1 mirror.',
+    'mc.6.meta':'<span>pure-liquid vision</span><span>E1&ndash;E3 experiments</span><span>MIT</span>',
+    'mc.6.cta1':'GitHub →',
+    'mc.7.series':'O-Series','mc.7.status':'↓ Clone & run','mc.7.name':'O1-Sound — Wake-Word Spotter',
+    'mc.7.desc':'Always-on keyword spotting on the liquid core: 5,120-byte constant state, ONNX export 5.03 MB fp32 / 1.27 MB int8. English validated (FRR 0.146 @ FAR 0.046). 32/32 tests; trained checkpoint release in progress.',
+    'mc.7.meta':'<span>edge &middot; always-on</span><span>32 tests</span><span>ONNX 5MB</span>',
+    'mc.7.cta1':'GitHub →',
+    'mc.8.series':'Research','mc.8.status':'↓ Read','mc.8.name':'MT-LNN Technical Paper',
+    'mc.8.desc':'English + 中文. Microtubule-inspired liquid network: O(1) working memory, multi-scale predictive coding, compute skipping. Empirical tables are canonical — honest verdicts included.',
+    'mc.8.meta':'<span>EN / 中文</span><span>PDF</span><span>open science</span>',
+    'mc.8.cta1':'PDF (EN) →','mc.8.cta2':'PDF (中文) →',
+    'mc.9.series':'Research','mc.9.status':'↓ Explore','mc.9.name':'LLM-Visualization',
+    'mc.9.desc':'Interactive 3D visualization of the MT-LNN architecture (extended from bbycroft/llm-viz).',
+    'mc.9.meta':'<span>3D explorer</span><span>web</span><span>MIT</span>',
+    'mc.9.cta1':'GitHub →',
   },
   zh:{
     'nav.demo':'演示','nav.models':'模型','nav.research':'研究','nav.about':'关于','nav.paper':'论文','nav.github':'GitHub',
@@ -1408,6 +1450,48 @@ const I18N={
     'footer.spatial':'空间计算','footer.paperpdf':'论文（PDF）',
     'footer.about':'关于','footer.livedemo':'在线演示',
     'footer.modelapi':'模型 API','footer.health':'健康检查',
+    'models.famEyebrow':'研究家族','models.famH2':'克隆即复现',
+    'models.famLead':'在服模型之外的完整家族——以下每个仓库都是真实代码，测试数均为实测（2026-08-18），不是占位符。许可：MIT。',
+    'mc.0.series':'M 系列','mc.0.status':'● 在线运行','mc.0.name':'M1-128M',
+    'mc.0.desc':'从零训练的混合模型——每层都是注意力 + 液态核心。WikiText-103 上 50K 步训练。可续写英文文本；原始研究主干，不是聊天模型。',
+    'mc.0.meta':'<span>1.286 亿参数</span><span>12 层 · 832d</span><span>512 token 窗口</span>',
+    'mc.0.cta1':'立即试用 →','mc.0.note':'本站原生解码器提供服务',
+    'mc.1.series':'M 系列','mc.1.status':'● 在线运行','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
+    'mc.1.desc':'冻结的 TinyLlama-1.1B-Chat 底座 + 训练好的液态核心残差适配器与 LoRA。对话模型——中英双语，跨轮 fast-weight 记忆。',
+    'mc.1.meta':'<span>1.1B 底座 + 2.3M 适配器</span><span>可对话</span><span>中英双语</span>',
+    'mc.1.cta1':'立即试用 →','mc.1.cta2':'下载适配器 ↓','mc.1.note':'24.8 MB checkpoint · 复现件（质量平价，非优势）',
+    'mc.2.series':'O 系列','mc.2.status':'↓ 下载','mc.2.name':'O1-48M',
+    'mc.2.desc':'从零训练的无注意力 O 系列边缘模型。恒定 0.381 MB 携带状态与上下文无关——O(1) 内存路线。CPU 可跑。',
+    'mc.2.meta':'<span>4800 万参数</span><span>无注意力</span><span>CPU 友好</span>',
+    'mc.2.cta1':'下载权重 ↓','mc.2.note':'GitHub Release · 用 server.py 起服务',
+    'mc.3.series':'M 系列','mc.3.status':'◐ 训练中','mc.3.name':'M1-2B',
+    'mc.3.desc':'19 亿参数混合模型（2912d × 35 层），在 A100 上训练。checkpoint 已存在，训练进行中——尚未发布。列出来是为了让路线图可见，而非隐藏。',
+    'mc.3.meta':'<span>19 亿参数</span><span>35 层 · 2912d</span><span>早期步骤</span>',
+    'mc.3.cta1':'收敛后发布权重','mc.3.note':'租用 A100 训练中',
+    'mc.4.series':'O 系列','mc.4.status':'↓ 克隆运行','mc.4.name':'O1-Anti — 反 Transformer',
+    'mc.4.desc':'三支柱对抗 Transformer 成本：神经液态邻接（缓存小 8&times;）、稀疏模块图（27% 激活）、非自回归解码（前向少 3.4&times;）。玩具规模，如实标注。22/22 测试。',
+    'mc.4.meta':'<span>效率路线</span><span>22 测试</span><span>pip install torch</span>',
+    'mc.4.cta1':'GitHub →',
+    'mc.5.series':'O 系列','mc.5.status':'↓ 克隆运行','mc.5.name':'AwareLiquid-Physic',
+    'mc.5.desc':'物理写进架构：液态（LTC）基底 + 硬约束哈密顿头 + 辛积分。13/13 测试。',
+    'mc.5.meta':'<span>物理原生</span><span>13 测试</span><span>MIT</span>',
+    'mc.5.cta1':'GitHub →',
+    'mc.6.series':'Cortex','mc.6.status':'↓ 克隆运行','mc.6.name':'C1 — 五层认知栈',
+    'mc.6.desc':'感知流 &rarr; O(1) 记忆 &rarr; 稀疏时间路由 &rarr; 预测编码 &rarr; 液态 GRPO + 系统1/2。实验 E1&ndash;E3 自动从公开 M1 镜像引导依赖。',
+    'mc.6.meta':'<span>纯液态愿景</span><span>E1&ndash;E3 实验</span><span>MIT</span>',
+    'mc.6.cta1':'GitHub →',
+    'mc.7.series':'O 系列','mc.7.status':'↓ 克隆运行','mc.7.name':'O1-Sound — 唤醒词检测',
+    'mc.7.desc':'液态核心常开关键词检测：5,120 字节恒定状态，ONNX 导出 5.03 MB fp32 / 1.27 MB int8。英文实测（FRR 0.146 @ FAR 0.046）。32/32 测试；训练权重发布准备中。',
+    'mc.7.meta':'<span>边缘 &middot; 常开</span><span>32 测试</span><span>ONNX 5MB</span>',
+    'mc.7.cta1':'GitHub →',
+    'mc.8.series':'研究','mc.8.status':'↓ 阅读','mc.8.name':'MT-LNN 技术论文',
+    'mc.8.desc':'英文 + 中文。微管启发的液态网络：O(1) 工作记忆、多尺度预测编码、计算跳过。经验表格为权威——包含诚实结论。',
+    'mc.8.meta':'<span>EN / 中文</span><span>PDF</span><span>开放科学</span>',
+    'mc.8.cta1':'PDF (EN) →','mc.8.cta2':'PDF (中文) →',
+    'mc.9.series':'研究','mc.9.status':'↓ 探索','mc.9.name':'LLM-Visualization',
+    'mc.9.desc':'MT-LNN 架构的交互式 3D 可视化（扩展自 bbycroft/llm-viz）。',
+    'mc.9.meta':'<span>3D 探索器</span><span>网页</span><span>MIT</span>',
+    'mc.9.cta1':'GitHub →',
     'footer.privacy2':'隐私','footer.terms2':'条款',
   }
 };
@@ -1507,6 +1591,40 @@ function applyPageLang(lang){
     const tagEl=b.querySelector('.model-tag');
     if(tagEl)tagEl.textContent=i===0?ti('m1.tag'):ti('o1.tag');
   });
+  // model lineup tags
+  document.querySelectorAll('.model-badge').forEach((b,i)=>{
+    const tagEl=b.querySelector('.model-tag');
+    if(tagEl)tagEl.textContent=i===0?ti('m1.tag'):ti('o1.tag');
+  });
+
+  // model cards (lineup + research family) — series/status/name/desc/meta/cta/note
+  document.querySelectorAll('.models-grid .model-card').forEach((card,i)=>{
+    const set=(sel,key,html)=>{
+      const el=card.querySelector(sel);
+      if(!el)return;
+      const v=ti(key);
+      if(v===key)return;              // key 缺失时 ti 返回 key 本身 → 保持原样
+      if(html)el.innerHTML=v; else el.textContent=v;
+    };
+    set('.mc-series','mc.'+i+'.series',false);
+    set('.mc-status','mc.'+i+'.status',false);
+    set('.mc-name','mc.'+i+'.name',false);
+    set('.mc-desc','mc.'+i+'.desc',true);
+    set('.mc-meta','mc.'+i+'.meta',true);
+    card.querySelectorAll('.mc-cta .btn').forEach((b,j)=>{
+      const v=ti('mc.'+i+'.cta'+(j+1));
+      if(v!=='mc.'+i+'.cta'+(j+1))b.textContent=v;
+    });
+    set('.mc-note','mc.'+i+'.note',false);
+  });
+  // research family 子标题（models 区第二个 section-header）
+  const famHeaders=document.querySelectorAll('.models-section .section-header');
+  if(famHeaders[1]){
+    const h=famHeaders[1];
+    if(h.querySelector('.eyebrow'))h.querySelector('.eyebrow').textContent=ti('models.famEyebrow');
+    if(h.querySelector('h2'))h.querySelector('h2').textContent=ti('models.famH2');
+    if(h.querySelector('.section-lead'))h.querySelector('.section-lead').innerHTML=ti('models.famLead');
+  }
 
   // demo section clear button and placeholder
   const clrEl=document.getElementById('clearBtn');
