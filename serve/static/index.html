@@ -37,10 +37,10 @@
 <!-- Identity & mobile -->
 <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+
 <link rel="me" href="https://github.com/AwareLiquid/M1">
 <!-- Favicon -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28' fill='none' stroke='%230d0d0d' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8 Q14 5 22 8 L22 20 Q14 23 6 20 Z'/%3E%3Cpath d='M6 11.3 Q14 8.3 22 11.3'/%3E%3Cpath d='M6 14.6 Q14 11.6 22 14.6'/%3E%3Cpath d='M6 17.9 Q14 14.9 22 17.9'/%3E%3C/svg%3E">
+
 <!-- JSON-LD structured data -->
 <script type="application/ld+json">
 [
@@ -194,9 +194,9 @@ a{color:inherit;text-decoration:none}
 }
 .nav-inner{height:64px;display:flex;align-items:center;gap:0}
 .brand{display:flex;align-items:center;gap:8px;font-weight:650;font-size:15px;letter-spacing:.1px;flex:none}
-.logo{width:28px;height:26px;background:url('/static/logo-dark.png') center/contain no-repeat;flex:none}
+.logo{width:28px;height:26px;background:url('/static/logo-dark.png?v=2') center/contain no-repeat;flex:none}
 @media(prefers-color-scheme:dark){
-html:not([data-theme="light"]) .logo{background-image:url('/static/logo-light.png')}
+html:not([data-theme="light"]) .logo{background-image:url('/static/logo-light.png?v=2')}
 }
 .nav-links{display:flex;align-items:center;gap:2px;margin-left:32px;flex:1}
 .nav-links a{font-size:13.5px;color:var(--muted);padding:5px 10px;border-radius:4px;transition:color .15s,background .15s}
@@ -614,7 +614,9 @@ html[data-theme="light"] .turn.user .bubble{background:#f4f4f5}
 html[data-theme="light"] .arch-figure img,
 html[data-theme="light"] .chart-fig img{background:#fff}
 </style>
-</head>
+<link rel="icon" href="/static/favicon-dark.png?v=2" media="(prefers-color-scheme: light)">
+<link rel="icon" href="/static/favicon-light.png?v=2" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/static/favicon-180.png?v=2"></head>
 <body>
 
 <a class="skip-nav" href="#demo">Skip to demo</a>
