@@ -77,7 +77,7 @@
     {
       "@type": "Question",
       "name": "Is AwareLiquid production-ready?",
-      "acceptedAnswer": {"@type": "Answer", "text": "No. AwareLiquid is an open research prototype. The 48M from-scratch model produces coherent short stories but is not a general assistant. The MT-LNN adapter generates repetitive outputs at higher temperatures, and a 2026-07 ablation found its own perplexity contribution to be approximately zero over plain LoRA. Both are research artifacts demonstrating architectural ideas."}
+      "acceptedAnswer": {"@type": "Answer", "text": "AwareLiquid is a research-grade framework. The models demonstrate the architecture but are not general assistants. What is deployment-ready today are the measured edge capabilities: O(1) constant memory (0.381 MB, 8063x smaller than a KV-cache at 1M tokens), a 5 MB ONNX wake-word export, and battery-stream robustness under irregular sampling. Production pilots for specific edge workloads are the next step."}
     },
     {
       "@type": "Question",
@@ -336,6 +336,12 @@ h1,h2,h3,h4,.serif{font-family:var(--font-serif);font-weight:400}
   transition:opacity .25s;background-image:linear-gradient(transparent 10%,rgba(13,13,13,.02) 49%,rgba(13,13,13,.055) 88%)}
 .hov:hover::before{opacity:1}
 html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparent 10%,rgba(255,255,255,.03) 49%,rgba(255,255,255,.07) 88%)}
+/* ── RESEARCH: glance grid ── */
+.glance-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:28px}
+.glance-item{background:var(--bg);padding:18px 14px;text-align:center}
+.glance-n{display:block;font-size:21px;font-weight:650;letter-spacing:-.02em}
+.glance-l{display:block;font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45}
+@media(max-width:900px){.glance-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 <link rel="icon" href="/static/favicon-dark.png?v=2" media="(prefers-color-scheme: light)">
 <link rel="icon" href="/static/favicon-light.png?v=2" media="(prefers-color-scheme: dark)">
@@ -393,6 +399,16 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
   </div>
 </section>
 
+<div class="container" style="padding-bottom:8px">
+  <div class="glance-grid">
+    <div class="glance-item"><span class="glance-n">0.381 MB</span><span class="glance-l">Constant carried state<br>at any context length</span></div>
+    <div class="glance-item"><span class="glance-n">8,063&times;</span><span class="glance-l">Smaller than a KV-cache<br>at 1M tokens</span></div>
+    <div class="glance-item"><span class="glance-n">0.56 / 0.00</span><span class="glance-l">Cross-window recall<br>fast-weight vs attention</span></div>
+    <div class="glance-item"><span class="glance-n">85%</span><span class="glance-l">Forgetting reduction<br>with EWC (early signal)</span></div>
+    <div class="glance-item"><span class="glance-n">+7.7%</span><span class="glance-l">Degradation at 80%<br>dropped samples (battery)</span></div>
+  </div>
+</div>
+
 <!-- ── MAIN CONTENT ── -->
 <div class="container">
   <div class="research-layout">
@@ -408,12 +424,15 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
         <li><a href="#hebbian">Hebbian Ablation</a></li>
         <li><a href="#spatial">Spatial Computing</a></li>
         <li class="section-group">Benchmarks</li>
+        <li><a href="#deployments">Measured Deployments</a></li>
         <li><a href="#benchmarks">System Benchmarks</a></li>
         <li class="section-group">Reproduce</li>
         <li><a href="#reproduce">How to Reproduce</a></li>
         <li><a href="#citation">Cite This Work</a></li>
         <li><a href="#changelog">Changelog</a></li>
         <li><a href="#faq">FAQ</a></li>
+        <li class="section-group">Enterprise</li>
+        <li><a href="#engage">Work With Us</a></li>
       </ul>
     </aside>
 
@@ -583,6 +602,24 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
 
       <hr class="divider">
 
+      <h2 id="deployments">Deployments · Measured Pilot Evidence</h2>
+      <p>Three deployment directions with real measurements behind them — the same results the homepage references, with methodology. Each links to open code; boundaries are stated, not implied.</p>
+
+      <div class="card">
+        <h3>Battery Health Estimation — Irregular Sensor Streams</h3>
+        <p><span class="tag built">Measured</span> On real NASA PCoE cell data, with 80% of samples randomly dropped: degradation of <strong>+7.7%</strong> vs <strong>+31.1%</strong> (LSTM) and <strong>+32.8%</strong> (GRU). 2.6 KB streaming state, 10 seeds, whole-cell held-out validation. The liquid ODE handles native &Delta;t — no resampling, no imputation.</p>
+      </div>
+      <div class="card">
+        <h3>Always-On Wake Word — 5 MB on-device</h3>
+        <p><span class="tag built">Measured</span> O1-Sound: single-keyword &ldquo;hello&rdquo; at FRR 0.146 @ FAR 0.046 (3 seeds, English). ONNX export: <strong>5.03 MB fp32 / 1.27 MB int8</strong>, 5,120-byte constant state. Multi-language target under development.</p>
+      </div>
+      <div class="card">
+        <h3>Long-Document QA — Financial Filings</h3>
+        <p><span class="tag built">Measured</span> The AwareLiquid-M2 retrieval adapter answers 44/48 (91.7%) across five financial-document domains at ~2.8k tokens per question, base model frozen behind an API. A regression baseline, not a leaderboard entry.</p>
+      </div>
+
+      <hr class="divider">
+
       <h2 id="benchmarks">6 · System Benchmarks</h2>
       <p>Hardware efficiency measurements from reproducible CPU runs. Two key benchmarks: sparse resonance speed–fidelity trade-off, and streaming memory footprint comparison.</p>
 
@@ -715,7 +752,7 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
       <p><strong>M1 (M-Series)</strong> is the cognitive slow-thinking engine — it layers GWT competitive broadcast, NREM sleep consolidation with SHY synaptic downscaling, and EWC continual learning on the LTC backbone. It targets episodic memory, agent cognition, and catastrophic forgetting research. <strong>O1 (O-Series)</strong> is the edge fast-thinking engine — pure continuous-time liquid ODE, constant 4 KB memory state regardless of context length, no KV-cache growth, targets CPU/edge deployment at millisecond latency. Both share the MT-LNN backbone; full cognitive module integration into O1 is in progress.</p>
 
       <h3>Is this production-ready?</h3>
-      <p>No. AwareLiquid is an open research framework. <strong>O1</strong> (48M from scratch) produces coherent short stories but is not a general assistant. <strong>M1</strong> (TinyLlama-1.1B + MT adapter) generates repetitive outputs at higher temperatures, and its MT adapter contributes <strong>≈0 PPL</strong> over plain LoRA (see the 2026-07 retraction in §2). Neither is production-grade — both are research artifacts demonstrating architectural ideas. There is no SLA.</p>
+      <p>The models are <strong>research-grade</strong>: O1 (48M) and M1 (adapter on TinyLlama-1.1B) demonstrate the architecture but are not general assistants, and the API has no SLA. What is deployment-ready today are the <strong>measured edge capabilities</strong> — O(1) constant memory, the 5 MB ONNX wake-word export, and the battery-stream robustness shown above. Production pilots for specific edge workloads are the natural next step; see <a href="#engage">Work With Us</a> for evaluation.</p>
 
       <h3>How is this different from Liquid AI / LFM?</h3>
       <p>Liquid AI builds high-performance models using an SSM + linear attention + MoE hybrid for maximum inference efficiency — targeting industrial time-series, edge signal processing, and autonomous driving. AwareLiquid layers cognitive architecture (GWT awareness, sleep consolidation, EWC online learning) on top of the liquid backbone to study <em>continual learning</em> — can a model acquire new knowledge without erasing the old? Same academic lineage (MIT LNN), orthogonal research axes. <strong>AwareLiquid is not affiliated with Liquid AI, Inc.</strong></p>
@@ -728,6 +765,16 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
 
       <h3>What does the needle-in-haystack test actually show?</h3>
       <p>Scientific honesty — including correcting our own earlier mistake. We first reported "0% for both variants", but that turned out to be a <strong>harness artefact</strong>: the old script fed raw concatenated tokens to an instruct-tuned base without the chat template, which always scores 0.0. Re-tested on 2026-06-26 with the chat template and a faithful adapter rebuild, the real picture is: within TinyLlama-1.1B's 2048-token window, retrieval is near-perfect (base 0.867/1.000 at 1K/2K, adapter 1.000/1.000). At 4096 tokens both collapse to 0 because that exceeds the base's 2048 RoPE window — a base limit, not an adapter failure. The adapter is at parity with the base in-window; proving a retrieval <em>uplift</em> needs a larger-window base and more samples. Extending long-context retrieval remains a target for future work.</p>
+
+      <hr class="divider">
+
+      <h2 id="engage">Work With Us</h2>
+      <p>The measured advantages map to concrete workloads: <strong>battery &amp; sensor health monitoring</strong> (irregular streams, edge hardware), <strong>always-on audio</strong> (wake-word, keyword spotting), and <strong>long-document question answering</strong> (frozen API bases). If your team operates in one of these, or needs edge inference with continual learning:</p>
+      <ul>
+        <li><a class="text-link" href="/demo">Try the live demo</a> — both models, no setup;</li>
+        <li><a class="text-link" href="https://github.com/AwareLiquid/M1/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a> — technical questions, public and on-record;</li>
+        <li>Pilot evaluations and integration — reach out via GitHub; we scope from the open benchmarks above, not from marketing claims.</li>
+      </ul>
 
     </div><!-- /content-col -->
   </div><!-- /research-layout -->
