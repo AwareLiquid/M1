@@ -797,6 +797,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         </div>
         <div class="mc-cta">
           <a class="btn btn-primary" href="#demo" onclick="setDemoModel('');">Try it live →</a>
+          <a class="btn btn-ghost" href="https://github.com/AwareLiquid/M1/releases/tag/m1-128m-v1" target="_blank" rel="noopener noreferrer">Download weights ↓</a>
           <span class="mc-note label">Served by the native decoder on this site</span>
         </div>
       </article>
@@ -860,7 +861,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-dl">&#8595; Clone &amp; run</span>
         </div>
         <h3 class="mc-name">O1-Anti — The Anti-Transformer</h3>
-        <p class="mc-desc">Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). 22/22 tests.</p>
+        <p class="mc-desc">Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). MQAR recall (wd=0.1): ties attention at 1.000; Mamba 0.07-0.10. 22/22 tests.</p>
         <div class="mc-meta">
           <span>efficiency line</span><span>22 tests</span><span>pip install torch</span>
         </div>
@@ -888,7 +889,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
           <span class="mc-status s-dl">&#8595; Clone &amp; run</span>
         </div>
         <h3 class="mc-name">C1 — Five-Layer Cognition Stack</h3>
-        <p class="mc-desc">Sensory stream &rarr; O(1) memory &rarr; sparse temporal routing &rarr; predictive coding &rarr; liquid GRPO + System 1/2. Experiments E1&ndash;E3 auto-bootstrap dependencies from the public M1 mirror.</p>
+        <p class="mc-desc">Sensory stream &rarr; O(1) memory &rarr; sparse temporal routing &rarr; predictive coding &rarr; liquid GRPO + System 1/2. E1 liquid GRPO first run (supervised arm): extrapolation 1.0&rarr;0.56 (seed0). E1&ndash;E3 auto-bootstrap dependencies from the public M1 mirror.</p>
         <div class="mc-meta">
           <span>pure-liquid vision</span><span>E1&ndash;E3 experiments</span><span>MIT</span>
         </div>
@@ -908,6 +909,7 @@ html[data-theme="light"] .chart-fig img{background:#fff}
         </div>
         <div class="mc-cta">
           <a class="btn btn-ghost" href="https://github.com/AwareLiquid/O1-Sound" target="_blank" rel="noopener noreferrer">GitHub &rarr;</a>
+          <a class="btn btn-ghost" href="https://github.com/AwareLiquid/O1-Sound/releases/tag/research-2026-08-18" target="_blank" rel="noopener noreferrer">Checkpoint &darr;</a>
         </div>
       </article>
       <article class="model-card hov" data-status="download">
@@ -1357,7 +1359,7 @@ const I18N={
     'mc.0.series':'M-Series','mc.0.status':'● Live on site','mc.0.name':'M1-128M',
     'mc.0.desc':'From-scratch hybrid — attention + liquid core in every layer. 50K-step run on WikiText-103, English text continuation.',
     'mc.0.meta':'<span>128.6M params</span><span>12 layers · 832d</span><span>512-token window</span>',
-    'mc.0.cta1':'Try it live →','mc.0.note':'Served by the native decoder on this site',
+    'mc.0.cta1':'Try it live →','mc.0.cta2':'Download weights ↓','mc.0.note':'Served by the native decoder on this site',
     'mc.1.series':'M-Series','mc.1.status':'● Live on site','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
     'mc.1.desc':'Frozen TinyLlama-1.1B-Chat base with trained liquid-core residual adapters + LoRA. The conversational model — English and Chinese, with fast-weight memory across turns.',
     'mc.1.meta':'<span>1.1B base + 2.3M adapter</span><span>chat-capable</span><span>bilingual EN/ZH</span>',
@@ -1371,7 +1373,7 @@ const I18N={
     'mc.3.meta':'<span>1.9B params</span><span>35 layers · 2912d</span><span>early steps</span>',
     'mc.3.cta1':'Weights when it converges','mc.3.note':'Training on rented A100',
     'mc.4.series':'O-Series','mc.4.status':'↓ Clone & run','mc.4.name':'O1-Anti — The Anti-Transformer',
-    'mc.4.desc':'Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). Toy-scale, honestly labeled. 22/22 tests.',
+    'mc.4.desc':'Three pillars against Transformer costs: Neural Liquid Adjacency (8&times; smaller cache), sparse module graph (27% activation), non-autoregressive decode (3.4&times; fewer passes). MQAR recall (wd=0.1): ties attention at 1.000; Mamba 0.07-0.10. 22/22 tests.',
     'mc.4.meta':'<span>efficiency line</span><span>22 tests</span><span>pip install torch</span>',
     'mc.4.cta1':'GitHub →',
     'mc.5.series':'O-Series','mc.5.status':'↓ Clone & run','mc.5.name':'AwareLiquid-Physic',
@@ -1379,13 +1381,13 @@ const I18N={
     'mc.5.meta':'<span>physics-native</span><span>13 tests</span><span>MIT</span>',
     'mc.5.cta1':'GitHub →',
     'mc.6.series':'Cortex','mc.6.status':'↓ Clone & run','mc.6.name':'C1 — Five-Layer Cognition Stack',
-    'mc.6.desc':'Sensory stream &rarr; O(1) memory &rarr; sparse temporal routing &rarr; predictive coding &rarr; liquid GRPO + System 1/2. Experiments E1&ndash;E3 auto-bootstrap dependencies from the public M1 mirror.',
+    'mc.6.desc':'Sensory stream &rarr; O(1) memory &rarr; sparse temporal routing &rarr; predictive coding &rarr; liquid GRPO + System 1/2. E1 first run (supervised arm): extrapolation 1.0&rarr;0.56 (seed0). E1&ndash;E3 auto-bootstrap dependencies from the public M1 mirror.',
     'mc.6.meta':'<span>pure-liquid vision</span><span>E1&ndash;E3 experiments</span><span>MIT</span>',
     'mc.6.cta1':'GitHub →',
     'mc.7.series':'O-Series','mc.7.status':'↓ Clone & run','mc.7.name':'O1-Sound — Wake-Word Spotter',
-    'mc.7.desc':'Always-on keyword spotting on the liquid core: 5,120-byte constant state, ONNX export 5.03 MB fp32 / 1.27 MB int8. English validated (FRR 0.146 @ FAR 0.046). 32/32 tests; trained checkpoint release in progress.',
+    'mc.7.desc':'Always-on keyword spotting on the liquid core: 5,120-byte constant state, ONNX export 5.03 MB fp32 / 1.27 MB int8. English validated (FRR 0.146 @ FAR 0.046). 32/32 tests; research checkpoint + ONNX published.',
     'mc.7.meta':'<span>edge &middot; always-on</span><span>32 tests</span><span>ONNX 5MB</span>',
-    'mc.7.cta1':'GitHub →',
+    'mc.7.cta1':'GitHub →','mc.7.cta2':'Checkpoint ↓',
     'mc.8.series':'Research','mc.8.status':'↓ Read','mc.8.name':'MT-LNN Technical Paper',
     'mc.8.desc':'English + 中文. Microtubule-inspired liquid network: O(1) working memory, multi-scale predictive coding, compute skipping. Empirical tables are canonical — honest verdicts included.',
     'mc.8.meta':'<span>EN / 中文</span><span>PDF</span><span>open science</span>',
@@ -1502,7 +1504,7 @@ const I18N={
     'mc.0.series':'M 系列','mc.0.status':'● 在线运行','mc.0.name':'M1-128M',
     'mc.0.desc':'从零训练的混合模型——每层都是注意力 + 液态核心。WikiText-103 上 50K 步训练，支持英文文本续写。',
     'mc.0.meta':'<span>1.286 亿参数</span><span>12 层 · 832d</span><span>512 token 窗口</span>',
-    'mc.0.cta1':'立即试用 →','mc.0.note':'本站原生解码器提供服务',
+    'mc.0.cta1':'立即试用 →','mc.0.cta2':'下载权重 ↓','mc.0.note':'本站原生解码器提供服务',
     'mc.1.series':'M 系列','mc.1.status':'● 在线运行','mc.1.name':'M1 · TinyLlama-1.1B + MT v2s',
     'mc.1.desc':'冻结的 TinyLlama-1.1B-Chat 底座 + 训练好的液态核心残差适配器与 LoRA。对话模型——中英双语，跨轮 fast-weight 记忆。',
     'mc.1.meta':'<span>1.1B 底座 + 2.3M 适配器</span><span>可对话</span><span>中英双语</span>',
@@ -1516,7 +1518,7 @@ const I18N={
     'mc.3.meta':'<span>19 亿参数</span><span>35 层 · 2912d</span><span>早期步骤</span>',
     'mc.3.cta1':'收敛后发布权重','mc.3.note':'租用 A100 训练中',
     'mc.4.series':'O 系列','mc.4.status':'↓ 克隆运行','mc.4.name':'O1-Anti — 反 Transformer',
-    'mc.4.desc':'三支柱对抗 Transformer 成本：神经液态邻接（缓存小 8&times;）、稀疏模块图（27% 激活）、非自回归解码（前向少 3.4&times;）。22/22 测试。',
+    'mc.4.desc':'三支柱对抗 Transformer 成本：神经液态邻接（缓存小 8&times;）、稀疏模块图（27% 激活）、非自回归解码（前向少 3.4&times;）。MQAR 召回（wd=0.1）：与注意力同为 1.000；Mamba 0.07-0.10。22/22 测试。',
     'mc.4.meta':'<span>效率路线</span><span>22 测试</span><span>pip install torch</span>',
     'mc.4.cta1':'GitHub →',
     'mc.5.series':'O 系列','mc.5.status':'↓ 克隆运行','mc.5.name':'AwareLiquid-Physic',
@@ -1524,7 +1526,7 @@ const I18N={
     'mc.5.meta':'<span>物理原生</span><span>13 测试</span><span>MIT</span>',
     'mc.5.cta1':'GitHub →',
     'mc.6.series':'Cortex','mc.6.status':'↓ 克隆运行','mc.6.name':'C1 — 五层认知栈',
-    'mc.6.desc':'感知流 &rarr; O(1) 记忆 &rarr; 稀疏时间路由 &rarr; 预测编码 &rarr; 液态 GRPO + 系统1/2。实验 E1&ndash;E3 自动从公开 M1 镜像引导依赖。',
+    'mc.6.desc':'感知流 &rarr; O(1) 记忆 &rarr; 稀疏时间路由 &rarr; 预测编码 &rarr; 液态 GRPO + 系统1/2。E1 首跑（监督臂）：外推 1.0&rarr;0.56（seed0）。E1&ndash;E3 自动从公开 M1 镜像引导依赖。',
     'mc.6.meta':'<span>纯液态愿景</span><span>E1&ndash;E3 实验</span><span>MIT</span>',
     'mc.6.cta1':'GitHub →',
     'mc.7.series':'O 系列','mc.7.status':'↓ 克隆运行','mc.7.name':'O1-Sound — 唤醒词检测',
