@@ -653,6 +653,9 @@ html[data-theme="dark"] .hov::before{background-image:linear-gradient(transparen
         <figcaption>Fig. 6c — Selective Copy, matched 200K params, equal 1500-step budget, fair full-sequence decode (BENCHMARKS.md). MT-LNN leads at every length; the ratio widens to ×2.0 at T=229. Boundary: toy-scale task — most of the gain is the liquid recurrence; the microtubule machinery adds a smaller increment.</figcaption>
       </figure>
 
+      <h3>Selective-Decay Parameterization — Extrapolation Decided by exp vs tanh</h3>
+      <p>Length extrapolation on parity is decided by the transition parameterization. The exp form (&lambda;<sub>t</sub> = 2&middot;exp(&minus;softplus(&middot;)/&tau;) &minus; 1, which reaches &plusmn;1 exactly) extrapolates at <strong>0.956</strong> (3 seeds: 0.869 / 1.000 / 1.000); the saturating tanh form collapses to <strong>0.034</strong>. Derivation and recipe: ABLATIONS.md (E5d/E5e).</p>
+
       <h3>Positioning: Long-Context + Edge Cost, Not AGI Indices</h3>
       <p><strong>Honest framing:</strong> our models (48M–1.1B) score near random on AGI-class benchmarks (MMLU, Agent suites) — those are designed for 50+-point models. We do not compete there. We compete on <strong>long-context capability at edge cost</strong>: the same-size recall advantage above, plus O(1) carried state (0.381 MB vs 3,072 MB at 1M tokens) — putting per-task cost 2–3 orders of magnitude below cloud APIs.</p>
 
