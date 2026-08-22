@@ -266,6 +266,11 @@ def demo():
     return _static_page("demo")
 
 
+@app.get("/models")
+def models_page():
+    return _static_page("models")
+
+
 @app.get("/hypercode")
 def hypercode():
     return _static_page("hypercode")
