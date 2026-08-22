@@ -192,12 +192,11 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 # ── Middleware: security headers + CSP ────────────────────────────────────────
 _CSP = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.unicorn.studio; "
-    "style-src 'self' 'unsafe-inline' https://assets.unicorn.studio; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data: https:; "
-    "font-src 'self' https://assets.unicorn.studio; "
-    "connect-src 'self' https://www.unicorn.studio https://assets.unicorn.studio wss://www.unicorn.studio; "
-    "worker-src 'self' blob: https://www.unicorn.studio; "
+    "font-src 'self'; "
+    "connect-src 'self'; "
     "frame-ancestors 'none';"
 )
 
