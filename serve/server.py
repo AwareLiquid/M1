@@ -266,6 +266,11 @@ def demo():
     return _static_page("demo")
 
 
+@app.get("/hypercode")
+def hypercode():
+    return _static_page("hypercode")
+
+
 @app.get("/api")
 def api_page():
     # The homepage nav links here (index.html); without this route it 404s.
