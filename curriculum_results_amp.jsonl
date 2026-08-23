@@ -1,0 +1,21 @@
+﻿py : Traceback (most recent call last):
+At line:1 char:1
++ py -3.11 scripts/remote_exec.py "cat /home/user/M1/curriculum_results ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "E:\M1\scripts\remote_exec.py", line 78, in <module>
+    main()
+  File "E:\M1\scripts\remote_exec.py", line 61, in main
+    stdin, stdout, stderr = client.exec_command(cmd, timeout=args.timeout)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Python311\Lib\site-packages\paramiko\client.py", line 548, in exec_command
+    chan = self._transport.open_session(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\Python311\Lib\site-packages\paramiko\transport.py", line 921, in open_session
+    return self.open_channel(
+           ^^^^^^^^^^^^^^^^^^
+  File "E:\Python311\Lib\site-packages\paramiko\transport.py", line 1056, in open_channel
+    raise SSHException("Timeout opening channel.")
+paramiko.ssh_exception.SSHException: Timeout opening channel.

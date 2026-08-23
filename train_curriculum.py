@@ -137,6 +137,8 @@ def main():
     ap.add_argument("--out", default="curriculum_results.jsonl")
     ap.add_argument("--selective_decay", action="store_true")
     ap.add_argument("--sel_mode", default="exp")
+    ap.add_argument("--amp", action="store_true",
+                    help="bf16 autocast（长序列显存减半，8192 stage 需要）")
     args = ap.parse_args()
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -209,7 +211,11 @@ def main():
                 inp, lbl = next(stage_iter)
             inp = inp.to(device, non_blocking=True)
             lbl = lbl.to(device, non_blocking=True)
-            out = model(inp, labels=lbl)
+            if args.amp:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    out = model(inp, labels=lbl)
+            else:
+                out = model(inp, labels=lbl)
             loss = out["loss"]
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
