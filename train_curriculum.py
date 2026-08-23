@@ -90,14 +90,26 @@ def ppl_at(model, loader, max_batches=4):
 
 @torch.no_grad()
 def extrapolation_probe(model, make_loader, base_len, device):
-    """在 base_len × {1,2,4,8} 长度上测 PPL——×8 外推规律的直接读数。"""
+    """在 base_len × {1,2,4,8} 长度上测 PPL——×8 外推规律的直接读数。
+
+    MTLNN 显式 attention bias 是 B×H×T² 矩阵，长序列探针会 OOM：
+    探针降 batch 到 1、每长度最多 1 batch，OOM 时记录并继续（不 crash 整个 stage）。
+    """
     probes = {}
     for mult in (1, 2, 4, 8):
         L = base_len * mult
-        loader = make_loader(L)
-        ppl, ce = ppl_at(model, loader)
-        probes[f"L{mult}x"] = {"length": L, "ppl": round(ppl, 2)}
-        print(f"    probe {mult}x (L={L}): PPL {ppl:.2f}", flush=True)
+        try:
+            loader = make_loader(L)
+            # 探针专用：单 batch、batch 1，避免与训练状态争显存
+            loader = DataLoader(loader.dataset, batch_size=1, shuffle=False)
+            ppl, ce = ppl_at(model, loader, max_batches=1)
+            probes[f"L{mult}x"] = {"length": L, "ppl": round(ppl, 2)}
+            print(f"    probe {mult}x (L={L}): PPL {ppl:.2f}", flush=True)
+        except torch.cuda.OutOfMemoryError:
+            probes[f"L{mult}x"] = {"length": L, "ppl": "OOM"}
+            print(f"    probe {mult}x (L={L}): OOM (attn bias B×H×T²)",
+                  flush=True)
+            torch.cuda.empty_cache()
     return probes
 
 
@@ -177,7 +189,14 @@ def main():
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
 
     for stage, L in enumerate(schedule):
+        # 长序列时降 batch（MTLNN 显式 attn bias B×H×T² 在 8K 以上爆显存）
+        bsz = 1 if L >= 8192 else args.batch
         loader = make_loader(L, train=True)
+        loader = DataLoader(loader.dataset, batch_size=bsz, shuffle=True,
+                            drop_last=True)
+        if bsz != args.batch:
+            print(f"[stage {stage}] L={L}: batch {args.batch}->{bsz} (显存保护)",
+                  flush=True)
         t0 = time.time()
         stage_loss, n = 0.0, 0
         stage_iter = iter(loader)

@@ -1,0 +1,6 @@
+﻿{"stage": 0, "length": 512, "global_step": 2000, "avg_loss": 7.1509, "probes": {"L1x": {"length": 512, "ppl": 906.01}, "L2x": {"length": 1024, "ppl": 816.68}, "L4x": {"length": 2048, "ppl": 1062.52}, "L8x": {"length": 4096, "ppl": 1039.5}}}
+{"stage": 1, "length": 1024, "global_step": 4000, "avg_loss": 6.8086, "probes": {"L1x": {"length": 1024, "ppl": 586.88}, "L2x": {"length": 2048, "ppl": 801.57}, "L4x": {"length": 4096, "ppl": 804.39}, "L8x": {"length": 8192, "ppl": 869.23}}}
+{"stage": 2, "length": 2048, "global_step": 6000, "avg_loss": 6.5776, "probes": {"L1x": {"length": 2048, "ppl": 586.58}, "L2x": {"length": 4096, "ppl": 553.96}, "L4x": {"length": 8192, "ppl": 634.7}, "L8x": {"length": 16384, "ppl": 559.03}}}
+{"stage": 3, "length": 4096, "global_step": 8000, "avg_loss": 6.3436, "probes": {"L1x": {"length": 4096, "ppl": 423.53}, "L2x": {"length": 8192, "ppl": 471.73}, "L4x": {"length": 16384, "ppl": 413.99}, "L8x": {"length": 32768, "ppl": "OOM"}}}
+
+[exit=0]
