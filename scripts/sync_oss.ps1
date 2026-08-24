@@ -12,6 +12,8 @@
 #
 # Excluded from the mirror (sensitive / not-open-source):
 #   scripts/remote_*.py        GPU-box SSH password
+#   scripts/download_remote.py GPU-box SFTP downloader (embedded password)
+#   scripts/archive_main.py    2B checkpoint archiver (imports download_remote)
 #   session_alice.capsule      runtime session data
 #   data/                      training data binaries (reproducible via prepare_data.py)
 #   checkpoints/               model weights (published separately via GitHub Releases)
@@ -29,6 +31,8 @@ $exclude = @(
     "scripts/remote_download.py",
     "scripts/remote_download2.py",
     "scripts/remote_upload_snap.py",
+    "scripts/download_remote.py",
+    "scripts/archive_main.py",
     "session_alice.capsule",
     "data",
     "checkpoints",
