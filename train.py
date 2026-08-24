@@ -240,8 +240,10 @@ def train(args):
             base_model = getattr(model, "_orig_mod", model)
             ckpt = load_checkpoint(args.resume, base_model, optimizer)
             start_step = int(ckpt.get("step", 0))
-            # Fast-forward the LR schedule by the number of optimiser steps taken.
-            for _ in range(start_step // max(args.grad_accum, 1)):
+            # Fast-forward the LR schedule by the number of training steps taken.
+            # scheduler.step() 现在每训练步调用一次（s == step 语义），故
+            # fast-forward 也是 start_step 次（曾误除以 grad_accum 导致发散）。
+            for _ in range(start_step):
                 scheduler.step()
             print(f"[resume] restored from {args.resume} at step {start_step}")
         else:
@@ -344,7 +346,10 @@ def train(args):
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
-                scheduler.step()
+            # LR schedule 以训练步计（s == step），与 resume fast-forward 语义一致。
+            # 曾因放在 grad_accum 块内（每 grad_accum 步一次）导致续训 fast-forward
+            # 错位、lr 重入 warmup 线性爬升而发散（2026-08 2B 续训事故）。
+            scheduler.step()
 
             step += 1
 
