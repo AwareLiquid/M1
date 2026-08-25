@@ -31,6 +31,18 @@ Environment
     SMALL       "1" → tiny byte-level model (vocab 256), no HF tokenizer
     DEVICE      cpu | cuda  (default: auto)
     MAX_NEW_TOKENS_CAP  hard upper bound per request (default: 1024)
+    API_AUTH_MODE  off | soft | strict  (default: off — no auth, current
+                behaviour, demo-friendly). soft: anonymous requests are
+                rate-limited per IP (API_ANON_PER_MIN); a request carrying a
+                valid X-API-Key bypasses the limiter and consumes the key's
+                quota instead. strict: every /v1/* request requires a valid
+                X-API-Key (401 otherwise). See docs/api-keys.md.
+    API_KEYS_DB   SQLite file backing the key store (default: <repo>/data/
+                api_keys.db). On the production container set it inside the
+                RW-mounted /app/data/partners tree for persistence across
+                container rebuilds.
+    API_ANON_PER_MIN  anonymous requests per minute per IP in soft mode
+                (default: 20).
     SESSION_DB  path to a SQLite file for cross-session recurrent-state
                 persistence (Gap 4). When set, a completion request carrying a
                 "session_id" continues from that session's saved LNN h_prev and
@@ -89,6 +101,7 @@ _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 from mt_lnn.config import MTLNNConfig
 from mt_lnn.model import MTLNNModel
+from mt_lnn.api_auth import (REASON_QUOTA, AnonymousRateLimiter, ApiKeyStore)
 
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "1024"))
 
@@ -219,6 +232,57 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(_SecurityHeadersMiddleware)
+
+# ── Middleware: API key auth + anonymous rate limiting (opt-in) ─────────────
+# API_AUTH_MODE=off keeps the pre-auth behaviour byte-for-byte. soft/strict are
+# opt-in via environment; see the module docstring and docs/api-keys.md.
+_AUTH_MODE = os.environ.get("API_AUTH_MODE", "off").strip().lower()
+if _AUTH_MODE not in ("off", "soft", "strict"):
+    raise RuntimeError(f"API_AUTH_MODE must be off|soft|strict, got {_AUTH_MODE!r}")
+
+_API_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_KEYS_DB = (os.environ.get("API_KEYS_DB", "").strip()
+            or os.path.join(_API_REPO_ROOT, "data", "api_keys.db"))
+_ANON_PER_MIN = int(os.environ.get("API_ANON_PER_MIN", "20"))
+
+_key_store = ApiKeyStore(_KEYS_DB) if _AUTH_MODE != "off" else None
+_anon_limiter = AnonymousRateLimiter(_ANON_PER_MIN)
+
+
+def _client_ip(request: Request) -> str:
+    """Behind Caddy the proxy strips client IP into x-forwarded-for."""
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+class _ApiKeyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if _AUTH_MODE != "off" and request.url.path.startswith("/v1/"):
+            key = request.headers.get("x-api-key", "")
+            if key:
+                # sqlite check is blocking but sub-ms at this request volume;
+                # the shared model lock already serialises all inference anyway.
+                ok, reason = _key_store.check(key)
+                if not ok:
+                    status = 401 if reason != REASON_QUOTA else 429
+                    return JSONResponse({"detail": reason}, status_code=status)
+            elif _AUTH_MODE == "strict":
+                return JSONResponse(
+                    {"detail": "X-API-Key required (API_AUTH_MODE=strict)"},
+                    status_code=401,
+                )
+            elif not _anon_limiter.allow(_client_ip(request)):
+                return JSONResponse(
+                    {"detail": "anonymous rate limit exceeded; "
+                               "send X-API-Key for full access"},
+                    status_code=429,
+                )
+        return await call_next(request)
+
+
+app.add_middleware(_ApiKeyMiddleware)
 
 # Serve the v0 frontend. Mount static assets under /static and the index at /.
 if os.path.isdir(_STATIC_DIR):
