@@ -72,7 +72,7 @@ def zero_attn(model):
     return orig
 
 
-def eval_ppl(model, tok, windows, device):
+def eval_ppl(model, tok, windows, device, use_lnn_recurrence=False):
     total_nll = 0.0
     total_tokens = 0
     t0 = time.time()
@@ -80,7 +80,7 @@ def eval_ppl(model, tok, windows, device):
         for i, w in enumerate(windows):
             ids = torch.tensor([w], dtype=torch.long, device=device)
             out = model(input_ids=ids, labels=ids, use_cache=False,
-                        use_lnn_recurrence=False)
+                        use_lnn_recurrence=use_lnn_recurrence)
             loss = out["loss"]
             n_tokens = ids.shape[1] - 1
             total_nll += float(loss) * n_tokens
@@ -132,12 +132,18 @@ def main():
     from mt_lnn.mt_attention import MicrotubuleAttention
     MicrotubuleAttention.forward = orig_attn  # 恢复
 
+    print("\n=== D: scan mode (真循环 parallel scan, 默认 False=广播) ===")
+    nll_scan = eval_ppl(model, tok, windows, device, use_lnn_recurrence=True)
+    ppl_scan = torch.exp(torch.tensor(nll_scan)).item()
+
     delta = ppl_zero / ppl_full
     delta_attn = ppl_attn0 / ppl_full
+    delta_scan = ppl_scan / ppl_full
     print("\n═══════════ 诊断结果 ═══════════")
-    print(f"full         PPL = {ppl_full:.2f}")
-    print(f"lnn_zeroed   PPL = {ppl_zero:.2f}  (比值 {delta:.3f}) — 只剩注意力")
-    print(f"attn_zeroed  PPL = {ppl_attn0:.2f}  (比值 {delta_attn:.3f}) — 只剩液态")
+    print(f"full (广播)   PPL = {ppl_full:.2f}")
+    print(f"scan (真循环) PPL = {ppl_scan:.2f}  (比值 {delta_scan:.3f})")
+    print(f"lnn_zeroed    PPL = {ppl_zero:.2f}  (比值 {delta:.3f}) — 只剩注意力")
+    print(f"attn_zeroed   PPL = {ppl_attn0:.2f}  (比值 {delta_attn:.3f}) — 只剩液态")
     print()
     if delta_attn < 2.0 and delta > 3.0:
         verdict = ("液态核心是语言质量的主引擎（纯液态接近完整模型），"
