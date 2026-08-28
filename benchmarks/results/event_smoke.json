@@ -1,0 +1,38 @@
+{
+  "runs": {
+    "next_channel|0.35|mt_lnn|0": {
+      "metric": 0.16,
+      "stable": true,
+      "params": 16458,
+      "seed": 0
+    },
+    "next_channel|0.35|lstm|0": {
+      "metric": 0.2,
+      "stable": true,
+      "params": 22938,
+      "seed": 0
+    },
+    "next_channel|0.35|gru|0": {
+      "metric": 0.16,
+      "stable": true,
+      "params": 17426,
+      "seed": 0
+    },
+    "next_channel|0.35|transformer|0": {
+      "metric": 0.16,
+      "stable": true,
+      "params": 37342,
+      "seed": 0
+    }
+  },
+  "gru_d": "pending merge (iter/irregular-streaming-edge)",
+  "config": {
+    "d_model": 52,
+    "n_layers": 1,
+    "epochs": 6,
+    "seq_len": 64,
+    "n_train": 200,
+    "span": 2.0,
+    "channels": 6
+  }
+}
