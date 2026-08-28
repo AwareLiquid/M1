@@ -364,17 +364,22 @@ def _heldout_ppl(m, test_c, args, device, dtype):
     nll, ntok = 0.0, 0
     with torch.no_grad():
         for i in range(0, min(len(test_c), args.eval_chunks or len(test_c)), args.batch):
-            ids = test_c[i:i + args.batch].to(device)
-            with torch.amp.autocast("cuda", dtype=dtype,
-                                    enabled=device == "cuda" and dtype != torch.float32):
-                out = m(ids, labels=ids)
-            n = ids.shape[0] * (ids.shape[1] - 1)
-            ce = out.get("lm_loss", out["loss"])
-            nll += ce.float().item() * n
-            ntok += n
+            c, k = _chunk_nll(m, test_c[i:i + args.batch].to(device), device, dtype)
+            nll += c
+            ntok += k
     mean_nll = nll / ntok if ntok else float("nan")
     return (math.exp(mean_nll) if math.isfinite(mean_nll) and mean_nll < 709.0
             else float("inf"))
+
+
+def _chunk_nll(m, ids, device, dtype):
+    """单个 batch 的 CE×token 数（autocast 口径与训练侧一致）。"""
+    with torch.amp.autocast("cuda", dtype=dtype,
+                            enabled=device == "cuda" and dtype != torch.float32):
+        out = m(ids, labels=ids)
+    n = ids.shape[0] * (ids.shape[1] - 1)
+    ce = out.get("lm_loss", out["loss"])
+    return ce.float().item() * n, n
 
 
 def train_arch(arch, args, device, dtype, seed=0):

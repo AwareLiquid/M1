@@ -160,17 +160,22 @@ def deep_supervision_loss(out, labels):
     iters = out.get("stack_iter_logits")
     if iters is None:
         return out["loss"], None
-    shift_logits = iters[:, :, :-1, :].contiguous()
-    shift_labels = labels[:, 1:].unsqueeze(0).expand_as(
-        shift_logits[:, :, :, 0])
-    per_iter = torch.nn.functional.cross_entropy(
-        shift_logits.reshape(-1, shift_logits.shape[-1]),
-        shift_labels.reshape(-1), reduction="none"
-    ).view(shift_logits.shape[:3]).mean(dim=(1, 2))          # (n_iter,)
+    per_iter = _per_iter_ce(iters, labels)
     # 最终迭代权重加倍：anytime 语义下最后一轮仍是最重要的出口
     weights = torch.ones_like(per_iter)
     weights[-1] = 2.0
     return (per_iter * weights).sum() / weights.sum(), per_iter.detach().tolist()
+
+
+def _per_iter_ce(iters, labels):
+    """逐迭代 next-token CE → (n_iter,) 张量。"""
+    shift_logits = iters[:, :, :-1, :].contiguous()
+    shift_labels = labels[:, 1:].unsqueeze(0).expand_as(
+        shift_logits[:, :, :, 0])
+    flat = torch.nn.functional.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1), reduction="none")
+    return flat.view(shift_logits.shape[:3]).mean(dim=(1, 2))
 
 
 def train_model(model, gen, device, steps, batch, lr, seed,
