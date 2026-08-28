@@ -271,3 +271,26 @@ def test_rag_stream_emits_rag_event_first(client, rag_index):
     first = events[0]
     assert first.startswith("data: ") and '"rag"' in first
     assert events[-1].endswith("[DONE]")
+
+
+# ---------------------------------------------------------------------------
+# Auth config preflight (P2-10): strict + zero active keys fails fast.
+# ---------------------------------------------------------------------------
+
+def test_validate_auth_config_strict_empty_fails(tmp_path):
+    from mt_lnn.api_auth import ApiKeyStore
+    from serve.server import _validate_auth_config
+
+    store = ApiKeyStore(str(tmp_path / "keys.db"))
+    with pytest.raises(RuntimeError, match="no ACTIVE keys"):
+        _validate_auth_config("strict", store)
+    store.issue("ops")
+    _validate_auth_config("strict", store)        # 有可用 key 即通过
+
+
+def test_validate_auth_config_off_and_soft(tmp_path):
+    from mt_lnn.api_auth import ApiKeyStore
+    from serve.server import _validate_auth_config
+
+    _validate_auth_config("off", None)            # off → 不动
+    _validate_auth_config("soft", ApiKeyStore(str(tmp_path / "k.db")))

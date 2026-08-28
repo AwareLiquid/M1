@@ -47,6 +47,20 @@ py -3.11 scripts/api_key_admin.py revoke --label acme-corp
    # strict 模式无 key：应 401
    ```
 
+### strict 模式（全量鉴权）
+
+`API_AUTH_MODE=strict` 时**所有** `/v1/*` 请求都要带有效 `X-API-Key`。启动有
+配置体检：key 库里没有任何**可用** key（全部吊销/过期/配额耗尽也算零）时
+**拒绝启动**并打印自救命令 —— 否则一次误配会把整个 API 锁死且无法从外部
+恢复。上线顺序永远是：先 `api_key_admin.py add` 签 key，再切 strict。
+
+```bash
+# 误配的症状（启动日志）：
+# RuntimeError: API_AUTH_MODE=strict but the key store has no ACTIVE keys …
+# 自救：先签 key 再重启
+API_KEYS_DB=<db> python scripts/api_key_admin.py add --label ops
+```
+
 ## 边界（诚实）
 
 - 这是**单进程内存限流 + SQLite 配额**，为少量企业客户设计；不是多副本

@@ -115,6 +115,20 @@ class ApiKeyStore:
                 ).fetchall()
         return [dict(r) for r in rows]
 
+    def count_active(self) -> int:
+        """当前可用 key 数（未吊销、未过期、配额未耗尽）。"""
+        now = time.time()
+        with self._lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS n FROM api_keys "
+                    "WHERE revoked = 0 "
+                    "AND (expires_at IS NULL OR expires_at > ?) "
+                    "AND (max_requests IS NULL OR requests_used < max_requests)",
+                    (now,),
+                ).fetchone()
+        return int(row["n"])
+
     def revoke(self, label: str) -> int:
         """按 label 吊销, 返回影响行数。"""
         with self._lock:

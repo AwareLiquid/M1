@@ -286,6 +286,27 @@ _key_store = ApiKeyStore(_KEYS_DB) if _AUTH_MODE != "off" else None
 _anon_limiter = AnonymousRateLimiter(_ANON_PER_MIN)
 
 
+def _validate_auth_config(mode: str, store) -> None:
+    """启动期鉴权配置体检（P2-10 生产化）。
+
+    strict + 零可用 key = 把所有 /v1/* 锁死且无法自救 —— 部署错误，
+    直接 fail fast 并给出自救命令；soft 只提醒（匿名仍可走限流）。
+    """
+    if mode == "off" or store is None:
+        return
+    n_active = store.count_active()
+    if mode == "strict" and n_active == 0:
+        raise RuntimeError(
+            "API_AUTH_MODE=strict but the key store has no ACTIVE keys — "
+            "every /v1/* request would be locked out. Issue one first:\n"
+            f"  python scripts/api_key_admin.py issue --label ops\n"
+            f"(key db: {_KEYS_DB})")
+    print(f"[serve] api auth {mode} | {n_active} active key(s) | db={_KEYS_DB}")
+
+
+_validate_auth_config(_AUTH_MODE, _key_store)
+
+
 def _client_ip(request: Request) -> str:
     """Behind Caddy the proxy strips client IP into x-forwarded-for."""
     xff = request.headers.get("x-forwarded-for", "")
