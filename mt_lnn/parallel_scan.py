@@ -365,6 +365,8 @@ def pscan_chunkwise_constant_A(decay: torch.Tensor, X: torch.Tensor,
     c0 = (carry.new_zeros(carry.shape[:-2] + (1, D)) if h_init is None
           else h_init.unsqueeze(-2))                     # state INTO chunk 0
     c_in = torch.cat([c0, carry[..., :-1, :]], dim=-2)   # exclusive carry
-    H = H_loc + g.unsqueeze(-3).unsqueeze(-1) * c_in.unsqueeze(-2)
+    # g (..., C) -> (..., 1, C, 1): unsqueeze(-2) then (-1); a bare -3 would
+    # insert BEFORE the batch dims for 4-D g (round-2 smoke caught exactly that).
+    H = H_loc + g.unsqueeze(-2).unsqueeze(-1) * c_in.unsqueeze(-2)
     H = H.reshape(*H.shape[:-3], NC * C, D)
     return H[..., :T, :] if pad else H
