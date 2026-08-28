@@ -25,11 +25,19 @@ def test_timestamps_strictly_increasing():
     assert (np.diff(t) > 0).all()          # 生成器已排序 + ε 偏移
 
 
-def test_subthreshold_signal_never_fires():
-    # 峰峰值 2e-4 << theta=0.5：任何参考重置后都到不了阈值
-    v = 1e-4 * np.sin(np.linspace(0, 100, 5000))
-    idx, _ = _emit(v, 0.5)
-    assert len(idx) == 0
+def test_emit_threshold_semantics():
+    # |Δv| < θ 永不触发：bandwidth=0 的潜信号精确常数（峰峰值 0）+ 微幅正弦
+    rng = np.random.default_rng(0)
+    t = np.arange(0.0, 1.0, FINE_DT)
+    v = _latent(rng, t, 4, 0.0)
+    assert np.allclose(v, v[:, :1], atol=1e-12)
+    assert len(_emit(v[0], 1e-6)[0]) == 0
+    tiny = 1e-4 * np.sin(np.linspace(0, 100, 5000))   # 峰峰值 2e-4 << 0.5
+    assert len(_emit(tiny, 0.5)[0]) == 0
+    # 极性跟随变化方向：单调升全 +1，单调降全 -1
+    ramp = np.linspace(0.0, 10.0, 100)
+    assert (_emit(ramp, 0.5)[1] == 1).all()
+    assert (_emit(-ramp, 0.5)[1] == -1).all()
 
 
 def test_theta_zero_degenerates_to_regular_sampling():
@@ -37,23 +45,6 @@ def test_theta_zero_degenerates_to_regular_sampling():
     idx, _ = _emit(v, 0.0)
     assert len(idx) == len(v) - 1          # 每个网格步都触发
     assert (np.diff(idx) == 1).all()       # Δt 恒等于网格步长
-
-
-def test_polarity_matches_change_direction():
-    v = np.linspace(0.0, 10.0, 100)        # 单调上升
-    _, pol = _emit(v, 0.5)
-    assert (pol == 1).all()
-    _, pol_down = _emit(-v, 0.5)
-    assert (pol_down == -1).all()
-
-
-def test_latent_zero_bandwidth_is_static():
-    # bandwidth=0 时潜信号精确为常数（|Δv|=0 < θ），burst 内零事件
-    rng = np.random.default_rng(0)
-    t = np.arange(0.0, 1.0, FINE_DT)
-    v = _latent(rng, t, 4, 0.0)
-    idx, _ = _emit(v[0], 1e-6)
-    assert len(idx) == 0 and np.allclose(v, v[:, :1], atol=1e-12)
 
 
 def test_events_to_tensor_layout_and_padding():

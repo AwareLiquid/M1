@@ -6,7 +6,8 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from benchmarks.event_real_data import US_GRID, _to_tensor, parse_bin
+from benchmarks.event_real_data import (US_GRID, _samples_by_class,
+                                        _to_tensor, parse_bin)
 
 
 def _pack(x, y, pol, ts):
@@ -47,3 +48,26 @@ def test_to_tensor_layout_and_positive_dt():
 def io_like(raw):
     import io as _io
     return _io.BytesIO(raw)
+
+
+def test_samples_by_class_picks_second_path_segment():
+    # 回归点：类目是路径第 2 段（Caltech101/<class>/x.bin），且按
+    # max_per_class 截断、丢弃不在候选类里的成员
+    import io as _io
+    import zipfile
+
+    buf = _io.BytesIO()
+    names = ["Caltech101/accordion/image_0001.bin",
+             "Caltech101/accordion/image_0002.bin",
+             "Caltech101/faces/image_0001.bin",
+             "Caltech101/faces/image_0002.bin",
+             "Caltech101/faces/image_0003.bin",
+             "meta.csv"]
+    with zipfile.ZipFile(buf, "w") as z:
+        for n in names:
+            z.writestr(n, b"\x00" * 5)
+    z = zipfile.ZipFile(_io.BytesIO(buf.getvalue()))
+    by = _samples_by_class(z, {"accordion", "faces"}, 2)
+    assert set(by) == {"accordion", "faces"}
+    assert len(by["faces"]) == 2                      # max_per_class 截断
+    assert all(n.split("/")[1] in by for ns in by.values() for n in ns)
