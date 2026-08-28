@@ -167,6 +167,24 @@ def test_chunkwise_signed_and_gradients():
     print("[ok] test_chunkwise_signed_and_gradients")
 
 
+# ---------------------------------------------------------------------------
+# Test 6: near-zero decay inside a chunk — regression for the segsum
+# overflow (exp of a POSITIVE upper-triangle segsum used to reach fp32 inf,
+# then inf * 0 -> NaN). Two |A| ~ 1e-30 steps span ~138 nats > ln(fp32 max).
+# ---------------------------------------------------------------------------
+
+def test_chunkwise_near_zero_decay_no_nan():
+    T, D = 5, 3
+    A = torch.tensor([[0.5, 1e-30, 1e-30, 0.5, 0.9]])
+    torch.manual_seed(600)
+    X = torch.randn(1, T, D)
+    H = pscan_chunkwise(A, X, chunk_size=4)
+    assert torch.isfinite(H).all(), "near-zero decay produced NaN/Inf"
+    assert_close(H, pscan_sequential(A, X),
+                 rtol=CHUNKWISE_RTOL, atol=CHUNKWISE_ATOL)
+    print("[ok] test_chunkwise_near_zero_decay_no_nan")
+
+
 def run_all():
     print("=" * 60)
     print("Chunkwise scan equivalence suite")
@@ -176,6 +194,7 @@ def run_all():
     test_chunkwise_constant_A_specialisation()
     test_chunkwise_carry_correctness()
     test_chunkwise_signed_and_gradients()
+    test_chunkwise_near_zero_decay_no_nan()
     print("=" * 60)
     print("ALL CHUNKWISE SCAN TESTS PASSED")
     print("=" * 60)

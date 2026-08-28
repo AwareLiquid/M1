@@ -234,7 +234,12 @@ def _chunk_decay_terms(A_c: torch.Tensor):
 def _chunk_decay_matrix(cumlog: torch.Tensor, scum: torch.Tensor) -> torch.Tensor:
     """L[i, j] = prod_{k=j+1..i} A_k for j <= i, else 0.  (..., C, C)."""
     C = cumlog.shape[-1]
-    segsum = cumlog.unsqueeze(-1) - cumlog.unsqueeze(-2)   # (..., i, j)
+    # tril BEFORE exp: the strict upper triangle (j > i) holds POSITIVE
+    # segsums whose exp overflows fp32 to +inf once a chunk's cumulative
+    # log-decay span exceeds ~88.7 nats (e.g. two near-zero decays in one
+    # chunk); inf * tri(0) would be NaN and poison the chunk via matmul.
+    # Below the diagonal segsum <= 0 always, so exp() is bounded by 1.
+    segsum = (cumlog.unsqueeze(-1) - cumlog.unsqueeze(-2)).tril()  # (..., i, j)
     sign_outer = scum.unsqueeze(-1) * scum.unsqueeze(-2)
     tri = torch.ones(C, C, device=cumlog.device,
                      dtype=cumlog.dtype).tril()            # incl. diagonal
@@ -262,6 +267,9 @@ def pscan_chunkwise(A: torch.Tensor, X: torch.Tensor,
                                absorbed into X, so X is never copied)
     chunk_size: C           — intra-chunk width; trade matmul size (C^2)
                               against carry-loop depth (T/C)
+
+    Stability contract is the same as pscan(): |A| <= 1 enforced upstream
+    (log|A| <= 0 is also what keeps every exp() here bounded by 1).
 
     Returns H: (..., T, D), same shape and dtype as X.
     """

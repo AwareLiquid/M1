@@ -529,6 +529,8 @@ def attach_mt_v2_adapters(
     fast_weight_heads: int = 1,
     fast_weight_init_decay: float = 0.95,
     fast_weight_rule: str = "outer",
+    use_chunkwise_scan: bool = False,
+    chunkwise_scan_size: int = 64,
 ) -> List[int]:
     """Freeze `model`, wrap every Nth decoder layer with a V2 adapter.
 
@@ -574,6 +576,8 @@ def attach_mt_v2_adapters(
             fast_weight_heads=fast_weight_heads,
             fast_weight_init_decay=fast_weight_init_decay,
             fast_weight_rule=fast_weight_rule,
+            use_chunkwise_scan=use_chunkwise_scan,
+            chunkwise_scan_size=chunkwise_scan_size,
         )
         layers[idx] = DecoderLayerWithMTAdapter(
             layers[idx],
