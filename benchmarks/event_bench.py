@@ -61,6 +61,7 @@ def main():
             _run_task_grid(res, args, task, theta, seeds, tr, te)
             _save(path, res, args)
     _report(res, thetas)
+    _save(path, res, args)               # gates 在 _report 里算，必须再落盘
     return 0
 
 
