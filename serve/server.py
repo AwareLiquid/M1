@@ -75,6 +75,7 @@ import dataclasses
 import io
 import json
 import os
+import secrets
 import sys
 import threading
 import time
@@ -409,9 +410,17 @@ def partner_referral(name: str, request: Request):
 
 @app.get("/partners")
 def partner_stats(request: Request):
-    """Aggregate referral counts. Optionally gate with PARTNER_STATS_TOKEN."""
-    token = os.environ.get("PARTNER_STATS_TOKEN")
-    if token and request.query_params.get("token") != token:
+    """Aggregate referral counts, gated by PARTNER_STATS_TOKEN (fail-closed).
+
+    An unset/empty token used to short-circuit the check into "no auth",
+    publishing every partner's click counts (and their existence) to the
+    world. Now the endpoint refuses to serve until a token is configured:
+    unset token → 503, wrong token → 401.
+    """
+    token = os.environ.get("PARTNER_STATS_TOKEN", "")
+    if not token:
+        raise HTTPException(503, "stats locked: set PARTNER_STATS_TOKEN to enable")
+    if not secrets.compare_digest(request.query_params.get("token", ""), token):
         raise HTTPException(401, "stats token required")
     agg_path = os.path.join(_PARTNER_DIR, "counts.json")
     try:

@@ -78,3 +78,37 @@ def test_stream_emits_token_events_then_done(client):
     assert events[-1].endswith("[DONE]")
     token_events = [e for e in events if '"token"' in e]
     assert 1 <= len(token_events) <= 5
+
+
+# ---------------------------------------------------------------------------
+# /partners stats endpoint — PARTNER_STATS_TOKEN is fail-closed (P0-1).
+# An unset token must NOT fall back to "no auth": the old `if token and ...`
+# short-circuit published every partner's counts whenever the env var was
+# missing or left as the compose-file default "".
+# ---------------------------------------------------------------------------
+
+def test_partner_stats_locked_without_token(client, monkeypatch, tmp_path):
+    monkeypatch.delenv("PARTNER_STATS_TOKEN", raising=False)
+    r = client.get("/partners")
+    assert r.status_code == 503
+    assert "counts" not in r.json()
+
+
+def test_partner_stats_rejects_wrong_token(client, monkeypatch):
+    monkeypatch.setenv("PARTNER_STATS_TOKEN", "s3cret")
+    r = client.get("/partners", params={"token": "wrong"})
+    assert r.status_code == 401
+
+
+def test_partner_stats_serves_with_valid_token(client, monkeypatch, tmp_path):
+    import json as _json
+
+    import serve.server as srv
+
+    monkeypatch.setenv("PARTNER_STATS_TOKEN", "s3cret")
+    monkeypatch.setattr(srv, "_PARTNER_DIR", str(tmp_path))
+    (tmp_path / "counts.json").write_text(_json.dumps({"clawhunt": 3}))
+    r = client.get("/partners", params={"token": "s3cret"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body == {"counts": {"clawhunt": 3}, "total": 3}
