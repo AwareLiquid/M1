@@ -458,7 +458,8 @@ def train_arch(arch, args, device, dtype, seed=0):
                 continue
             with torch.amp.autocast("cuda", dtype=dtype,
                                     enabled=device == "cuda" and dtype != torch.float32):
-                out = m(ids, labels=ids)
+                out = m(ids, labels=ids,
+                        use_lnn_recurrence=not args.lnn_broadcast)
                 loss = out["loss"] / accum
             if not torch.isfinite(loss):
                 stable = False
@@ -520,7 +521,8 @@ def train_arch(arch, args, device, dtype, seed=0):
     row = {"arch": arch, "seed": seed, "params": n_params, "stable": stable,
            "final_loss": last, "val_ppl": ppl, "steps": step,
            # E0 纪律：配方行内记录（好配方与否一眼可辨，防"二手结论"）
-           "beta2": beta2, "grad_clip": grad_clip}
+           "beta2": beta2, "grad_clip": grad_clip,
+           "lnn_recurrence": "scan" if not args.lnn_broadcast else "broadcast"}
     if args.sanity_steps:
         row["sanity"] = {"steps": args.sanity_steps, "max_ppl": args.sanity_ppl,
                          "failed": sanity_failed}
@@ -551,6 +553,12 @@ def main():
                          "则中止省 GPU (E6 协议: 2000)")
     ap.add_argument("--sanity_ppl", type=float, default=150.0,
                     help="sanity 门阈值 (E6 协议: 150 — v4 的 470 在 2000 步就该拦下)")
+    ap.add_argument("--lnn_broadcast", action=argparse.BooleanOptionalAction,
+                    default=False,
+                    help="LM 训练 forward 用 broadcast(并行) 模式而非真循环 scan "
+                         "— 128M 实测 PPL 无差 (153.92 vs 154.61, 2026-08-28 消融) "
+                         "且 ~12% 提速; held-out 评估始终 scan (部署口径)。"
+                         "默认 off 保持 P0 历史口径")
     ap.add_argument("--log_every", type=int, default=100)
     ap.add_argument("--eval_chunks", type=int, default=200)
     ap.add_argument("--seeds", default="0,1,2",

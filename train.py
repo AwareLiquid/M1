@@ -318,12 +318,14 @@ def train(args):
                         direct_target_labels=direct_labels,
                         target_len=direct_len,
                         return_target_logits=True,
+                        use_lnn_recurrence=not args.lnn_broadcast,
                     )
                     raw_loss = out["target_loss"] if args.train_target_head else (
                         out["loss"] + args.target_loss_weight * out["target_loss"]
                     )
                 else:
-                    out = model(inp, labels=lbl)
+                    out = model(inp, labels=lbl,
+                                use_lnn_recurrence=not args.lnn_broadcast)
                     raw_loss = out["loss"]
                 loss = raw_loss / args.grad_accum
 
@@ -521,6 +523,13 @@ def parse_args():
                    help="[MTP] K: number of future tokens each head set predicts (default 3)")
     p.add_argument("--mtp_loss_weight", type=float, default=0.1,
                    help="[MTP] λ: weight of the MTP aux CE loss (default 0.1; 0 disables it)")
+    # ---- Recurrence mode (LM-training speed knob) ----
+    p.add_argument("--lnn_broadcast", action=argparse.BooleanOptionalAction,
+                   default=False,
+                   help="LM 训练 forward 用 broadcast(并行) 模式而非真循环 scan "
+                        "— 128M 实测 PPL 无差 (153.92 vs 154.61, 2026-08-28 消融) "
+                        "且 ~12% 提速; 推理/流式路径不受影响。默认 off 保持历史"
+                        "口径; 2B 采用前先复验一次无退化")
     # ---- Observability + resume ----
     p.add_argument("--metrics_jsonl", type=str, default=None,
                    help="If set, append v2.0 module metrics (bounded scalars) to this JSONL file")
