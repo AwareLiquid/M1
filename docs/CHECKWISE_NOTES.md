@@ -2,6 +2,9 @@
 
 > 命名沿用任务书（CHECKWISE_NOTES = chunkwise scan notes）。
 > 分支：`iter/chunkwise-scan`（2026-08-29）。纯分析文档，不含实现承诺。
+> **实验侧配套**：两轮对照实验的数据、决策与后续测试清单见
+> `CHECKWISE_EXPERIMENT_LOG.md`（探针实测：生产区间 CPU ~2x，16K 回落，
+> 内存平手——本文原"长序列显存主战场"预判已被证伪并修正，见 §4）。
 > 本文回答两个问题：
 > (a) `pscan_chunkwise` 与 Mamba-2 SSD / FLA GDN 内核的语义对应关系——
 >     未来能否直接换用现成 Triton 内核；
@@ -114,18 +117,31 @@ D 通道广播），X 形状 `(..., T, D)`。chunk_size = C（默认 64）。
 - **下溢是特性不是 bug**：真值 <fp32 min 的权重（如 0.05^64）在
   sequential 侧同样 flush 到 0，两侧一致；segsum 差值形式保证永不出现
   0/0。
-- **chunk_size 敏感性预判**（待 `benchmarks/pscan_bench.py` Phase B 实
-  测回填）：C↑ → 块内 C² matmul 增大、carry 串行步 T/C 减少；C↓ 相反。
-  峰值显存方面 chunkwise 的 `L` 是 `(..., C, C)`，与 T 无关；pscan 的
-  递归中间张量随 T×logT 增长——长序列档（16K/64K）预期是显存差距的主
-  战场。C=64 是 Mamba-2/GLA/KDA 惯例与 Tensor Core 对齐甜点，敏感性
-  扫描 {32,64,128} 用于确认而非探索。
+- **chunk_size 敏感性（探针实测回填，CPU/MPS 口径）**：特化版 16K
+  fwd_bwd——CPU：C32/C64/C128 = 125.3/91.2/93.6ms（最优 64）；MPS =
+  61.7/77.4/72.6ms（最优 32，更小工作集）。通用逐块版的 C↑ 反而更快
+  （调度瓶颈），特化版恢复"C 与算术量正相关"的正常曲线。默认 64 保留
+  （CPU 口径，MPS 可配）。**内存预判修正（2026-08-29）**：本文原预判
+  "chunkwise 的 L 与 T 无关、长序列档是显存差距主战场"——探针实测
+  **证伪**：训练形态峰值内存平手（rss 比 0.84~1.05），因为反向需保存
+  H_loc/dL 等全尺寸中间量，与 pscan 的递归中间量相抵。完整数据见
+  `CHECKWISE_EXPERIMENT_LOG.md` §5。
 - **红线重申**：等价性测试不绿则 `use_chunkwise_scan` 的 on 通路不合入
   （只能默认 off 合入）；默认路径本分支零行为变化。
 
-## 5. Phase B 待回填
+## 5. 实测状态与 Phase B 待回填
 
-- [ ] `pscan_bench.json` 实测：各 T 档 fwd/fwd_bwd 加速比 + 峰值显存对比
-- [ ] chunk_size ∈ {32,64,128} 敏感性结论与推荐值
+**探针已回填（CPU/MPS，2026-08-29，详见 `CHECKWISE_EXPERIMENT_LOG.md`）**：
+- [x] 等价性：执行验证 PASS（max_rel_diff 2.5e-7~6.1e-7，门槛 1e-3）
+- [x] 加速比（constant-A 特化版，fwd_bwd）：T=512 CPU ~2.0x / MPS
+      1.1~1.7x；1K 1.87x；4K 1.19x；16K 0.88x（CPU）/ 0.98x（MPS，
+      C=32 时 1.23x）；MPS 纯前向 16K 1.68x
+- [x] chunk_size 敏感性：CPU 最优 64，MPS 最优 32（§4）
+- [x] 内存：平手不省（预判修正，§4）
+
+**Phase B 官方基准待跑（`pscan_bench.py`，主 worktree）**：
+- [ ] 全量 JSON 落盘（建议先补 constant-A 对照组——探针已证明它是
+      生产默认路径，bench 矩阵目前缺失；EXPERIMENT_LOG §6-T3）
 - [ ] 训练冒烟（train.py --compile 小跑）确认端到端无回归
+- [ ] 有 CUDA 机器后跑 GPU 档（tensor core 溢价假设）
 - [ ] （若达标）是否推进"换用现成 Triton 内核"的独立分支立项

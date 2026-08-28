@@ -171,5 +171,5 @@ chunkwise 每元素算术量（~64 MAC）始终比 pscan（~15 逐元素）**多
 | 4dee98a | constant-A 特化（本轮性能翻正的实现） |
 | 1cf9920 | 探针冒烟修复：特化版 g 升维错位 |
 | 3317aec | 探针工具 + 两轮原始 JSON 入仓 |
-| （本文档 commit） | 实验记录与决策日志 |
-| （NOTES 回填 commit） | CHECKWISE_NOTES 实测回填 |
+| dde6aab | 实验记录与决策日志（本文档） |
+| （本 commit） | CHECKWISE_NOTES 实测回填 + 预判修正 |
