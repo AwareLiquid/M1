@@ -38,6 +38,11 @@ Environment
     QUANTIZE_INT8  "1" → weight-only int8 after load (nn.Linear dynamic +
                 liquid raw-Parameter Int8Weight). Inference-only; see
                 mt_lnn/quantization.py.
+    RAG_INDEX    path to a BM25Index pickle (scripts/build_rag_corpus.py).
+                When set, POST /v1/completions accepts "rag": true to prefix
+                the prompt with retrieved context, and /v1/rag(/search)
+                expose the index. Unset → retrieval fully off.
+    RAG_MAX_CHARS  max retrieved-context characters prepended (default 1500).
     API_AUTH_MODE  off | soft | strict  (default: off — no auth, current
                 behaviour, demo-friendly). soft: anonymous requests are
                 rate-limited per IP (API_ANON_PER_MIN); a request carrying a
@@ -113,6 +118,7 @@ from mt_lnn.model import MTLNNModel
 from mt_lnn.api_auth import (REASON_QUOTA, AnonymousRateLimiter, ApiKeyStore)
 
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "1024"))
+RAG_MAX_CHARS = int(os.environ.get("RAG_MAX_CHARS", "1500"))
 
 
 # ---------------------------------------------------------------------------
@@ -591,6 +597,27 @@ def _startup() -> None:
     # Optional multimodal frontend (CLIP vision tower → projector → inputs_embeds).
     _STATE["mm_ready"] = False
     _STATE["mm_error"] = None
+
+    # Optional BM25 retrieval layer (mt_lnn/rag.py; index built by
+    # scripts/build_rag_corpus.py). Pure-python, no model state, no lock.
+    rag_index = None
+    rag_path = os.environ.get("RAG_INDEX", "").strip()
+    if rag_path:
+        try:
+            import pickle
+
+            from mt_lnn.rag import BM25Index
+            with open(rag_path, "rb") as fh:
+                obj = pickle.load(fh)
+            if isinstance(obj, BM25Index) and len(obj) > 0:
+                rag_index = obj
+                print(f"[serve] rag ready | {len(obj)} passages | {rag_path}")
+            else:
+                print(f"[serve] rag DISABLED ({rag_path} is not a non-empty "
+                      "BM25Index)")
+        except Exception as e:  # noqa: BLE001 - degrade gracefully, keep serving
+            print(f"[serve] rag DISABLED ({type(e).__name__}: {e})")
+    _STATE["rag_index"] = rag_index
     if os.environ.get("ENABLE_MULTIMODAL", "0") == "1":
         try:
             from mt_lnn.multimodal import CLIPModalityEncoder
@@ -625,6 +652,29 @@ class CompletionRequest(BaseModel):
     # LNN h_prev state and writes the updated state back afterwards. Omitted (None)
     # → stateless, identical to the pre-persistence behaviour.
     session_id: Optional[str] = None
+    # Retrieval augmentation (RAG_INDEX): when True AND the server was started
+    # with a BM25 index, the prompt is prefixed with retrieved context before
+    # generation. The response reports what was retrieved.
+    rag: bool = False
+    rag_top_k: int = Field(4, ge=1, le=20)
+
+
+def _apply_rag(req: "CompletionRequest") -> Optional[dict]:
+    """BM25 检索增强：命中块拼成上下文前缀进 prompt（原地改写 req.prompt）。
+
+    返回 rag 信息 dict（未启用/未请求/无命中时 None 或 used=False）。
+    纯 python 字符串操作，不触模型状态，无需生成锁。
+    """
+    idx = _STATE.get("rag_index")
+    if not req.rag or idx is None or not req.prompt:
+        return None
+    hits = idx.retrieve(req.prompt, top_k=req.rag_top_k)
+    if not hits:
+        return {"used": False, "n_hits": 0, "top_k": req.rag_top_k}
+    from mt_lnn.rag import format_context
+    ctx = format_context(hits, max_chars=RAG_MAX_CHARS)
+    req.prompt = (f"[Retrieved context]\n{ctx}\n\n{req.prompt}")
+    return {"used": True, "n_hits": len(hits), "top_k": req.rag_top_k}
 
 
 def _encode(req: CompletionRequest) -> torch.Tensor:
@@ -805,6 +855,30 @@ def model_info():
     }
 
 
+@app.get("/v1/rag")
+def rag_info_endpoint():
+    """Retrieval layer status. 404 when the server started without RAG_INDEX."""
+    idx = _STATE.get("rag_index")
+    if idx is None:
+        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
+    return {"enabled": True, "n_passages": len(idx),
+            "max_context_chars": RAG_MAX_CHARS}
+
+
+@app.get("/v1/rag/search")
+def rag_search(q: str = "", top_k: int = 5):
+    """Direct BM25 search over the loaded index (retrieval as a service)."""
+    idx = _STATE.get("rag_index")
+    if idx is None:
+        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
+    if not q.strip():
+        raise HTTPException(400, "q is required")
+    hits = idx.search(q, top_k=max(1, min(top_k, 50)))
+    return {"query": q, "hits": [
+        {"passage": idx.passages[i], "score": round(s, 4)} for i, s in hits
+    ]}
+
+
 @app.get("/v1/sessions")
 def list_sessions():
     """List persisted sessions (newest first). 404 if persistence is disabled."""
@@ -942,6 +1016,7 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if req.max_new_tokens > MAX_NEW_CAP:
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
+    rag_info = _apply_rag(req)
     ids = _encode(req)
     t0 = time.time()
     if _session_enabled(req):
@@ -963,6 +1038,8 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
         "elapsed_s": round(dt, 4),
         "tok_per_s": round(len(new_ids) / dt, 2) if dt > 0 else None,
     }
+    if rag_info is not None:
+        resp["rag"] = rag_info
     if total_tokens is not None:
         resp["session_id"] = req.session_id
         resp["session_token_count"] = total_tokens
@@ -977,10 +1054,13 @@ def completions_stream(req: CompletionRequest, _lock=Depends(_gen_lock)):
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
     eos = _eos_id(req.stop_at_eos)
+    rag_info = _apply_rag(req)
     ids = _encode(req)
     session = _session_enabled(req)
 
     def _gen():
+        if rag_info is not None:
+            yield f"data: {json.dumps({'rag': rag_info})}\n\n"
         # Prefill, then emit one token per step (greedy/sampled) over the cache.
         # When a session is active, the prefill CONTINUES from the persisted
         # recurrent state and the updated state is written back at the end.

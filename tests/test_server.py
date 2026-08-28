@@ -183,6 +183,7 @@ def test_quantize_int8_startup_flag(monkeypatch):
     import serve.server as srv
 
     monkeypatch.setenv("QUANTIZE_INT8", "1")
+    saved = dict(srv._STATE)
     srv._STATE.clear()
     srv._startup()
     try:
@@ -198,3 +199,75 @@ def test_quantize_int8_startup_flag(monkeypatch):
         assert out.shape[1] >= 4
     finally:
         srv._STATE.clear()
+        srv._STATE.update(saved)   # 恢复 module 级 client 的就绪状态
+
+
+# ---------------------------------------------------------------------------
+# RAG integration (P2-9): BM25 index → completions prefix + search endpoints.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def rag_index(client, monkeypatch, tmp_path):
+    """Load a tiny BM25 index into _STATE directly (no RAG_INDEX file needed)."""
+    import serve.server as srv
+    from mt_lnn.rag import BM25Index
+
+    idx = BM25Index([
+        "The mitochondrion is the powerhouse of the cell and produces ATP.",
+        "Photosynthesis converts sunlight into chemical energy in plants.",
+        "The French Revolution began in 1789 and toppled the monarchy.",
+    ])
+    monkeypatch.setitem(srv._STATE, "rag_index", idx)
+    yield idx
+    srv._STATE["rag_index"] = None
+
+
+def test_rag_completions_prefix_and_report(client, rag_index):
+    r = client.post("/v1/completions", json={
+        "prompt": "What produces ATP in the cell?", "max_new_tokens": 4,
+        "do_sample": False, "rag": True, "rag_top_k": 2})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["rag"]["used"] is True
+    assert body["rag"]["n_hits"] == 2
+
+
+def test_rag_disabled_by_default_in_request(client):
+    r = client.post("/v1/completions", json={
+        "prompt": "hello", "max_new_tokens": 2, "do_sample": False})
+    assert r.status_code == 200
+    assert "rag" not in r.json()
+
+
+def test_rag_search_endpoint(client, rag_index):
+    r = client.get("/v1/rag/search", params={"q": "ATP powerhouse", "top_k": 2})
+    assert r.status_code == 200
+    hits = r.json()["hits"]
+    assert 1 <= len(hits) <= 2
+    assert "mitochondrion" in hits[0]["passage"]
+    assert hits[0]["score"] >= hits[-1]["score"]
+
+
+def test_rag_status_and_disabled_404(client, rag_index):
+    assert client.get("/v1/rag").json()["n_passages"] == 3
+    client.app  # noqa: B018 - clarity
+    import serve.server as srv
+    saved = srv._STATE["rag_index"]
+    srv._STATE["rag_index"] = None
+    try:
+        assert client.get("/v1/rag").status_code == 404
+        assert client.get("/v1/rag/search",
+                          params={"q": "x"}).status_code == 404
+    finally:
+        srv._STATE["rag_index"] = saved
+
+
+def test_rag_stream_emits_rag_event_first(client, rag_index):
+    with client.stream("POST", "/v1/completions/stream",
+                       json={"prompt": "French Revolution year",
+                             "max_new_tokens": 3, "do_sample": False,
+                             "rag": True}) as s:
+        events = [ln for ln in s.iter_lines() if ln]
+    first = events[0]
+    assert first.startswith("data: ") and '"rag"' in first
+    assert events[-1].endswith("[DONE]")
