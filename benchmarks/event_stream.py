@@ -94,19 +94,16 @@ def generate_episode(rng, n_channels, theta, span_decades, bandwidth,
     间隙 g = GAP_MIN·FINE_DT·10^U(0, span_decades)，U 均匀。返回
     (times, channels, polarity, target)；总事件数 < min_events 返回 None。
     """
-    ts, cs, ps, clock = [], [], [], 0.0
+    ts, cs, ps, clock, v_end = [], [], [], 0.0, None
     for _ in range(_MAX_BURSTS):
         if sum(len(a) for a in ts) >= min_events:
             break
-        t_local = np.arange(0.0, _burst_seconds(n_channels, theta, bandwidth),
-                            FINE_DT)
-        v = _latent(rng, clock + t_local, n_channels, bandwidth)
-        for ch in range(n_channels):
-            idx, pol = _emit(v[ch], theta)
-            ts.append(clock + t_local[idx])
-            cs.append(np.full(len(idx), ch))
-            ps.append(pol)
-        clock += t_local[-1] + _gap(rng, span_decades)
+        tb, ev, pb, v_end = _emit_burst(rng, clock, n_channels, theta,
+                                        bandwidth)
+        ts.append(ev); cs.append(tb); ps.append(pb)
+        # burst 恒消耗其全时长（与事件数无关），静默间隙接续其后
+        clock += _burst_seconds(n_channels, theta, bandwidth) \
+            + _gap(rng, span_decades)
     if sum(len(a) for a in ts) < min_events:
         return None
     t = np.concatenate(ts)
@@ -116,7 +113,21 @@ def generate_episode(rng, n_channels, theta, span_decades, bandwidth,
     # 同一网格步的跨通道并列事件用通道序号 ε 偏移 → 时间戳严格递增
     eps = FINE_DT * 1e-3 / max(n_channels, 2)
     return (t[order] + c[order] * eps, c[order].astype(np.int64),
-            p[order], float(v[:, -1].mean()))
+            p[order], float(v_end[:, -1].mean()))
+
+
+def _emit_burst(rng, clock, n_channels, theta, bandwidth):
+    """一个运动 burst：阈值触发的事件 + 末时刻潜信号。"""
+    t_local = np.arange(0.0, _burst_seconds(n_channels, theta, bandwidth),
+                        FINE_DT)
+    v = _latent(rng, clock + t_local, n_channels, bandwidth)
+    ts, cs, ps = [], [], []
+    for ch in range(n_channels):
+        idx, pol = _emit(v[ch], theta)
+        ts.append(clock + t_local[idx])
+        cs.append(np.full(len(idx), ch))
+        ps.append(pol)
+    return (np.concatenate(cs), np.concatenate(ts), np.concatenate(ps), v)
 
 
 def events_to_tensor(times, channels, polarity, n_channels, seq_len):

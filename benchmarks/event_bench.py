@@ -92,11 +92,19 @@ def train_eval(arch, task, Xtr, ytr, Xte, yte, args, seed):
     n_in, n_out = Xtr.shape[-1], (args.channels if task == "next_channel" else 1)
     m = _build_event(arch, n_in, n_out, args).to(args.dev)
     n_params = sum(p.numel() for p in m.parameters())
-    opt = torch.optim.AdamW(m.parameters(), lr=args.lr)
     lossf = nn.CrossEntropyLoss() if task == "next_channel" else nn.MSELoss()
-    Xtr_t = torch.from_numpy(Xtr).to(args.dev)
-    ytr_t = torch.from_numpy(ytr).to(args.dev)
-    Xte_t = torch.from_numpy(Xte).to(args.dev)
+    t = _train(m, torch.from_numpy(Xtr).to(args.dev),
+               torch.from_numpy(ytr).to(args.dev), lossf, args)
+    if t is not None:
+        return {"metric": float("nan"), "stable": False,
+                "params": n_params, "seed": seed}
+    return _evaluate(m, task, torch.from_numpy(Xte).to(args.dev), yte,
+                     n_params, seed)
+
+
+def _train(m, Xtr_t, ytr_t, lossf, args):
+    """AdamW + 梯度裁剪训练循环；损失非有限返回 True（调用方记 unstable）。"""
+    opt = torch.optim.AdamW(m.parameters(), lr=args.lr)
     m.train()
     for _ in range(args.epochs):
         perm = torch.randperm(len(Xtr_t), device=args.dev)
@@ -105,12 +113,11 @@ def train_eval(arch, task, Xtr, ytr, Xte, yte, args, seed):
             opt.zero_grad(set_to_none=True)
             loss = lossf(m(Xtr_t[idx]), ytr_t[idx])
             if not torch.isfinite(loss):
-                return {"metric": float("nan"), "stable": False,
-                        "params": n_params, "seed": seed}
+                return True
             loss.backward()
             torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
             opt.step()
-    return _evaluate(m, task, Xte_t, yte, n_params, seed)
+    return None
 
 
 def _build_event(arch, n_in, n_out, args):

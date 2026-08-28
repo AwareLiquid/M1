@@ -172,15 +172,19 @@ def _pick_classes(n_use):
 def _train_eval(arch, tr, te, args, seed):
     """下一事件极性二分类：输入前 T-1 事件预测第 T 个极性。"""
     torch.manual_seed(seed)
-    n_in = tr["X"].shape[-1]
     m = build(arch, args.d_model, args.n_layers, args.seq_len)
-    m.inp = nn.Linear(n_in, args.d_model)
+    m.inp = nn.Linear(tr["X"].shape[-1], args.d_model)
     m.head = nn.Linear(args.d_model, 2)
+    _train(m, *_views(tr), args)
+    with torch.no_grad():
+        pred = m(torch.from_numpy(_views(te)[0])).argmax(1).numpy()
+    return float((pred == _views(te)[1]).mean())
+
+
+def _train(m, Xtr, ytr, args):
+    """AdamW + 梯度裁剪的交叉熵训练循环。"""
     opt = torch.optim.AdamW(m.parameters(), lr=args.lr)
-    Xtr, ytr = _views(tr)
-    Xte, yte = _views(te)
-    Xt = torch.from_numpy(Xtr)
-    yt = torch.from_numpy(ytr)
+    Xt, yt = torch.from_numpy(Xtr), torch.from_numpy(ytr)
     for _ in range(args.epochs):
         perm = torch.randperm(len(Xt))
         for i in range(0, len(perm), args.batch):
@@ -190,9 +194,6 @@ def _train_eval(arch, tr, te, args, seed):
             loss.backward()
             torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
             opt.step()
-    with torch.no_grad():
-        pred = m(torch.from_numpy(Xte)).argmax(1).numpy()
-    return float((pred == yte).mean())
 
 
 def _views(ds):
