@@ -1353,3 +1353,95 @@ That combination is the deployable niche.
 four tie). No advantage over the transformer on irregular sampling either — the
 transformer is equally robust there and its edge is only excluded by memory, not
 by accuracy. Single dataset, single held-out cell, 128-step windows.
+
+## Event-native sensing streams (2026-08-29) — `iter/event-stream-liquid`
+
+Event cameras emit events only when a pixel's log-intensity changes by θ, so
+**irregularity is the native format, not a corrupted grid**: Δt spans orders of
+magnitude (µs…s). `benchmarks/event_stream.py` generates such streams from DVS
+physics (multi-channel latent signal, emit-when-|Δv|≥θ, motion-burst/silence
+alternation with log-uniform silent gaps); the `span` knob stretches the
+realized Δt distribution from ~1.4 to ~3.2 decades at constant event count.
+`benchmarks/event_bench.py` runs two tasks through the shared `build()` factory
+(mt_lnn / lstm / gru / transformer; **Δt is fed to every architecture** — the
+battery-irregular guardrail):
+
+- **state** — regress the latent signal's current value from the event stream
+  (normalized RMSE, constant predictor = 1.0). This is where "how much time
+  passed" must enter the state update.
+- **next_channel** — predict the next event's channel (6-way, chance 0.167).
+
+10 seeds per cell; every mt_lnn-vs-baseline comparison goes through
+`publishable()` (≥3 seeds, no bimodality, paired sign test p<0.05). Full data:
+`benchmarks/results/event_theta_sweep.json` (240 runs).
+
+### State estimation — mt_lnn best at every event density (nRMSE, 10 seeds)
+
+| θ (density) | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|
+| 0.15 (dense) | **0.974 ± 0.010** | 1.152 | 1.157 | 1.299 |
+| 0.35 (mid) | **0.750 ± 0.023** | 0.860 | 0.810 | 0.937 |
+| 0.8 (sparse) | **0.978 ± 0.009** | 1.215 | 1.242 | 1.298 |
+
+E0 gates: **citable** at θ=0.15 vs lstm and transformer, θ=0.35 vs transformer;
+at θ=0.8 and vs gru at θ=0.15/0.35 the cell is archive-only (bimodality flag
+or p≥0.05) despite the mean separation. The three discrete baselines fail to
+beat the constant predictor (1.0) at θ=0.15/0.8; mt_lnn is the only one that
+does, at every θ.
+
+### Next-channel prediction — a citable NEGATIVE for the liquid core
+
+| θ | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|
+| 0.15 | 0.227 | **0.329** | **0.328** | 0.205 |
+| 0.35 | 0.237 | 0.249 | **0.243** | 0.201 |
+| 0.8 | 0.188 | **0.211** | 0.203 | 0.177 |
+
+At the dense tier mt_lnn is **significantly worse** than lstm and gru (both
+gates pass with mt_lnn on the losing side). Continuous-time integration helps
+carry state, not categorical next-event prediction; reported as a negative,
+not buried.
+
+### Δt-span pressure test — the pre-registered verdict is NULL
+
+`benchmarks/event_dt_span.py` (`event_dt_span.json`): sweep realized Δt span
+1.40 → 1.71 → 2.18 → 3.24 decades at constant event budget; judgement fixed
+in the script header BEFORE running — PROVEN only if (a) mt_lnn beats the
+strongest discrete baseline at the widest span through `publishable()` AND
+(b) that gap is wider at the widest span than at the narrowest.
+
+Outcome (state task, 10 seeds): (a) **passed** — at 3.24 decades mt_lnn
+0.774 ± 0.013 vs lstm 0.817 ± 0.035, 9/10 seed-wins, p=0.0215; mt_lnn is
+best at every span. (b) **failed** — the gap NARROWS (0.141 at 1.40 decades →
+0.044 at 3.24) because every architecture gets better as the span stretches;
+nRMSE-vs-span slopes: mt_lnn −0.043, lstm −0.100, gru −0.079, transformer
+−0.034. **Per the pre-registered rule the headline claim "the liquid advantage
+widens with Δt span" is NULL**; the surviving citable statement is the
+significant mt_lnn advantage at the widest tested span. τ-ladder interaction
+(mt_lnn vs single-time-scale mt_lnn_tau1): mt_lnn better in 9/10 seeds at the
+widest span, but the tau1 arm is flagged bimodal → archive-only, NULL.
+
+### Real data: N-Caltech101 — no significant edge (NULL)
+
+`benchmarks/event_real_data.py` (`event_ncaltech101.json`): 4 GB no-auth
+download (Mendeley, URL from tonic), flat zip parsed in memory (Orchard 5-byte
+events, timestamp-overflow handling), 10 train / 10 held-out classes,
+15 samples/class, next-event-polarity prediction (chance 0.5), Δt fed to both
+architectures, 10 seeds. mt_lnn 0.545 ± 0.031 vs gru 0.520 ± 0.027 — sign
+test 5W/3L/2T, **p=0.727: no significant difference**. Recorded as a null;
+no real-data advantage is claimed.
+
+### What this branch establishes and does not
+
+**Establishes (citable cells only).** On synthetic event streams, the liquid
+core is the only architecture that beats a constant predictor on state
+estimation at every event density, with statistically significant margins at
+the dense tier (vs lstm p<0.05, n=10) and vs transformer at two tiers; it is
+significantly best at the widest tested Δt span (3.24 decades). The same
+benchmark produces a citable negative: discrete RNNs win dense-tier
+next-channel prediction.
+
+**Does not establish.** That the advantage *widens* with Δt span
+(pre-registered gate (b) failed — NULL). Any real-data advantage (N-Caltech101
+null). Anything about gru_d (pending merge in `iter/irregular-streaming-edge`;
+not re-implemented here per branch boundaries).
