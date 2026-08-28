@@ -66,7 +66,8 @@ class TestFfnSwiglu:
         baseline (scaling_comparison.py) 同规则; 832×8/3 → 2304。"""
         assert MTLNNConfig(d_model=832).d_ff == 2304
         assert MTLNNConfig(d_model=832, ffn_expansion=4.0).d_ff == 3328
-        assert MTLNNConfig(d_model=104).d_ff == 256   # 8/3·104=277 → round→256
+        # d_head=8: 裸 d_model=104 会撞 config 的 d_head==d_model//n_heads 断言
+        assert MTLNNConfig(d_model=104, d_head=8).d_ff == 256   # 8/3·104=277 → 256
 
     def test_w2_zero_init_with_live_gradient(self):
         """开关数学性质: w2 零初始化 (恒等残差) 但第一步就有非零梯度 —
@@ -200,3 +201,16 @@ class TestScaledResidualInit:
         torch.manual_seed(0)
         _ = MTLNNModel(_cfg(scaled_residual_init=True))
         assert torch.equal(state_off, torch.get_rng_state())
+
+    def test_on_model_forward_backward_finite(self):
+        """易回归点: 缩放后的 init 必须仍然 train 得动 — fwd/bwd 全有限。
+        该旋钮的使命是稳住深残差流的 init, 而不是造出一个不收敛的死模型。"""
+        torch.manual_seed(0)
+        m = MTLNNModel(_cfg(scaled_residual_init=True))
+        x = _ids()
+        loss = m(x, labels=x)["loss"]
+        assert torch.isfinite(loss).item()
+        loss.backward()
+        grads = [p.grad for p in m.parameters() if p.grad is not None]
+        assert grads
+        assert all(torch.isfinite(g).all() for g in grads)

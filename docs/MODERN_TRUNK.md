@@ -144,8 +144,9 @@ BENCHMARKS.md 且必须标注 screening-only，绝不进 RESULTS.md。
 | fa51ae1 | A1 SwiGLU 门控扩张 FFN（config + SwiGLUFFN + block 接线 + utils.RMSNorm） |
 | 343cadc | A2 QK-RMSNorm（config + mt_attention） |
 | fce3a1f | A3 深度缩放残差初始化（config + model._scale_residual_exits） |
-| ac8431d | tests/test_modern_trunk.py：13 个位等价/数学性质/易回归点测试（只写未跑） |
+| ac8431d | tests/test_modern_trunk.py：12 个位等价/数学性质/易回归点测试（只写未跑） |
 | 4f7c2da | A4 benchmarks/modern_trunk_screen.py（筛选脚本，只写未执行） |
+| （验收修正） | 修 d_ff 取整测试的 config 断言坑（裸 d_model=104 会撞 d_head assert）；A3 组补 fwd/bwd 有限性易回归点 → 共 13 个 |
 | （本 commit） | A5 本文档骨架 + runbook |
 
 **待 Phase B（合并后在主 worktree）**：全量 pytest；`--smoke`；2K 筛选；
