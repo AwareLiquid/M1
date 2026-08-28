@@ -130,9 +130,12 @@ class TestQKNorm:
         with torch.no_grad():
             Q = attn.q_proj(x).view(2, 16, 4, 26).transpose(1, 2)
             K = attn.k_proj(x).view(2, 16, 2, 26).transpose(1, 2)
-            raw = torch.einsum("bhtd,bhsd->bhts", Q, K)
+            # GQA: K 只有 2 个 KV head, 对齐到 4 个 Q head 才能逐 head 点积
+            K_rep = K.repeat_interleave(2, dim=1)
+            raw = torch.einsum("bhtd,bhsd->bhts", Q, K_rep)
             Qn, Kn = attn.q_norm(Q), attn.k_norm(K)
-            normed = torch.einsum("bhtd,bhsd->bhts", Qn, Kn)
+            normed = torch.einsum("bhtd,bhsd->bhts", Qn,
+                                  Kn.repeat_interleave(2, dim=1))
         assert raw.abs().max().item() > FP16_MAX          # 未封顶即事故量级
         w_bound = (attn.q_norm.weight.abs().max()
                    * attn.k_norm.weight.abs().max())
