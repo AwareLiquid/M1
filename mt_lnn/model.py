@@ -136,6 +136,37 @@ class MTLNNBlock(nn.Module):
         else:
             self.fast_weight = None
 
+        # Modern-trunk Task A1: gated-expansion SwiGLU FFN as its own pre-norm
+        # sub-layer — the FFN slot the liquid layer's equal-width projections
+        # ate (Qwen3-Next GDN / Kimi KDA keep one per layer). Built only when
+        # config.ffn_swiglu (default off → byte-identical parameter set).
+        # RNG isolation follows the fast_weight pattern above: the extra
+        # nn.Linear constructors would otherwise shift the global init stream
+        # and every later block's init (the mt_lnn_mtp init-luck lesson), so
+        # construction + init are wrapped in save/restore and w1/w3 draw from
+        # a private per-layer generator. w2 zero-init → identity-at-init
+        # (forward bit-identical to off) with a live gradient.
+        if getattr(config, "ffn_swiglu", False):
+            from .mt_lnn_layer import SwiGLUFFN
+            from .utils import RMSNorm
+            _rng_state = torch.get_rng_state()
+            try:
+                self.ffn_norm = RMSNorm(config.d_model)
+                self.ffn = SwiGLUFFN(config.d_model, config.d_ff)
+                _gen = torch.Generator()
+                _gen.manual_seed(0x5FF17 + 1009 * layer_idx)
+                nn.init.normal_(self.ffn.w1.weight, mean=0.0, std=0.02,
+                                generator=_gen)
+                nn.init.normal_(self.ffn.w3.weight, mean=0.0, std=0.02,
+                                generator=_gen)
+                nn.init.zeros_(self.ffn.w2.weight)
+            finally:
+                torch.set_rng_state(_rng_state)
+            self.ffn_drop = nn.Dropout(config.dropout)
+        else:
+            self.ffn_norm = None
+            self.ffn = None
+
         # Latent recurrent depth ("thinking steps", M2 P0). The gate parameter
         # is created ONLY when the config enables iteration, so the default
         # (core_iterations=1) model keeps a byte-identical parameter set.
@@ -266,6 +297,11 @@ class MTLNNBlock(nn.Module):
                 pad_mask=lnn_pad,
             )
         x = x + lnn_out
+        # Modern-trunk Task A1: the FFN sub-layer (RMSNorm 前置), placed after
+        # the liquid residual add, before the fast-weight readout. At init
+        # w2=0 → the added term is exactly +0.0 → residual stream unchanged.
+        if self.ffn is not None:
+            x = x + self.ffn_drop(self.ffn(self.ffn_norm(x)))
         # 第二记忆通道读出: 低秩 fast-weight (1a)。gate=0 时贡献恰为 +0.0,
         # 残差流逐位不变; 即便如此也走完整路径 (gate 梯度才不为零)。
         if self.fast_weight is not None:

@@ -674,6 +674,38 @@ class VectorizedMAPGate(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# SwiGLUFFN — gated expansion FFN (modern-trunk Task A1, 2026-08-29)
+# ---------------------------------------------------------------------------
+
+class SwiGLUFFN(nn.Module):
+    """
+    Gated expansion FFN: w1/w3 project up (SiLU gate), w2 projects back down.
+    Frontier hybrid layers (Qwen3-Next GDN, Kimi KDA) each still carry one of
+    these per layer — the mixer's linear stack never replaces the FFN slot.
+
+    Zero-regression contract (see MTLNNConfig.ffn_swiglu): w2 is ZERO-init and
+    w1/w3 small-nonzero, so at init the branch output is exactly +0.0 (identity
+    residual) while w2 keeps a live gradient. MTLNNBlock performs the init from
+    a private generator under RNG save/restore and marks the module (and each
+    child Linear) with _fw_init_done so the global init_weights pass cannot
+    overwrite it.
+    """
+
+    def __init__(self, d_model: int, d_ff: int):
+        super().__init__()
+        self.w1 = nn.Linear(d_model, d_ff, bias=False)
+        self.w3 = nn.Linear(d_model, d_ff, bias=False)
+        self.w2 = nn.Linear(d_ff, d_model, bias=False)
+        self._fw_init_done = True            # exempt from global init pass
+        for _m in self.modules():
+            if isinstance(_m, nn.Linear):
+                _m._fw_init_done = True
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.w2(F.silu(self.w1(x)) * self.w3(x))
+
+
+# ---------------------------------------------------------------------------
 # MTLNNLayer — fully vectorized over P
 # ---------------------------------------------------------------------------
 

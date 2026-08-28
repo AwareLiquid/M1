@@ -203,6 +203,27 @@ class MTLNNConfig:
     deltaproduct_rank: int = 2
     deltaproduct_scale: float = 0.1
 
+    # ---- Modern-trunk missing pieces (iter/modern-trunk, 2026-08-29) ---------
+    # Three pieces every frontier hybrid keeps but this repo dropped, each
+    # behind a default-OFF knob with the zero-regression contract. Evidence
+    # chain + matched-param analysis: docs/MODERN_TRUNK.md.
+
+    # Task A1 — SwiGLU gated-expansion FFN. Qwen3-Next GDN / Kimi KDA layers
+    # each still carry a per-layer 8/3-expansion SwiGLU FFN; the liquid layer's
+    # equal-width in_proj/out_proj (832→832) had eaten the FFN slot. When True,
+    # every MTLNNBlock gets its own pre-norm sub-layer after the liquid
+    # residual add:  x = x + dropout(ffn(RMSNorm(x)))  (RMSNorm 前置, 固定口径).
+    # d_ff follows the modern baseline's rounding rule (scaling_comparison.py):
+    # round(ffn_expansion · d_model / 256) · 256 → 2304 at d_model=832/8⁄3.
+    # Default off → NO parameters built, parameter set bit-identical.
+    # On-model contract: w2 zero-init → branch output exactly +0.0 at init →
+    # forward bit-identical to off; w1/w3 small-nonzero keep w2's gradient
+    # alive (house zero-gated-residual pattern). All FFN init draws come from
+    # a private generator with the global RNG state saved/restored, so the
+    # shared trunk inits bit-identically under the same seed (init-luck lesson).
+    ffn_swiglu: bool = False
+    ffn_expansion: float = 8.0 / 3.0
+
     # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
     # gap between the branch's minimal probe (extrap 1.000) and main's full
     # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.
@@ -552,6 +573,7 @@ class MTLNNConfig:
     # Derived (set in __post_init__)
     d_proto: int = field(init=False)
     d_proto_total: int = field(init=False)
+    d_ff: int = field(init=False)  # SwiGLU expansion width (Task A1)
 
     def __post_init__(self):
         assert self.d_model % self.n_heads == 0, "d_model must be divisible by n_heads"
@@ -569,6 +591,11 @@ class MTLNNConfig:
         self.d_proto = math.ceil(self.d_model / self.n_protofilaments)
         self.d_proto_total = self.d_proto * self.n_protofilaments
         # e.g. d_model=1024, P=13: d_proto=79, d_proto_total=1027
+
+        # SwiGLU FFN width — the modern baseline's exact rounding rule
+        # (benchmarks/scaling_comparison.py: d_ff = round(8·d_model/3 / 256)·256,
+        # generalised to ffn_expansion). 832 × 8/3 → 2304.
+        self.d_ff = int(round(self.ffn_expansion * self.d_model / 256.0)) * 256
 
         # Tensor-Core alignment warning: protofilament-level einsums see best
         # GPU throughput when d_proto is a multiple of 8 (fp16/bf16) or 16. The
