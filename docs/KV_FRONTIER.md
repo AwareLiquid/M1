@@ -110,7 +110,30 @@ The reverse honesty also holds: ARR's own quality beyond its 512-token
 training length is unproven (RESULTS.md out-of-window nulls), so neither
 side gets to borrow quality from the other's ledger.
 
-## 6. Reproduce
+## 6. Which real tasks the eviction concession actually hits
+
+window(512) is a few hundred words — under one page of text. Whether the
+0.202-vs-0.381 MB sacrifice matters is decided by one question: is
+anything ever needed from beyond the window?
+
+* **Fatal for eviction** (structural 0 vs fast-weight 0.56): long-document
+  QA past the first page; persistent per-user memory across sessions;
+  repo-scale coding (a signature defined 50k tokens earlier); streaming
+  monitoring that must correlate an early anomaly with now. What these
+  share: retrieving a discrete fact whose location is outside the window.
+* **Cost ≈ 0**: in-window chat, local rewriting, per-segment translation,
+  map-reduce summarization, single-call classification — and any system
+  with an external retrieval loop (RAG) that re-injects evicted content;
+  there eviction's byte win is real and its capability cost is covered.
+
+Boundary honesty: the proven edge is discrete key→value associative
+recall, NOT long-context LM — needle@4096 is 0.000 for *both* (base RoPE
+limit) and ARR's own out-of-window LM is a null (RESULTS.md). The 0.381 MB
+is irreplaceable exactly and only on the first class of tasks — which is
+why the external claim is scoped to "smallest carried state *without
+discarding context*".
+
+## 7. Reproduce
 
 ```bash
 # 1) measured ARR flat line (CPU, ~25 min for the full 512→1M ladder):
