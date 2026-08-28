@@ -216,9 +216,10 @@ def _cli():
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--lr", type=float, default=3e-3)
+    ap.add_argument("--seeds", type=str, default=None)
     ap.add_argument("--out", default="benchmarks/results/event_ncaltech101.json")
     args = ap.parse_args()
-    args.seeds = [0] if args.smoke else [0, 1, 2]
+    args.seeds = [0] if args.smoke else [int(x) for x in (args.seeds or "0,1,2").split(",")]
     return args
 
 
