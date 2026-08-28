@@ -77,6 +77,7 @@ import json
 import os
 import secrets
 import sys
+import tempfile
 import threading
 import time
 from typing import List, Optional
@@ -389,8 +390,20 @@ def _record_partner_hit(name: str, request: "Request") -> None:
         except (FileNotFoundError, ValueError):
             agg = {}
         agg[name] = int(agg.get(name, 0)) + 1
-        with open(agg_path, "w", encoding="utf-8") as f:
-            json.dump(agg, f, indent=2)
+        # Atomic replace, not truncate-in-place: a docker stop between the
+        # open("w") and the json.dump used to leave a truncated file that the
+        # next read rejects (ValueError) — silently zeroing all history.
+        fd, tmp_path = tempfile.mkstemp(
+            dir=_PARTNER_DIR, prefix=".counts.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(agg, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, agg_path)
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
 
 
 @app.get("/partners/{name}")

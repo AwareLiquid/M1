@@ -13,6 +13,7 @@ Pins the HTTP contract used by deployments:
 Skipped automatically if FastAPI's TestClient deps (httpx) are unavailable.
 """
 
+import json
 import os
 
 import pytest
@@ -101,14 +102,36 @@ def test_partner_stats_rejects_wrong_token(client, monkeypatch):
 
 
 def test_partner_stats_serves_with_valid_token(client, monkeypatch, tmp_path):
-    import json as _json
-
     import serve.server as srv
 
     monkeypatch.setenv("PARTNER_STATS_TOKEN", "s3cret")
     monkeypatch.setattr(srv, "_PARTNER_DIR", str(tmp_path))
-    (tmp_path / "counts.json").write_text(_json.dumps({"clawhunt": 3}))
+    (tmp_path / "counts.json").write_text(json.dumps({"clawhunt": 3}))
     r = client.get("/partners", params={"token": "s3cret"})
     assert r.status_code == 200
     body = r.json()
     assert body == {"counts": {"clawhunt": 3}, "total": 3}
+
+
+# ---------------------------------------------------------------------------
+# _record_partner_hit — counts.json must be written atomically (P0-3).
+# A truncate-in-place write interrupted by `docker stop` used to leave a file
+# the next read rejects, silently zeroing all referral history.
+# ---------------------------------------------------------------------------
+
+def test_partner_hit_atomic_write_leaves_no_tmp_and_valid_json(monkeypatch, tmp_path):
+    import serve.server as srv
+
+    class _FakeRequest:
+        headers: dict = {}
+
+        class client:
+            host = "127.0.0.1"
+
+    monkeypatch.setattr(srv, "_PARTNER_DIR", str(tmp_path))
+    srv._record_partner_hit("clawhunt", _FakeRequest())
+    srv._record_partner_hit("clawhunt", _FakeRequest())
+    counts = json.loads((tmp_path / "counts.json").read_text())
+    assert counts == {"clawhunt": 2}
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
+    assert leftovers == [], f"temp files leaked: {leftovers}"
