@@ -36,6 +36,22 @@ LayerCache = Tuple[
 ]
 
 
+def _scale_residual_exits(model: "MTLNNModel") -> None:
+    """Modern-trunk Task A3: depth-scale both residual-exit projections.
+
+    Every block's attention out_proj and liquid out_proj weight is multiplied
+    by 1/sqrt(2·n_layers) (biases stay zero). Called AFTER the global init
+    passes, so the historical std-0.02 / std-0.01 inits survive up to the
+    multiplicative factor. Deterministic — draws no RNG.
+    """
+    scale = 1.0 / math.sqrt(2.0 * model.config.n_layers)
+    with torch.no_grad():
+        for block in model.blocks:
+            block.lnn.out_proj.weight.mul_(scale)
+            if block.attn is not None:
+                block.attn.out_proj.weight.mul_(scale)
+
+
 class ModelCacheStruct:
     """Full inference cache for incremental decoding."""
     def __init__(self, token_count: int = 0):
@@ -570,6 +586,16 @@ class MTLNNModel(nn.Module):
         self.apply(lambda m: init_weights(m, config))
         nn.init.normal_(self.target_queries, mean=0.0, std=0.02)
         init_mt_params(self, config)
+        # Modern-trunk Task A3: depth-scaled residual-exit init (default off
+        # → untouched). Multiplicative rescale after ALL init passes; wrapped
+        # in the house RNG save/restore pattern — the op itself draws nothing,
+        # which is exactly why same-seed on/off trunks stay A/B comparable.
+        if getattr(config, "scaled_residual_init", False):
+            _rng_state = torch.get_rng_state()
+            try:
+                _scale_residual_exits(self)
+            finally:
+                torch.set_rng_state(_rng_state)
         # The global init_weights pass above re-initialises EVERY nn.Linear to
         # N(0, 0.02) — including CompetitiveGWTBLayer's zero-initialised bid /
         # score projections, silently breaking its 'bid ≡ x, uniform competition

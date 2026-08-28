@@ -236,6 +236,19 @@ class MTLNNConfig:
     # no RNG, so same-seed on/off models share a bit-identical trunk.
     qk_norm: bool = False
 
+    # Task A3 — depth-scaled residual init. Both residual-exit projections
+    # (each block's attention out_proj and liquid out_proj) are multiplied by
+    # 1/sqrt(2·n_layers) AFTER the standard init passes (GPT-2/1T-scale
+    # practice: per-layer residual contributions shrink with depth so the
+    # residual stream starts near-identity). Motivated by this repo's init-
+    # luck lesson (the mt_lnn_mtp trunk-perturbation note in model.py) and
+    # the ±4.89 seed spread seen at 2K steps. The rescale is a deterministic
+    # multiplicative transform applied under RNG save/restore — it draws no
+    # random numbers, so same-seed on/off trunks stay exactly comparable (the
+    # on-model weights are the off-model's times an exact constant). Default
+    # off → weights untouched, bit-identical.
+    scaled_residual_init: bool = False
+
     # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
     # gap between the branch's minimal probe (extrap 1.000) and main's full
     # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.
