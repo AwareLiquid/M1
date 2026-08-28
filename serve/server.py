@@ -31,6 +31,10 @@ Environment
     SMALL       "1" → tiny byte-level model (vocab 256), no HF tokenizer
     DEVICE      cpu | cuda  (default: auto)
     MAX_NEW_TOKENS_CAP  hard upper bound per request (default: 1024)
+    GEN_LOCK_TIMEOUT  seconds a request waits for the shared model lock before
+                answering 503 (default: 300 — CPU generation is 2–15 tok/s)
+    GEN_QUEUE_CAP  max requests waiting for the model lock; beyond it, 503
+                immediately (default: 8)
     API_AUTH_MODE  off | soft | strict  (default: off — no auth, current
                 behaviour, demo-friendly). soft: anonymous requests are
                 rate-limited per IP (API_ANON_PER_MIN); a request carrying a
@@ -184,7 +188,16 @@ _STATE: dict = {}
 # other. This lock serializes ALL model-touching work; held across a stream's
 # whole token loop — the shared state cannot be time-shared, so concurrent
 # streams must run one at a time anyway. (Same pattern as serve/server_hf.py.)
+#
+# Unbounded waiting was the old failure mode: CPU generation runs 2–15 tok/s,
+# so one 400-token request holds the lock for minutes while every other user
+# hangs forever. Bounded now: waiters give up after GEN_LOCK_TIMEOUT seconds
+# and are refused outright once GEN_QUEUE_CAP requests are already queued.
 _MODEL_LOCK = threading.Lock()
+_GEN_LOCK_TIMEOUT = float(os.environ.get("GEN_LOCK_TIMEOUT", "300"))
+_GEN_QUEUE_CAP = int(os.environ.get("GEN_QUEUE_CAP", "8"))
+_GEN_WAITING = 0
+_GEN_WAITING_LOCK = threading.Lock()
 
 
 def _gen_lock():
@@ -194,12 +207,25 @@ def _gen_lock():
     runs a model forward / generation or mutates live weights, so the shared
     model state is never touched by two requests at once. (threading.Lock,
     not asyncio: sync endpoints run on the anyio threadpool; a Lock may be
-    released by a different thread than acquired, which is safe here.)"""
-    _MODEL_LOCK.acquire()
+    released by a different thread than acquired, which is safe here.)
+
+    Fails fast instead of hanging: HTTP 503 when the waiter queue is full or
+    the lock is not obtained within the timeout."""
+    global _GEN_WAITING
+    with _GEN_WAITING_LOCK:
+        if _GEN_WAITING >= _GEN_QUEUE_CAP:
+            raise HTTPException(503, f"server busy (queue full, cap {_GEN_QUEUE_CAP})")
+        _GEN_WAITING += 1
     try:
-        yield
+        if not _MODEL_LOCK.acquire(timeout=_GEN_LOCK_TIMEOUT):
+            raise HTTPException(503, f"model busy (lock timeout {_GEN_LOCK_TIMEOUT:.0f}s)")
+        try:
+            yield
+        finally:
+            _MODEL_LOCK.release()
     finally:
-        _MODEL_LOCK.release()
+        with _GEN_WAITING_LOCK:
+            _GEN_WAITING -= 1
 
 # ── Middleware: gzip compression ──────────────────────────────────────────────
 app.add_middleware(GZipMiddleware, minimum_size=1024)

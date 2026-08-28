@@ -135,3 +135,34 @@ def test_partner_hit_atomic_write_leaves_no_tmp_and_valid_json(monkeypatch, tmp_
     assert counts == {"clawhunt": 2}
     leftovers = [p.name for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
     assert leftovers == [], f"temp files leaked: {leftovers}"
+
+
+# ---------------------------------------------------------------------------
+# _gen_lock — bounded waiting (P0-3). No more hanging forever behind a
+# long CPU generation: 503 after timeout, 503 immediately when queue full.
+# ---------------------------------------------------------------------------
+
+def test_gen_lock_times_out_with_503(client, monkeypatch):
+    import serve.server as srv
+
+    monkeypatch.setattr(srv, "_GEN_LOCK_TIMEOUT", 0.05)
+    acquired = srv._MODEL_LOCK.acquire(timeout=5)
+    assert acquired
+    try:
+        r = client.post("/v1/completions",
+                        json={"prompt": "x", "max_new_tokens": 2})
+        assert r.status_code == 503
+    finally:
+        srv._MODEL_LOCK.release()
+
+
+def test_gen_lock_full_queue_rejects_immediately(client, monkeypatch):
+    import serve.server as srv
+
+    monkeypatch.setattr(srv, "_GEN_QUEUE_CAP", 0)
+    r = client.post("/v1/completions",
+                    json={"prompt": "x", "max_new_tokens": 2})
+    assert r.status_code == 503
+    assert "queue full" in r.json()["detail"]
+    # A refused request must not leave the waiter counter negative/leaked.
+    assert srv._GEN_WAITING == 0
