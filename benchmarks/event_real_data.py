@@ -2,9 +2,8 @@
 
 数据：N-Caltech101（Orchard et al. 2015，事件相机拍摄 Caltech101 图片，
 saccade 扫视生成事件）。无鉴权下载（Mendeley 公开文件，URL 与 md5 来自
-tonic 库源码），~4 GB。嵌套 zip（archive → Caltech101.zip → 每类每样本
-一个 .bin）：外层 zip 只抽内层 zip 到磁盘，内层 zip **不落盘解压**，
-直接从 zip 成员内存读取（磁盘峰值 = 4 GB zip 本体）。
+tonic 库源码），~4 GB，扁平 zip：Caltech101/<class>/image_xxxx.bin，
+成员直接内存读取，不落盘解压。
 
 .bin 格式（Orchard 5 字节事件，与 tonic.io.read_mnist_file 同口径）：
 x, y, pol(bit7)+ts[18:16], ts[15:8], ts[7:0]；y==240 为时间戳溢出标记
@@ -44,7 +43,6 @@ URL = ("https://data.mendeley.com/public-files/datasets/cy6cvx3ryv/files/"
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "data", "n_caltech101")
 ARCHIVE = os.path.join(DATA_DIR, "N-Caltech101-archive.zip")
-INNER = os.path.join(DATA_DIR, "Caltech101.zip")
 N_CLASSES_USE = 20          # 前 N 个类别（字典序），一半训练一半 held-out
 US_GRID = 1e-6              # Δt 压缩的参考网格：1 µs
 
@@ -69,10 +67,8 @@ def main():
 
 
 def load_real_tensors(args):
-    """外层 zip → 内层 zip（不落盘解压）→ 每类样本 .bin → 张量。"""
+    """扁平 zip（Caltech101/<class>/image_xxxx.bin）→ 每类样本 → 张量。"""
     _ensure_archive()
-    if not os.path.exists(INNER):
-        _extract_inner()
     classes = _pick_classes(N_CLASSES_USE)
     tr_cls, te_cls = classes[:len(classes) // 2], classes[len(classes) // 2:]
     tr = _class_tensors(tr_cls, args)
@@ -84,13 +80,13 @@ def load_real_tensors(args):
 
 def _class_tensors(classes, args):
     """多类样本 → (N, T, C+2) 张量；每样本截前 T 个事件。"""
-    with zipfile.ZipFile(INNER) as z:
+    with zipfile.ZipFile(ARCHIVE) as z:
         by_cls = _samples_by_class(z, classes, args.max_per_class)
         Xs, ch_meta = [], []
         for cls, names in by_cls.items():
             for n in names:
                 ev = parse_bin(io.BytesIO(z.read(n)))
-                if len(ev) < args.seq_len:
+                if len(ev["t"]) < args.seq_len:
                     continue
                 Xs.append(_to_tensor(ev, args))
                 ch_meta.append(cls)
@@ -99,12 +95,12 @@ def _class_tensors(classes, args):
 
 
 def _samples_by_class(z, classes, max_per_class):
-    """内层 zip 里按类目（路径首段）挑前 max_per_class 个 .bin 样本。"""
+    """按类目（路径第 2 段 Caltech101/<class>/...）挑前 max_per_class 个。"""
     by = {}
     for n in sorted(z.namelist()):
         if not n.endswith(".bin"):
             continue
-        cls = n.split("/")[0]
+        cls = n.split("/")[1]
         if cls in classes and len(by.get(cls, [])) < max_per_class:
             by.setdefault(cls, []).append(n)
     return {c: ns for c, ns in by.items() if ns}
@@ -147,22 +143,9 @@ def _ensure_archive():
             f"missing {ARCHIVE} — 先运行: curl -L -C - -o {ARCHIVE} '{URL}'")
 
 
-def _extract_inner():
-    with zipfile.ZipFile(ARCHIVE) as outer:
-        member = [n for n in outer.namelist() if n.endswith("Caltech101.zip")]
-        if not member:
-            raise RuntimeError("archive 内未找到 Caltech101.zip")
-        with outer.open(member[0]) as src, open(INNER, "wb") as dst:
-            while True:
-                chunk = src.read(1 << 20)
-                if not chunk:
-                    break
-                dst.write(chunk)
-
-
 def _pick_classes(n_use):
-    with zipfile.ZipFile(INNER) as z:
-        classes = sorted({n.split("/")[0] for n in z.namelist()
+    with zipfile.ZipFile(ARCHIVE) as z:
+        classes = sorted({n.split("/")[1] for n in z.namelist()
                           if n.endswith(".bin")})
     if len(classes) < n_use:
         raise RuntimeError(f"classes {len(classes)} < {n_use}")
