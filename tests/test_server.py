@@ -46,6 +46,12 @@ def test_model_info(client):
     assert j["vocab_size"] == 256          # SMALL byte model
     assert j["tokenizer"] == "byte"
     assert j["n_params"] > 0
+    # Schema parity with server_hf.py — the demo frontend's applyModel()
+    # switches on these three fields; they used to be absent entirely.
+    assert j["base_model"] is None
+    assert j["adapter_loaded"] is False
+    assert j["is_baseline"] is True        # SMALL mode = fresh untrained model
+    assert "checkpoint" in j
 
 
 def test_completion_greedy_is_deterministic(client):

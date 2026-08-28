@@ -535,6 +535,8 @@ def _startup() -> None:
         "DEVICE", "cuda" if torch.cuda.is_available() else "cpu"
     )
     torch.set_grad_enabled(False)
+    ckpt_path = os.environ.get("CKPT_PATH", "")
+    ckpt_loaded = bool(ckpt_path) and os.path.exists(ckpt_path)
     model = _build_model(small).to(device)
     tok = _load_tokenizer(small)
     # Cross-session recurrent-state persistence (Gap 4). Empty string → OFF, so
@@ -557,6 +559,13 @@ def _startup() -> None:
         session_db=session_db,
         knowledge_db=knowledge_db,
         graph_db=graph_db,
+        # Model identity for /v1/model consumers (frontend applyModel). The
+        # native server serves MT-LNN weights directly — no HF base, no
+        # adapter — so base_model/adapter_loaded mirror server_hf.py's schema
+        # with native values, and is_baseline is only true for the fresh
+        # untrained fallback.
+        ckpt_path=(os.environ.get("CKPT_PATH") or None),
+        ckpt_loaded=ckpt_loaded,
         ready=True,
     )
     print(f"[serve] ready | {_STATE['n_params']/1e6:.1f}M params | device={device}"
@@ -765,6 +774,13 @@ def model_info():
         "device": _STATE["device"],
         "tokenizer": "byte" if _STATE["small"]
         else os.environ.get("TOKENIZER", "gpt2"),
+        # Schema parity with server_hf.py /v1/model — the demo frontend's
+        # applyModel() switches on these; without them the status bar can
+        # never leave "MT-LNN · 48M · cpu" and the O1 badge never renders.
+        "base_model": None,                     # native weights, no HF base
+        "adapter_loaded": False,                # adapters live in server_hf
+        "is_baseline": not _STATE.get("ckpt_loaded"),
+        "checkpoint": _STATE.get("ckpt_path"),
         "multimodal": bool(_STATE.get("mm_ready")),
         "vision_tower": _STATE.get("mm_model"),
         "multimodal_error": _STATE.get("mm_error"),
