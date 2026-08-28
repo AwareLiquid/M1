@@ -247,11 +247,17 @@ def _chunk_decay_matrix(cumlog: torch.Tensor, scum: torch.Tensor) -> torch.Tenso
 
 
 def _scan_chunk(A_c: torch.Tensor, X_c: torch.Tensor, carry: torch.Tensor):
-    """One chunk: H = L @ X + g * carry; returns (H, next_carry = H[..., -1, :])."""
+    """One chunk: H = L @ X + g * carry; returns (H, next_carry = H[..., -1, :]).
+
+    carry is (..., D) — the state entering this chunk. It must be lifted to
+    (..., 1, D) explicitly: broadcasting (..., C, 1) * (..., D) aligns g's
+    C-axis against carry's batch axes (an error in most shapes, and a
+    SILENT wrong result whenever a batch dim happens to equal C).
+    """
     cumlog, scum = _chunk_decay_terms(A_c)
     L = _chunk_decay_matrix(cumlog, scum)                # (..., C, C)
     g = scum * cumlog.exp()                              # (..., C) decay from chunk start
-    H = L.matmul(X_c) + g.unsqueeze(-1) * carry          # (..., C, D)
+    H = L.matmul(X_c) + g.unsqueeze(-1) * carry.unsqueeze(-2)   # (..., C, D)
     return H, H[..., -1, :]
 
 
