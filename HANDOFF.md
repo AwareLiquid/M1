@@ -281,7 +281,7 @@ B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 | 通道 | 状态 | 用法 |
 |---|---|---|
 | **SSH 直连生产服务器** | ✅ CC 专用 ed25519 部署密钥已装;**历史误判澄清:之前"SSH 被网络拦截"是交接把 IP 抄错(75.x ≠ 45.x)+ 本机 Clash fake-ip 挡 DNS 双重假象,22 端口一直可达** | 静态改动 push main → SSH `git pull` 即生效;`server.py` 改动才 rebuild。命令模板见 local 笔记 |
-| **Kaggle 云 GPU(T4,~30h/周)** | ✅ API token 配好,CC 可命令行推 kernel/轮询/收结果全自动 | 模板 `kaggle/kaggle_runner.ipynb`;一个 kernel 装一个配置的 3 seeds(T4 ≈ 4h/30k 步趟,会话上限 12h)。首个 kernel `everestan/m1-gqa-quota-replication-g0` 跑 mix 任务 g0×3 seeds 裁决实验 |
+| **Kaggle 云 GPU(T4,~30h/周)** | ✅ API token 配好,CC 可命令行推 kernel/轮询/收结果全自动 (⚠️ 2026-08-29: 本 Mac 无 `~/.kaggle/kaggle.json`, 见 §3.8.8 待办) | 模板 `kaggle/kaggle_runner.ipynb`;一个 kernel 装一个配置的 3 seeds(T4 ≈ 4h/30k 步趟,会话上限 12h)。首个 kernel `everestan/m1-gqa-quota-replication-g0` 跑 mix 任务 g0×3 seeds 裁决实验 |
 | 本地 RTX 5060 8GB | 占用中 | g2 固定难度复现收尾;之后排 J1 探针 |
 
 ## 3.75 分支盘点(2026-07-30,已清理)
@@ -339,6 +339,43 @@ consciousness-m1-v2 分支 parity 3/3),而所有生物命名机制(Hebbian/GWT/P
   流式监控关联)驱逐致命;窗口内任务无损;RAG 检索环路可抵消代价。
 - **待办**:PRD.md S2 行(≈L52/L173)仍是纯 fp16 口径,下轮对齐 frontier
   新口径;其他分支引用 O(1) 数字一律以 RESULTS.md 新口径为准。
+
+### 3.8.7 KV 前沿实测验证 (2026-08-29, 分支 `iter/kv-measured-frontier`)
+
+对 3.8.6 解析账本的真实模型加固(零新依赖,MPS/CPU,`benchmarks/
+kv_measured.py`):① fp16 公式在真实 HF forward 上 **0.0000% 偏差**
+(TinyLlama GQA=4 + unsloth/Llama-3.2-1B GQA=8, T∈{512,2048,8192});
+② 真实张量 KIVI 方案打包:floor 比账本公式高恰好零点字节(+2.96%),
+KIVI 式 g32 分组再 +24.4~25.6%——**全部在对手侧,已发表 ARR 优势
+(8567x@1M)确证为下界**;③ 驱逐切片实测吻合解析封顶。产物
+`benchmarks/results/kv_measured.{json,md}`,文档 KV_FRONTIER.md §7 /
+BENCHMARKS 前沿节实测段,干净环境全套 pytest 1395 绿。
+
+### 3.8.8 待办:Kaggle 官方 KIVI 实测臂 (2026-08-29 记录,未执行)
+
+KV 前沿账目的最后一个未测残项。3.8.6 的账本已被真模型实测加固
+(见 3.8.7),但那只覆盖**字节算术**;官方 KIVI 代码库的 kernel/工作区开销
+(反量化缓冲、分页碎片等)仍未测——需要 CUDA (triton),本机 MPS 跑不了。
+**方向安全**:官方实现的任何额外开销都在对手一侧,只能让真实 2-bit KV
+更大、ARR 优势更宽,现有结论不依赖此臂;它把主张从"字节定义层实测"
+补到"官方实现层实测",是可选的终极加固。
+
+- **前置条件(当前阻塞)**:本机 (darwin) **没有** `~/.kaggle/kaggle.json`
+  (§3.9 "token 已配好"针对的是当时的主机,本 Mac 上不存在);
+  `DEPLOY_ACCESS.local.md` 也不在仓库根目录。待所有者提供 token 后:
+  `mkdir -p ~/.kaggle && cp <token> ~/.kaggle/kaggle.json && chmod 600`。
+- **跑法**:复用 §3.9 Kaggle 通道(免费 T4 ~30h/周,模板
+  `kaggle/kaggle_runner.ipynb`,`kaggle kernels push`)。kernel 内:
+  ① `pip install` 官方 KIVI repo;② 载入 ungated 模型
+  (TinyLlama-1.1B / unsloth/Llama-3.2-1B,与 3.8.7 同款,免 token);
+  ③ KIVI 2-bit 配置下 decode,在 T ∈ {512, 2048, 8192} 读 kv cache
+  实际 nbytes;④ 预计 ~1-2h kernel 时长,零金钱成本。
+- **验收/对账**:官方实测字节应落在 3.8.7 的 floor 与 g32 两行之间
+  再加 kernel 开销——对照基线是 `benchmarks/results/kv_measured.json`
+  (TinyLlama@8192: floor 25,248,256 B / g32 31,719,424 B);
+  偏差超过 g32 上界较多则说明 KIVI 还有未计的存储项,如实补记进
+  KV_FRONTIER.md §7。结果入库:分支 `iter/kv-measured-frontier`,
+  产物 `benchmarks/results/kivi_official.{json,md}` + KV_FRONTIER §7 更新。
 
 ## 3.8 外部评审意见(2026-07-30,待 M2 决策,未实施)
 
