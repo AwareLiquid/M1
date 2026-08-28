@@ -117,11 +117,29 @@ def _build_event(arch, n_in, n_out, args):
     """build() 工厂 + 任务适配：换输入投影（n_in 维）与输出头（n_out 维）。
 
     Δt 是输入张量的最后一维，对所有架构一视同仁地过 inp 线性层。
+    mt_lnn_tau1：液态核心但内部 τ 阶梯压到单一时间尺度（Task 3 的
+    τ 阶梯交互消融臂）——只换 MTLNNLayer 配置，不改工厂其他部件。
     """
-    m = build(arch, args.d_model, args.n_layers, args.seq_len)
+    m = build("mt_lnn" if arch == "mt_lnn_tau1" else arch,
+              args.d_model, args.n_layers, args.seq_len)
+    if arch == "mt_lnn_tau1":
+        _swap_tau_scales(m, 1, args)
     m.inp = nn.Linear(n_in, args.d_model)
     m.head = nn.Linear(args.d_model, n_out)
     return m
+
+
+def _swap_tau_scales(m, n_scales, args):
+    """把 LiquidRegressor 的 MTLNNLayer 栈换成 n_scales 时间尺度的版本。"""
+    from mt_lnn.config import MTLNNConfig
+    from mt_lnn.mt_lnn_layer import MTLNNLayer
+    cfg = MTLNNConfig(vocab_size=2, d_model=args.d_model,
+                      n_layers=args.n_layers, n_heads=13,
+                      d_head=max(1, args.d_model // 13), n_protofilaments=13,
+                      n_time_scales=n_scales, max_seq_len=4096,
+                      dropout=0.0, attention_dropout=0.0)
+    m.layers = nn.ModuleList([MTLNNLayer(cfg)
+                              for _ in range(args.n_layers)])
 
 
 def task_views(ds, task):
@@ -142,7 +160,7 @@ def _evaluate(m, task, Xte_t, yte, n_params, seed):
     if task == "next_channel":
         metric = float((out.argmax(axis=1) == yte).mean())
     else:
-        metric = float(np.sqrt(((out.squeeze(-1) - yte) ** 2).mean()))
+        metric = float(np.sqrt(((out.reshape(-1) - yte) ** 2).mean()))
     return {"metric": metric, "stable": True, "params": n_params,
             "seed": seed}
 
@@ -229,7 +247,7 @@ def _cli():
     ap.add_argument("--theta", type=float, default=0.35)
     ap.add_argument("--d_model", type=int, default=52)
     ap.add_argument("--n_layers", type=int, default=1)
-    ap.add_argument("--epochs", type=int, default=20)
+    ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--batch", type=int, default=32)
     ap.add_argument("--lr", type=float, default=3e-3)
     ap.add_argument("--out", default="benchmarks/results/event_theta_sweep.json")
