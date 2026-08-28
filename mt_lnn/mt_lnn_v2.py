@@ -58,7 +58,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .parallel_scan import pscan, pscan_constant_A
+from .parallel_scan import (pscan, pscan_constant_A, pscan_chunkwise,
+                            pscan_chunkwise_constant_A)
 
 
 @dataclass
@@ -91,6 +92,11 @@ class MTAdapterV2Config:
     # "exp": lam_t = 2·exp(-dt/tau) - 1 ∈ (-1,1) — signed, reaches ±1 exactly;
     # restores length extrapolation (E5d/E5e: 0.999 on the full layer).
     selective_decay_mode: str = "mamba"
+    # Chunkwise scan switch (iter/chunkwise-scan, mirrors MTLNNConfig):
+    # False (default) = historical Blelloch pscan path, bit-identical. See
+    # mt_lnn/config.py use_chunkwise_scan for the contract and merge gate.
+    use_chunkwise_scan: bool = False
+    chunkwise_scan_size: int = 64
     # Fast-weight associative memory (Ba et al. 2016 / gated linear attention).
     # V2 turns it ON by default: precise in-context recall is the single
     # biggest capability gap of pure recurrent state (the honest 0% needle
@@ -300,6 +306,13 @@ class MTLNNLayerV2(nn.Module):
         # static path at init; W_dt small so selectivity is learned, not noise.
         self.selective_decay = cfg.selective_decay
         self.sel_mode = getattr(cfg, "selective_decay_mode", "mamba")
+        # Chunkwise scan switch (iter/chunkwise-scan): same contract as v1 —
+        # False (default) keeps the historical Blelloch pscan path bit-identical;
+        # True routes the diagonal recurrence through pscan_chunkwise (SSD-style
+        # intra-chunk matmul + inter-chunk carry). Merge gate:
+        # tests/test_pscan_chunkwise.py.
+        self.use_chunkwise_scan = getattr(cfg, "use_chunkwise_scan", False)
+        self.chunkwise_scan_size = int(getattr(cfg, "chunkwise_scan_size", 64))
         if cfg.selective_decay:
             self.W_dt = nn.Parameter(torch.empty(P, d, S))
             nn.init.normal_(self.W_dt, std=0.02)
@@ -369,12 +382,20 @@ class MTLNNLayerV2(nn.Module):
             decay_t = decay_t.permute(0, 2, 3, 1)                      # (B,P,S,T)
             lam_t = lam_t.permute(0, 2, 3, 1)                          # (B,P,S,T)
             X = (1.0 - decay_t).unsqueeze(-1) * A_perm
-            H = pscan(lam_t, X, h_init=h_init)                         # (B,P,S,T,d)
+            if self.use_chunkwise_scan:
+                H = pscan_chunkwise(lam_t, X, h_init=h_init,
+                                    chunk_size=self.chunkwise_scan_size)
+            else:
+                H = pscan(lam_t, X, h_init=h_init)                         # (B,P,S,T,d)
         else:
-            decay = torch.exp(-self.dt / tau)                          # (P,S)
+            decay = torch.exp(-self.dt / tau)                              # (P,S)
             X = (1.0 - decay).view(1, P, S, 1, 1) * A_perm
             decay_b = decay.unsqueeze(0).expand(B, P, S)
-            H = pscan_constant_A(decay_b, X, h_init=h_init)            # (B,P,S,T,d)
+            if self.use_chunkwise_scan:
+                H = pscan_chunkwise_constant_A(decay_b, X, h_init=h_init,
+                                               chunk_size=self.chunkwise_scan_size)
+            else:
+                H = pscan_constant_A(decay_b, X, h_init=h_init)            # (B,P,S,T,d)
         h_scales = H.permute(0, 3, 1, 2, 4)                            # (B,T,P,S,d)
         h_last = h_scales[:, -1]                                       # (B,P,S,d)
 
