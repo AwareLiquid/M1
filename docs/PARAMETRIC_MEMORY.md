@@ -45,9 +45,9 @@ deletion: no binding index exists, so state size stays O(1) in writes.
 The honest one-line trade: external stores buy unbounded capacity with O(n)
 storage and no bit-exact state; the parametric runtime buys constant storage,
 bit-exact snapshots and single-binding forgetting at a finite per-state
-capacity that scales with d (2048-d state = 16.8 MB fixed holds 10k bindings
-at measured 1.000 accuracy; 128-d = 66 KB does not — see
-`benchmarks/results/parametric_memory_runtime.json`).
+capacity that scales with d. Accuracy-vs-writes at fixed state width d is the
+capacity curve the bench emits as
+`benchmarks/results/parametric_memory_runtime.json`.
 
 ## Complexity notes (full disclosure)
 
