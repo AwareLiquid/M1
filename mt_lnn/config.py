@@ -224,6 +224,18 @@ class MTLNNConfig:
     ffn_swiglu: bool = False
     ffn_expansion: float = 8.0 / 3.0
 
+    # Task A2 — QK-RMSNorm. QK-logit capping is industry consensus (Qwen3 /
+    # Gemma QK-RMSNorm; Kimi K2 invented QK-Clip specifically for its 1T
+    # model). This repo's 2026-07 fp16 Q@K overflow incident is exactly that
+    # failure class. When True, a learnable per-head RMSNorm (over d_head) is
+    # applied to q/k right after their projections and BEFORE RoPE (the
+    # position-free path has no RoPE; placement before the SDPA 1/sqrt(d_head)
+    # scaling covers both paths). Normalised K enters the KV cache, so
+    # prefill+decode parity is preserved by construction. Default off → no
+    # parameters built, forward bit-identical. RMSNorm's torch.ones init draws
+    # no RNG, so same-seed on/off models share a bit-identical trunk.
+    qk_norm: bool = False
+
     # Component ablation switches (E5c, 2026-08-15). The length-extrapolation
     # gap between the branch's minimal probe (extrap 1.000) and main's full
     # MTLNNLayer (extrap ~0.3) must be attributed to one of these components.
