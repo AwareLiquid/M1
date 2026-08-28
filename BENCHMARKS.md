@@ -380,6 +380,80 @@ shrinks the KV cache 13x — standard multi-head attention would put the ratio
 the attention-free O-series gets constant memory, which is exactly the
 edge/streaming/unbounded-context niche the product line targets.
 
+> This fp16/GQA=1 table is the *weakest* opposing baseline. The same claim
+> audited against quantized / evicted / GQA=8 KV caches lives in the next
+> section — the O(1) claim survives all of them in the long-context regime
+> and has one honest loss row (small-window eviction + 2-bit).
+
+## KV-compression frontier (2026-08-29) — O(1) vs quantized / evicted / GQA KV
+
+The section above measures ARR against fp16 GQA=1. External compression
+(KIVI 2-bit, KVQuant/NVFP4 4-bit, StreamingLLM/SnapKV eviction, GQA=8)
+shrinks that baseline, so the O(1) claim is re-audited here against the
+**strongest** configurations. Everything below is byte-exact analytic
+accounting on the KV side (bit-packed storage + KIVI asymmetric-quant scale
+metadata; zero-points fold to 0 B) and the **measured** flat ARR state
+loaded from `benchmarks/results/decode.json` — no number is hand-copied, and
+the M-series hybrid is charged `kv@2bit + measured liquid stream` so the
+ledger never compresses only the opponent. Full method + public anchors:
+[docs/KV_FRONTIER.md](docs/KV_FRONTIER.md). Regenerate everything with
+`python benchmarks/kv_frontier.py` (seconds, CPU); artifacts:
+`benchmarks/results/kv_frontier.md` + `kv_frontier_ledger.json`.
+
+Full grid (carried MB; the evict rows flatten at their sink+window cap, the
+KV rows grow linearly, ARR and the hybrid rows are the reference):
+
+| config | bits | gqa | window | T=512 | T=8192 | T=32768 | T=131072 | T=1048576 |
+|---|---|---|---|---|---|---|---|---|
+| **arr_state_measured (O-series)** | — | — | — | **0.381** | **0.381** | **0.381** | **0.381** | **0.381** |
+| kv fp16 | 16 | 1 | — | 1.5 | 24.0 | 96.0 | 384.0 | 3072.0 |
+| kv 8-bit | 8 | 1 | — | 0.763 | 12.189 | 48.751 | 195.001 | 1560.001 |
+| kv 4-bit | 4 | 1 | — | 0.388 | 6.189 | 24.751 | 99.001 | 792.001 |
+| kv 2-bit | 2 | 1 | — | 0.201 | 3.189 | 12.751 | 51.001 | 408.001 |
+| kv fp16 | 16 | 8 | — | 12.0 | 192.0 | 768.0 | 3072.0 | 24576.0 |
+| kv 8-bit | 8 | 8 | — | 6.105 | 97.512 | 390.012 | 1560.012 | 12480.012 |
+| kv 4-bit | 4 | 8 | — | 3.105 | 49.512 | 198.012 | 792.012 | 6336.012 |
+| kv 2-bit | 2 | 8 | — | 1.605 | 25.512 | 102.012 | 408.012 | 3264.012 |
+| evict sink4+w512 | 2 | 1 | 512 | 0.201 | 0.202 | 0.202 | 0.202 | 0.202 |
+| evict sink4+w512 | 4 | 1 | 512 | 0.388 | 0.391 | 0.391 | 0.391 | 0.391 |
+| evict sink4+w4096 | 2 | 1 | 4096 | 0.201 | 1.597 | 1.597 | 1.597 | 1.597 |
+| evict sink4+w4096 | 16 | 8 | 4096 | 12.0 | 96.094 | 96.094 | 96.094 | 96.094 |
+| hybrid kv@2bit + state | 2 | 1 | — | 0.582 | 3.57 | 13.132 | 51.382 | 408.382 |
+| hybrid kv@2bit + state | 2 | 8 | — | 1.986 | 25.893 | 102.393 | 408.393 | 3264.393 |
+
+*(All 26 configurations × all 7 contexts in `benchmarks/results/kv_frontier.md`.)*
+
+Crossover boundaries — T\* is the smallest context at which the config's
+carried bytes exceed the 0.381 MB ARR state; below T\* the config is smaller:
+
+| config | ARR smaller for | config/ARR @128k | @1M |
+|---|---|---|---|
+| kv fp16 GQA=1 (old baseline) | T ≥ 131 | 1007.88x | 8063.0x |
+| kv 8-bit GQA=1 | T ≥ 256 | 511.82x | 4094.5x |
+| kv 4-bit GQA=1 | T ≥ 503 | 259.85x | 2078.75x |
+| kv 2-bit GQA=1 | T ≥ 976 | 133.86x | 1070.87x |
+| kv fp16 GQA=8 | T ≥ 17 | 8063.0x | 64504.01x |
+| kv 8-bit GQA=8 | T ≥ 32 | 4094.52x | 32755.97x |
+| kv 4-bit GQA=8 | T ≥ 62 | 2078.77x | 16629.97x |
+| **kv 2-bit GQA=8 (strongest compression)** | **T ≥ 119** | **1070.9x** | **8566.97x** |
+| evict sink4+w512, 4-bit GQA=1 | T ≥ 503 | 1.03x | 1.03x (de facto tie) |
+| **evict sink4+w512, 2-bit GQA=1** | **never** | **0.53x** | **0.53x — the honest loss** |
+| evict sink4+w4096, any bits/GQA | T ≥ T* (17–976) | 4.19–252.21x | same (constant) |
+
+Validation: the fp16/GQA=1 row reproduces the published table above exactly
+(1.5 MB @512, 1007.9× @128k, 8063.0× @1M) before any extension.
+
+**Reading.** Against every *non-evicted* KV — including the strongest
+2-bit+GQA=8 compression — the ARR state is smaller throughout the common
+range (all T\* ∈ [17, 976] ≪ 128k) and the margin grows with context. The
+one configuration that undercuts ARR at every length is small-window
+eviction + 2-bit + GQA=1 (0.202 MB flat = 0.53×). Memory is not capability:
+eviction wins bytes by discarding tokens, and attention is structurally
+**0.000** on cross-window recall where the fast-weight state scores **0.56**
+(see the "Cross-window associative recall" section) — the two accounts are
+reported side by side, never merged. Honest corrections forced by this table
+are mirrored in RESULTS.md ("What we do NOT claim").
+
 ## MTP (multi-token-prediction) aux loss — honest null, not promoted (2026-07-12)
 
 `benchmarks/scaling_comparison.py --mode train`, native MT-LNN 125M, matched
