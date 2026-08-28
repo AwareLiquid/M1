@@ -7,12 +7,16 @@ ROADMAP_M2 §4.5 round 1/2 的裁决：anytime(随机深度)训练教会模型"�
   3. 逐迭代 CE 深监督 loss（每个迭代都被直接监督）
 """
 
+import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
 
 from mt_lnn.config import MTLNNConfig  # noqa: E402
 from mt_lnn.model import MTLNNModel  # noqa: E402
+from benchmarks.reasoning_depth import (  # noqa: E402
+    deep_supervision_loss, sample_depth,
+)
 
 
 def _tiny():
@@ -53,3 +57,42 @@ def test_single_iter_returns_no_key():
     with torch.no_grad():
         out = m(ids, return_stack_iter_logits=True)
     assert "stack_iter_logits" not in out    # 单迭代没有深监督对象
+
+
+def test_sample_depth_poisson_respects_bounds_and_mass():
+    rng = np.random.default_rng(0)
+    choices = list(range(1, 9))              # 1..8
+    ds = [sample_depth(rng, choices, "poisson", 2.0) for _ in range(2000)]
+    assert min(ds) >= 1 and max(ds) <= 8
+    # λ=2 期望≈3：深度 1-4 应占大头（对比均匀随机的 50%）
+    assert sum(1 for d in ds if d <= 4) / len(ds) > 0.7
+    # uniform 采样器保持历史行为
+    rng2 = np.random.default_rng(0)
+    assert sample_depth(rng2, choices, "uniform") in choices
+
+
+def test_deep_supervision_loss_values():
+    m = _tiny().train()
+    m.set_stack_iterations(2)
+    ids = torch.randint(0, 32, (2, 32))
+    labels = ids
+    out = m(ids, labels=labels, return_stack_iter_logits=True)
+    total, per_iter = deep_supervision_loss(out, labels)
+    assert torch.isfinite(total)
+    assert per_iter is not None and len(per_iter) == 2
+    # 无 stack_iter_logits（如单迭代/core 模式）时回退 out["loss"]
+    out1 = m(ids, labels=labels)
+    fallback, none = deep_supervision_loss(out1, labels)
+    assert none is None and torch.isfinite(fallback)
+
+
+def test_deep_supervision_backward_flows():
+    """深监督 loss 必须可反传（每个迭代都拿到梯度压力）。"""
+    m = _tiny().train()
+    m.set_stack_iterations(2)
+    ids = torch.randint(0, 32, (2, 32))
+    out = m(ids, labels=ids, return_stack_iter_logits=True)
+    total, _ = deep_supervision_loss(out, ids)
+    total.backward()
+    grads = [p.grad for p in m.parameters() if p.grad is not None]
+    assert grads and all(torch.isfinite(g).all() for g in grads)
