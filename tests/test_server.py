@@ -300,3 +300,103 @@ def test_validate_auth_config_off_and_soft(tmp_path):
 
     _validate_auth_config("off", None)            # off → 不动
     _validate_auth_config("soft", ApiKeyStore(str(tmp_path / "k.db")))
+
+
+# ---------------------------------------------------------------------------
+# RAG 边界路径 (P0-3 补缺): 截断 / 无命中 / RAG_INDEX pickle 启动加载。
+# ---------------------------------------------------------------------------
+
+def test_rag_context_truncated_to_max_chars(client, rag_index, monkeypatch):
+    import serve.server as srv
+
+    monkeypatch.setattr(srv, "RAG_MAX_CHARS", 40)
+    req = srv.CompletionRequest(
+        prompt="What produces ATP in the cell mitochondrion?",
+        rag=True, rag_top_k=3)
+    original = req.prompt
+    info = srv._apply_rag(req)
+    assert info["used"] is True
+    # 上下文段被截到 ~40 字符: 改写后 prompt 不应比 原 prompt+模板+40 长多少
+    budget = len(original) + len("[Retrieved context]\n\n\n\n") + 40 + 20
+    assert len(req.prompt) <= budget, (len(req.prompt), budget)
+
+
+def test_rag_no_hit_reports_unused_and_keeps_prompt(client, rag_index):
+    import serve.server as srv
+
+    req = srv.CompletionRequest(
+        prompt="zzz qqq xxx unrelated tokens", rag=True, rag_top_k=2)
+    original = req.prompt
+    info = srv._apply_rag(req)
+    assert info == {"used": False, "n_hits": 0, "top_k": 2}
+    assert req.prompt == original          # 无命中不改写
+
+
+def test_rag_index_pickle_loaded_at_startup(monkeypatch, tmp_path):
+    import pickle
+
+    import serve.server as srv
+    from mt_lnn.rag import BM25Index
+
+    idx = BM25Index(["alpha beta gamma", "delta epsilon zeta"])
+    p = tmp_path / "rag.pkl"
+    p.write_bytes(pickle.dumps(idx))
+    monkeypatch.setenv("RAG_INDEX", str(p))
+
+    saved, grad = dict(srv._STATE), torch.is_grad_enabled()
+    srv._STATE.clear()
+    srv._startup()
+    try:
+        assert srv._STATE["rag_index"] is not None
+        assert len(srv._STATE["rag_index"]) == 2
+    finally:
+        srv._STATE.clear()
+        srv._STATE.update(saved)
+        torch.set_grad_enabled(grad)
+
+
+def test_rag_index_garbage_pickle_degrades_to_disabled(monkeypatch, tmp_path):
+    import pickle
+
+    import serve.server as srv
+
+    p = tmp_path / "not_an_index.pkl"
+    p.write_bytes(pickle.dumps({"not": "a BM25Index"}))
+    monkeypatch.setenv("RAG_INDEX", str(p))
+
+    saved, grad = dict(srv._STATE), torch.is_grad_enabled()
+    srv._STATE.clear()
+    srv._startup()
+    try:
+        # 非 BM25Index: rag 优雅关闭, 服务照常就绪
+        assert srv._STATE["rag_index"] is None
+        assert srv._STATE["ready"]
+    finally:
+        srv._STATE.clear()
+        srv._STATE.update(saved)
+        torch.set_grad_enabled(grad)
+
+
+# ---------------------------------------------------------------------------
+# counts.json 原子性的本意场景 (P0-3 补缺): 写入中途失败 → 旧计数完好。
+# ---------------------------------------------------------------------------
+
+def test_partner_hit_interrupted_write_keeps_old_counts(monkeypatch, tmp_path):
+    import serve.server as srv
+
+    (tmp_path / "counts.json").write_text(json.dumps({"clawhunt": 41}))
+    monkeypatch.setattr(srv, "_PARTNER_DIR", str(tmp_path))
+    monkeypatch.setattr(srv.json, "dump",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("disk full")))
+
+    class _FakeRequest:
+        headers: dict = {}
+
+        class client:
+            host = "127.0.0.1"
+
+    with pytest.raises(RuntimeError, match="disk full"):
+        srv._record_partner_hit("clawhunt", _FakeRequest())
+    # 原子性: 旧文件原封不动, 临时文件被清理
+    assert json.loads((tmp_path / "counts.json").read_text()) == {"clawhunt": 41}
+    assert not [p for p in tmp_path.iterdir() if p.name.endswith(".tmp")]
