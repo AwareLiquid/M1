@@ -1,0 +1,204 @@
+{
+  "results": [
+    {
+      "impl": "pscan_const",
+      "T": 1024,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 16.69,
+      "rss_mb": 249.3,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 8.91,
+      "rss_mb": 208.6,
+      "max_rel_diff": 3.55e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 4096,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 49.4,
+      "rss_mb": 385.0,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 41.61,
+      "rss_mb": 404.3,
+      "max_rel_diff": 4.91e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 16384,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 80.69,
+      "rss_mb": 976.7,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 91.18,
+      "rss_mb": 1025.3,
+      "max_rel_diff": 3.9e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 16384,
+      "C": null,
+      "mode": "fwd",
+      "device": "cpu",
+      "wall_ms": 16.93,
+      "rss_mb": 835.2,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 64,
+      "mode": "fwd",
+      "device": "cpu",
+      "wall_ms": 29.24,
+      "rss_mb": 1027.2,
+      "max_rel_diff": 3.9e-07
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 32,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 125.35,
+      "rss_mb": 753.7,
+      "max_rel_diff": 3.54e-07
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 128,
+      "mode": "fwd_bwd",
+      "device": "cpu",
+      "wall_ms": 93.64,
+      "rss_mb": 1219.7,
+      "max_rel_diff": 3.54e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 1024,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 11.52,
+      "rss_mb": 285.3,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 13.62,
+      "rss_mb": 298.1,
+      "max_rel_diff": 5.28e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 4096,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 23.78,
+      "rss_mb": 285.6,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 30.3,
+      "rss_mb": 297.7,
+      "max_rel_diff": 4.91e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 16384,
+      "C": null,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 75.75,
+      "rss_mb": 284.8,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 64,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 77.44,
+      "rss_mb": 272.8,
+      "max_rel_diff": 4.41e-07
+    },
+    {
+      "impl": "pscan_const",
+      "T": 16384,
+      "C": null,
+      "mode": "fwd",
+      "device": "mps",
+      "wall_ms": 23.19,
+      "rss_mb": 283.0,
+      "max_rel_diff": 0.0
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 64,
+      "mode": "fwd",
+      "device": "mps",
+      "wall_ms": 13.83,
+      "rss_mb": 293.6,
+      "max_rel_diff": 4.41e-07
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 32,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 61.73,
+      "rss_mb": 298.1,
+      "max_rel_diff": 4.41e-07
+    },
+    {
+      "impl": "chunk_const",
+      "T": 16384,
+      "C": 128,
+      "mode": "fwd_bwd",
+      "device": "mps",
+      "wall_ms": 72.6,
+      "rss_mb": 298.4,
+      "max_rel_diff": 5.67e-07
+    }
+  ]
+}
