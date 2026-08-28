@@ -108,6 +108,9 @@ def build_model(name, args, device):
         d_model=args.d_model, n_layers=args.n_layers,
         n_heads=13, n_kv_heads=1, d_head=args.d_model // 13,
         dropout=0.0, attention_dropout=0.0, tie_embeddings=True,
+        # GWTB 头数必须整除 d_gw=d_model//8; 832→104 整除 4 (全量口径与
+        # scaling_comparison 一致), smoke 的 104→13 只能整除 1。
+        gwtb_n_heads=4 if (args.d_model // 8) % 4 == 0 else 1,
         # Lean core trunk (与 scaling_comparison 的 mt_lnn arch 同口径):
         use_predictive_coding=False, use_competitive_gwtb=False,
         use_world_model=False, use_hebbian=False, use_rhythm=False,
