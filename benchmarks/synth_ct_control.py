@@ -37,8 +37,11 @@ import json
 import math
 import os
 import sys
+import warnings
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+warnings.filterwarnings("ignore", message=".*d_proto.*multiple of 8.*")
 
 import numpy as np
 import torch
@@ -188,7 +191,9 @@ def main():
     print(f"synthetic continuous-time control | Van der Pol mu={args.mu} | "
           f"{len(seeds)} seeds | Δt supplied to every arch | "
           f"target: x(t+{args.horizon}) from {args.n_samples} irregular "
-          f"samples\n")
+          f"samples")
+    print("pre-registered rule: domain won iff mt_lnn |t|>=2 vs gru_d AND "
+          "lstm AND gru at the cv=1 tiers; claim needs >=2 of 3 domains\n")
 
     results = {}
     for dt_mean in means:
@@ -219,11 +224,14 @@ def main():
                     print(f"    {arch:<12} UNSTABLE")
                     continue
                 a = np.array(vals)
+                pm = build(arch, args.d_model, args.n_layers, Xtr.shape[1])
+                pm.inp = nn.Linear(Xtr.shape[-1], args.d_model)
+                n_params = sum(p.numel() for p in pm.parameters())
                 results[key][arch] = {"rmse_mean": float(a.mean()),
                                       "rmse_std": float(a.std(ddof=1)),
-                                      "n": len(a)}
+                                      "n": len(a), "params": n_params}
                 print(f"    {arch:<12} RMSE {a.mean():.4f} ± "
-                      f"{a.std(ddof=1):.4f}")
+                      f"{a.std(ddof=1):.4f}  ({n_params:,} params)")
             print()
 
     # pairwise Welch at every high-irregularity tier (cv=1 configs)

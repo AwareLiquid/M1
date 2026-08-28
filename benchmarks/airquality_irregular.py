@@ -42,9 +42,12 @@ import math
 import os
 import sys
 import urllib.request
+import warnings
 import zipfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+warnings.filterwarnings("ignore", message=".*d_proto.*multiple of 8.*")
 
 import numpy as np
 import torch
@@ -243,7 +246,9 @@ def main():
 
     print(f"air-quality irregular sweep | held-out {args.test_station} | "
           f"{len(seeds)} seeds | Δt supplied to every arch | "
-          f"task: {args.horizon}h {TARGETS} from {args.in_len}h history\n")
+          f"task: {args.horizon}h {TARGETS} from {args.in_len}h history")
+    print("pre-registered rule: domain won iff mt_lnn |t|>=2 vs gru_d AND "
+          "lstm AND gru at the sparsest tier; claim needs >=2 of 3 domains\n")
 
     H = args.horizon
     results = {}
@@ -282,6 +287,10 @@ def main():
             if not vals:
                 print(f"    {arch:<12} UNSTABLE")
                 continue
+            pm = build(arch, args.d_model, args.n_layers, Xtr.shape[1])
+            pm.inp = nn.Linear(n_feat, args.d_model)
+            pm.head = nn.Linear(args.d_model, n_out)
+            n_params = sum(p.numel() for p in pm.parameters())
             for t in TARGETS:
                 a = np.array([v[1] for v in vals if v[0] == t])
                 results[f"{drop}"].setdefault(arch, {})[t] = {
@@ -290,6 +299,8 @@ def main():
                     "n": int(len(a))}
                 print(f"    {arch:<12} {t:<6} RMSE {a.mean():.3f} ± "
                       f"{a.std(ddof=1):.3f}")
+            results[f"{drop}"][arch]["params"] = n_params
+            print(f"    {arch:<12} ({n_params:,} params)")
         print()
 
     # pairwise Welch at the sparsest tier, per target

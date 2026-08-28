@@ -50,8 +50,14 @@ import json
 import math
 import os
 import sys
+import warnings
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Alignment advisory from the liquid config at d_model=78 (d_proto=6): true
+# but irrelevant on CPU and it fires on every build — silence for readable
+# logs. It says nothing about correctness.
+warnings.filterwarnings("ignore", message=".*d_proto.*multiple of 8.*")
 
 import numpy as np
 import torch
@@ -146,7 +152,10 @@ def main():
     archs = [a for a in args.archs.split(",") if a]
 
     print(f"irregular-sampling sweep | held-out {args.test_cell} | "
-          f"{len(seeds)} seeds | Δt supplied to every arch\n")
+          f"{len(seeds)} seeds | Δt supplied to every arch")
+    print(f"pre-registered rule: gru_d absorbs the mt_lnn advantage iff "
+          f"|t(mt_lnn,gru_d)| < 2 AND gru_d degradation within 10pp of "
+          f"mt_lnn at the sparsest tier — otherwise the claim survives\n")
     results = {}
     for drop in drops:
         rng = np.random.default_rng(12345)          # same pattern for all archs
@@ -164,10 +173,16 @@ def main():
                 print(f"    {arch:<12} UNSTABLE")
                 continue
             a = np.array(vals)
+            # params under the SAME n_feat patch the runs used — this is the
+            # same-budget evidence (gru_d ≈ gru) the JSON must carry.
+            pm = build(arch, args.d_model, args.n_layers, Xtr.shape[1])
+            pm.inp = nn.Linear(n_feat, args.d_model)
+            n_params = sum(p.numel() for p in pm.parameters())
             results[f"{drop}"][arch] = {"rmse_mean": float(a.mean()),
                                         "rmse_std": float(a.std(ddof=1)),
-                                        "n": len(a)}
-            print(f"    {arch:<12} RMSE {a.mean():.4f} ± {a.std(ddof=1):.4f}")
+                                        "n": len(a), "params": n_params}
+            print(f"    {arch:<12} RMSE {a.mean():.4f} ± {a.std(ddof=1):.4f}  "
+                  f"({n_params:,} params)")
         print()
 
     # Does the liquid core degrade more slowly than the discrete RNNs as the
