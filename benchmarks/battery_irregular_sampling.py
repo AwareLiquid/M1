@@ -27,7 +27,20 @@ Design, kept deliberately fair:
 If the liquid core has no edge here either, that is the finding and it should be
 reported as such.
 
+GRU-D addition (2026-08-28). The canonical irregular-sampling baseline is
+GRU-D (Che et al. 2018, trainable decay toward running statistics), not a bare
+GRU fed Δt. The "gru_d" arch is that baseline under the exact same protocol.
+Pre-registered judgement — fixed here BEFORE the gru_d runs, not movable after
+the fact: at the sparsest tier, GRU-D absorbs the liquid advantage if BOTH
+(a) pairwise |t| < 2 between mt_lnn and gru_d, AND (b) gru_d's degradation
+from regular to sparsest sampling stays within 10 percentage points of
+mt_lnn's. If either fails, the robustness claim survives its canonical-
+baseline test; if both hold, or gru_d outright wins, this is a NEGATIVE
+result and must be recorded as such in RESULTS.md — not reframed.
+
     py -3.11 benchmarks/battery_irregular_sampling.py --drops 0.0,0.3,0.6
+    py -3.11 benchmarks/battery_irregular_sampling.py \
+        --archs mt_lnn,lstm,gru,gru_d,transformer --drops 0.0,0.3,0.6,0.8
 """
 
 from __future__ import annotations
@@ -106,7 +119,7 @@ def main():
     ap.add_argument("--seq-len", type=int, default=128)
     ap.add_argument("--drops", default="0.0,0.3,0.6",
                     help="fraction of timesteps dropped")
-    ap.add_argument("--d_model", type=int, default=65)
+    ap.add_argument("--d_model", type=int, default=78)
     ap.add_argument("--n_layers", type=int, default=2)
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--batch", type=int, default=16)
@@ -180,11 +193,43 @@ def main():
             t = (o["rmse_mean"] - mt["rmse_mean"]) / se if se else 0.0
             print(f"  vs {arch:<12} t={t:+.2f}  "
                   f"{'SIGNIFICANT' if abs(t) > 2 else 'within noise'}")
+
+    # Full pairwise Welch matrix at the sparsest tier (positive t = the row
+    # arch has the LOWER mean RMSE), plus degradation entries, archived into
+    # the JSON so the GRU-D pre-registered judgement is checkable from data.
+    pairwise = {}
+    for a in archs:
+        for b in archs:
+            if a >= b or a not in results[dN] or b not in results[dN]:
+                continue
+            ra, rb = results[dN][a], results[dN][b]
+            se = math.sqrt(ra["rmse_std"] ** 2 / ra["n"] + rb["rmse_std"] ** 2 / rb["n"])
+            t = (rb["rmse_mean"] - ra["rmse_mean"]) / se if se else 0.0
+            pairwise[f"{a}|{b}"] = round(t, 3)
+    print("\npairwise Welch t at the sparsest tier "
+          "(row - col sign: positive = first arch lower RMSE):")
+    for k, t in pairwise.items():
+        print(f"  {k:<28} t={t:+.2f}  "
+              f"{'SIGNIFICANT' if abs(t) > 2 else 'within noise'}")
+
+    degradation = {}
+    for arch in archs:
+        if arch in results[d0] and arch in results[dN]:
+            a0 = results[d0][arch]["rmse_mean"]
+            aN = results[dN][arch]["rmse_mean"]
+            degradation[arch] = {"rmse_regular": a0, "rmse_sparsest": aN,
+                                 "delta": round(aN - a0, 6),
+                                 "pct": round((aN / a0 - 1) * 100, 2)}
     print("=" * 66)
 
     with open(args.out, "w") as f:
         json.dump({"test_cell": args.test_cell, "seeds": len(seeds),
-                   "drops": drops, "results": results}, f, indent=2)
+                   "drops": drops, "results": results,
+                   "welch_pairwise_sparsest": pairwise,
+                   "degradation_regular_to_sparsest": degradation,
+                   "pre_registered_rule": "gru_d absorbs the mt_lnn advantage "
+                   "iff |t(mt_lnn,gru_d)| < 2 AND gru_d degradation within 10pp "
+                   "of mt_lnn at the sparsest tier; otherwise the claim survives"}, f, indent=2)
     print(f"\nresults -> {args.out}")
     return 0
 

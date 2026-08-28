@@ -104,11 +104,15 @@ def load_cell(name, seq_len):
 class LiquidRegressor(nn.Module):
     """MT-LNN liquid core as a sequence encoder + linear head."""
 
-    def __init__(self, d_model=64, n_layers=2, n_feat=3):
+    def __init__(self, d_model=78, n_layers=2, n_feat=3):
         super().__init__()
         from mt_lnn.config import MTLNNConfig
         from mt_lnn.mt_lnn_layer import MTLNNLayer
-        # d_model must divide by n_protofilaments for d_proto to be integral.
+        # d_model must divide by n_protofilaments for d_proto to be integral,
+        # AND d_model/n_heads must be even (current mt_lnn requires an even
+        # d_head for rotary embeddings — 65=13*5 was legal when this pilot was
+        # written but no longer constructs; 78=13*6 is the nearest legal width
+        # and is applied uniformly to every architecture in the comparison).
         cfg = MTLNNConfig(vocab_size=2, d_model=d_model, n_layers=n_layers,
                           n_heads=13, d_head=max(1, d_model // 13),
                           n_protofilaments=13, n_time_scales=5,
@@ -170,11 +174,149 @@ class TransformerRegressor(nn.Module):
         return self.head(self.norm(h)[:, -1]).squeeze(-1)
 
 
+class GRUDCell(nn.Module):
+    """One GRU-D layer (Che et al., 2018) — trainable-decay GRU for irregular
+    series. Zero-dependency: torch only.
+
+    Mechanism, per step t with elapsed time dt_t and observation mask m_t
+    (the decay driver is [dt_t; 1 - m_t]: an observed step contributes only
+    its gap, a missing step adds extra decay):
+
+      gamma_t = exp(-relu(W_g [dt_t; 1-m_t] + b_g))       decay rate, (0,1]
+      h'_t    = gamma_t * h_{t-1} + (1 - gamma_t) * hbar  hidden -> running mean
+      z, r    = sigma(W x_t + U h'_t + b)                 gates on decayed hidden
+      h_t     = (1 - z) * h'_t + z * tanh(W x_t + U (r * h'_t) + b)
+
+    The init b_g = 0 makes gamma(dt=0, m=1) = exp(-relu(0)) = 1 exactly — no
+    decay at zero elapsed time, by construction and not by tolerance, for any
+    learned W_g and any b_g <= 0. As dt -> inf, gamma -> 0 and the decayed
+    hidden converges to its running mean hbar.
+    """
+
+    def __init__(self, d_model):
+        super().__init__()
+        self.d_model = d_model
+        # Decay-rate layer: takes [dt, mask] (2) -> per-unit exponent.
+        self.W_decay = nn.Parameter(torch.empty(2, d_model).uniform_(0.0, 0.5))
+        self.b_decay = nn.Parameter(torch.zeros(d_model))
+        # GRU gates, packed column-wise as [update | reset | candidate].
+        self.Wx = nn.Parameter(torch.empty(d_model, 3 * d_model))
+        self.Uh = nn.Parameter(torch.empty(d_model, 3 * d_model))
+        self.bias = nn.Parameter(torch.zeros(3 * d_model))
+        for w in (self.Wx, self.Uh):
+            nn.init.xavier_uniform_(w)
+
+    def decay_rate_seq(self, dec_in):
+        """gamma for a whole (B, T, 2) block [dt; 1-m]: exp(-relu(W+b)) in (0,1]."""
+        expo = torch.relu(dec_in @ self.W_decay + self.b_decay)
+        return torch.exp(-expo)
+
+    def forward(self, x_t, h, hbar, gamma_t):
+        """One step: decay hidden toward its running mean, then GRU update.
+
+        x_t is the input projection seq @ Wx WITHOUT bias (precomputed for the
+        whole sequence); the bias is applied once here.
+        """
+        g_h = gamma_t
+        h_dec = g_h * h + (1.0 - g_h) * hbar
+        d = self.d_model
+        gates = x_t + h_dec @ self.Uh + self.bias
+        z, r, _ = gates.chunk(3, dim=-1)
+        z = torch.sigmoid(z)
+        r = torch.sigmoid(r)
+        n = torch.tanh(x_t[:, 2 * d:] + (r * h_dec) @ self.Uh[:, 2 * d:]
+                       + self.bias[2 * d:])
+        return (1.0 - z) * h_dec + z * n
+
+
+class GRUDRegressor(nn.Module):
+    """GRU-D baseline regressor for the irregular-sampling sweeps.
+
+    Input layout: (B, T, F) whose LAST channel is the elapsed time dt (the
+    appended-dt protocol used by the irregular-sampling benchmarks); the other
+    F-1 channels are sensor values. dt also passes through self.inp like any
+    feature, so the same fairness guardrail as the other architectures holds.
+
+    On masked-out steps (mask=0, passed explicitly) the sensor inputs decay
+    from the last observed value toward the sequence running mean at a
+    trainable rate — the input-decay branch of the paper (single shared rate
+    across channels, the minimal variant; the branch is inert under the
+    compacted protocol, where mask == 1 everywhere, and is skipped then). The
+    hidden-state decay across each dt gap is the live mechanism; that is
+    GRU-D's canonical answer to "how much time passed".
+
+    On a regular grid there is no dt channel and this model has nothing to
+    integrate over — it is intentionally absent from the regular-grid
+    comparison (battery_soh_edge --archs does not include it by default).
+    """
+
+    def __init__(self, d_model=64, n_layers=2, n_feat=3):
+        super().__init__()
+        self.n_layers = n_layers
+        self.inp = nn.Linear(n_feat, d_model)
+        # Input decay: one trainable rate shared across sensor channels.
+        self.W_in_decay = nn.Parameter(torch.tensor([[0.25]]))
+        self.b_in_decay = nn.Parameter(torch.zeros(1))
+        self.cells = nn.ModuleList([GRUDCell(d_model) for _ in range(n_layers)])
+        self.norm = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, 1)
+
+    def _input_decay(self, sensors, dt, mask):
+        """x_tilde = m*x + (1-m)*(g*x_carry + (1-g)*x_running_mean).
+
+        mask=1 passes values through unchanged; masked-out channels pull from
+        the last observed value toward the running mean as dt grows. Inert —
+        and skipped — under the compacted protocol (mask == 1 everywhere).
+        """
+        if bool((mask > 0).all()):
+            return sensors
+        g = torch.exp(-torch.relu(dt * self.W_in_decay + self.b_in_decay))
+        B, T, F = sensors.shape
+        carry = torch.zeros(B, F, device=sensors.device)
+        rmean = torch.zeros(B, F, device=sensors.device)
+        out = []
+        for t in range(T):
+            m_t = mask[:, t]                        # (B, 1), broadcasts over F
+            x_t = sensors[:, t]
+            imp = g[:, t] * carry + (1.0 - g[:, t]) * rmean
+            v = torch.where(m_t > 0, x_t, imp)
+            out.append(v)
+            carry = torch.where(m_t > 0, x_t, carry)
+            rmean = rmean + (v.detach() - rmean) / (t + 1)
+        return torch.stack(out, dim=1)
+
+    def forward(self, x, dt=None, mask=None):
+        # Protocol convention: the last channel of x is the elapsed time.
+        if dt is None:
+            dt = x[..., -1:]
+        if mask is None:
+            mask = torch.ones_like(dt)
+        sensors = self._input_decay(x[..., :-1], dt, mask)
+        e = self.inp(torch.cat([sensors, dt], dim=-1))
+        dec_in = torch.cat([dt, 1.0 - mask], dim=-1)  # (B, T, 2) decay driver
+        B, T, D = e.shape
+        seq = e
+        for cell in self.cells:
+            gamma = cell.decay_rate_seq(dec_in)         # (B, T, D), precomputed
+            x_proj = seq @ cell.Wx                     # (B, T, 3D), bias in cell
+            h = seq.new_zeros(B, D)
+            hbar = seq.new_zeros(B, D)
+            out = []
+            for t in range(T):
+                h = cell(x_proj[:, t], h, hbar, gamma[:, t])
+                hbar = hbar + (h.detach() - hbar) / (t + 1)   # running mean of h
+                out.append(h)
+            seq = torch.stack(out, dim=1)
+        return self.head(self.norm(seq[:, -1])).squeeze(-1)
+
+
 def build(arch, d_model, n_layers, seq_len=128):
     if arch == "mt_lnn":
         return LiquidRegressor(d_model, n_layers)
     if arch in ("lstm", "gru"):
         return RNNRegressor(arch, d_model, n_layers)
+    if arch == "gru_d":
+        return GRUDRegressor(d_model, n_layers)
     if arch == "transformer":
         return TransformerRegressor(d_model, n_layers, max_len=seq_len)
     raise SystemExit(f"unknown arch {arch}")
@@ -228,7 +370,7 @@ def main():
     ap.add_argument("--test-cell", default="B0018",
                     help="cell held out entirely for test")
     ap.add_argument("--seq-len", type=int, default=128)
-    ap.add_argument("--d_model", type=int, default=65)   # 13*5, divides by 13
+    ap.add_argument("--d_model", type=int, default=78)   # 13*6, even d_head (see below)
     ap.add_argument("--n_layers", type=int, default=2)
     ap.add_argument("--epochs", type=int, default=60)
     ap.add_argument("--batch", type=int, default=16)

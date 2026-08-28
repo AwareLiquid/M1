@@ -48,7 +48,7 @@ def state_bytes(obj):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--d_model", type=int, default=65)
+    ap.add_argument("--d_model", type=int, default=78)
     ap.add_argument("--n_layers", type=int, default=2)
     ap.add_argument("--lens", default="128,512,2048,8192,32768")
     ap.add_argument("--n_feat", type=int, default=3)
