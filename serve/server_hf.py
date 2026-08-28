@@ -663,6 +663,22 @@ _GEN_WAITING = 0
 _GEN_WAITING_LOCK = threading.Lock()
 
 
+def _enter_gen_slot() -> None:
+    """入队 + 限时获取共享模型锁；队列满/超时抛 503（失败回滚等待计数）。"""
+    global _GEN_WAITING
+    with _GEN_WAITING_LOCK:
+        if _GEN_WAITING >= _GEN_QUEUE_CAP:
+            raise HTTPException(503, f"server busy (queue full, cap {_GEN_QUEUE_CAP})")
+        _GEN_WAITING += 1
+    try:
+        if not _MODEL_LOCK.acquire(timeout=_GEN_LOCK_TIMEOUT):
+            raise HTTPException(503, f"model busy (lock timeout {_GEN_LOCK_TIMEOUT:.0f}s)")
+    except BaseException:
+        with _GEN_WAITING_LOCK:
+            _GEN_WAITING -= 1
+        raise
+
+
 def _gen_lock():
     """FastAPI yield-dependency that serializes a whole request on the shared
     model: setup acquires _MODEL_LOCK, teardown releases it AFTER the response
@@ -672,18 +688,11 @@ def _gen_lock():
     the anyio threadpool; a Lock may be released by a different thread than
     acquired, which is safe here.) Fails fast with 503 instead of hanging."""
     global _GEN_WAITING
-    with _GEN_WAITING_LOCK:
-        if _GEN_WAITING >= _GEN_QUEUE_CAP:
-            raise HTTPException(503, f"server busy (queue full, cap {_GEN_QUEUE_CAP})")
-        _GEN_WAITING += 1
+    _enter_gen_slot()
     try:
-        if not _MODEL_LOCK.acquire(timeout=_GEN_LOCK_TIMEOUT):
-            raise HTTPException(503, f"model busy (lock timeout {_GEN_LOCK_TIMEOUT:.0f}s)")
-        try:
-            yield
-        finally:
-            _MODEL_LOCK.release()
+        yield
     finally:
+        _MODEL_LOCK.release()
         with _GEN_WAITING_LOCK:
             _GEN_WAITING -= 1
 
