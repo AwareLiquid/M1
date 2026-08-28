@@ -298,17 +298,21 @@ class VectorizedMultiScaleResonance(nn.Module):
         A = torch.sigmoid(A)
 
         # 2. Decay per (proto, scale)
-        tau = F.softplus(self.log_tau) + self.tau_min                 # (P,S)
+        # fp32 强制: softplus/exp 在 bf16 autocast 下是官方不稳定 op
+        # (S2 教训: bf16 训练 PPL 恶化 3-7.5×, 前向误差仅 0.37% → 根因在
+        # 训练动力学, 即本段梯度下溢)。参数级小张量, fp32 开销可忽略。
+        _log_tau = self.log_tau.float()
+        tau = F.softplus(_log_tau) + self.tau_min                 # (P,S) fp32
         tau = tau.clamp(self.tau_min, self.tau_max)
-        decay = torch.exp(-self.dt / tau)                              # (P,S)
+        decay = torch.exp(-self.dt / tau)                          # (P,S) fp32
         # Signed decay: λ is the (possibly negative) STATE coefficient; the
         # INPUT coefficient below stays (1 - decay), i.e. magnitude-based.
         if self.decay_sign_raw is not None:
-            lam = decay * torch.tanh(self.decay_sign_raw)              # (P,S)
+            lam = decay * torch.tanh(self.decay_sign_raw.float())   # (P,S) fp32
         else:
             lam = decay
-        decay_active = decay[:, active_idx]                            # (P,K)
-        lam_active = lam[:, active_idx]                                # (P,K)
+        decay_active = decay[:, active_idx].to(x.dtype)             # (P,K)
+        lam_active = lam[:, active_idx].to(x.dtype)                 # (P,K)
         K_active = active_idx.numel()
 
         # Selective decay: per-STEP signed transition λ_t (B,T,P,K).
@@ -322,11 +326,14 @@ class VectorizedMultiScaleResonance(nn.Module):
                 # exponential — λ_t = 2·exp(−softplus(sel+b)/τ) − 1 ∈ (−1,1).
                 # Reaches ±1 exactly (δ→0 ⇒ +1, δ→∞ ⇒ −1); E5d showed this
                 # restores perfect length extrapolation (2/3 seeds at 1.000).
-                tau_active = tau[:, active_idx]                      # (P,K)
-                delta = F.softplus(sel + self.sel_b[:, active_idx])  # (B,T,P,K)
+                # fp32: softplus+exp 双不稳定 op (同 §2), 算完转回 x.dtype。
+                tau_active = tau[:, active_idx]                      # (P,K) fp32
+                delta = F.softplus(
+                    sel.float() + self.sel_b[:, active_idx].float()
+                )                                                   # (B,T,P,K) fp32
                 lam_t = 2.0 * torch.exp(
                     -delta / tau_active.view(1, 1, P, K_active).clamp_min(1e-3)
-                ) - 1.0                                             # (B,T,P,K)
+                ) - 1.0                                             # fp32
                 if self.ste and self.training:
                     # STE 训练时离散化：forward 精确 ±1（sign），backward
                     # 梯度来自 soft（straight-through）。训练/推理语义一致，
@@ -336,10 +343,12 @@ class VectorizedMultiScaleResonance(nn.Module):
                     # 推理翻转硬化 (2026-08-16)：snap 到精确 ±1，消除 soft
                     # 偏离在超长序列的累积误差（parity 外推 1k 崩的根因）。
                     lam_t = torch.where(lam_t >= 0, 1.0, -1.0)
+                lam_t = lam_t.to(x.dtype)                           # 对齐 scan/legacy
             else:
-                lam_t = decay_active.view(1, 1, P, K_active) * torch.tanh(
-                    sel + self.sel_b[:, active_idx]
-                )                                                   # (B,T,P,K)
+                lam_t = (decay_active.view(1, 1, P, K_active)
+                         * torch.tanh(
+                             sel.float() + self.sel_b[:, active_idx].float()
+                         ).to(x.dtype))                             # (B,T,P,K)
 
         if not use_scan:
             # Legacy parallel mode — h_prev: (B, T, P, D) broadcast across T
