@@ -931,9 +931,9 @@ Two different 1B+ bases, two different families (Llama vs Qwen), same recipe →
 
 AwareLiquid emits one JSONL row per decoded token via `mt_lnn.reasoning_trace.ReasoningTrace`. Each row carries `(step, token_id, entropy, route, phi)` plus separate `route` decisions and `cloud_inject` events. Two artefacts ride on top of this stream:
 
-**`trace_timeline.html`** — single-file browser viewer (no external deps). Drop a `*.trace.jsonl` file; renders one colored bar per token (green=LOCAL, yellow=SELF_CRITIQUE, blue=CLOUD, purple=INJECT), bar height ∝ entropy, orange dots mark Φ̂ samples. Click any bar for the raw event. This is the AwareLiquid answer to Gemini's opaque "thinking summary": every reasoning step is replayable, auditable, diffable.
+**`examples/trace_timeline.html`** — single-file browser viewer (no external deps). Drop a `*.trace.jsonl` file; renders one colored bar per token (green=LOCAL, yellow=SELF_CRITIQUE, blue=CLOUD, purple=INJECT), bar height ∝ entropy, orange dots mark Φ̂ samples. Click any bar for the raw event. This is the AwareLiquid answer to Gemini's opaque "thinking summary": every reasoning step is replayable, auditable, diffable.
 
-**`scripts/bench_trace_audit.py`** — quantitative trace auditor. On the bundled `demo_trace.jsonl` (120 synthetic decode steps):
+**`scripts/bench_trace_audit.py`** — quantitative trace auditor. On the bundled `artifacts/demo_trace.jsonl` (120 synthetic decode steps):
 
 | Metric | Value |
 |---|---:|
@@ -944,7 +944,7 @@ AwareLiquid emits one JSONL row per decoded token via `mt_lnn.reasoning_trace.Re
 | Φ̂ samples / mean | 14 / 0.221 |
 | Est. cost vs full-cloud | saved $0.001785 output − spent $0.000159 input = **+$0.001626 net** |
 
-Self-sufficiency = `1 - cloud_tokens / total_tokens`. Cost model assumes $3/MTok input, $15/MTok output (frontier-API order of magnitude). Raw report: `demo_trace_audit.json`.
+Self-sufficiency = `1 - cloud_tokens / total_tokens`. Cost model assumes $3/MTok input, $15/MTok output (frontier-API order of magnitude). Raw report: `artifacts/demo_trace_audit.json`.
 
 ## Cloud-inject end-to-end uplift harness (scaffold)
 

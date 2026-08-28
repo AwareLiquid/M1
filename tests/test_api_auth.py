@@ -79,3 +79,19 @@ def test_rate_limiter_recovers_after_window(monkeypatch):
     future = time.time() + 61.0
     monkeypatch.setattr(time, "time", lambda: future)
     assert rl.allow("1.2.3.4")
+
+
+# ---------------------------------------------------------------------------
+# 生产化 (P2-10): count_active + strict 模式启动体检
+# ---------------------------------------------------------------------------
+
+def test_count_active_filters_revoked_expired_exhausted(tmp_path):
+    store = ApiKeyStore(str(tmp_path / "keys.db"))
+    assert store.count_active() == 0
+
+    store.issue("healthy")                       # 可用
+    store.issue("revoked"); store.revoke("revoked")
+    store.issue("expired", ttl_days=-1.0)        # 已过期
+    capped = store.issue("capped", max_requests=1)
+    store.check(capped)                          # 用掉唯一一次配额
+    assert store.count_active() == 1

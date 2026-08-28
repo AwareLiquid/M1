@@ -94,14 +94,31 @@ def main():
         print(f"  量化失败: {e}")
         return 1
 
-    print("\n══════ 量化打样结果 ═══════")
+    print("\n=== weight-only int8 (液态裸 Parameter, mt_lnn.quantization) ===")
+    # 全量覆盖: Linear 动态量化 + 液态裸 Parameter Int8Weight (含 1x1 等
+    # 引擎不支持形状的逐模块容错)。2B 部署数学靠这一段。
+    ppl_wo = None
+    try:
+        from mt_lnn.quantization import quantize_mtlnn_int8
+        womodel, wrep = quantize_mtlnn_int8(
+            load_model(args.ckpt), quantize_linear=True, verbose=True)
+        nll_wo = eval_ppl(womodel, tok, windows)
+        ppl_wo = torch.exp(torch.tensor(nll_wo)).item()
+    except Exception as e:  # noqa: BLE001
+        print(f"  weight-only 量化失败: {e}")
+
+    print("\n══════ 量化打样结果 ══════")
     print(f"fp32 PPL = {ppl_fp32:.2f}")
-    print(f"int8 PPL = {ppl_q:.2f}  (退化 {ppl_q/ppl_fp32 - 1:+.1%})")
-    print(f"内存: {fp32_mb:.0f} → {q_bytes/1e6:.0f} MB")
-    print()
-    print("结论: 注意力投影走 nn.Linear 可被动态量化覆盖; 液态核心的裸 "
-          "Parameter(einsum) 需自定义 weight-only 量化才能全覆盖 —— "
-          "2B 进 7.2GB VPS 需全量 int8, 下一步写自定义量化路径。")
+    print(f"int8 PPL (Linear only) = {ppl_q:.2f}  (退化 {ppl_q/ppl_fp32 - 1:+.1%})")
+    if ppl_wo is not None:
+        print(f"int8 PPL (全量 weight-only) = {ppl_wo:.2f}  "
+              f"(退化 {ppl_wo/ppl_fp32 - 1:+.1%}, "
+              f"液态 {wrep['n_quantized']} 个权重, 内存 "
+              f"{wrep['bytes_before']/1e6:.0f}→{wrep['bytes_after']/1e6:.0f} MB)")
+        print("结论: 全量 int8 已打通 — 2B fp32 7.6GB → ~1.9GB, "
+              "serve 设 QUANTIZE_INT8=1 即用。")
+    else:
+        print("结论: weight-only 路径本机不可用, 见上方报错。")
     return 0
 
 

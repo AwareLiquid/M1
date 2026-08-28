@@ -2,23 +2,6 @@ from .config import MTLNNConfig
 from .model import MTLNNModel, MTLNNBlock, ModelCacheStruct
 from .memory import SessionMemory
 from .knowledge_memory import PersistentKnowledgeMemory
-from .anesthesia import AnesthesiaController, anesthetize
-from .phi_hat import (
-    compute_phi_hat,
-    compute_phi_hat_from_model,
-    phi_hat_anesthesia_sweep,
-    anesthesia_test_result,
-    knn_entropy_chebyshev,
-)
-from .phi_spectral import (
-    gaussian_total_correlation,
-    effective_rank,
-    integration_ratio,
-    compute_phi_spectral_from_model,
-    phi_spectral_anesthesia_sweep,
-    anesthesia_test_result_spectral,
-    compare_phi_metrics,
-)
 from .mt_lnn_layer import MTLNNLayer, ProtofilamentLTC, LateralCoupling, MAPGate, MultiScaleResonance
 from .mt_attention import MicrotubuleAttention
 from .global_coherence import GlobalCoherenceLayer
@@ -31,16 +14,6 @@ from .multimodal import (
     CLIPModalityEncoder,
     fuse,
     build_modality_pad_mask,
-)
-from .spatial import (
-    GridCellEncoding,
-    MultiScaleGridCellModules,
-    HeadDirectionCells,
-    BoundaryDistanceCells,
-    PlaceCellCode,
-    SpatialCoordEncoder,
-    PointCloudEncoder,
-    VoxelPatchEmbed,
 )
 from .parallel_scan import pscan, pscan_sequential, pscan_constant_A
 from .llama_adapter import (
@@ -76,95 +49,16 @@ from .thinking import (
     render_trace_markdown,
     render_trace_html,
 )
-from .spatial_reasoning import SpatialThinkingResult, SpatialReasoner
 from .rhythm import LAVIEstimator, GlobalRhythmController
 from .causality import CausalConsistencyChecker
 from .causal_steering import CausalActivationSteerer, SteerResult
-from .world_model import PredictiveStateHead
 # Hard-constraint physics-informed head (Hamiltonian NN + symplectic integrator).
 # RESEARCH / off the served-LM path: a continuous-state (q,p) trajectory
 # component, NOT a language module — a physics prior is PPL-neutral on tokens.
 # Validated only on physics metrics (benchmarks/physics_rollout_eval.py).
-from .hamiltonian_head import HamiltonianHead, MLPFieldHead
 from .predictive_coding import (
     HierarchicalPredictiveCoder,
     PredictiveCodingResult,
-)
-from .imagination import ImaginedTrajectory, LatentImagination
-from .active_inference import EFEPlan, ActiveInferencePlanner
-from .spatial_ops import (
-    pairwise_distance,
-    relative_direction,
-    bearing,
-    in_bounding_box,
-    in_ball,
-    radius_graph,
-    knn_graph,
-    reachable_from,
-    hop_distance,
-    connected_components,
-)
-from .physics_ops import (
-    PhysicsRollout,
-    integrate,
-    uniform_gravity,
-    pairwise_gravity,
-    kinetic_energy,
-    momentum,
-    overlapping_pairs,
-    resolve_sphere_collisions,
-    reflect_in_box,
-    rollout,
-)
-from .salience_events import (
-    StateChangeEvent,
-    SalienceEventDetector,
-    world_model_surprise,
-)
-from .failsafe import (
-    GuardOutput,
-    BlindRolloutGuard,
-    BreakerResult,
-    CircuitBreaker,
-)
-from .acoustic_ops import (
-    SPEED_OF_SOUND,
-    BinauralScene,
-    propagation_delay,
-    spherical_spreading_gain,
-    interaural_time_difference,
-    interaural_level_difference,
-    doppler_shift,
-    superpose_arrivals,
-    localize_azimuth,
-    binaural_scene,
-)
-from .ingest_ops import (
-    AlignedStream,
-    resample_uniform,
-    nearest_sample_gap,
-    coverage_mask,
-    interval_jitter,
-    uniform_grid,
-    align_stream,
-)
-from .slow_layer import (
-    ThreatAssessment,
-    SlowThreatAssessor,
-)
-from .pipeline import (
-    DualSpeedSentry,
-    SentryTick,
-    PerceptionEvent,
-)
-from .plasticity import HebbianRegularizer
-from .astrocyte import AstrocyteGate, AstrocyteState
-from .neuromodulation import NeuromodulationController, NeuromodulatorState
-from .sleep_consolidation import (
-    SleepWakeConsolidator,
-    ReplayConsolidationResult,
-    DownscaleResult,
-    ConsolidationReport,
 )
 from .recipes import (
     apply_efficient_recipe,
@@ -179,13 +73,10 @@ from .cloud_client import (
 )
 
 # Optional scientific-rigour modules (gracefully degrade if dependencies missing)
+# PYPHI_AVAILABLE 是稳定哨兵（pyphi 未装时恒 False），必须立刻存在；
+# 计算函数本身惰性化（见 _LAZY_EXPORTS）。
 try:
-    from .phi_iit import (
-        compute_iit_phi,
-        compute_iit_phi_from_model,
-        iit_phi_anesthesia_sweep,
-        PYPHI_AVAILABLE,
-    )
+    from .phi_iit import PYPHI_AVAILABLE  # noqa: F401
 except ImportError:
     PYPHI_AVAILABLE = False
 
@@ -194,6 +85,120 @@ except ImportError:
 # the architecture audit). PENNYLANE_AVAILABLE kept as a stable False so any
 # downstream `mt_lnn.PENNYLANE_AVAILABLE` check still resolves.
 PENNYLANE_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# 惰性研究模块（P2-13 lean core）：已撤回/已证惰性的研究脚手架不再随
+# `import mt_lnn` 默认加载（README「shipped configs run the lean core」）。
+# 旧用法完全兼容：`from mt_lnn import AnesthesiaController` / `mt_lnn.X`
+# 经 PEP 562 __getattr__ 按需导入对应子模块并缓存。__all__ 不变。
+# ---------------------------------------------------------------------------
+_LAZY_EXPORTS = {
+    "AnesthesiaController": "anesthesia",
+    "anesthetize": "anesthesia",
+    "compute_phi_hat": "phi_hat",
+    "compute_phi_hat_from_model": "phi_hat",
+    "phi_hat_anesthesia_sweep": "phi_hat",
+    "anesthesia_test_result": "phi_hat",
+    "knn_entropy_chebyshev": "phi_hat",
+    "gaussian_total_correlation": "phi_spectral",
+    "effective_rank": "phi_spectral",
+    "integration_ratio": "phi_spectral",
+    "compute_phi_spectral_from_model": "phi_spectral",
+    "phi_spectral_anesthesia_sweep": "phi_spectral",
+    "anesthesia_test_result_spectral": "phi_spectral",
+    "compare_phi_metrics": "phi_spectral",
+    "HamiltonianHead": "hamiltonian_head",
+    "MLPFieldHead": "hamiltonian_head",
+    "PredictiveStateHead": "world_model",
+    "ImaginedTrajectory": "imagination",
+    "LatentImagination": "imagination",
+    "EFEPlan": "active_inference",
+    "ActiveInferencePlanner": "active_inference",
+    "GridCellEncoding": "spatial",
+    "MultiScaleGridCellModules": "spatial",
+    "HeadDirectionCells": "spatial",
+    "BoundaryDistanceCells": "spatial",
+    "PlaceCellCode": "spatial",
+    "SpatialCoordEncoder": "spatial",
+    "PointCloudEncoder": "spatial",
+    "VoxelPatchEmbed": "spatial",
+    "pairwise_distance": "spatial_ops",
+    "relative_direction": "spatial_ops",
+    "bearing": "spatial_ops",
+    "in_bounding_box": "spatial_ops",
+    "in_ball": "spatial_ops",
+    "radius_graph": "spatial_ops",
+    "knn_graph": "spatial_ops",
+    "reachable_from": "spatial_ops",
+    "hop_distance": "spatial_ops",
+    "connected_components": "spatial_ops",
+    "SpatialThinkingResult": "spatial_reasoning",
+    "SpatialReasoner": "spatial_reasoning",
+    "PhysicsRollout": "physics_ops",
+    "integrate": "physics_ops",
+    "uniform_gravity": "physics_ops",
+    "pairwise_gravity": "physics_ops",
+    "kinetic_energy": "physics_ops",
+    "momentum": "physics_ops",
+    "overlapping_pairs": "physics_ops",
+    "resolve_sphere_collisions": "physics_ops",
+    "reflect_in_box": "physics_ops",
+    "rollout": "physics_ops",
+    "SPEED_OF_SOUND": "acoustic_ops",
+    "BinauralScene": "acoustic_ops",
+    "propagation_delay": "acoustic_ops",
+    "spherical_spreading_gain": "acoustic_ops",
+    "interaural_time_difference": "acoustic_ops",
+    "interaural_level_difference": "acoustic_ops",
+    "doppler_shift": "acoustic_ops",
+    "superpose_arrivals": "acoustic_ops",
+    "localize_azimuth": "acoustic_ops",
+    "binaural_scene": "acoustic_ops",
+    "StateChangeEvent": "salience_events",
+    "SalienceEventDetector": "salience_events",
+    "world_model_surprise": "salience_events",
+    "GuardOutput": "failsafe",
+    "BlindRolloutGuard": "failsafe",
+    "BreakerResult": "failsafe",
+    "CircuitBreaker": "failsafe",
+    "AlignedStream": "ingest_ops",
+    "resample_uniform": "ingest_ops",
+    "nearest_sample_gap": "ingest_ops",
+    "coverage_mask": "ingest_ops",
+    "interval_jitter": "ingest_ops",
+    "uniform_grid": "ingest_ops",
+    "align_stream": "ingest_ops",
+    "ThreatAssessment": "slow_layer",
+    "SlowThreatAssessor": "slow_layer",
+    "DualSpeedSentry": "pipeline",
+    "SentryTick": "pipeline",
+    "PerceptionEvent": "pipeline",
+    "HebbianRegularizer": "plasticity",
+    "AstrocyteGate": "astrocyte",
+    "AstrocyteState": "astrocyte",
+    "NeuromodulationController": "neuromodulation",
+    "NeuromodulatorState": "neuromodulation",
+    "SleepWakeConsolidator": "sleep_consolidation",
+    "ReplayConsolidationResult": "sleep_consolidation",
+    "DownscaleResult": "sleep_consolidation",
+    "ConsolidationReport": "sleep_consolidation",
+    "compute_iit_phi": "phi_iit",
+    "compute_iit_phi_from_model": "phi_iit",
+    "iit_phi_anesthesia_sweep": "phi_iit",
+}
+
+
+def __getattr__(name):
+    """PEP 562: 研究模块的属性级按需导入。"""
+    mod_name = _LAZY_EXPORTS.get(name)
+    if mod_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    import importlib
+    value = getattr(importlib.import_module("." + mod_name, __name__), name)
+    globals()[name] = value          # 解析后缓存，后续访问零开销
+    return value
+
 
 __all__ = [
     "MTLNNConfig",

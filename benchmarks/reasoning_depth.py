@@ -133,9 +133,56 @@ def build_transformer(vocab, seq_len, seed, d_model=104, n_layers=2):
 
 # ── training ─────────────────────────────────────────────────────────────────
 
+def sample_depth(rng, choices, sampler="uniform", poisson_lambda=3.0):
+    """Per-step training depth. uniform = historical depth_rng.choice;
+    poisson = Geiping-style 1 + Poisson(λ) clamped to [1, max] — 期望深度
+    可调且低深度仍占质量（保持 anytime 兼容），区别于已被证伪的
+    均匀随机深度（教会模型无视迭代, §4.5 round 1）。"""
+    if not choices:
+        return 1
+    if sampler == "poisson":
+        lo, hi = min(choices), max(choices)
+        return int(min(max(1 + rng.poisson(poisson_lambda), lo), hi))
+    return int(rng.choice(choices))
+
+
+def deep_supervision_loss(out, labels):
+    """逐 stack 迭代 CE（HRM 式深监督）。
+
+    每个迭代的输出都被直接推向正确答案 —— 这是"随机深度训练让模型学会
+    无视迭代"退化解的直接反制（§4.5 round 1/2 的诊断）。要求模型以
+    return_stack_iter_logits=True 前向（仅 stack 模式支持；core 迭代的
+    输出在 block 内部，不经过 lm_head）。
+
+    返回 (total_loss, per_iter_losses)；无 stack_iter_logits 键时回退
+    out["loss"]（深监督开关与模式不匹配时保底不崩）。
+    """
+    iters = out.get("stack_iter_logits")
+    if iters is None:
+        return out["loss"], None
+    per_iter = _per_iter_ce(iters, labels)
+    # 最终迭代权重加倍：anytime 语义下最后一轮仍是最重要的出口
+    weights = torch.ones_like(per_iter)
+    weights[-1] = 2.0
+    return (per_iter * weights).sum() / weights.sum(), per_iter.detach().tolist()
+
+
+def _per_iter_ce(iters, labels):
+    """逐迭代 next-token CE → (n_iter,) 张量。"""
+    shift_logits = iters[:, :, :-1, :].contiguous()
+    shift_labels = labels[:, 1:].unsqueeze(0).expand_as(
+        shift_logits[:, :, :, 0])
+    flat = torch.nn.functional.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1), reduction="none")
+    return flat.view(shift_logits.shape[:3]).mean(dim=(1, 2))
+
+
 def train_model(model, gen, device, steps, batch, lr, seed,
                 depth_choices=None, log_every=200, fwd_kwargs=None,
-                depth_setter="core", beta2=0.95, clip=1.0):
+                depth_setter="core", beta2=0.95, clip=1.0,
+                depth_sampler="uniform", poisson_lambda=3.0,
+                deep_supervision=False):
     """depth_choices: list of ints to sample per step (MT-LNN), or None.
     depth_setter: 'core' (LNN sub-layer iteration) or 'stack' (whole-block).
 
@@ -158,7 +205,8 @@ def train_model(model, gen, device, steps, batch, lr, seed,
 
     for step in range(steps):
         if depth_choices is not None:
-            d = int(depth_rng.choice(depth_choices))
+            d = sample_depth(depth_rng, depth_choices, depth_sampler,
+                             poisson_lambda)
             if depth_setter == "stack":
                 model.set_stack_iterations(d)
             elif depth_setter == "workspace":
@@ -166,8 +214,14 @@ def train_model(model, gen, device, steps, batch, lr, seed,
             else:
                 model.set_core_iterations(d)
         ids, labels, _ = make_lm_batch(gen, batch, rng, device)
-        out = model(ids, labels=labels, **fwd_kwargs)
-        loss = out["loss"]
+        kw = dict(fwd_kwargs)
+        if deep_supervision and depth_setter == "stack":
+            kw["return_stack_iter_logits"] = True
+        out = model(ids, labels=labels, **kw)
+        if deep_supervision and depth_setter == "stack":
+            loss, _per = deep_supervision_loss(out, labels)
+        else:
+            loss = out["loss"]
         opt.zero_grad(set_to_none=True)
         loss.backward()
         if clip:
@@ -385,7 +439,12 @@ def run_fixed_sweep(task, difficulty, n_values, seeds, steps, batch, lr,
 
 
 def run(task, difficulty, n_values, seeds, steps, batch, lr, max_depth,
-        eval_depths, device, tag=""):
+        eval_depths, device, tag="", depth_sampler="uniform",
+        poisson_lambda=3.0, deep_supervision=False, depth_setter="core"):
+    if deep_supervision and depth_setter != "stack":
+        raise SystemExit(
+            "--deep_supervision 仅支持 --stack 模式（逐迭代 logits 只在 "
+            "stack 级暴露；core 迭代输出在 block 内部不过 lm_head）")
     gen, vocab, _ = make_generator(task, difficulty, n_values, seed=0)
     # probe seq_len from one sample
     probe = gen(1, np.random.default_rng(0))
@@ -400,12 +459,22 @@ def run(task, difficulty, n_values, seeds, steps, batch, lr, max_depth,
         m = build_mtlnn(vocab, seq_len, max_depth, seed)
         n_params = m.get_num_params()
         print(f"  [seed {seed}] mt_lnn {n_params/1e3:.0f}K params, "
-              f"train depths 1..{max_depth}")
+              f"train depths 1..{max_depth} sampler={depth_sampler}"
+              + (" +deep_supervision(stack)" if deep_supervision else ""))
         train_model(m, gen, device, steps, batch, lr, seed,
-                    depth_choices=list(range(1, max_depth + 1)))
+                    depth_choices=list(range(1, max_depth + 1)),
+                    depth_setter=depth_setter,
+                    depth_sampler=depth_sampler,
+                    poisson_lambda=poisson_lambda,
+                    deep_supervision=deep_supervision)
         accs = {}
         for d in eval_depths:
-            m.set_core_iterations(d)
+            if depth_setter == "stack":
+                m.set_stack_iterations(d)
+            elif depth_setter == "workspace":
+                m.set_workspace_iterations(d)
+            else:
+                m.set_core_iterations(d)
             acc = evaluate(m, gen, np.random.default_rng(10_000 + seed), device)
             accs[d] = acc
             print(f"    eval depth {d}: acc {acc:.4f}")
@@ -428,6 +497,10 @@ def run(task, difficulty, n_values, seeds, steps, batch, lr, max_depth,
             "task": task, "difficulty": difficulty, "n_values": n_values,
             "seq_len": seq_len, "seed": seed, "steps": steps, "batch": batch,
             "lr": lr, "max_train_depth": max_depth,
+            "depth_setter": depth_setter, "depth_sampler": depth_sampler,
+            "poisson_lambda": (poisson_lambda if depth_sampler == "poisson"
+                               else None),
+            "deep_supervision": deep_supervision,
             "mtlnn_params": n_params, "transformer_params": tr_params,
             "mtlnn_acc_by_depth": accs, "transformer_acc": tr_acc,
             "wall_s": round(time.time() - t0, 1), "tag": tag,
@@ -466,6 +539,16 @@ def main():
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--max_depth", type=int, default=8)
     p.add_argument("--eval_depths", type=int, nargs="+", default=[1, 2, 4, 8])
+    # ---- anytime 深监督训练栈（P1-5; §4.5 round 1/2 的修复方向）----
+    p.add_argument("--depth_sampler", choices=["uniform", "poisson"],
+                   default="uniform",
+                   help="每步训练深度采样: uniform=历史随机深度(已证伪的 anytime 口径); "
+                        "poisson=Geiping 式 1+Poisson(λ) 截到 [1,max_depth]")
+    p.add_argument("--poisson_lambda", type=float, default=3.0,
+                   help="泊松采样 λ (期望迭代数-1)")
+    p.add_argument("--deep_supervision", action="store_true",
+                   help="逐 stack 迭代 CE (HRM 式) — 每个迭代的输出都被直接"
+                        "监督, 反制'学会无视迭代'退化解; 需 --stack")
     p.add_argument("--tag", default="")
     p.add_argument("--mode", choices=["anytime", "fixed"], default="fixed",
                    help="fixed: fresh model per depth, trained AND evaluated "
@@ -564,7 +647,11 @@ def main():
     else:
         run(args.task, args.difficulty, args.n_values, args.seeds, args.steps,
             args.batch, args.lr, args.max_depth, args.eval_depths, device,
-            tag=args.tag)
+            tag=args.tag, depth_sampler=args.depth_sampler,
+            poisson_lambda=args.poisson_lambda,
+            deep_supervision=args.deep_supervision,
+            depth_setter=("stack" if args.stack else
+                          "workspace" if args.workspace else "core"))
 
 
 if __name__ == "__main__":

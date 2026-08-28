@@ -4,7 +4,7 @@ Doesn't load any LM — just emits a plausible mix of LOCAL / SELF_CRITIQUE /
 CLOUD / inject events via ReasoningTrace so trace_timeline.html has
 something to render out of the box.
 
-    python scripts/demo_trace_synth.py --out demo_trace.jsonl
+    python scripts/demo_trace_synth.py --out artifacts/demo_trace.jsonl
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from mt_lnn.reasoning_trace import ReasoningTrace
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--out", default="demo_trace.jsonl")
+    p.add_argument("--out", default="artifacts/demo_trace.jsonl")
     p.add_argument("--n", type=int, default=120)
     p.add_argument("--seed", type=int, default=7)
     args = p.parse_args()

@@ -106,6 +106,36 @@ class MTLNNBlock(nn.Module):
         self.lnn_norm = nn.LayerNorm(config.d_model)
         self.lnn = MTLNNLayer(config)
 
+        # Fast-weight 核心化 (DEEP_INTEGRATION_PLAN 1a): 每层第二记忆通道,
+        # 低秩因果外积记忆, 零门控输出。只在 config.fast_weight_core 时创建
+        # (默认 False → 参数集逐位不变, 零回归)。
+        #
+        # RNG 隔离 (对照实验完整性): 新参数若从全局 RNG 流抽初始化, 会移位
+        # 后续所有 block 的初始化 —— 同 seed 的 on/off A/B trunk 不再可比
+        # (mt_lnn_mtp 的 init-luck 教训, 见 train_arch 里的控制块)。因此
+        # 保存/恢复全局 RNG 状态, fast_weight 的初始化全部来自独立生成器。
+        if getattr(config, "fast_weight_core", False):
+            from .fast_weight_core import CoreFastWeight
+            _rng_state = torch.get_rng_state()
+            try:
+                self.fast_weight = CoreFastWeight(
+                    config.d_model,
+                    rank=int(getattr(config, "fast_weight_rank", 16)),
+                    decay=float(getattr(config, "fast_weight_decay", 0.99)),
+                )
+                _gen = torch.Generator()
+                _gen.manual_seed(0x5A17 + 1009 * layer_idx)
+                for _m in self.fast_weight.modules():
+                    if isinstance(_m, nn.Linear):
+                        nn.init.kaiming_uniform_(_m.weight, a=5.0 ** 0.5,
+                                                 generator=_gen)
+                with torch.no_grad():
+                    self.fast_weight.gate.zero_()
+            finally:
+                torch.set_rng_state(_rng_state)
+        else:
+            self.fast_weight = None
+
         # Latent recurrent depth ("thinking steps", M2 P0). The gate parameter
         # is created ONLY when the config enables iteration, so the default
         # (core_iterations=1) model keeps a byte-identical parameter set.
@@ -236,6 +266,10 @@ class MTLNNBlock(nn.Module):
                 pad_mask=lnn_pad,
             )
         x = x + lnn_out
+        # 第二记忆通道读出: 低秩 fast-weight (1a)。gate=0 时贡献恰为 +0.0,
+        # 残差流逐位不变; 即便如此也走完整路径 (gate 梯度才不为零)。
+        if self.fast_weight is not None:
+            x = x + self.fast_weight(x)
 
         # Per-block GWTB (pre-norm, gated residual already inside GWTBLayer)
         new_gwtb_kv = None
@@ -544,6 +578,7 @@ class MTLNNModel(nn.Module):
         use_cache: bool = False,
         position_offset: Optional[int] = None,
         use_lnn_recurrence: bool = True,
+        return_stack_iter_logits: bool = False,              # 深监督: 逐 stack 迭代 logits
         inputs_embeds: Optional[torch.Tensor] = None,         # (B, T_new, d_model)
         top_down: Optional[torch.Tensor] = None,              # (B, d_model) or (B, T_new, d_model)
     ) -> Dict[str, torch.Tensor]:
@@ -637,6 +672,14 @@ class MTLNNModel(nn.Module):
                 "stack_iterations > 1 does not support use_cache "
                 "(weight-tied multi-pass has no single KV timeline)"
             )
+        # Deep supervision (M2 P0 进阶): expose per-iteration logits so training
+        # can put CE on EVERY stack pass — the direct counter to the measured
+        # "random-depth training teaches the model to ignore iterations"
+        # degenerate solution (ROADMAP_M2 §4.5 round 1). Off (default) the loop
+        # is byte-identical to the single-collection path.
+        stack_iter_logits: Optional[list] = (
+            [] if (return_stack_iter_logits and _stack_iters > 1) else None
+        )
         for _pass in range(_stack_iters):
             _shared_active_idx = None
             for i, block in enumerate(self.blocks):
@@ -660,6 +703,8 @@ class MTLNNModel(nn.Module):
                     _shared_active_idx = block.lnn.resonance._last_computed_active_idx
                 if use_cache:
                     new_cache.layers.append(new_layer_cache)
+            if stack_iter_logits is not None:
+                stack_iter_logits.append(self.lm_head(x))
 
         # Global rhythm correction: aggregate per-layer LAVI means, apply residual.
         # Starts as identity (GlobalRhythmController.scale init = 0).
@@ -767,6 +812,10 @@ class MTLNNModel(nn.Module):
         logits = self.lm_head(x)                              # (B, T_new, vocab_size)
 
         result: Dict[str, torch.Tensor] = {"logits": logits}
+        if stack_iter_logits is not None:
+            # 注意: 逐迭代读出在 stack 循环内、全局 GWTB/节律修正之前 —— 监督
+            # 的是各迭代的中间状态(HRM 式), 最后一项≠最终 logits(差一个 GWTB)
+            result["stack_iter_logits"] = torch.stack(stack_iter_logits, dim=0)
         if use_cache:
             result["cache"] = new_cache
 

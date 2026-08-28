@@ -93,3 +93,30 @@ def test_nucleus_keeps_at_least_the_top_token():
     req = server_hf.CompletionRequest(do_sample=True, top_p=0.01, top_k=0, temperature=1.0)
     picks = {server_hf._sample_next_token(logits, req) for _ in range(32)}
     assert picks == {0}
+
+
+# ---------------------------------------------------------------------------
+# Bounded generation lock (P2-12, same policy as serve/server.py).
+# ---------------------------------------------------------------------------
+
+def test_gen_lock_timeout_503(monkeypatch):
+    monkeypatch.setattr(server_hf, "_GEN_LOCK_TIMEOUT", 0.05)
+    assert server_hf._MODEL_LOCK.acquire(timeout=5)
+    try:
+        gen = server_hf._gen_lock()
+        with pytest.raises(HTTPException) as ei:
+            next(iter(gen))          # 进入 yield 前 → 503 超时
+        assert ei.value.status_code == 503
+    finally:
+        server_hf._MODEL_LOCK.release()
+    assert server_hf._GEN_WAITING == 0
+
+
+def test_gen_lock_queue_full_503(monkeypatch):
+    monkeypatch.setattr(server_hf, "_GEN_QUEUE_CAP", 0)
+    gen = server_hf._gen_lock()
+    with pytest.raises(HTTPException) as ei:
+        next(iter(gen))
+    assert ei.value.status_code == 503
+    assert "queue full" in ei.value.detail
+    assert server_hf._GEN_WAITING == 0

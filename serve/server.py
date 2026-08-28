@@ -31,6 +31,18 @@ Environment
     SMALL       "1" → tiny byte-level model (vocab 256), no HF tokenizer
     DEVICE      cpu | cuda  (default: auto)
     MAX_NEW_TOKENS_CAP  hard upper bound per request (default: 1024)
+    GEN_LOCK_TIMEOUT  seconds a request waits for the shared model lock before
+                answering 503 (default: 300 — CPU generation is 2–15 tok/s)
+    GEN_QUEUE_CAP  max requests waiting for the model lock; beyond it, 503
+                immediately (default: 8)
+    QUANTIZE_INT8  "1" → weight-only int8 after load (nn.Linear dynamic +
+                liquid raw-Parameter Int8Weight). Inference-only; see
+                mt_lnn/quantization.py.
+    RAG_INDEX    path to a BM25Index pickle (scripts/build_rag_corpus.py).
+                When set, POST /v1/completions accepts "rag": true to prefix
+                the prompt with retrieved context, and /v1/rag(/search)
+                expose the index. Unset → retrieval fully off.
+    RAG_MAX_CHARS  max retrieved-context characters prepended (default 1500).
     API_AUTH_MODE  off | soft | strict  (default: off — no auth, current
                 behaviour, demo-friendly). soft: anonymous requests are
                 rate-limited per IP (API_ANON_PER_MIN); a request carrying a
@@ -75,7 +87,9 @@ import dataclasses
 import io
 import json
 import os
+import secrets
 import sys
+import tempfile
 import threading
 import time
 from typing import List, Optional
@@ -104,6 +118,7 @@ from mt_lnn.model import MTLNNModel
 from mt_lnn.api_auth import (REASON_QUOTA, AnonymousRateLimiter, ApiKeyStore)
 
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "1024"))
+RAG_MAX_CHARS = int(os.environ.get("RAG_MAX_CHARS", "1500"))
 
 
 # ---------------------------------------------------------------------------
@@ -182,7 +197,32 @@ _STATE: dict = {}
 # other. This lock serializes ALL model-touching work; held across a stream's
 # whole token loop — the shared state cannot be time-shared, so concurrent
 # streams must run one at a time anyway. (Same pattern as serve/server_hf.py.)
+#
+# Unbounded waiting was the old failure mode: CPU generation runs 2–15 tok/s,
+# so one 400-token request holds the lock for minutes while every other user
+# hangs forever. Bounded now: waiters give up after GEN_LOCK_TIMEOUT seconds
+# and are refused outright once GEN_QUEUE_CAP requests are already queued.
 _MODEL_LOCK = threading.Lock()
+_GEN_LOCK_TIMEOUT = float(os.environ.get("GEN_LOCK_TIMEOUT", "300"))
+_GEN_QUEUE_CAP = int(os.environ.get("GEN_QUEUE_CAP", "8"))
+_GEN_WAITING = 0
+_GEN_WAITING_LOCK = threading.Lock()
+
+
+def _enter_gen_slot() -> None:
+    """入队 + 限时获取共享模型锁；队列满/超时抛 503（失败回滚等待计数）。"""
+    global _GEN_WAITING
+    with _GEN_WAITING_LOCK:
+        if _GEN_WAITING >= _GEN_QUEUE_CAP:
+            raise HTTPException(503, f"server busy (queue full, cap {_GEN_QUEUE_CAP})")
+        _GEN_WAITING += 1
+    try:
+        if not _MODEL_LOCK.acquire(timeout=_GEN_LOCK_TIMEOUT):
+            raise HTTPException(503, f"model busy (lock timeout {_GEN_LOCK_TIMEOUT:.0f}s)")
+    except BaseException:
+        with _GEN_WAITING_LOCK:
+            _GEN_WAITING -= 1
+        raise
 
 
 def _gen_lock():
@@ -192,12 +232,18 @@ def _gen_lock():
     runs a model forward / generation or mutates live weights, so the shared
     model state is never touched by two requests at once. (threading.Lock,
     not asyncio: sync endpoints run on the anyio threadpool; a Lock may be
-    released by a different thread than acquired, which is safe here.)"""
-    _MODEL_LOCK.acquire()
+    released by a different thread than acquired, which is safe here.)
+
+    Fails fast instead of hanging: HTTP 503 when the waiter queue is full or
+    the lock is not obtained within the timeout."""
+    global _GEN_WAITING
+    _enter_gen_slot()
     try:
         yield
     finally:
         _MODEL_LOCK.release()
+        with _GEN_WAITING_LOCK:
+            _GEN_WAITING -= 1
 
 # ── Middleware: gzip compression ──────────────────────────────────────────────
 app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -247,6 +293,27 @@ _ANON_PER_MIN = int(os.environ.get("API_ANON_PER_MIN", "20"))
 
 _key_store = ApiKeyStore(_KEYS_DB) if _AUTH_MODE != "off" else None
 _anon_limiter = AnonymousRateLimiter(_ANON_PER_MIN)
+
+
+def _validate_auth_config(mode: str, store) -> None:
+    """启动期鉴权配置体检（P2-10 生产化）。
+
+    strict + 零可用 key = 把所有 /v1/* 锁死且无法自救 —— 部署错误，
+    直接 fail fast 并给出自救命令；soft 只提醒（匿名仍可走限流）。
+    """
+    if mode == "off" or store is None:
+        return
+    n_active = store.count_active()
+    if mode == "strict" and n_active == 0:
+        raise RuntimeError(
+            "API_AUTH_MODE=strict but the key store has no ACTIVE keys — "
+            "every /v1/* request would be locked out. Issue one first:\n"
+            f"  python scripts/api_key_admin.py issue --label ops\n"
+            f"(key db: {_KEYS_DB})")
+    print(f"[serve] api auth {mode} | {n_active} active key(s) | db={_KEYS_DB}")
+
+
+_validate_auth_config(_AUTH_MODE, _key_store)
 
 
 def _client_ip(request: Request) -> str:
@@ -388,8 +455,20 @@ def _record_partner_hit(name: str, request: "Request") -> None:
         except (FileNotFoundError, ValueError):
             agg = {}
         agg[name] = int(agg.get(name, 0)) + 1
-        with open(agg_path, "w", encoding="utf-8") as f:
-            json.dump(agg, f, indent=2)
+        # Atomic replace, not truncate-in-place: a docker stop between the
+        # open("w") and the json.dump used to leave a truncated file that the
+        # next read rejects (ValueError) — silently zeroing all history.
+        fd, tmp_path = tempfile.mkstemp(
+            dir=_PARTNER_DIR, prefix=".counts.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(agg, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, agg_path)
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
 
 
 @app.get("/partners/{name}")
@@ -409,9 +488,17 @@ def partner_referral(name: str, request: Request):
 
 @app.get("/partners")
 def partner_stats(request: Request):
-    """Aggregate referral counts. Optionally gate with PARTNER_STATS_TOKEN."""
-    token = os.environ.get("PARTNER_STATS_TOKEN")
-    if token and request.query_params.get("token") != token:
+    """Aggregate referral counts, gated by PARTNER_STATS_TOKEN (fail-closed).
+
+    An unset/empty token used to short-circuit the check into "no auth",
+    publishing every partner's click counts (and their existence) to the
+    world. Now the endpoint refuses to serve until a token is configured:
+    unset token → 503, wrong token → 401.
+    """
+    token = os.environ.get("PARTNER_STATS_TOKEN", "")
+    if not token:
+        raise HTTPException(503, "stats locked: set PARTNER_STATS_TOKEN to enable")
+    if not secrets.compare_digest(request.query_params.get("token", ""), token):
         raise HTTPException(401, "stats token required")
     agg_path = os.path.join(_PARTNER_DIR, "counts.json")
     try:
@@ -487,7 +574,22 @@ def _startup() -> None:
         "DEVICE", "cuda" if torch.cuda.is_available() else "cpu"
     )
     torch.set_grad_enabled(False)
+    ckpt_path = os.environ.get("CKPT_PATH", "")
+    ckpt_loaded = bool(ckpt_path) and os.path.exists(ckpt_path)
     model = _build_model(small).to(device)
+    # Weight-only int8 (liquid raw Parameters + nn.Linear dynamic). The 2B
+    # deployment math needs it: fp32 7.6 GB → int8 ~1.9 GB fits a 7.2 GB VPS.
+    # Must run AFTER .to(device)/.eval() and BEFORE the first forward; returns
+    # a possibly-new module tree (quantize_dynamic rebuilds Linear subtrees).
+    quant_info = None
+    if os.environ.get("QUANTIZE_INT8", "0") == "1":
+        from mt_lnn.quantization import quantize_mtlnn_int8
+        model, qrep = quantize_mtlnn_int8(model, verbose=True)
+        quant_info = {"mode": "int8-weightonly",
+                      "n_quantized": qrep["n_quantized"],
+                      "bytes_before": qrep["bytes_before"],
+                      "bytes_after": qrep["bytes_after"],
+                      "reduction": qrep["reduction"]}
     tok = _load_tokenizer(small)
     # Cross-session recurrent-state persistence (Gap 4). Empty string → OFF, so
     # the server stays stateless and bit-identical to before unless SESSION_DB is
@@ -509,6 +611,14 @@ def _startup() -> None:
         session_db=session_db,
         knowledge_db=knowledge_db,
         graph_db=graph_db,
+        # Model identity for /v1/model consumers (frontend applyModel). The
+        # native server serves MT-LNN weights directly — no HF base, no
+        # adapter — so base_model/adapter_loaded mirror server_hf.py's schema
+        # with native values, and is_baseline is only true for the fresh
+        # untrained fallback.
+        ckpt_path=(os.environ.get("CKPT_PATH") or None),
+        ckpt_loaded=ckpt_loaded,
+        quantization=quant_info,
         ready=True,
     )
     print(f"[serve] ready | {_STATE['n_params']/1e6:.1f}M params | device={device}"
@@ -517,6 +627,27 @@ def _startup() -> None:
     # Optional multimodal frontend (CLIP vision tower → projector → inputs_embeds).
     _STATE["mm_ready"] = False
     _STATE["mm_error"] = None
+
+    # Optional BM25 retrieval layer (mt_lnn/rag.py; index built by
+    # scripts/build_rag_corpus.py). Pure-python, no model state, no lock.
+    rag_index = None
+    rag_path = os.environ.get("RAG_INDEX", "").strip()
+    if rag_path:
+        try:
+            import pickle
+
+            from mt_lnn.rag import BM25Index
+            with open(rag_path, "rb") as fh:
+                obj = pickle.load(fh)
+            if isinstance(obj, BM25Index) and len(obj) > 0:
+                rag_index = obj
+                print(f"[serve] rag ready | {len(obj)} passages | {rag_path}")
+            else:
+                print(f"[serve] rag DISABLED ({rag_path} is not a non-empty "
+                      "BM25Index)")
+        except Exception as e:  # noqa: BLE001 - degrade gracefully, keep serving
+            print(f"[serve] rag DISABLED ({type(e).__name__}: {e})")
+    _STATE["rag_index"] = rag_index
     if os.environ.get("ENABLE_MULTIMODAL", "0") == "1":
         try:
             from mt_lnn.multimodal import CLIPModalityEncoder
@@ -551,6 +682,29 @@ class CompletionRequest(BaseModel):
     # LNN h_prev state and writes the updated state back afterwards. Omitted (None)
     # → stateless, identical to the pre-persistence behaviour.
     session_id: Optional[str] = None
+    # Retrieval augmentation (RAG_INDEX): when True AND the server was started
+    # with a BM25 index, the prompt is prefixed with retrieved context before
+    # generation. The response reports what was retrieved.
+    rag: bool = False
+    rag_top_k: int = Field(4, ge=1, le=20)
+
+
+def _apply_rag(req: "CompletionRequest") -> Optional[dict]:
+    """BM25 检索增强：命中块拼成上下文前缀进 prompt（原地改写 req.prompt）。
+
+    返回 rag 信息 dict（未启用/未请求/无命中时 None 或 used=False）。
+    纯 python 字符串操作，不触模型状态，无需生成锁。
+    """
+    idx = _STATE.get("rag_index")
+    if not req.rag or idx is None or not req.prompt:
+        return None
+    hits = idx.retrieve(req.prompt, top_k=req.rag_top_k)
+    if not hits:
+        return {"used": False, "n_hits": 0, "top_k": req.rag_top_k}
+    from mt_lnn.rag import format_context
+    ctx = format_context(hits, max_chars=RAG_MAX_CHARS)
+    req.prompt = (f"[Retrieved context]\n{ctx}\n\n{req.prompt}")
+    return {"used": True, "n_hits": len(hits), "top_k": req.rag_top_k}
 
 
 def _encode(req: CompletionRequest) -> torch.Tensor:
@@ -717,10 +871,42 @@ def model_info():
         "device": _STATE["device"],
         "tokenizer": "byte" if _STATE["small"]
         else os.environ.get("TOKENIZER", "gpt2"),
+        # Schema parity with server_hf.py /v1/model — the demo frontend's
+        # applyModel() switches on these; without them the status bar can
+        # never leave "MT-LNN · 48M · cpu" and the O1 badge never renders.
+        "base_model": None,                     # native weights, no HF base
+        "adapter_loaded": False,                # adapters live in server_hf
+        "is_baseline": not _STATE.get("ckpt_loaded"),
+        "checkpoint": _STATE.get("ckpt_path"),
+        "quantization": _STATE.get("quantization"),
         "multimodal": bool(_STATE.get("mm_ready")),
         "vision_tower": _STATE.get("mm_model"),
         "multimodal_error": _STATE.get("mm_error"),
     }
+
+
+@app.get("/v1/rag/search")
+def rag_search(q: str = "", top_k: int = 5):
+    """Direct BM25 search over the loaded index (retrieval as a service)."""
+    idx = _STATE.get("rag_index")
+    if idx is None:
+        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
+    if not q.strip():
+        raise HTTPException(400, "q is required")
+    hits = idx.search(q, top_k=max(1, min(top_k, 50)))
+    return {"query": q, "hits": [
+        {"passage": idx.passages[i], "score": round(s, 4)} for i, s in hits
+    ]}
+
+
+@app.get("/v1/rag")
+def rag_info_endpoint():
+    """Retrieval layer status. 404 when the server started without RAG_INDEX."""
+    idx = _STATE.get("rag_index")
+    if idx is None:
+        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
+    return {"enabled": True, "n_passages": len(idx),
+            "max_context_chars": RAG_MAX_CHARS}
 
 
 @app.get("/v1/sessions")
@@ -860,6 +1046,7 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
     if req.max_new_tokens > MAX_NEW_CAP:
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
+    rag_info = _apply_rag(req)
     ids = _encode(req)
     t0 = time.time()
     if _session_enabled(req):
@@ -881,6 +1068,8 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
         "elapsed_s": round(dt, 4),
         "tok_per_s": round(len(new_ids) / dt, 2) if dt > 0 else None,
     }
+    if rag_info is not None:
+        resp["rag"] = rag_info
     if total_tokens is not None:
         resp["session_id"] = req.session_id
         resp["session_token_count"] = total_tokens
@@ -895,10 +1084,13 @@ def completions_stream(req: CompletionRequest, _lock=Depends(_gen_lock)):
         raise HTTPException(400, f"max_new_tokens exceeds cap {MAX_NEW_CAP}")
     model, tok = _STATE["model"], _STATE["tok"]
     eos = _eos_id(req.stop_at_eos)
+    rag_info = _apply_rag(req)
     ids = _encode(req)
     session = _session_enabled(req)
 
     def _gen():
+        if rag_info is not None:
+            yield f"data: {json.dumps({'rag': rag_info})}\n\n"
         # Prefill, then emit one token per step (greedy/sampled) over the cache.
         # When a session is active, the prefill CONTINUES from the persisted
         # recurrent state and the updated state is written back at the end.

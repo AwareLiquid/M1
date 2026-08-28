@@ -143,7 +143,7 @@ Needs: 125M standalone MT-LNN + Anesthesia Validation Protocol + arXiv citation.
 | Sub-feature | Requirement | Status |
 |---|---|---|
 | JSONL schema | One row per token: `(step, token_id, entropy, route, phi)` + separate `route` and `cloud_inject` events | ✅ |
-| `trace_timeline.html` viewer | Single-file HTML; one colored bar per token; click for raw event | ✅ |
+| `examples/trace_timeline.html` viewer | Single-file HTML; one colored bar per token; click for raw event | ✅ |
 | `bench_trace_audit.py` | Reports route breakdown, self-sufficiency, entropy stats, Φ̂ stats, cost vs full-cloud | ✅ |
 | Real inference emits trace | Hook `ReasoningTrace` into Qwen generate loop, not just synthetic demo | ✅ done (`scripts/awareliquid_real_trace_v3.py`: manual KV-cache token loop emits real per-token entropy/route/inject events) |
 | Demo session bundle | One canonical user-query trace shipped in repo; reproducible from scripts | ✅ Qwen-0.5B/CPU smoke shipped (`real_trace_demo.jsonl`); ⏳ canonical adapter-on rerun pending (Track 1B) |
@@ -252,7 +252,7 @@ Four orthogonal brain-inspired modules + observability. **All default OFF, zero 
 | Trainable params | ≤ 0.2% | **0.117%–0.196%** | same |
 | Cloud-inject accuracy uplift, real backend | ≥ +10% | **+13.3% (Qwen-1.5B, 30 Q)** | `benchmarks/cloud_inject_qwen/*.json` |
 | Adapter preserves in-context learning | uplift Δ vs no-adapter ≤ 1pp | **Δ = 0pp (identical)** | same |
-| Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) · **100%** (real Qwen-0.5B smoke) | `demo_trace_audit.json` · `artifacts/real_trace_demo_audit.json` |
+| Self-sufficiency on demo trace | ≥ 95% | **99.17%** (synthetic) · **100%** (real Qwen-0.5B smoke) | `artifacts/demo_trace_audit.json` · `artifacts/real_trace_demo_audit.json` |
 | Real-inference trace | demo session shipped | ✅ **shipped** (Qwen-0.5B/CPU; adapter-on canonical Kaggle run in flight) | `scripts/awareliquid_real_trace.py` · `artifacts/real_trace_demo.jsonl` |
 | ≥3B base needle non-zero | base non-zero accuracy at 4096-context | ⏳ **harness fixed (2026-05-30)** — Qwen-0.5B achieves 1.0 acc with chat-template; pending rerun on 1.5B/3B+adapter | `NEEDLE_FIX.md` · `bench_needle_chat_template.py` |
 
