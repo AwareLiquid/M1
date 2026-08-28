@@ -416,19 +416,22 @@ def bm25_benchmark(n_entries_list, n_queries=100, seed=0):
 
 def runtime_curves(n_entries_list, dims=(128, 512, 2048), n_queries=100, seed=0):
     """ParametricMemory accuracy / state_bytes / recall latency vs N writes.
-    Task aligned with the LM protocol + BM25 control: keys from a large space
-    (vocab table), values decoded against a 1000-wide value range (chance
-    1/1000). state_bytes is constant by construction; accuracy vs N traces
-    the honest capacity boundary (~sqrt(d/N) read SNR for random unit keys)."""
+    Task aligned with the LM protocol: disjoint key/value vocab slices, values
+    decoded against a 1000-wide value range (chance 1/1000). state_bytes is
+    constant by construction; accuracy vs N traces the honest capacity
+    boundary (~sqrt(d/N) read SNR for random unit keys)."""
     from mt_lnn.parametric_memory import ParametricMemory
 
     out = []
     for d in dims:
-        mem = ParametricMemory(d_mem=d, vocab_size=1_000_000, seed=seed,
+        # Disjoint key/value vocab slices like the LM protocol: keys from
+        # [0, 10k), values from a 1000-wide slice [10k, 11k). vocab 20k keeps
+        # the embedding table small even at d=2048 (20k*2048*4B = 164 MB).
+        mem = ParametricMemory(d_mem=d, vocab_size=20_000, seed=seed,
                                update_rule="sum")
         g = torch.Generator().manual_seed(seed)
-        keys = torch.randperm(1_000_000, generator=g)[:max(n_entries_list) + 100]
-        vals = torch.randint(900_000, 901_000, (len(keys),), generator=g)
+        keys = torch.randperm(10_000, generator=g)[:max(n_entries_list)]
+        vals = torch.randint(10_000, 11_000, (len(keys),), generator=g)
         written = 0
         for n_target in n_entries_list:
             while written < n_target:
@@ -439,7 +442,7 @@ def runtime_curves(n_entries_list, dims=(128, 512, 2048), n_queries=100, seed=0)
                 j = int(torch.randint(0, written, (1,), generator=g))
                 t0 = time.perf_counter()
                 got = mem.recall("s", int(keys[j]), top_k=1,
-                                 candidates=range(900_000, 901_000))[0][0]
+                                 candidates=range(10_000, 11_000))[0][0]
                 lat.append(time.perf_counter() - t0)
                 hits += int(got == int(vals[j]))
             out.append({
