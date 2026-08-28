@@ -35,6 +35,9 @@ Environment
                 answering 503 (default: 300 — CPU generation is 2–15 tok/s)
     GEN_QUEUE_CAP  max requests waiting for the model lock; beyond it, 503
                 immediately (default: 8)
+    QUANTIZE_INT8  "1" → weight-only int8 after load (nn.Linear dynamic +
+                liquid raw-Parameter Int8Weight). Inference-only; see
+                mt_lnn/quantization.py.
     API_AUTH_MODE  off | soft | strict  (default: off — no auth, current
                 behaviour, demo-friendly). soft: anonymous requests are
                 rate-limited per IP (API_ANON_PER_MIN); a request carrying a
@@ -538,6 +541,19 @@ def _startup() -> None:
     ckpt_path = os.environ.get("CKPT_PATH", "")
     ckpt_loaded = bool(ckpt_path) and os.path.exists(ckpt_path)
     model = _build_model(small).to(device)
+    # Weight-only int8 (liquid raw Parameters + nn.Linear dynamic). The 2B
+    # deployment math needs it: fp32 7.6 GB → int8 ~1.9 GB fits a 7.2 GB VPS.
+    # Must run AFTER .to(device)/.eval() and BEFORE the first forward; returns
+    # a possibly-new module tree (quantize_dynamic rebuilds Linear subtrees).
+    quant_info = None
+    if os.environ.get("QUANTIZE_INT8", "0") == "1":
+        from mt_lnn.quantization import quantize_mtlnn_int8
+        model, qrep = quantize_mtlnn_int8(model, verbose=True)
+        quant_info = {"mode": "int8-weightonly",
+                      "n_quantized": qrep["n_quantized"],
+                      "bytes_before": qrep["bytes_before"],
+                      "bytes_after": qrep["bytes_after"],
+                      "reduction": qrep["reduction"]}
     tok = _load_tokenizer(small)
     # Cross-session recurrent-state persistence (Gap 4). Empty string → OFF, so
     # the server stays stateless and bit-identical to before unless SESSION_DB is
@@ -566,6 +582,7 @@ def _startup() -> None:
         # untrained fallback.
         ckpt_path=(os.environ.get("CKPT_PATH") or None),
         ckpt_loaded=ckpt_loaded,
+        quantization=quant_info,
         ready=True,
     )
     print(f"[serve] ready | {_STATE['n_params']/1e6:.1f}M params | device={device}"
@@ -781,6 +798,7 @@ def model_info():
         "adapter_loaded": False,                # adapters live in server_hf
         "is_baseline": not _STATE.get("ckpt_loaded"),
         "checkpoint": _STATE.get("ckpt_path"),
+        "quantization": _STATE.get("quantization"),
         "multimodal": bool(_STATE.get("mm_ready")),
         "vision_tower": _STATE.get("mm_model"),
         "multimodal_error": _STATE.get("mm_error"),

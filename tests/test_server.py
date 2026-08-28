@@ -17,6 +17,7 @@ import json
 import os
 
 import pytest
+import torch
 
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")  # required by starlette TestClient
@@ -172,3 +173,28 @@ def test_gen_lock_full_queue_rejects_immediately(client, monkeypatch):
     assert "queue full" in r.json()["detail"]
     # A refused request must not leave the waiter counter negative/leaked.
     assert srv._GEN_WAITING == 0
+
+
+# ---------------------------------------------------------------------------
+# QUANTIZE_INT8 startup flag (P0-2) — weight-only int8 serving path.
+# ---------------------------------------------------------------------------
+
+def test_quantize_int8_startup_flag(monkeypatch):
+    import serve.server as srv
+
+    monkeypatch.setenv("QUANTIZE_INT8", "1")
+    srv._STATE.clear()
+    srv._startup()
+    try:
+        assert srv._STATE["ready"]
+        q = srv._STATE["quantization"]
+        assert q["mode"] == "int8-weightonly"
+        assert q["n_quantized"] > 0
+        # 量化后模型照常生成（Int8Weight 在 forward 里惰性反量化）
+        m = srv._STATE["model"]
+        ids = torch.tensor([[10, 20, 30]], dtype=torch.long)
+        with torch.no_grad():
+            out = m.generate(ids, max_new_tokens=4, do_sample=False)
+        assert out.shape[1] >= 4
+    finally:
+        srv._STATE.clear()
