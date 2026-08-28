@@ -14,7 +14,7 @@ and emits a report:
 
 Usage::
 
-    python scripts/bench_trace_audit.py demo_trace.jsonl
+    python scripts/bench_trace_audit.py artifacts/demo_trace.jsonl
     python scripts/bench_trace_audit.py *.trace.jsonl --format json
 """
 

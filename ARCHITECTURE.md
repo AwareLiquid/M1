@@ -682,7 +682,7 @@ flowchart TB
 
     subgraph L3["Layer 3 · Verifiable Trace Plane"]
         PHI["Φ-IIT Monitor  phi_iit.py"]
-        UI["Reasoning Timeline  trace_timeline.html"]
+        UI["Reasoning Timeline  examples/trace_timeline.html"]
         PHI --> UI
     end
 
