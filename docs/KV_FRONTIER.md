@@ -133,7 +133,32 @@ is irreplaceable exactly and only on the first class of tasks — which is
 why the external claim is scoped to "smallest carried state *without
 discarding context*".
 
-## 7. Reproduce
+## 7. Measured validation on real models (2026-08-29, local MPS)
+
+The analytic ledger is now cross-checked against REAL model runs
+(`benchmarks/kv_measured.py`, zero new dependencies; artifacts
+`benchmarks/results/kv_measured.{json,md}`):
+
+* **fp16 formula: exact.** Real HF forwards at T ∈ {512, 2048, 8192} on
+  TinyLlama-1.1B (GQA=4) and Llama-3.2-1B (GQA=8, ungated mirror) measure
+  cache bytes with **0.0000% deviation** from `2·L·n_kv·d_head·T·bytes` in
+  every cell — the analytic side is not an approximation.
+* **The 2-bit ledger row is a strict floor.** Measured KIVI-scheme packing
+  on the real cache tensors exceeds the ledger formula by exactly the
+  zero-point bytes the ledger folds to 0 B: **+2.96%** on both models.
+  KIVI-style g=32 sub-grouping metadata adds a further **+24.4–25.6%**
+  (g sensitivity documented per row).
+* **Eviction measured, not just derived**: the sink(4)+window(4096) slice
+  of the real cache at T=8192 is 12.64 MB (GQA=4) / 18.39 MB (GQA=8) at
+  2-bit — matching the analytic cap arithmetic.
+
+Every measured excess lands on the **opponent's** side of the ledger, so
+the published ARR advantages (1070.9× @128k, 8567× @1M vs 2-bit+GQA8) are
+**lower bounds**. The one unmeasured residue: the official KIVI codebase's
+kernel/workspace overhead, which needs CUDA (pending Kaggle access) and can
+only enlarge the opponent further.
+
+## 8. Reproduce
 
 ```bash
 # 1) measured ARR flat line (CPU, ~25 min for the full 512→1M ladder):
@@ -143,5 +168,7 @@ python benchmarks/scaling_comparison.py --mode decode \
 # 2) the frontier ledger (seconds):
 python benchmarks/kv_frontier.py            # -> results/kv_frontier.{md,json}
 # 3) the gates:
-python -m pytest tests/test_kv_frontier.py -q
+python -m pytest tests/test_kv_frontier.py tests/test_kv_measured.py -q
+# 4) measured validation on real models (MPS/CPU, ~2 min, zero new deps):
+python benchmarks/kv_measured.py    # -> results/kv_measured.{json,md}
 ```
