@@ -189,3 +189,106 @@ def pscan_constant_A(decay: torch.Tensor, X: torch.Tensor,
     # Broadcast decay to (..., T): add a scan dim and expand
     A = decay.unsqueeze(-1).expand(*decay.shape, T)
     return pscan(A, X, h_init=h_init)
+
+
+# ---------------------------------------------------------------------------
+# Chunkwise scan (SSD-style): intra-chunk matmul + inter-chunk carry
+# ---------------------------------------------------------------------------
+#
+# Same recurrence h_t = A_t * h_{t-1} + X_t, decomposed into chunks of C
+# steps (Mamba-2 SSD / GLA / DeltaNet training formulation):
+#   * within a chunk every output is ONE masked matmul
+#         H_local = L @ X_chunk,   L[i, j] = prod_{k=j+1..i} A_k  (j <= i)
+#   * across chunks only a single state carry s propagates:
+#         H[i] = L[i, :] @ X_chunk + g_i * s,   g_i = prod_{k=start..i} A_k
+# Sequential depth drops from O(T log T) scan work to T/C small carry
+# steps while the per-chunk work is dense matmul (Tensor-Core friendly).
+#
+# L is built without divisions or cumprod quotients, which underflow fp32
+# for |A| < 1 and long chunks (0.05^64 ~ 1e-83). Instead the magnitude is
+# factorised log-space (segsum: exp(cumlog_i - cumlog_j), the Mamba-2
+# formulation) and the SIGN is factorised exactly (scum_i * scum_j for
+# sigma in {-1,+1}), so signed multipliers (config.signed_decay /
+# selective_decay, lambda in (-1, 1)) are first-class. exp underflow
+# flushes truly-negligible weights to 0 — the same flush-to-zero the
+# sequential products already exhibit.
+#
+# Bit-level result differs from pscan() only by float reassociation
+# (different summation order); equivalence to pscan_sequential is pinned
+# by tests/test_pscan_chunkwise.py and is the merge gate for the
+# use_chunkwise_scan switch.
+
+def _chunk_decay_terms(A_c: torch.Tensor):
+    """Shared per-chunk decay factorisation.
+
+    A_c: (..., C). Returns (cumlog, scum):
+      cumlog: (..., C) inclusive cumsum of log|A| (clamped away from 0)
+      scum:   (..., C) inclusive cumprod of sign(A) in {-1, +1}
+    """
+    sign = (A_c >= 0).to(A_c.dtype) * 2.0 - 1.0          # sign(0) -> +1
+    tiny = torch.finfo(A_c.dtype).tiny                   # dtype-safe log domain
+    logm = A_c.abs().clamp_min(tiny).log()
+    return logm.cumsum(-1), sign.cumprod(-1)
+
+
+def _chunk_decay_matrix(cumlog: torch.Tensor, scum: torch.Tensor) -> torch.Tensor:
+    """L[i, j] = prod_{k=j+1..i} A_k for j <= i, else 0.  (..., C, C)."""
+    C = cumlog.shape[-1]
+    segsum = cumlog.unsqueeze(-1) - cumlog.unsqueeze(-2)   # (..., i, j)
+    sign_outer = scum.unsqueeze(-1) * scum.unsqueeze(-2)
+    tri = torch.ones(C, C, device=cumlog.device,
+                     dtype=cumlog.dtype).tril()            # incl. diagonal
+    return segsum.exp() * sign_outer * tri
+
+
+def _scan_chunk(A_c: torch.Tensor, X_c: torch.Tensor, carry: torch.Tensor):
+    """One chunk: H = L @ X + g * carry; returns (H, next_carry = H[..., -1, :])."""
+    cumlog, scum = _chunk_decay_terms(A_c)
+    L = _chunk_decay_matrix(cumlog, scum)                # (..., C, C)
+    g = scum * cumlog.exp()                              # (..., C) decay from chunk start
+    H = L.matmul(X_c) + g.unsqueeze(-1) * carry          # (..., C, D)
+    return H, H[..., -1, :]
+
+
+def pscan_chunkwise(A: torch.Tensor, X: torch.Tensor,
+                    h_init: Optional[torch.Tensor] = None,
+                    chunk_size: int = 64) -> torch.Tensor:
+    """
+    Chunkwise parallel-form scan: same semantics as pscan(), same shapes.
+
+    A:      (..., T)        — per-step multipliers (any sign, as in pscan)
+    X:      (..., T, D)     — per-step inputs
+    h_init: (..., D) or None — initial state h_{-1} (chunk-0 carry, NOT
+                               absorbed into X, so X is never copied)
+    chunk_size: C           — intra-chunk width; trade matmul size (C^2)
+                              against carry-loop depth (T/C)
+
+    Returns H: (..., T, D), same shape and dtype as X.
+    """
+    T = A.shape[-1]
+    assert X.shape[-2] == T, \
+        f"A and X scan dims disagree: A[..., T={T}], X[..., T={X.shape[-2]}, D]"
+    if chunk_size < 1:
+        raise ValueError(f"chunk_size must be >= 1; got {chunk_size}")
+    if T == 0:
+        return torch.empty_like(X)
+
+    carry = h_init if h_init is not None else torch.zeros_like(X[..., 0, :])
+    H_chunks = []
+    for start in range(0, T, chunk_size):
+        end = min(start + chunk_size, T)
+        H_c, carry = _scan_chunk(A[..., start:end], X[..., start:end, :], carry)
+        H_chunks.append(H_c)
+    return torch.cat(H_chunks, dim=-2)
+
+
+def pscan_chunkwise_constant_A(decay: torch.Tensor, X: torch.Tensor,
+                               h_init: Optional[torch.Tensor] = None,
+                               chunk_size: int = 64) -> torch.Tensor:
+    """
+    Chunkwise counterpart of pscan_constant_A(): decay (...)
+    broadcasts over the scan dim, then pscan_chunkwise() runs as usual.
+    """
+    T = X.shape[-2]
+    A = decay.unsqueeze(-1).expand(*decay.shape, T)
+    return pscan_chunkwise(A, X, h_init=h_init, chunk_size=chunk_size)
