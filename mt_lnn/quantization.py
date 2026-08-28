@@ -230,6 +230,18 @@ def _build_report(before: int, after: int, names: list,
     }
 
 
+def _reattach_handle(module: nn.Module, base: str) -> bool:
+    """按 {base}_q / {base}_scale buffer 重建同名 Int8Weight 句柄。"""
+    q = module._buffers.get(f"{base}_q")
+    scale = module._buffers.get(f"{base}_scale")
+    if q is None or scale is None:
+        return False
+    handle = q.as_subclass(Int8Weight)
+    handle.scale = scale
+    setattr(module, base, handle)
+    return True
+
+
 def _quantize_linears_robust(model: nn.Module) -> tuple:
     """整树 ``quantize_dynamic`` 一把梭，失败降级逐模块（见 _swap_linears_one_by_one）。
 
@@ -259,18 +271,6 @@ def _quantize_liquid_params(model: nn.Module) -> list:
 
 
 
-
-
-def _reattach_handle(module: nn.Module, base: str) -> bool:
-    """按 {base}_q / {base}_scale buffer 重建同名 Int8Weight 句柄。"""
-    q = module._buffers.get(f"{base}_q")
-    scale = module._buffers.get(f"{base}_scale")
-    if q is None or scale is None:
-        return False
-    handle = q.as_subclass(Int8Weight)
-    handle.scale = scale
-    setattr(module, base, handle)
-    return True
 
 
 def _module_weight_bytes(module: nn.Module) -> int:

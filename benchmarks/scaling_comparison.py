@@ -341,16 +341,6 @@ def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1",
     return torch.from_numpy(ids[:n].astype(np.int64)).reshape(-1, seq_len)
 
 
-def _resolve_recipe(args):
-    """配方显式化（E0 纪律：beta2/clip 行内记录，好配方 --good_recipe 一键）。
-    默认值 = P0 历史口径 (0.95/1.0)，保证与 scaling_fp32/ 已归档结果可复现；
-    E6 文本收益重测按 DEVELOPMENT_PLAN 用 --good_recipe (beta2=0.999, clip=0)。"""
-    beta2, grad_clip = args.beta2, args.grad_clip
-    if args.good_recipe:
-        beta2, grad_clip = 0.999, 0.0
-    return beta2, grad_clip
-
-
 def _heldout_ppl(m, test_c, args, device, dtype):
     """Held-out PPL from the PURE next-token CE (lm_loss), never the training
     objective (out["loss"] folds in the MTP aux term for mt_lnn_mtp).
@@ -380,6 +370,16 @@ def _chunk_nll(m, ids, device, dtype):
     n = ids.shape[0] * (ids.shape[1] - 1)
     ce = out.get("lm_loss", out["loss"])
     return ce.float().item() * n, n
+
+
+def _resolve_recipe(args):
+    """配方显式化（E0 纪律：beta2/clip 行内记录，好配方 --good_recipe 一键）。
+    默认值 = P0 历史口径 (0.95/1.0)，保证与 scaling_fp32/ 已归档结果可复现；
+    E6 文本收益重测按 DEVELOPMENT_PLAN 用 --good_recipe (beta2=0.999, clip=0)。"""
+    beta2, grad_clip = args.beta2, args.grad_clip
+    if args.good_recipe:
+        beta2, grad_clip = 0.999, 0.0
+    return beta2, grad_clip
 
 
 def train_arch(arch, args, device, dtype, seed=0):

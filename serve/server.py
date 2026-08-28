@@ -885,16 +885,6 @@ def model_info():
     }
 
 
-@app.get("/v1/rag")
-def rag_info_endpoint():
-    """Retrieval layer status. 404 when the server started without RAG_INDEX."""
-    idx = _STATE.get("rag_index")
-    if idx is None:
-        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
-    return {"enabled": True, "n_passages": len(idx),
-            "max_context_chars": RAG_MAX_CHARS}
-
-
 @app.get("/v1/rag/search")
 def rag_search(q: str = "", top_k: int = 5):
     """Direct BM25 search over the loaded index (retrieval as a service)."""
@@ -907,6 +897,16 @@ def rag_search(q: str = "", top_k: int = 5):
     return {"query": q, "hits": [
         {"passage": idx.passages[i], "score": round(s, 4)} for i, s in hits
     ]}
+
+
+@app.get("/v1/rag")
+def rag_info_endpoint():
+    """Retrieval layer status. 404 when the server started without RAG_INDEX."""
+    idx = _STATE.get("rag_index")
+    if idx is None:
+        raise HTTPException(404, "retrieval disabled (set RAG_INDEX)")
+    return {"enabled": True, "n_passages": len(idx),
+            "max_context_chars": RAG_MAX_CHARS}
 
 
 @app.get("/v1/sessions")
