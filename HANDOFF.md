@@ -493,7 +493,11 @@ BENCH_DEVICE=cpu TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY \
   benchmarks/parametric_memory_bench.py --smoke
 
 # 3) 全量（~2h，MPS；resume-safe：中断后原命令重跑即续，已有 JSON 自动跳过）
-TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY benchmarks/parametric_memory_bench.py
+#    日志全部带 [HH:MM:SS] 时间戳 + PHASE 阶段标记（train/eval/D4/bm25/runtime），
+#    tee 落盘一份便于排查：nan 有 [WARN]，seed 缺失有 [WARN]，
+#    子进程失败搜 "Traceback" 与 "[ERROR"
+TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY benchmarks/parametric_memory_bench.py \
+  2>&1 | tee benchmarks/results/parametric_memory_run.log
 ```
 
 产出（全部落 `benchmarks/results/`，这是入库的唯一依据）：

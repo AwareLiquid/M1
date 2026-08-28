@@ -66,6 +66,14 @@ CONFIGS = ["baseline", "lora_only", "mt_v2", "mt_v2_delta"]
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 
 
+def log(msg: str) -> None:
+    """Timestamped, flushed progress line — the whole run is meant to be
+    watched/teed: every phase transition, every result JSON, every anomaly
+    prints here. A silent stretch longer than one training log interval
+    (default 200 steps) is a bug."""
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # Binding generators (D3 conflict; D1/D2 reuse cross_window_recall.make_batch)
 # ---------------------------------------------------------------------------
@@ -171,12 +179,18 @@ def train_recall(m, args, device, dtype, reset_fn):
         opt.zero_grad(set_to_none=True)
         if step % args.log_every == 0:
             dt = max(time.time() - t0, 1e-3)
-            print(f"[train {args.config}] {step}/{args.steps} loss "
-                  f"{loss.item():.4f} acc {acc:.3f} | {args.log_every/dt:.2f} it/s",
-                  flush=True)
+            log(f"[train {args.config}] {step}/{args.steps} loss "
+                f"{loss.item():.4f} acc {acc:.3f} | {args.log_every/dt:.2f} it/s")
+            if loss.item() != loss.item() or loss.item() in (float("inf"),
+                                                             float("-inf")):
+                log(f"[WARN {args.config}] NON-FINITE LOSS at step {step} — "
+                    f"the run is producing garbage; consider stopping and "
+                    f"inspecting lr/state_scale_init")
             t0 = time.time()
     m.eval()
     set_stream_mode(m, True, train_through=False)
+    log(f"[train {args.config}] done: {args.steps} steps, final batch "
+        f"loss {loss.item():.4f} acc {acc:.3f}")
     return n_train
 
 
@@ -265,7 +279,7 @@ def run_cross_session_child(args, out_json):
     set_stream_mode(m, True, train_through=False)
 
     accs, no_restore = [], []
-    for trial_path in sorted(args.trials):
+    for i, trial_path in enumerate(sorted(args.trials)):
         t = torch.load(trial_path, map_location="cpu", weights_only=False)
         seg_b = t["seg_b"].to(device)
         _reset_fn(m)
@@ -279,6 +293,8 @@ def run_cross_session_child(args, out_json):
         _, acc0 = recall_loss_and_acc(
             m(input_ids=seg_b, use_cache=False).logits, seg_b)
         no_restore.append(acc0)
+        log(f"[child {args.config}] trial {i + 1}/{len(args.trials)} "
+            f"restored {acc:.3f} | no-restore {acc0:.3f}")
     within = [torch.load(p, map_location="cpu", weights_only=False)["within_window"]
               for p in sorted(args.trials)]
     out = {"cross_session": sum(accs) / len(accs),
@@ -287,8 +303,10 @@ def run_cross_session_child(args, out_json):
            "within_window_reference": sum(within) / len(within)}
     with open(out_json, "w") as f:
         json.dump(out, f, indent=2)
-    print(f"[child {args.config}] cross_session {out['cross_session']:.3f} | "
-          f"no-restore {out['no_restore_control']:.3f}", flush=True)
+    log(f"[child {args.config}] DONE cross_session "
+        f"{out['cross_session']:.3f} | no-restore "
+        f"{out['no_restore_control']:.3f} | within-ref "
+        f"{out['within_window_reference']:.3f} -> {out_json}")
 
 
 def spawn_cross_session_child(args, device, manifest, adapter_sd_path, workdir):
@@ -304,7 +322,16 @@ def spawn_cross_session_child(args, device, manifest, adapter_sd_path, workdir):
     env.setdefault("HF_HUB_OFFLINE", "1")               # model is cached
     env.setdefault("TRANSFORMERS_OFFLINE", "1")
     env["TMPDIR"] = workdir
-    subprocess.run(cmd, check=True, env=env)
+    log(f"[parent {args.config}] spawning D4 child (fresh process, "
+        f"{len(manifest)} trials) — its stdout/stderr stream below verbatim")
+    try:
+        subprocess.run(cmd, check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        log(f"[ERROR {args.config}] D4 child exited rc={e.returncode}. Its "
+            f"traceback is in the output above — search for 'Traceback' and "
+            f"'[child {args.config}]'. Common causes: adapter_sd mismatch, "
+            f"model load failure, disk full.")
+        raise
     with open(out_json) as f:
         return json.load(f)
 
@@ -481,14 +508,20 @@ def run_lm_config(args, device, dtype, workroot):
     torch.manual_seed(args.seed)
     m = build_model(args, device, dtype)
     t0 = time.time()
+    log(f"[{args.config} s{args.seed}] === PHASE train: {args.steps} steps on "
+        f"{device} ===")
     trainable = train_recall(m, args, device, dtype, _reset_fn)
     train_s = time.time() - t0
-    print(f"[{args.config}] trainable {trainable:,} trained in {train_s:.0f}s",
-          flush=True)
+    log(f"[{args.config} s{args.seed}] trainable {trainable:,} trained in "
+        f"{train_s:.0f}s")
 
     g_eval = torch.Generator().manual_seed(10_000 + args.seed)
+    log(f"[{args.config} s{args.seed}] === PHASE eval D1-D3: "
+        f"{args.eval_batches} batches x (in-win/x-win/conflict-x/conflict-in) ===")
     dims = eval_d1_d3(m, args, device, g_eval, _reset_fn)
 
+    log(f"[{args.config} s{args.seed}] === PHASE D4 write: {args.session_trials} "
+        f"sessions -> snapshots on disk ===")
     manifest = parent_write_snapshots(m, args, device, g_eval, workdir)
     adapter_sd = os.path.join(workdir, "adapter_sd.pt")
     save_adapter_params(m, adapter_sd)
@@ -496,6 +529,7 @@ def run_lm_config(args, device, dtype, workroot):
     if device == "cuda":
         torch.cuda.empty_cache()
 
+    log(f"[{args.config} s{args.seed}] === PHASE D4 cross-session (subprocess) ===")
     d4 = spawn_cross_session_child(args, device, manifest, adapter_sd, workdir)
 
     res = {
@@ -517,10 +551,13 @@ def run_lm_config(args, device, dtype, workroot):
     }
     with open(out_path, "w") as f:
         json.dump(res, f, indent=2)
-    print(f"[{args.config} s{args.seed}] D1 {res['dims']['accurate_retrieval']:.3f}"
-          f" D2 {res['dims']['test_time_learning']:.3f}"
-          f" D3 {res['dims']['conflict_resolution']:.3f}"
-          f" D4 {res['dims']['cross_session_long_range']:.3f}", flush=True)
+    log(f"[{args.config} s{args.seed}] RESULT D1 "
+        f"{res['dims']['accurate_retrieval']:.3f}"
+        f" D2 {res['dims']['test_time_learning']:.3f}"
+        f" D3 {res['dims']['conflict_resolution']:.3f}"
+        f" D4 {res['dims']['cross_session_long_range']:.3f}"
+        f" (no-restore {res['dims']['cross_session_no_restore_control']:.3f})"
+        f" -> {out_path}")
     return res
 
 
@@ -608,8 +645,9 @@ def main():
     if args.model == "tiny-random":
         _register_tiny_random()
 
-    print(f"device={device} dtype={dtype} model={args.model} steps={args.steps} "
-          f"configs={wanted} seeds={seeds}", flush=True)
+    log(f"RUN device={device} dtype={dtype} model={args.model} "
+        f"steps={args.steps} configs={wanted} seeds={seeds} "
+        f"out_dir={args.out_dir}")
 
     import tempfile
     results = []
@@ -623,27 +661,40 @@ def main():
     summary = {"protocol": {k: v for k, v in vars(args).items()
                             if isinstance(v, (int, float, str))},
                "lm_configs": aggregate(wanted, seeds, args.out_dir)}
+    for cfg, entry in summary["lm_configs"].items():
+        if entry["n_seeds"] < len(seeds):
+            log(f"[WARN] {cfg}: only {entry['n_seeds']}/{len(seeds)} seeds "
+                f"present — summary is NOT citable until all seeds land "
+                f"(HANDOFF §2.5)")
     if not args.skip_bm25:
         bm25_path = os.path.join(args.out_dir, "parametric_memory_bm25.json")
         if os.path.exists(bm25_path):
             with open(bm25_path) as f:
                 bm25 = json.load(f)
+            log(f"[bm25] cached curve loaded from {bm25_path}")
         else:
+            log("=== PHASE bm25 control curve (pure python, ~1 min) ===")
             bm25 = bm25_benchmark([100, 1000, 10000])
             with open(bm25_path, "w") as f:
                 json.dump(bm25, f, indent=2)
+            log(f"[bm25] curve written -> {bm25_path}")
         summary["bm25_external_store"] = bm25
         rt_path = os.path.join(args.out_dir, "parametric_memory_runtime.json")
         if os.path.exists(rt_path):
             with open(rt_path) as f:
                 rt = json.load(f)
+            log(f"[runtime] cached curve loaded from {rt_path}")
         else:
+            log("=== PHASE parametric runtime curve (CPU, d=128/512/2048 "
+                "x writes, ~2 min) ===")
             rt = {"curve": runtime_curves([100, 500, 1000, 2000, 5000, 10000])}
             with open(rt_path, "w") as f:
                 json.dump(rt, f, indent=2)
+            log(f"[runtime] curve written -> {rt_path}")
         summary["parametric_runtime"] = rt
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
+    log(f"summary written -> {summary_path}")
 
     print("\n" + "=" * 78, flush=True)
     print(f"PARAMETRIC MEMORY 4-COMPETENCY | {args.model} | steps={args.steps} "
