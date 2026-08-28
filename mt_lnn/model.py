@@ -544,6 +544,7 @@ class MTLNNModel(nn.Module):
         use_cache: bool = False,
         position_offset: Optional[int] = None,
         use_lnn_recurrence: bool = True,
+        return_stack_iter_logits: bool = False,              # 深监督: 逐 stack 迭代 logits
         inputs_embeds: Optional[torch.Tensor] = None,         # (B, T_new, d_model)
         top_down: Optional[torch.Tensor] = None,              # (B, d_model) or (B, T_new, d_model)
     ) -> Dict[str, torch.Tensor]:
@@ -637,6 +638,14 @@ class MTLNNModel(nn.Module):
                 "stack_iterations > 1 does not support use_cache "
                 "(weight-tied multi-pass has no single KV timeline)"
             )
+        # Deep supervision (M2 P0 进阶): expose per-iteration logits so training
+        # can put CE on EVERY stack pass — the direct counter to the measured
+        # "random-depth training teaches the model to ignore iterations"
+        # degenerate solution (ROADMAP_M2 §4.5 round 1). Off (default) the loop
+        # is byte-identical to the single-collection path.
+        stack_iter_logits: Optional[list] = (
+            [] if (return_stack_iter_logits and _stack_iters > 1) else None
+        )
         for _pass in range(_stack_iters):
             _shared_active_idx = None
             for i, block in enumerate(self.blocks):
@@ -660,6 +669,8 @@ class MTLNNModel(nn.Module):
                     _shared_active_idx = block.lnn.resonance._last_computed_active_idx
                 if use_cache:
                     new_cache.layers.append(new_layer_cache)
+            if stack_iter_logits is not None:
+                stack_iter_logits.append(self.lm_head(x))
 
         # Global rhythm correction: aggregate per-layer LAVI means, apply residual.
         # Starts as identity (GlobalRhythmController.scale init = 0).
@@ -767,6 +778,10 @@ class MTLNNModel(nn.Module):
         logits = self.lm_head(x)                              # (B, T_new, vocab_size)
 
         result: Dict[str, torch.Tensor] = {"logits": logits}
+        if stack_iter_logits is not None:
+            # 注意: 逐迭代读出在 stack 循环内、全局 GWTB/节律修正之前 —— 监督
+            # 的是各迭代的中间状态(HRM 式), 最后一项≠最终 logits(差一个 GWTB)
+            result["stack_iter_logits"] = torch.stack(stack_iter_logits, dim=0)
         if use_cache:
             result["cache"] = new_cache
 
