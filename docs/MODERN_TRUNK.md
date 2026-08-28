@@ -189,3 +189,65 @@ python benchmarks/modern_trunk_screen.py           # 全量 4配置×3seeds×2K�
 
 **worktree 保留**：`../M1-modern-trunk` 暂不移除——远程执行若再暴露 bug，修复
 仍须走 worktree→commit→合回 的协议循环；全部通过后才 `git worktree remove`。
+
+---
+
+## 7. 迭代决策日志（关键决策 + 理由 + 被否备选）
+
+| # | 决策 | 理由/证据 | 被否备选 |
+|---|---|---|---|
+| D1 | 三旋钮默认 off + 逐位等价契约 | 历史 checkpoint/所有已归档结果零回归；13 个测试锁死 | 直接改默认（破坏全部存量可比性） |
+| D2 | FFN w2 零初始化（恒等残差） | on 模型 init 输出与 off 逐位一致，开关语义干净；w2 有活梯度 | 三矩阵全随机（init 即漂移，on/off 不可比） |
+| D3 | 新参数初始化走私有生成器 + RNG save/restore | init-luck 教训（mt_lnn_mtp trunk 移位事故，scaling_comparison 里有专门控制块）；保同 seed on/off A/B | 从全局流抽（后续所有 block init 被移位） |
+| D4 | FFN 用 RMSNorm **前置**（pre-norm），口径写死 | Qwen/Llama 主流口径；二选一必须写死防口径漂移 | 后置 norm（非主流，且引入第二次选择） |
+| D5 | QK-norm 放投影后、RoPE 前；归一化 K 进 KV cache | decode parity 由构造保证（KV-cache parity 测试锁定） | RoPE 后归一化（破坏旋转后内积语义，cache 口径需重推） |
+| D6 | d_ff 取整规则 `round(exp·d/256)·256` 对齐 baseline | 与 scaling_comparison modern baseline 完全同口径，matched-param 可比 | 自定宽度（对照失真） |
+| D7 | A3 只缩 attn/lnn 两个残差出口，明确排除 lateral.out_proj | RMC 内部投影不是残差出口（测试注释锁死该边界） | 所有 out_proj 后缀一刀切（误伤 RMC） |
+| D8 | 判优规则**预注册**（all_on ≥2/3 seeds 优于 base）写死于脚本 | 防 hindsight 挑结果；跑前定死 | 跑完再定标准 |
+| D9 | 2K 数字禁止进 RESULTS.md/README | 2026-07-19 收回 31% 主张的教训（2K 外推） | 把筛选数字当结论 |
+| D10 | 挂起本机 78h 的 CPU 执行，等 GPU | 实测标定：12 格 ≈78h 连续；CUDA 10~40× → 2~8h；断点续跑设计使挂起零浪费 | 本机硬跑 3.3~4.5 天（占用主力机） |
+| D11 | +ffn 默认形状超配 35% **如实记录** | 不偷偷缩配冒充 matched；诚实标注筛选=方向不=parity | 直接用 148M 形状做筛选（口径与 baseline 配方不一致） |
+| D12 | 筛选仍用 baseline 同款 8/3 扩张，缩配推迟到确认阶段 | 先按对手同配方验方向；matched-param 二选一留在 §6 checklist（避免一次实验混两个变量） | 筛选就上 0.92 缩配（方向与口径双变量，结果不可解释） |
+
+---
+
+## 8. 现状快照与后续测试路线图（2026-08-29）
+
+### 8.1 现状
+
+- **分支**：`iter/modern-trunk`（worktree `../M1-modern-trunk`），主 worktree 已
+  同步至同 HEAD；worktree 按 §6 理由保留。
+- **代码**：三旋钮（`ffn_swiglu`/`ffn_expansion`、`qk_norm`、
+  `scaled_residual_init`）全部落地、默认 off 位等价；13 个契约测试已并入全量
+  pytest；筛选脚本 + runbook 就绪。
+- **验证**：全量 pytest ✅ 1428 passed / 183s；smoke ✅ 12/12 格（抓出 1 个
+  GWTB 头数 bug，`251f310` 修复后通过）；**全量 2K 筛选 ⏳ 挂起待 GPU（§6）**。
+
+### 8.2 问题清单
+
+| 类别 | 内容 |
+|---|---|
+| 主问题（未解决） | 11.3% 质量缺口**归因未定**：三缺失件 vs 液态 mixer 本身 vs 配方 |
+| 已解决 | 位等价契约（13 测试）；smoke GWTB 头数断言；d_ff 测试 config 坑；GQA einsum 维度 |
+| 受阻 | 本机无 CUDA，筛选需远程 GPU（§6 命令） |
+| 遗留（非本分支） | 主 worktree 有记忆族未提交文件（session_state.py 等），归属 parametric-memory/event-stream 工作线，勿混入本分支提交 |
+
+### 8.3 迭代方向与目标
+
+**目标**：归因并尽可能收复 11.3% 缺口；让每个缺失件"赚到或失去"默认值
+（default must earn its cost）。
+**非目标**：不动 chunkwise 扫描、混合比例、KV 账目（其他分支领域）。
+
+### 8.4 后续测试路线图（决策树，按序执行）
+
+1. **GPU 全量 2K 筛选**（§6 两条命令）→ 产出配对 ΔPPL 表 + verdict。
+2. **verdict = NULL**（全开 <2/3 seeds 胜）→ 归因转向 mixer 本身，火力移交
+   chunkwise-scan / o-series-ratio 分支；三旋钮永久 off 或删除，本文档归档
+   为负结果记录。
+3. **verdict = CONFIRM** → matched-param 二选一（§6 checklist ③）→
+   **20K 确认跑**（runbook §4）→ 达标 → RESULTS.md 加行（20K 口径）+
+   启动"ffn 是否默认 on"的单独决策（涉及 +69M，须 matched-param 证据支撑）。
+4. **端侧线（O 系列）**：若 FFN 证明有效，用小 `ffn_expansion` 重标定端侧
+   配置再测（194M 默认形状不适合端侧，见 §2）。
+5. **永久回归护栏**：13 个契约测试已随全量 pytest 常驻，任何后续改动破坏
+   位等价即红。
