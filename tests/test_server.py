@@ -184,6 +184,11 @@ def test_quantize_int8_startup_flag(monkeypatch):
 
     monkeypatch.setenv("QUANTIZE_INT8", "1")
     saved = dict(srv._STATE)
+    # _startup() 会 torch.set_grad_enabled(False) —— 线程局部标志。经
+    # TestClient lifespan 时跑在 worker 线程无碍；这里在主线程直接调用，
+    # 必须保存/恢复，否则污染后续所有需要 autograd 的测试
+    # （全量套件 17 个 "does not require grad" 失败的根因）。
+    grad_was = torch.is_grad_enabled()
     srv._STATE.clear()
     srv._startup()
     try:
@@ -200,6 +205,7 @@ def test_quantize_int8_startup_flag(monkeypatch):
     finally:
         srv._STATE.clear()
         srv._STATE.update(saved)   # 恢复 module 级 client 的就绪状态
+        torch.set_grad_enabled(grad_was)
 
 
 # ---------------------------------------------------------------------------
