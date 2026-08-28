@@ -469,10 +469,8 @@ def _pick_device():
 
 
 def run_lm_config(args, device, dtype, workroot):
-    from mt_lnn.llama_adapter import _iter_all_adapters
-
     out_path = os.path.join(
-        RESULTS_DIR, f"parametric_memory_{args.config}_s{args.seed}.json")
+        args.out_dir, f"parametric_memory_{args.config}_s{args.seed}.json")
     if os.path.exists(out_path):
         print(f"[skip] {out_path} exists", flush=True)
         with open(out_path) as f:
@@ -526,19 +524,19 @@ def run_lm_config(args, device, dtype, workroot):
     return res
 
 
-def aggregate(configs, seeds):
+def aggregate(configs, seeds, out_dir):
     import statistics as st
     summary = {}
     for cfg in configs:
         per_seed = []
         for s in seeds:
-            p = os.path.join(RESULTS_DIR, f"parametric_memory_{cfg}_s{s}.json")
+            p = os.path.join(out_dir, f"parametric_memory_{cfg}_s{s}.json")
             if os.path.exists(p):
                 with open(p) as f:
                     per_seed.append(json.load(f))
         if not per_seed:
             continue
-        entry = {"n_seeds": len(per_seed), "per_seed": []}
+        entry = {"n_seeds": len(per_seed)}
         for dim in per_seed[0]["dims"]:
             vals = [r["dims"][dim] for r in per_seed]
             entry[dim] = {"mean": st.mean(vals), "std": st.pstdev(vals),
@@ -624,7 +622,7 @@ def main():
     summary_path = os.path.join(args.out_dir, "parametric_memory_summary.json")
     summary = {"protocol": {k: v for k, v in vars(args).items()
                             if isinstance(v, (int, float, str))},
-               "lm_configs": aggregate(wanted, seeds)}
+               "lm_configs": aggregate(wanted, seeds, args.out_dir)}
     if not args.skip_bm25:
         bm25_path = os.path.join(args.out_dir, "parametric_memory_bm25.json")
         if os.path.exists(bm25_path):
