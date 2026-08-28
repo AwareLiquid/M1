@@ -654,6 +654,13 @@ _FW_KEY_DIM = 256
 # concurrent streams must run one at a time anyway.
 _MODEL_LOCK = threading.Lock()
 _FW_STORE_LOCK = threading.Lock()
+# Bounded waiting (same policy as serve/server.py): one HF-adapter generation on
+# a small CPU box can hold the lock for minutes; waiters now give up after
+# GEN_LOCK_TIMEOUT seconds and are refused once GEN_QUEUE_CAP are queued.
+_GEN_LOCK_TIMEOUT = float(os.environ.get("GEN_LOCK_TIMEOUT", "300"))
+_GEN_QUEUE_CAP = int(os.environ.get("GEN_QUEUE_CAP", "8"))
+_GEN_WAITING = 0
+_GEN_WAITING_LOCK = threading.Lock()
 
 
 def _gen_lock():
@@ -663,12 +670,22 @@ def _gen_lock():
     generation endpoints so the shared adapter streaming state is never touched
     by two requests at once. (threading.Lock, not asyncio: sync endpoints run on
     the anyio threadpool; a Lock may be released by a different thread than
-    acquired, which is safe here.)"""
-    _MODEL_LOCK.acquire()
+    acquired, which is safe here.) Fails fast with 503 instead of hanging."""
+    global _GEN_WAITING
+    with _GEN_WAITING_LOCK:
+        if _GEN_WAITING >= _GEN_QUEUE_CAP:
+            raise HTTPException(503, f"server busy (queue full, cap {_GEN_QUEUE_CAP})")
+        _GEN_WAITING += 1
     try:
-        yield
+        if not _MODEL_LOCK.acquire(timeout=_GEN_LOCK_TIMEOUT):
+            raise HTTPException(503, f"model busy (lock timeout {_GEN_LOCK_TIMEOUT:.0f}s)")
+        try:
+            yield
+        finally:
+            _MODEL_LOCK.release()
     finally:
-        _MODEL_LOCK.release()
+        with _GEN_WAITING_LOCK:
+            _GEN_WAITING -= 1
 
 
 def _fw_store():
