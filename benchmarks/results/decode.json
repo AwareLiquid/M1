@@ -1,0 +1,17 @@
+{
+  "rows": [
+    {
+      "seq_len": 512,
+      "llama_kv_mb": 1.5,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 2048,
+      "llama_kv_mb": 6.0,
+      "arr_state_mb": 0.381
+    }
+  ],
+  "n_layers": 12,
+  "n_kv_heads": 1,
+  "d_head": 64
+}
