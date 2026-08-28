@@ -146,9 +146,46 @@ BENCHMARKS.md 且必须标注 screening-only，绝不进 RESULTS.md。
 | fce3a1f | A3 深度缩放残差初始化（config + model._scale_residual_exits） |
 | ac8431d | tests/test_modern_trunk.py：12 个位等价/数学性质/易回归点测试（只写未跑） |
 | 4f7c2da | A4 benchmarks/modern_trunk_screen.py（筛选脚本，只写未执行） |
+| 251f310 | Phase B smoke 修复：smoke 档 GWTB 头数整除断言（d_gw=13 不被 4 整除，按形状自适应 gwtb_n_heads） |
 | （验收修正） | 修 d_ff 取整测试的 config 断言坑（裸 d_model=104 会撞 d_head assert）；A3 组补 fwd/bwd 有限性易回归点 → 共 13 个 |
 | （本 commit） | A5 本文档骨架 + runbook |
 
-**待 Phase B（合并后在主 worktree）**：全量 pytest；`--smoke`；2K 筛选；
-回填本文件 §2/§3 数字；BENCHMARKS.md 新节（screening-only 标注）；按 §4
-判优决定是否排 20K 确认跑。
+**Phase B 进度（2026-08-29）**：全量 pytest ✅（1428 passed / 4 skipped / 183s，
+含新增 13 个）；`--smoke` ✅（12/12 格，管道验证 + 抓出并修复 1 个 bug）；
+**2K 筛选 ⏳ 挂起待 GPU —— 见 §6 待测任务记录**。
+
+---
+
+## 6. ⏳ 待执行任务：全量 2K 筛选（等 GPU，不自动执行）— 2026-08-29 挂起
+
+**状态**：Phase B 前三步全绿；唯一未执行项 = 全量 2K 筛选（4 配置 × 3 seeds）。
+
+**挂起原因（执行机实测）**：本机 Apple M1 Pro（8 核 CPU / 16GB RAM / 无 CUDA），
+脚本回退纯 CPU fp32。全尺寸标定实测：base 8.35 s/step（245 tok/s）、+ffn
+14.04 s/step（146 tok/s）→ 12 格 ≈ 78 小时连续运行（3.3~4.5 天），判定不适合
+本机；任何 CUDA 卡（T4/3060 级）预计 10~40× 加速，全部 2~8 小时。内存已实测
+16GB 可跑 195M 配置，无压力。
+
+**待执行命令（在远程 GPU 机器的 repo 根目录）**：
+
+```bash
+python benchmarks/modern_trunk_screen.py --smoke   # 新机器先验管道 (<10min)
+python benchmarks/modern_trunk_screen.py           # 全量 4配置×3seeds×2K步
+# 断点续跑 = 重跑同一命令；汇总落 benchmarks/results/modern_trunk_screen_2000step.json
+```
+
+**测完必须回填的关键指标（逐项勾，缺一不可）**：
+
+- [ ] §2 参数表实测值：base / +qk_norm / +ffn / all_on 的 params（各 row JSON
+      `params` 字段），替换 ≈125M/≈194M 估算
+- [ ] §3 筛选表：每配置 val_ppl per seed、配对 ΔPPL per seed、verdict
+      （CONFIRM / NULL，预注册规则：all_on ≥2/3 seeds 优于 base）
+- [ ] matched-param 决策：若 CONFIRM，20K 确认跑前二选一——缩
+      `ffn_expansion≈0.92`（d_ff=768，≈148M 贴锚）或如实报告超配 35%
+- [ ] BENCHMARKS.md 新节：筛选数字一律标注 **screening-only**
+- [ ] ≤200 字诚实结论：哪个缺失件筛选中最有效、是否值得排 20K 确认跑
+- [ ] 红线自查：2K 数字未进 RESULTS.md/README；20K 未自动触发（runbook §4
+      就绪，仅在判优 CONFIRM 后人工排期）
+
+**worktree 保留**：`../M1-modern-trunk` 暂不移除——远程执行若再暴露 bug，修复
+仍须走 worktree→commit→合回 的协议循环；全部通过后才 `git worktree remove`。
