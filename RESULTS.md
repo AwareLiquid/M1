@@ -2,7 +2,7 @@
 
 **This file is the single source of truth for what MT-LNN has and has not demonstrated.** Every row maps to a reproducible table in [BENCHMARKS.md](BENCHMARKS.md). If a marketing doc, slide, or README states a number that is not in the "Proven" section below (or is contradicted by the "Retracted / Null" section), that doc is wrong and this file wins.
 
-Last reconciled: 2026-07-16.
+Last reconciled: 2026-08-29.
 
 ---
 
@@ -32,6 +32,8 @@ MT-LNN is a streaming-state recurrent architecture whose **one independently pro
 | **Constant streaming state on the same task** | mt_lnn flat at **2.6 KB** across a 256× stream-length increase; transformer KV reaches **34 MB** at 32K = **13,107× larger** | ✅ proven — but note O(1) state is a property of *any* RNN: lstm (1,040 B) and gru (520 B) are also flat and smaller | "A2 edge pilot → streaming memory" |
 | Battery SoH accuracy, regular sampling | transformer 0.0972 / **mt_lnn 0.0986** / lstm 0.1034 / gru 0.1048 RMSE (Ah), 10 seeds; baseline 0.1572 | ⚠️ **all four statistically tied** (every pairwise \|t\| < 1). MT-LNN reaches parity with 2.6× fewer params than the transformer — that, not accuracy, is the claim | "A2 edge pilot → accuracy" |
 | Real recurrence (pscan) does real work | pscan vs legacy broadcast: seq-exact **0.965 vs 0.883** (+8.2pp), tok-acc 0.983 vs 0.942 | ✅ proven | "Parallel scan ablation" |
+| **Event-stream state estimation** (synthetic DVS-physics streams, held-out episodes, 10 seeds) | mt_lnn nRMSE **0.974 / 0.750 / 0.978** at event densities θ=0.15/0.35/0.8 — the **only** architecture to beat the constant predictor (1.0) at every density; lstm/gru/transformer sit at 0.81–1.30. Citable cells: vs lstm at θ=0.15 (paired sign **p<0.05**, n=10), vs transformer at θ=0.15 and θ=0.35. At the widest tested Δt span (3.24 decades) mt_lnn **0.774±0.013 vs lstm 0.817±0.035, 9/10 seed-wins, p=0.0215** | ✅ proven — citable cells only; several cells archive-only (bimodality flags), see BENCHMARKS tables | "Event-native sensing streams" |
+| **Next-event-channel prediction on the same streams — citable NEGATIVE** | At the dense tier (θ=0.15) mt_lnn **0.227 vs lstm 0.329 / gru 0.328** (chance 0.167) — mt_lnn **significantly worse** than both RNNs (both gates pass with mt_lnn losing) | ✅ proven (as a negative) — continuous-time integration helps carry state, not categorical next-event prediction | "Event-native sensing streams → Next-channel prediction" |
 
 ---
 
@@ -47,6 +49,9 @@ MT-LNN is a streaming-state recurrent architecture whose **one independently pro
 | "Optional bio modules (predictive coding, GWTB, world model, rhythm, Hebbian) improve quality" | All 5 are **PPL-neutral at 48M** (within ±0.3–0.5 noise band); the full stack costs **5.6% throughput** for nothing; predictive coding (the one ON by default) trends **negative**. Lean core trunk is best. | ❌ **NULL** (archived behind flags) | "O1 module switch-matrix" |
 | "Adapter improves long-context / needle retrieval" | Within the 2048 window base and adapter both ~0.87–1.0 (**parity, inconclusive**); at 4096 both 0.000 (base RoPE limit, not adapter). Attribution now shows the adapter adds nothing anyway. | ⚠️ **INCONCLUSIVE / parity** | "Needle-in-a-haystack (CORRECTED)" |
 | "ARR attention-free student matches teacher" | PPL **25.4 = 2.15× teacher** (11.8), still falling — converging with tokens, **not at parity**. ARR cross-window recall is **negative** at current budget (curriculum retry queued). | ⚠️ **research preview, not parity** | "Round 2/3 distillation" + "ARR-student recall — negative" |
+| "The liquid advantage on event streams **widens** as the Δt distribution stretches across decades" (pre-registered in `event_dt_span.py` before running) | Judgement fixed before the run: PROVEN iff mt_lnn beats the strongest discrete baseline at the widest span through `publishable()` **and** the gap is wider there than at the narrowest span. Outcome (state task, 10 seeds): (a) **passed** — at 3.24 decades mt_lnn 0.774±0.013 vs lstm 0.817±0.035, 9/10 seed-wins, p=0.0215, best at every span; (b) **failed** — the gap NARROWS 0.141 → 0.044 as every architecture improves with span (slopes all negative: mt_lnn −0.043 vs lstm −0.100). | ❌ **NULL** on the headline trend; the significant widest-span advantage is the only citable piece | "Event-native sensing streams → Δt-span pressure test" |
+| "Multi-timescale τ ladder is what makes the liquid core span-robust" (τ-interaction arm) | mt_lnn beats single-τ mt_lnn_tau1 in 9/10 seeds at the widest span (mean 0.774 vs 0.803), but the tau1 per-seed distribution is flagged **bimodal** (gap_ratio 3.16) → `publishable()` fails → not citable. | ❌ **NULL** (archive-only) | "Event-native sensing streams → Δt-span pressure test" |
+| "Liquid core transfers its event-stream edge to real event-camera data" (N-Caltech101, held-out classes) | 4 GB no-auth download parsed in memory; 10 train / 10 held-out classes, next-event-polarity, 10 seeds: mt_lnn **0.545 ± 0.031 vs gru 0.520 ± 0.027**, sign test 5W/3L/2T **p=0.727** — no significant difference. | ❌ **NULL** — no real-data advantage is claimed | "Event-native sensing streams → Real data: N-Caltech101" |
 
 ---
 
