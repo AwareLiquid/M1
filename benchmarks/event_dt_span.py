@@ -57,8 +57,9 @@ def main():
         te = make_dataset(args.n_test, args.channels, args.seq_len,
                           args.theta, span, args.bandwidth, seed=900)
         _run_span(res, args, span, seeds, tr, te)
+        _save(args.out, res, args)       # resume-safe: 每档落盘
     _analyze(res, spans)
-    _save(args.out, res, args)
+    _save(args.out, res, args)           # verdict 在 _analyze 里算
     return 0
 
 
