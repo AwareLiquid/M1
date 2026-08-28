@@ -540,6 +540,15 @@ class MTLNNConfig:
     rhythm_scale_init: float = 0.1
     global_rhythm: bool = False
 
+    # Fast-weight 核心化 (DEEP_INTEGRATION_PLAN 1a): 每个 MTLNNBlock 自带
+    # 低秩因果 fast-weight 记忆通道 (CoreFastWeight, 与 KV cache 平级的
+    # 第二记忆通道)。默认 OFF —— 零参数零计算零行为变化; 开启时 gate=0
+    # 初始化, 未训练位等价 (训练让 gate 自己学会开多大)。
+    # fast_weight_rank: 低秩 r, 写/读 O(D·r) 不是 O(D²)。
+    fast_weight_core: bool = False
+    fast_weight_rank: int = 16
+    fast_weight_decay: float = 0.99
+
     # Derived (set in __post_init__)
     d_proto: int = field(init=False)
     d_proto_total: int = field(init=False)
