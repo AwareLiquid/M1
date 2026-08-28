@@ -82,6 +82,28 @@ def test_save_load_weights_are_bit_exact(tmp_path):
                 == loaded.model.embedding.token_embed.weight.data_ptr()), "加载后权重绑定丢了"
 
 
+def test_non_persistent_buffers_survive_reload(tmp_path):
+    """non-persistent buffer 必须逐位相同 —— 这是 transformers 5 的专属陷阱。
+
+    5.x 的 from_pretrained 一律在 meta device 上建图，加载完用
+    ``torch.empty_like`` 把所有 non-persistent buffer 搬回 CPU —— 值是未初始化
+    的垃圾。库自带的重算只认 class 名含 RotaryEmbedding 且带 original_inv_freq
+    的模块（RoPE 表、注意力距离掩码、GWTB causal mask 都不在其列），所以
+    ``MTLNNForCausalLM`` 用 get_init_context + _init_weights 两道措施兜住。
+    这条测试就是那两道措施的守卫：它挂了就意味着加载出来的模型会静默算错。
+    """
+    model = tiny_o_model(seed=0)
+    model.save_pretrained(tmp_path)
+    loaded = MTLNNForCausalLM.from_pretrained(tmp_path).eval()
+
+    src = dict(model.named_buffers())          # named_buffers 含 non-persistent
+    dst = dict(loaded.named_buffers())
+    assert set(src) == set(dst), "buffer 名集合不一致"
+    assert src, "tiny 模型居然没有 non-persistent buffer，这条测试失去意义"
+    for name in src:
+        assert torch.equal(src[name], dst[name]), f"buffer {name} 不是逐位相等"
+
+
 def test_three_line_load_matches_direct_construction(tmp_path):
     """三行代码路径的输出 == 直接构造的输出（逐位）。"""
     source = tiny_o_model(seed=0)

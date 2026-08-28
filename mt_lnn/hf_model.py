@@ -37,15 +37,24 @@ KNOWN BOUNDARIES（诚实标注，不是 TODO）
   学。这里覆写 ``generate`` 委托原生实现，代价是 GenerationConfig 的 beam
   search / constrained decoding 等策略不可用（原生 generate 支持
   greedy / temperature / top_k / top_p / EOS / 回调）。
-* **低内存初始化关闭**。RoPE 的 inv_freq/cos/sin 与 GWTB 的 causal mask 都
-  是 non-persistent buffer 且在 __init__ 里算出来的；transformers 的
-  ``low_cpu_mem_usage=True`` 会在 meta device 上构造，这些 buffer 会永远是
-  meta 张量（它们不在 state_dict 里，加载时不会被填回来）。所以
-  ``from_pretrained`` 默认 ``low_cpu_mem_usage=False``。
+* **不在 meta device 上建图**。transformers **5.x 的 from_pretrained 一律用
+  ``torch.device("meta")`` 构造模型**（4.x 的 ``low_cpu_mem_usage`` 开关已
+  被移除并且不再生效），加载完再用 ``torch.empty_like`` 把 non-persistent
+  buffer 搬回 CPU —— **值是未初始化的垃圾**。库自带的重算只认 class 名含
+  "RotaryEmbedding" 且带 ``original_inv_freq`` 的模块，MTLNNModel 的 RoPE
+  表、注意力距离掩码、GWTB causal mask 都不在其列。这里用两道措施兜住：
+  ``get_init_context`` 摘掉 meta 上下文（等价 4.x 的 eager 建图），
+  ``_init_weights`` 再按 ``reset_non_persistent_buffers()`` 协议重算一遍。
+  代价是加载峰值内存多一份权重；换来的是"加载出来的模型一定等于构造出来的"。
 * **权重绑定**。``MTLNNConfig.tie_embeddings=True`` 时 lm_head.weight 与
   embedding.token_embed.weight 是同一个 Parameter，safetensors 不允许别名
   张量，故声明 ``_tied_weights_keys``：保存时只留一份，加载时由
-  ``tie_weights()`` 重新绑定。untied 时不存在别名，声明不起作用，安全。
+  ``tie_weights()`` 重新绑定。untied 时不存在别名，且 5.x 的
+  ``get_expanded_tied_weights_keys`` 会被 ``config.tie_word_embeddings``
+  挡掉，所以同一份声明对两种配置都安全。
+* **不要调用 ``post_init()``**。5.x 的 ``post_init()`` 末尾会跑
+  ``init_weights()``，那会把 ``from_mtlnn_model`` 包进来的训练好的权重重新
+  初始化掉。
 """
 from __future__ import annotations
 
@@ -168,16 +177,20 @@ class MTLNNForCausalLM(PreTrainedModel):
     base_model_prefix = "model"
     supports_gradient_checkpointing = False
     main_input_name = "input_ids"
-    # tie_embeddings=False 时不存在别名张量，这条声明不产生任何删除动作。
-    _tied_weights_keys = ["model.lm_head.weight"]
+    # 5.x 的 _tied_weights_keys 是 {目标: 来源} 字典（4.x 是列表），且只在
+    # config.tie_word_embeddings 为真时生效 —— 见文件头 KNOWN BOUNDARIES 第 3 条。
+    _tied_weights_keys = {
+        "model.lm_head.weight": "model.embedding.token_embed.weight",
+    }
 
     def __init__(self, config: MTLNNConfigHF, model: Optional[MTLNNModel] = None):
         """``model`` 给了就直接包裹（零拷贝、不重建），否则按 config 新建。"""
         super().__init__(config)
         self.model = model if model is not None else MTLNNModel(config.to_mtlnn_config())
-        # tie_weights() 走 config.tie_word_embeddings；必须反映原生开关，
-        # 否则 untied 的 checkpoint 会在加载后被重新绑成共享张量。
+        # tie_weights() 与保存时的别名剔除都看这个开关；必须反映原生配置。
         self.config.tie_word_embeddings = bool(self.model.config.tie_embeddings)
+        # 基类 __init__ 已经在设置开关之前算过一次，这里必须按最终值重算。
+        self.all_tied_weights_keys = self.get_expanded_tied_weights_keys(all_submodels=False)
 
     # -- 嵌入层访问器（tie_weights / resize_token_embeddings 依赖） ---------
     def get_input_embeddings(self):
@@ -267,6 +280,35 @@ class MTLNNForCausalLM(PreTrainedModel):
             step_callback=step_callback,
         )
 
+    # -- 权重初始化：5.x 会在加载后回调这里，我们用它重算 non-persistent buffer
+    # -------------------------------------------------------------------------
+    @classmethod
+    def get_init_context(cls, dtype, is_quantized, _is_ds_init_called, allow_all_kernels):
+        """摘掉 meta device 上下文（等价 4.x 的 ``low_cpu_mem_usage=False``）。
+
+        见文件头 KNOWN BOUNDARIES 第 2 条。摘掉之后模型在真实设备上构造，
+        __init__ 里算出来的 buffer 都是有效值；加载链路仍然会把它们用
+        ``torch.empty_like`` 覆写成垃圾，所以这一步必须和下面的
+        ``_init_weights`` 配套使用，单靠其中一个都不够。
+        """
+        contexts = super().get_init_context(
+            dtype, is_quantized, _is_ds_init_called, allow_all_kernels
+        )
+        return [c for c in contexts
+                if not (isinstance(c, torch.device) and c.type == "meta")]
+
+    def _init_weights(self, module) -> None:
+        """重算 non-persistent buffer；其余交给库（已加载的参数会被 init 守卫跳过）。
+
+        transformers 5 的 ``initialize_weights()`` 会对每个模块回调这里。模块
+        只要实现了 ``reset_non_persistent_buffers()``（值 == __init__ 构造出来
+        的值）就会被重算；没实现的模块（纯参数 / 纯诊断）不受影响。
+        """
+        super()._init_weights(module)
+        reset = getattr(module, "reset_non_persistent_buffers", None)
+        if callable(reset):
+            reset()
+
     # -- 构造 / 加载 --------------------------------------------------------
     @classmethod
     def from_mtlnn_model(
@@ -283,12 +325,6 @@ class MTLNNForCausalLM(PreTrainedModel):
         cfg = MTLNNConfigHF.from_mtlnn_config(model.config, product_line, graph)
         return cls(cfg, model=model)
 
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
-        # 见文件头 KNOWN BOUNDARIES 第 2 条：RoPE / GWTB 的 non-persistent
-        # buffer 在 meta device 构造下不会被 state_dict 回填，必须 eager init。
-        kwargs.setdefault("low_cpu_mem_usage", False)
-        return super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)
 
 
 def register_for_auto_classes() -> None:

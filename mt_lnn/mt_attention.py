@@ -140,6 +140,16 @@ class MicrotubuleAttention(nn.Module):
             return
         self._build_pos_buffers(max(needed, self._pos_len * 2))
 
+    def reset_non_persistent_buffers(self) -> None:
+        """重算 ``_delta`` / ``_causal`` 距离掩码（值与 ``__init__`` 逐位相同）。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成未初始化的垃圾，而这两个掩码直接参与注意力
+        计算 —— 不重算就是静默的错误结果。由
+        ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        self._build_pos_buffers(self._pos_len)
+
     #: γ init for reserved GLOBAL heads: at distance 100 the penalty is only
     #: 0.1 nats — effectively no decay within any practical context window.
     _GLOBAL_HEAD_GAMMA = 1e-3

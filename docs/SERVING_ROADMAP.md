@@ -89,14 +89,25 @@ KV cache、TP/PP、量化与权重加载
 
 两个必须在真机验证的坑（Phase B 之后）：
 
-1. **meta device 建图**。该后端用 `AutoModel.from_config` 在 meta device 上先
-   建结构、后灌权重。我们的 RoPE 表（`inv_freq` / `cos_table` / `sin_table`）
-   与 GWTB 的 causal mask 都是 **non-persistent buffer 且在 `__init__` 里算出
-   来的**，不在 state_dict 里，加载时不会被回填。若 vLLM 没有物化它们，就会
-   得到"meta tensor"运行时错误。修法（届时按代价排序）：改成 persistent
-   buffer / 改成 lazy 构造 / 声明不支持 meta init。
-   *这也是 `MTLNNForCausalLM.from_pretrained` 默认 `low_cpu_mem_usage=False`
-   的原因，同一类问题。*
+1. **meta device 建图**。**这条在本地路径上已经踩过并解决了**，vLLM 走的是同一
+   条链路（它的 Transformers 后端也是 `AutoModel.from_config` + meta 建图），
+   所以结论可以直接复用。已核实的事实（读 transformers **5.16.1** 源码，
+   `.venv` 里实际装的就是它；`requirements.lock` 里写的 4.57.3 是 2026-05 的
+   过期快照，两者不一致本身就是个该修的坑）：
+   * 5.x 的 `from_pretrained` **一律**用 `torch.device("meta")` 构造
+     （`PreTrainedModel.get_init_context`），4.x 的 `low_cpu_mem_usage` 开关
+     已被移除并静默丢弃；
+   * 加载完 `_finalize_model_loading` → `_move_missing_keys_from_meta_to_device`
+     会把**所有** non-persistent buffer 用 `torch.empty_like` 搬回 CPU ——
+     **值是未初始化的垃圾**；
+   * 库自带的重算（`_init_weights` 末尾那段）只认 class 名含 `RotaryEmbedding`
+     **且**带 `original_inv_freq` 的模块，我们的 RoPE 表、
+     `MicrotubuleAttention._delta/_causal`、GWTB `_causal` 都不在其列。
+   修法（已落地）：`MTLNNForCausalLM.get_init_context` 摘掉 meta 上下文 +
+   `_init_weights` 回调模块上的 `reset_non_persistent_buffers()` 协议重算。
+   两道缺一不可（摘掉 meta 只是让构造值有效，加载链路仍会覆写）。
+   vLLM 路径无法改它的建图上下文，所以**只能用第二条**：它同样会回调
+   `_init_weights`，只要我们的模块实现了重算协议，理论上就能自愈 —— 待验证。
 2. **`AttentionInterface` 未接入**。要吃到 HF 侧的优化注意力后端，模型需要用
    `ALL_ATTENTION_FUNCTIONS` 并设 `_supports_attention_backend = True`
    （[Transformers as a backend](https://huggingface.co/docs/transformers/v4.56.0/transformers_as_backend)）。

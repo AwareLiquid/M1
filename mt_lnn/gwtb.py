@@ -164,6 +164,22 @@ class GWTBLayer(nn.Module):
 
         self._build_causal(config.max_seq_len)
 
+    def reset_non_persistent_buffers(self) -> None:
+        """重算 causal mask 与诊断 buffer，值与 ``__init__`` 逐位相同。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成垃圾：``_causal`` 直接参与注意力 masking，
+        ``_bandwidth_bias_offset`` 直接加在门控偏置上（垃圾非零值会改变输出）。
+        由 ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        self._build_causal(self._causal_len)
+        for name, value in (("last_bandwidth_gate_mean", 1.0),
+                            ("last_active_bandwidth", 1.0),
+                            ("_bandwidth_bias_offset", 0.0)):
+            buffer = getattr(self, name, None)
+            if buffer is not None:
+                buffer.fill_(value)
+
     def set_bandwidth_bias_offset(self, offset: float) -> None:
         """Push a neuromodulatory offset onto the dynamic-bandwidth gate bias.
 
@@ -456,6 +472,13 @@ class CompetitiveGWTBLayer(GWTBLayer):
             nn.init.zeros_(proj.fc2.bias)
         nn.init.zeros_(self.score_head[-1].weight)
         nn.init.zeros_(self.score_head[-1].bias)
+
+    def reset_non_persistent_buffers(self) -> None:
+        """父类那一份 + 竞争诊断三件套（last_winner_weights 是 ones(K)/K）。"""
+        super().reset_non_persistent_buffers()
+        self.last_winner_weights.fill_(1.0 / self.last_winner_weights.numel())
+        self.last_competition_entropy.zero_()
+        self.last_external_weight.zero_()
 
     def _compete(
         self,
