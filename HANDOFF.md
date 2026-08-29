@@ -1,7 +1,7 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
 > 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
-> 最后更新：2026-08-01 · 分支 `main`
+> 最后更新：2026-08-29 · 分支 `main`（KV 前沿线已合并：#3/#4/#6）
 
 ---
 
@@ -396,13 +396,13 @@ KV 前沿账目的最后一个未测残项。3.8.6 的账本已被真模型实�
 **不做**:继续堆内存账目(盾已造完);正面拼 PPL(已证伪)。
 若只投一件:投 P2——唯一能改变方向价值的实验。
 
-**PR/分支状态**(2026-08-29,遵循"不直推 main,走 PR"纪律):
-- `iter/kv-cache-frontier` = 本地 main(cad9372) + 账本 5 提交 → PR→main
-- `iter/kv-measured-frontier` = 上者 + 实测 4 提交 → PR→`iter/kv-cache-frontier`(栈式)
-- `sync/local-main-2026-08` = 本地 main 本体 → PR→origin/main:本地 main 领先
-  远程 **27 提交**(code-priority merge+PRD v3+重构批),先合此 PR 再合前沿 PR,
-  否则前沿 PR 会混入积压 diff。三个 PR 均由 gh 创建,base 均为 main/前沿分支。
-- 旧分支指针备份: `backup/kv-cache-a28c97f` / `backup/kv-measured-a853b2d`
+**PR/分支状态**(2026-08-29 ✅ 全部已合并):
+- #3 `sync/local-main-2026-08`→main(27 提交积压) → **MERGED**
+- #4 `iter/kv-cache-frontier`→main(账本 5 提交) → **MERGED**
+- #5 栈式实测 PR → 被 GitHub 自动关闭(base 分支随 #4 合并被删,无法重开),
+  由 **#6** `iter/kv-measured-frontier`→main(实测 5 提交)替代 → **MERGED**
+- 遗留小修 PR #7: kv_measured torch_dtype→dtype 弃用修正 + 本状态段落更新。
+- 旧分支指针备份(仅本地): `backup/kv-cache-a28c97f` / `backup/kv-measured-a853b2d`
   (08d4edf 基点旧线,含并行会话 parametric 提交,仅存档勿用)。
 
 ## 3.8 外部评审意见(2026-07-30,待 M2 决策,未实施)

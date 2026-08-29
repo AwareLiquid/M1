@@ -77,11 +77,11 @@ def load_model(model_id, device):
     """Load in fp16 with a float32 CPU fallback; return (model, dtype name)."""
     try:
         model = AutoModelForCausalLM.from_pretrained(
-            model_id, torch_dtype=torch.float16).to(device)
+            model_id, dtype=torch.float16).to(device)
         return model.eval(), "fp16"
     except Exception:
         model = AutoModelForCausalLM.from_pretrained(
-            model_id, torch_dtype=torch.float32).to(device)
+            model_id, dtype=torch.float32).to(device)
         return model.eval(), "fp32"
 
 
