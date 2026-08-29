@@ -154,7 +154,7 @@ PR 流程下以"rebase + 本地验证 + PR 审核"替代原"主 worktree 合并�
   **单独重跑即通过**（套件顺序型 flake；本分支对 serve/daemon 零改动）。
   扫描相关 16 用例（chunkwise 6 + switch 3 + parallel_scan 7）全绿。
   过程中还修复了测试文件自身的 `_rand_case` 参数误用（首次真实执行暴露，
-  commit 4fccaa5）。
+  commit fc660be）。
 - [x] T5 `pscan_bench.py` smoke + 全量双路径，JSON 落盘（§5.4）。
 - [x] T6 `train.py --dummy --compile --steps 10 --batch 2`：10 步跑通，
   loss 7.23（随机数据合理值），无 NaN/崩溃（CPU 下 compile 不生效，P2-4 已知）。
@@ -174,7 +174,7 @@ PR 流程下以"rebase + 本地验证 + PR 审核"替代原"主 worktree 合并�
 ## 7. 成本账
 
 两轮探针 + 记录合计 ~1h（探针执行 ~35min，其余为实现与记录）。产出：
-2 个真 bug 修复（carry 广播 `12acf56`、g 升维错位 `1cf9920`——均为
+2 个真 bug 修复（carry 广播 `766c944`、g 升维错位 `6bbe671`——均为
 "静态审查不可见、冒烟 5 秒捕获"的形状类 bug）、1 个合入前必改问题
 （P0-1）、性能主张校准（从"更长更赚省显存"收窄为"生产区间 2x"）。
 若跳过探针直接 Phase B：carry 广播 bug 会让等价测试全红，至少返工一轮。
@@ -183,17 +183,17 @@ PR 流程下以"rebase + 本地验证 + PR 审核"替代原"主 worktree 合并�
 
 | commit | 内容 |
 |---|---|
-| 50f3c40 | chunkwise 核心（通用逐块版） |
-| d19048d | 等价性测试 6 用例（合入门槛） |
-| 2035fd7 | use_chunkwise_scan 开关 + v1/v2 接线 |
-| 6606edd | pscan_bench.py 官方基准脚本 |
-| 70bb945 | CHECKWISE_NOTES.md 语义审计 |
-| 43a2343 | 验收修复：segsum 上三角溢出 + v2 工厂透传 |
-| 12acf56 | 探针冒烟修复：carry 广播升维 |
-| 4dee98a | constant-A 特化（本轮性能翻正的实现） |
-| 1cf9920 | 探针冒烟修复：特化版 g 升维错位 |
-| 3317aec | 探针工具 + 两轮原始 JSON 入仓 |
-| dde6aab | 实验记录与决策日志（本文档） |
-| 5dd6a5e | CHECKWISE_NOTES 实测回填 + 预判修正 |
-| 0af43fe | P0-1：开关限定 constant-A，selective 分支无视开关 + bit 级回归 |
-| （本 commit） | T3+PhaseB：bench 双路径 + 4 份官方 JSON + 文档回填 |
+| 6beed97 | chunkwise 核心（通用逐块版） |
+| a0f94f9 | 等价性测试 6 用例（合入门槛） |
+| 9817591 | use_chunkwise_scan 开关 + v1/v2 接线 |
+| 26cd0ee | pscan_bench.py 官方基准脚本 |
+| cdda759 | CHECKWISE_NOTES.md 语义审计 |
+| 5d9c4ee | 验收修复：segsum 上三角溢出 + v2 工厂透传 |
+| 766c944 | 探针冒烟修复：carry 广播升维 |
+| 8cb651b | constant-A 特化（本轮性能翻正的实现） |
+| 6bbe671 | 探针冒烟修复：特化版 g 升维错位 |
+| c36c13f | 探针工具 + 两轮原始 JSON 入仓 |
+| ab913d2 | 实验记录与决策日志（本文档） |
+| 89310ab | CHECKWISE_NOTES 实测回填 + 预判修正 |
+| e1c4436 | P0-1：开关限定 constant-A，selective 分支无视开关 + bit 级回归 |
+| 3941221 | T3+PhaseB：bench 双路径 + 4 份官方 JSON + 文档回填 |
