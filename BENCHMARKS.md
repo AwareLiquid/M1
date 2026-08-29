@@ -454,6 +454,16 @@ eviction wins bytes by discarding tokens, and attention is structurally
 reported side by side, never merged. Honest corrections forced by this table
 are mirrored in RESULTS.md ("What we do NOT claim").
 
+**Measured validation (2026-08-29).** The table's analytic side is exact on
+real models: real HF forwards (TinyLlama GQA=4, Llama-3.2-1B GQA=8,
+T ∈ {512, 2048, 8192}, MPS) reproduce `2·L·n_kv·d_head·T·bytes` with
+**0.0000% deviation in every cell**, and the 2-bit rows are confirmed as
+strict floors — real KIVI-scheme packing of the actual cache tensors adds
++2.96% (zero-points the ledger folds to 0) and KIVI-style g=32 grouping
++24.4–25.6%, all on the *opponent's* side, so the published ARR advantages
+are lower bounds. Artifacts: `benchmarks/results/kv_measured.{json,md}`,
+method: [docs/KV_FRONTIER.md](docs/KV_FRONTIER.md) §7.
+
 ## MTP (multi-token-prediction) aux loss — honest null, not promoted (2026-07-12)
 
 `benchmarks/scaling_comparison.py --mode train`, native MT-LNN 125M, matched
