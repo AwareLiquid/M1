@@ -1445,3 +1445,18 @@ next-channel prediction.
 (pre-registered gate (b) failed — NULL). Any real-data advantage (N-Caltech101
 null). Anything about gru_d (pending merge in `iter/irregular-streaming-edge`;
 not re-implemented here per branch boundaries).
+
+> **Bimodality-flag sensitivity note (2026-08-29, post-hoc, zero retraining).**
+> The bimodality detector's gap_ratio>3 threshold was calibrated for grokking
+> (chance-vs-perfect clusters, near-full-range gaps) and over-flags tightly
+> clustered arms. Recomputed from `event_theta_sweep.json` per-seed values:
+> the state θ=0.8 **mt_lnn** arm's flag is a clear false positive (best-split
+> absolute gap 0.0083 = 0.8% of task scale = 3.5% of the cross-architecture
+> mean separation; its 10 seed values 0.966–0.991 are continuously spread).
+> Under that arm's flag the state θ=0.8 vs lstm/gru cells are archived; their
+> mean separations (0.24 / 0.26) are the largest in the sweep and would pass
+> the sign test outright. The other three flags are genuine or borderline
+> (absolute gap 21%/48%/69% of separation). **Historical verdicts stand** (no
+> post-hoc re-adjudication); a calibrated gate — gap_ratio>3 AND absolute gap
+> >10% of cross-architecture range — is pre-registered in the script
+> docstrings for v2 runs onward.

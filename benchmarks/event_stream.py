@@ -79,6 +79,8 @@ def make_dataset(n_episodes, n_channels, seq_len, theta, span_decades,
     # 同格"同时事件"（dt < 0.1 网格步）不参与跨度统计——它们的 Δt=0 是
     # 语义上的同时，不是物理间隙
     raw_dt = raw_dt[raw_dt > 0.1 * FINE_DT][:100_000]
+    if raw_dt.size == 0:                 # 极端参数下的空守卫：统计位退化为 NaN
+        raw_dt = np.asarray([np.nan])
     return {"X": np.stack(Xs), "y": np.array(ys, dtype=np.float32),
             "kept_fraction": len(Xs) / n_raw,
             "dt_p5_s": _pct(raw_dt, 5), "dt_med_s": _pct(raw_dt, 50),

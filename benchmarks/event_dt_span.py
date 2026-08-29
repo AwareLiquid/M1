@@ -24,6 +24,13 @@
 
     python benchmarks/event_dt_span.py --smoke
     python benchmarks/event_dt_span.py
+
+v2 双峰门预注册（2026-08-29，先于任何 v2 运行写死）：bimodality 判定需
+同时满足 (i) gap_ratio > 3 且 (ii) 最优二分的**绝对间隙 > 0.1 × 同格跨架
+构均值全距**。动机：gap_ratio 是相对指标，会把 std≈0.001 的紧聚类臂误判
+为双峰（θ=0.8 的 mt_lnn 臂实测：间隙 0.0083 = 任务量程 0.8%，见
+BENCHMARKS 敏感性脚注）。本规则**不溯及既往**——已入库的裁决维持原判，
+仅约束此后的事件流运行。
 """
 
 from __future__ import annotations
@@ -37,7 +44,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 
-from benchmarks.event_bench import _build_event, task_views, train_eval
+from benchmarks.event_bench import task_views, train_eval
 from benchmarks.event_stream import make_dataset
 from benchmarks.experiment_protocol import publishable
 
