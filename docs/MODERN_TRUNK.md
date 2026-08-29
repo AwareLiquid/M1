@@ -251,3 +251,43 @@ python benchmarks/modern_trunk_screen.py           # 全量 4配置×3seeds×2K�
    配置再测（194M 默认形状不适合端侧，见 §2）。
 5. **永久回归护栏**：13 个契约测试已随全量 pytest 常驻，任何后续改动破坏
    位等价即红。
+
+---
+
+## 9. 测试同学交接手册（全量筛选执行，2026-08-29）
+
+**背景一句话**：本分支给模型装了三个默认关闭的架构开关，代码已全绿
+（pytest 1428 / smoke 12 格），剩下的唯一工作是**在 GPU 机器上跑一次全量
+筛选实验**，产出"哪个开关有效"的数据。
+
+**前置环境**：任意 CUDA GPU 机器（T4 / 3060 级即可，显存 ≥16GB）；
+检出本分支并装好依赖（`torch≥2.0`、`transformers`、`datasets`）；
+首次运行自动下载 WikiText-103（约 500MB）+ gpt2 tokenizer。
+
+**执行步骤**（repo 根目录，严格按序）：
+
+1. `python -m pytest tests/test_modern_trunk.py -q`
+   → 预期 **13 passed**（<1 分钟）。红 = 环境或代码问题，停止并报告。
+2. `python benchmarks/modern_trunk_screen.py --smoke`
+   → 预期 12 格全跑通（<10 分钟）。**这一档的数字全部无意义**，只验管道。
+3. `python benchmarks/modern_trunk_screen.py`
+   → 全量 2K 筛选（GPU 约 2~8 小时）。中断随时可停，重跑同命令自动续
+   （已完成的格子自动跳过）。
+
+**预期产物**（都在 `benchmarks/results/`）：
+12 个逐格 JSON（`modern_trunk_screen_<config>_2000step_s<seed>.json`）+
+汇总 `modern_trunk_screen_2000step.json`（内含配对差值表与 `verdict`）。
+
+**判读**：只看汇总 JSON 的 `verdict` 字段——
+`CONFIRM`（all_on 在 ≥2/3 seeds 配对优于 base）→ 值得排 20K 确认跑；
+`NULL` → 方向归档，火力转向 mixer 本身。2K 数字只代表方向。
+
+**红线（违反即返工）**：
+① 任何 2K 数字**不得**写入 RESULTS.md / README；
+② 20K 确认跑不在本次交接范围，CONFIRM 后由维护者人工排期；
+③ 遇到 bug **不要在运行机改代码**——原样报告（含报错栈 + 已产生的
+JSON），修复走 worktree 分支循环后重新合入。
+
+**回填**：跑完把汇总 JSON 交回维护者，或直接按 §6 的 6 项 checklist
+回填本文件 §2/§3（参数实测值、配对 ΔPPL、verdict、matched-param 决策、
+BENCHMARKS.md 新节标注 screening-only、≤200 字结论）。
