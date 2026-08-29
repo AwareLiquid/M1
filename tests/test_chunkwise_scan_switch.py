@@ -98,12 +98,46 @@ def test_on_path_matches_off_path():
     print("[ok] test_on_path_matches_off_path")
 
 
+def test_switch_ignored_on_selective_path():
+    """P0-1 回归：selective 路径不受开关影响。
+
+    开关若路由到通用 chunkwise（无特化，实测慢 2~16x），selective 训练会
+    静默回退。两次前向走同一条旧 pscan 代码路径，必须 bit 级相同。
+    """
+    torch.manual_seed(3)
+    off = MTLNNModel(_cfg(selective_decay=True))
+    torch.manual_seed(3)
+    on = MTLNNModel(_cfg(selective_decay=True, use_chunkwise_scan=True))
+    on.load_state_dict(off.state_dict())
+    x = torch.randint(0, 128, (2, 40))
+    off.eval(); on.eval()
+    with torch.no_grad():
+        assert torch.equal(_logits(on(x)), _logits(off(x))), \
+            "selective 路径被开关改变了路由 (P0-1 回归)"
+
+    # v2 层的 selective 分支同样必须无视开关
+    torch.manual_seed(4)
+    v2base = dict(hidden_size=64, n_protofilaments=2, d_proto=16,
+                  n_time_scales=3, dropout=0.0, selective_decay=True)
+    v2_off = MTLNNLayerV2(MTAdapterV2Config(**v2base))
+    v2_on = MTLNNLayerV2(MTAdapterV2Config(use_chunkwise_scan=True, **v2base))
+    v2_on.load_state_dict(v2_off.state_dict())
+    xv = torch.randn(2, 40, 64)
+    v2_off.eval(); v2_on.eval()
+    with torch.no_grad():
+        h_off, _ = v2_off(xv)
+        h_on, _ = v2_on(xv)
+    assert torch.equal(h_on, h_off), "v2 selective 路径被开关改变路由 (P0-1)"
+    print("[ok] test_switch_ignored_on_selective_path")
+
+
 def run_all():
     print("=" * 60)
     print("Chunkwise scan switch contract suite")
     print("=" * 60)
     test_switch_defaults_off()
     test_on_path_matches_off_path()
+    test_switch_ignored_on_selective_path()
     print("=" * 60)
     print("ALL SWITCH TESTS PASSED")
     print("=" * 60)

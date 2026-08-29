@@ -58,7 +58,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .parallel_scan import (pscan, pscan_constant_A, pscan_chunkwise,
+from .parallel_scan import (pscan, pscan_constant_A,
                             pscan_chunkwise_constant_A)
 
 
@@ -382,11 +382,11 @@ class MTLNNLayerV2(nn.Module):
             decay_t = decay_t.permute(0, 2, 3, 1)                      # (B,P,S,T)
             lam_t = lam_t.permute(0, 2, 3, 1)                          # (B,P,S,T)
             X = (1.0 - decay_t).unsqueeze(-1) * A_perm
-            if self.use_chunkwise_scan:
-                H = pscan_chunkwise(lam_t, X, h_init=h_init,
-                                    chunk_size=self.chunkwise_scan_size)
-            else:
-                H = pscan(lam_t, X, h_init=h_init)                         # (B,P,S,T,d)
+            # use_chunkwise_scan deliberately does NOT apply on the selective
+            # path (P0-1, CHECKWISE_EXPERIMENT_LOG §2): general chunkwise
+            # measured 2-16x slower than pscan — no constant-A specialisation
+            # exists for per-step λ_t.
+            H = pscan(lam_t, X, h_init=h_init)                         # (B,P,S,T,d)
         else:
             decay = torch.exp(-self.dt / tau)                              # (P,S)
             X = (1.0 - decay).view(1, P, S, 1, 1) * A_perm

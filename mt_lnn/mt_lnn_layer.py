@@ -24,7 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .config import MTLNNConfig
-from .parallel_scan import (pscan, pscan_constant_A, pscan_chunkwise,
+from .parallel_scan import (pscan, pscan_constant_A,
                             pscan_chunkwise_constant_A)
 
 
@@ -107,6 +107,9 @@ class VectorizedMultiScaleResonance(nn.Module):
         # pscan_chunkwise) — same math, different summation order. The
         # equivalence tests in tests/test_pscan_chunkwise.py are the merge
         # gate; kernel-alignment audit: docs/CHECKWISE_NOTES.md.
+        # P0-1: applies ONLY to the constant-A (default decay) path — the
+        # selective path below always uses pscan (general chunkwise measured
+        # 2-16x slower; CHECKWISE_EXPERIMENT_LOG).
         self.use_chunkwise_scan = getattr(config, "use_chunkwise_scan", False)
         self.chunkwise_scan_size = int(getattr(config, "chunkwise_scan_size", 64))
 
@@ -468,12 +471,13 @@ class VectorizedMultiScaleResonance(nn.Module):
                 h_active = h_dp
             elif lam_t is not None:
                 # Selective: per-step multipliers via the GENERAL scan.
+                # use_chunkwise_scan deliberately does NOT apply here (P0-1,
+                # CHECKWISE_EXPERIMENT_LOG §2): the general chunkwise form has
+                # no constant-A specialisation and measured 2-16x SLOWER than
+                # pscan at training lengths — routing the switch here would
+                # silently regress selective-decay training.
                 A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)
-                if self.use_chunkwise_scan:
-                    H = pscan_chunkwise(A_lam, X, h_init=h_init_active,
-                                        chunk_size=self.chunkwise_scan_size)
-                else:
-                    H = pscan(A_lam, X, h_init=h_init_active)         # (B,P,K,T,D)
+                H = pscan(A_lam, X, h_init=h_init_active)             # (B,P,K,T,D)
                 h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             else:
                 if self.use_chunkwise_scan:

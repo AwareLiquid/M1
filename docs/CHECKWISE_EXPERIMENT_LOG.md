@@ -30,7 +30,7 @@ Phase B）未跑。所有"GPU 上如何"的表述均为假设。
 
 | # | 问题 | 影响 | 状态 |
 |---|---|---|---|
-| P0-1 | `use_chunkwise_scan=True` + `selective_decay=True` 会路由到**慢 2~16x 的通用逐块版**（v1 层 `mt_lnn_layer.py` 的 lam_t 分支） | 若合入并开开关跑 selective 训练，严重回退 | **待决策**：建议开关只作用 constant-A 分支，selective 分支无视开关（合入前的小 commit + 1 个回归测试，见 §6-T1/T2） |
+| P0-1 | `use_chunkwise_scan=True` + `selective_decay=True` 会路由到**慢 2~16x 的通用逐块版**（v1 层 `mt_lnn_layer.py` 的 lam_t 分支） | 若合入并开开关跑 selective 训练，严重回退 | **已修复**：selective 分支无视开关（v1/v2 两处），回归测试 bit 级断言（`test_switch_ignored_on_selective_path`） |
 | P1-1 | 通用（selective）路径无特化：λ_t 逐步不同，吃不到"块不变 L"；仍是逐块 Python 循环（第一轮实测慢 2~16x） | selective 训练无法受益于 chunkwise | 记录在案；批量化方向见 §3-路线 C |
 | P1-2 | 长序列档（16K+）CPU 回落至 parity 之下（0.88x） | 长上下文训练不赚 | 机制已定位（§5.3，缓存层级效应，非算法缺陷）；GPU 行为待测 |
 | P2-1 | 内存不省，与分支原始主张偏差 | 叙事需修正（本文 §1 已收窄） | 已修正 |
@@ -125,10 +125,10 @@ chunkwise 每元素算术量（~64 MAC）始终比 pscan（~15 逐元素）**多
 
 ## 6. 后续测试清单
 
-**合入前（本分支，待指令，~30min）**
-- T1 修 P0-1：开关限定只作用 constant-A 分支（v1 层 lam_t 分支无视开关）。
-- T2 回归测试：`switch=True + selective_decay=True` 输出 == 旧 pscan 路径。
-- T3（可选）`pscan_bench.py` 补 constant-A 对照组（P2-2）。
+**合入前（本分支）**
+- [x] T1 修 P0-1：开关限定只作用 constant-A 分支（v1 层 lam_t 分支无视开关）。
+- [x] T2 回归测试：`switch=True + selective_decay=True` 输出 == 旧 pscan 路径（bit 级）。
+- [ ] T3（可选）`pscan_bench.py` 补 constant-A 对照组（P2-2）。
 
 **Phase B（合并指令后，主 worktree）**
 - T4 全量 `pytest tests/`（含 test_pscan_chunkwise 6 用例、
@@ -172,4 +172,5 @@ chunkwise 每元素算术量（~64 MAC）始终比 pscan（~15 逐元素）**多
 | 1cf9920 | 探针冒烟修复：特化版 g 升维错位 |
 | 3317aec | 探针工具 + 两轮原始 JSON 入仓 |
 | dde6aab | 实验记录与决策日志（本文档） |
-| （本 commit） | CHECKWISE_NOTES 实测回填 + 预判修正 |
+| 5dd6a5e | CHECKWISE_NOTES 实测回填 + 预判修正 |
+| （P0-1 commit） | 开关限定 constant-A：selective 分支无视开关 + bit 级回归 |

@@ -185,6 +185,9 @@ class MTLNNConfig:
     # tests/test_pscan_chunkwise.py and is the merge gate for turning this on.
     # False (default) = exact historical pscan path, bit-identical. Do not
     # flip the default until Phase B equivalence + training smoke are green.
+    # SCOPE (P0-1): applies ONLY to the constant-A default path — the
+    # selective_decay path ignores this switch (general chunkwise measured
+    # 2-16x slower than pscan; see docs/CHECKWISE_EXPERIMENT_LOG.md §2).
     use_chunkwise_scan: bool = False
     # Intra-chunk width C: trade matmul size (C² intra-chunk matrix) against
     # carry-loop depth (T/C sequential steps). 64 is the Mamba-2/GLA/KDA
