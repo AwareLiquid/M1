@@ -526,3 +526,22 @@ O(1) 状态字节 + sqrt(d/N) 容量曲线）。
    意识 Φ̂ Orch-OR）。
 6. structural zero 对照（baseline/lora_only）在 D2/D3 应为 0.000（结构性）；
    若非零说明状态通道泄漏，先查 harness 再报数。
+
+### 8.4 PR 就绪包（2026-08-29，代码侧完成、全量待跑）
+
+- **PR 标题**：`feat: parametric memory engine v0 + four-competency bench（代码就绪，全量结果待跑）`
+- **PR 正文**：目标 / 机制对比 / 迭代日志见 `docs/PARAMETRIC_MEMORY.md`；
+  执行手册见本节 §8.2–8.3；全量 JSON 落盘后按 §8.3.5 入库四处文档，
+  再把四维结果表补进 PR 描述。
+- **开 PR 命令**（shell 恢复后，在 worktree `M1-pm` 内）：
+  ```bash
+  git push -u origin iter/parametric-memory
+  gh pr create --base main --head iter/parametric-memory \
+    --title "feat: parametric memory engine v0 + four-competency bench" \
+    --body "$(cat .pr_body.md)"
+  ```
+- **与其他并行 PR 的关系**：irregular-streaming-edge / o-series-hybrid-ratio
+  等线与本分支零文件交叉；唯一潜在交叠是 HANDOFF.md 追加节（合并时两节
+  都保留即可）。另注意 origin/main 停在 c564a5d（本地 main 领先 27 提交
+  未推），其他 PR 若基于新 main 分支开出，diff 会裹挟继承提交——先
+  `git push origin main` 可消除噪声（推前与负责人确认）。

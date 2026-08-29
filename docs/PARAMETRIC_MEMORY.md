@@ -6,6 +6,55 @@ database**. This page states what it is, how it compares to the external-store
 route, and — with the same discipline as RESULTS.md — what it does and does
 not claim. Measured numbers live in RESULTS.md / BENCHMARKS.md only.
 
+## Objective (the optimization problem being solved)
+
+The external-store route (Mem0 / Letta / Zep) pays O(n) storage for history,
+cannot bit-exactly port state across processes, and implements selective
+deletion by editing rows/logs. The claim under test: the fast-weight (F, z)
+matrix this repo has already proven at the LM level (cross-window recall
+0.56 anchor; snapshot/restore bit-exact) can BE the memory — O(1) state,
+algebraic single-binding forgetting, bit-exact snapshots — behind a
+Mem0-shaped API, and can be scored on the MemoryAgentBench four-competency
+axes against both structural-zero controls and an external-store (BM25)
+control.
+
+## Iteration log (key decisions and fixed defects)
+
+Decisions, each with its why:
+
+1. **forget = delta projection, no index** (`F ← F − k(kᵀF)`). The task
+   allowed a per-binding index for exact removal, but an index is O(n) state
+   which would undermine the O(1) claim — algebra removes exactly one key's
+   association at zero index cost.
+2. **Relative zero-threshold in recall** (`|qF| ≤ 1e-5·|F|` → "no memory").
+   Test-caught defect: after forget, fp32 rounding residue (~1e-7) still
+   pointed mostly at the erased value — absolute thresholds leaked stale
+   answers; scaling by |F| separates genuine reads from rounding by ~4
+   orders of magnitude.
+3. **D3 conflict is zero-shot** (training protocol stays identical to the
+   0.56 anchor) so D2 remains anchor-comparable and D3 measures pure
+   mechanism (sum blends, delta corrects).
+4. **D4 runs in a real subprocess** (not just a fresh model object) — the
+   snapshot provably survives process death; a no-restore control in the
+   same child validates the harness has power.
+5. **BM25 control reported as measured**: indexed exact-key lookup is flat
+   latency and 1.0 accuracy — the honest comparison axis is storage O(n) vs
+   constant state bytes and the parametric capacity boundary (~sqrt(d/N)).
+6. **Worktree isolation** (`M1-pm`): the main checkout is shared by
+   concurrent lines; committing there twice landed commits on foreign
+   branches. The branch now lives in its own worktree.
+7. **Steps discipline**: 3000 steps (budget cap) vs the anchor's 8000 —
+   every JSON records its steps; docs never mix the two calibers.
+
+Fixed defects along the way: `load_session` dropped the new `fw_state`
+field (snapshots never round-tripped); argparse prefix-matching swallowed
+`--config`/`--seed` into `--configs`/`--seeds` in child mode; BM25 store had
+an unbound local (`n`) and an inconsistent value-token prefix (0% accuracy);
+runtime curve at d=2048 would have allocated an 8 GB embedding table
+(vocab narrowed to 20k); logging was silent between phases (now: timestamps,
+PHASE markers, NaN watchdog, per-trial child output, tee'd run log).
+
+
 ## Interface
 
 ```python
