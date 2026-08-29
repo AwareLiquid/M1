@@ -1,0 +1,136 @@
+{
+  "device": "mps",
+  "scale_accounting": "fp16 scale/group + zero-point at data width",
+  "models": [
+    {
+      "n_layers": 22,
+      "n_kv": 4,
+      "head_dim": 64,
+      "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+      "dtype": "fp16",
+      "rows": [
+        {
+          "n_layers": 22,
+          "n_kv": 4,
+          "head_dim": 64,
+          "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+          "dtype": "fp16",
+          "context": 512,
+          "fp16_measured": 11534336,
+          "fp16_formula": 11534336,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 1593856,
+          "2bit_g32": 1982464,
+          "2bit_g32_extra_pct": 24.38,
+          "4bit_floor": 3035648,
+          "4bit_g32": 3424256,
+          "4bit_g32_extra_pct": 12.8
+        },
+        {
+          "n_layers": 22,
+          "n_kv": 4,
+          "head_dim": 64,
+          "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+          "dtype": "fp16",
+          "context": 2048,
+          "fp16_measured": 46137344,
+          "fp16_formula": 46137344,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 6324736,
+          "2bit_g32": 7929856,
+          "2bit_g32_extra_pct": 25.38,
+          "4bit_floor": 12091904,
+          "4bit_g32": 13697024,
+          "4bit_g32_extra_pct": 13.27
+        },
+        {
+          "n_layers": 22,
+          "n_kv": 4,
+          "head_dim": 64,
+          "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+          "dtype": "fp16",
+          "context": 8192,
+          "fp16_measured": 184549376,
+          "fp16_formula": 184549376,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 25248256,
+          "2bit_g32": 31719424,
+          "2bit_g32_extra_pct": 25.63,
+          "4bit_floor": 48316928,
+          "4bit_g32": 54788096,
+          "4bit_g32_extra_pct": 13.39,
+          "evict": {
+            "keep": 4100,
+            "evict_fp16": 92364800,
+            "evict_2bit": 12644896
+          }
+        }
+      ]
+    },
+    {
+      "n_layers": 16,
+      "n_kv": 8,
+      "head_dim": 64,
+      "model": "unsloth/Llama-3.2-1B",
+      "dtype": "fp16",
+      "rows": [
+        {
+          "n_layers": 16,
+          "n_kv": 8,
+          "head_dim": 64,
+          "model": "unsloth/Llama-3.2-1B",
+          "dtype": "fp16",
+          "context": 512,
+          "fp16_measured": 16777216,
+          "fp16_formula": 16777216,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 2318336,
+          "2bit_g32": 2883584,
+          "2bit_g32_extra_pct": 24.38,
+          "4bit_floor": 4415488,
+          "4bit_g32": 4980736,
+          "4bit_g32_extra_pct": 12.8
+        },
+        {
+          "n_layers": 16,
+          "n_kv": 8,
+          "head_dim": 64,
+          "model": "unsloth/Llama-3.2-1B",
+          "dtype": "fp16",
+          "context": 2048,
+          "fp16_measured": 67108864,
+          "fp16_formula": 67108864,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 9199616,
+          "2bit_g32": 11534336,
+          "2bit_g32_extra_pct": 25.38,
+          "4bit_floor": 17588224,
+          "4bit_g32": 19922944,
+          "4bit_g32_extra_pct": 13.27
+        },
+        {
+          "n_layers": 16,
+          "n_kv": 8,
+          "head_dim": 64,
+          "model": "unsloth/Llama-3.2-1B",
+          "dtype": "fp16",
+          "context": 8192,
+          "fp16_measured": 268435456,
+          "fp16_formula": 268435456,
+          "fp16_dev_pct": 0.0,
+          "2bit_floor": 36724736,
+          "2bit_g32": 46137344,
+          "2bit_g32_extra_pct": 25.63,
+          "4bit_floor": 70279168,
+          "4bit_g32": 79691776,
+          "4bit_g32_extra_pct": 13.39,
+          "evict": {
+            "keep": 4100,
+            "evict_fp16": 134348800,
+            "evict_2bit": 18392576
+          }
+        }
+      ]
+    }
+  ]
+}
