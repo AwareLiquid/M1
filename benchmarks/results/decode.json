@@ -1,0 +1,42 @@
+{
+  "rows": [
+    {
+      "seq_len": 512,
+      "llama_kv_mb": 1.5,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 2048,
+      "llama_kv_mb": 6.0,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 8192,
+      "llama_kv_mb": 24.0,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 32768,
+      "llama_kv_mb": 96.0,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 131072,
+      "llama_kv_mb": 384.0,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 524288,
+      "llama_kv_mb": 1536.0,
+      "arr_state_mb": 0.381
+    },
+    {
+      "seq_len": 1048576,
+      "llama_kv_mb": 3072.0,
+      "arr_state_mb": 0.381
+    }
+  ],
+  "n_layers": 12,
+  "n_kv_heads": 1,
+  "d_head": 64
+}
