@@ -123,20 +123,42 @@ chunkwise 每元素算术量（~64 MAC）始终比 pscan（~15 逐元素）**多
 单元，溢价存活）；MPS 最优 C=32（更小工作集）。→ 16K 回落是**缓存层级
 效应，非算法缺陷**；CUDA（Tensor Core + HBM）预期溢价维持更久——待测。
 
+### 5.4 官方基准（Phase B 本地执行，CPU 档，`benchmarks/results/pscan_bench*.json`）
+
+`pscan_bench.py` 双路径全量（T ∈ {1K,4K,16K,64K}，fwd_bwd，C=64 对比值）：
+
+| 路径（chunk/pscan 墙钟比） | 1K | 4K | 16K | 64K |
+|---|---|---|---|---|
+| **const（生产默认）** | 0.563x（快 1.78x） | 0.720x（快 1.39x） | 0.844x（快 1.19x） | 0.398x（快 2.5x）⚠ |
+| general（selective，开关不触达） | 慢 3.54x | 慢 6.97x | 慢 21.2x | 慢 52.9x |
+
+- const 路径**全长度为正**；1K~16K 与探针一致（探针 16K 0.88x vs bench
+  0.844x，口径吻合）。⚠ 64K 反常走高（探针未测 64K）：疑似本机 16GB
+  内存压力下 pscan 递归的分配模式受损更重——存疑，待 GPU 档复核，
+  **不据此外推"越长越赚"**（与 §5.3 缓存机制分析相悖的异常点）。
+- general 路径与第一轮探针一致（慢 3.5~52.9x）——P0-1 开关限定的正式背书。
+- bench 与探针 backward 目标函数不同（sum vs square().mean()），绝对值
+  不可互比；比值口径一致。
+
 ## 6. 后续测试清单
 
 **合入前（本分支）**
 - [x] T1 修 P0-1：开关限定只作用 constant-A 分支（v1 层 lam_t 分支无视开关）。
 - [x] T2 回归测试：`switch=True + selective_decay=True` 输出 == 旧 pscan 路径（bit 级）。
-- [ ] T3（可选）`pscan_bench.py` 补 constant-A 对照组（P2-2）。
+- [x] T3 `pscan_bench.py` 补 `--path const` 生产路径组（P2-2，本 commit）。
 
-**Phase B（合并指令后，主 worktree）**
-- T4 全量 `pytest tests/`（含 test_pscan_chunkwise 6 用例、
-  test_chunkwise_scan_switch 2 用例、既有 test_parallel_scan 7 用例）。
-- T5 `pscan_bench.py --smoke` → 全量，JSON 落盘（含 chunk 敏感性）。
-- T6 `train.py --dummy --compile --steps 10 --batch 2`（注意 CPU 下 compile
-  分支不生效，P2-4）。
-- T7 回填 `CHECKWISE_NOTES.md` §5 官方数字 + 复核本文探针结论。
+**Phase B（2026-08-29 已在 chunkwise worktree 用主仓 .venv 本地执行——
+PR 流程下以"rebase + 本地验证 + PR 审核"替代原"主 worktree 合并后执行"）**
+- [x] T4 全量 `pytest tests/`：**1405 passed / 4 skipped（环境缺 CUDA/PIL）/
+  1 failed**——唯一失败 `test_awareliquid_daemon::test_daemon_404_for_unknown_session`
+  **单独重跑即通过**（套件顺序型 flake；本分支对 serve/daemon 零改动）。
+  扫描相关 16 用例（chunkwise 6 + switch 3 + parallel_scan 7）全绿。
+  过程中还修复了测试文件自身的 `_rand_case` 参数误用（首次真实执行暴露，
+  commit 4fccaa5）。
+- [x] T5 `pscan_bench.py` smoke + 全量双路径，JSON 落盘（§5.4）。
+- [x] T6 `train.py --dummy --compile --steps 10 --batch 2`：10 步跑通，
+  loss 7.23（随机数据合理值），无 NaN/崩溃（CPU 下 compile 不生效，P2-4 已知）。
+- [x] T7 `CHECKWISE_NOTES.md` §5 官方数字回填（本 commit）。
 
 **有 CUDA 机器后**
 - T8 `pscan_bench.py` GPU 全量档（tensor core 溢价假设的检验）。
@@ -173,4 +195,5 @@ chunkwise 每元素算术量（~64 MAC）始终比 pscan（~15 逐元素）**多
 | 3317aec | 探针工具 + 两轮原始 JSON 入仓 |
 | dde6aab | 实验记录与决策日志（本文档） |
 | 5dd6a5e | CHECKWISE_NOTES 实测回填 + 预判修正 |
-| （P0-1 commit） | 开关限定 constant-A：selective 分支无视开关 + bit 级回归 |
+| 0af43fe | P0-1：开关限定 constant-A，selective 分支无视开关 + bit 级回归 |
+| （本 commit） | T3+PhaseB：bench 双路径 + 4 份官方 JSON + 文档回填 |

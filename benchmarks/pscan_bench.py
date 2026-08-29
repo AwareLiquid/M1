@@ -36,7 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch
 
-from mt_lnn.parallel_scan import pscan, pscan_chunkwise
+from mt_lnn.parallel_scan import (pscan, pscan_chunkwise,
+                                  pscan_constant_A, pscan_chunkwise_constant_A)
 
 SEQ_LENS = [1024, 4096, 16384, 65536]
 SMOKE_SEQ_LENS = [1024, 4096]
@@ -51,30 +52,52 @@ def main():
     args = parse_args()
     device = resolve_device(args.device)
     lens = SMOKE_SEQ_LENS if args.smoke else args.seq_lens
-    print(f"[pscan_bench] device={device} smoke={args.smoke} "
+    print(f"[pscan_bench] path={args.path} device={device} smoke={args.smoke} "
           f"T={lens} chunks={args.chunk_sizes} iters={args.iters}")
     rows = []
     for T in lens:
         rows.extend(bench_length(T, device, args))
     write_results(rows, args, device, lens)
-    print_summary(rows, args.out)
+    print_summary(rows, args)
+
+
+def build_impls(path, chunk_sizes):
+    """(name, chunk, fn) per impl. 'const' is the production DEFAULT path
+    (constant decay along T); 'general' is the per-step-multiplier path."""
+    if path == "const":
+        yield "pscan_const", None, lambda a, x: pscan_constant_A(a, x)
+        for c in chunk_sizes:
+            yield "chunk_const", c, (lambda a, x, _c=c:
+                                     pscan_chunkwise_constant_A(a, x, chunk_size=_c))
+    else:
+        yield "pscan", None, lambda a, x: pscan(a, x)
+        for c in chunk_sizes:
+            yield "chunkwise", c, (lambda a, x, _c=c:
+                                   pscan_chunkwise(a, x, chunk_size=_c))
+
+
+def build_inputs(path, T, device):
+    torch.manual_seed(0)
+    if path == "const":
+        decay = (torch.rand(*LEADING_DIMS, device=device) * 0.09 + 0.90).requires_grad_()
+        X = torch.randn(*LEADING_DIMS, T, D, device=device).requires_grad_()
+        return decay, X
+    A = (torch.rand(*LEADING_DIMS, T, device=device) * 0.09 + 0.90).requires_grad_()
+    X = torch.randn(*LEADING_DIMS, T, D, device=device).requires_grad_()
+    return A, X
 
 
 def bench_length(T, device, args):
     """All impl × chunk × mode cells for one sequence length; prints rows."""
-    torch.manual_seed(0)
-    A = (torch.rand(*LEADING_DIMS, T, device=device) * 0.09 + 0.90).requires_grad_()
-    X = torch.randn(*LEADING_DIMS, T, D, device=device).requires_grad_()
-    impls = [("pscan", None)] + [("chunkwise", c) for c in args.chunk_sizes]
+    A, X = build_inputs(args.path, T, device)
     rows = []
-    for name, chunk in impls:
-        fn = (lambda a, x: pscan(a, x)) if chunk is None else \
-             (lambda a, x, c=chunk: pscan_chunkwise(a, x, chunk_size=c))
+    for name, chunk, fn in build_impls(args.path, args.chunk_sizes):
         for mode in MODES:
             row = bench_cell(name, chunk, mode, fn, A, X, T, args)
             rows.append(row)
-            print(f"  T={T:>6} {name:>9} chunk={str(chunk):>4} {mode:>7}: "
-                  f"{row['wall_ms']:>10.2f} ms   peak={row['peak_mem_bytes']}")
+            print(f"  T={T:>6} {name:>11} chunk={str(chunk):>4} {mode:>7}: "
+                  f"{row['wall_ms'] and format(row['wall_ms'], '.2f') or 'OOM':>10} ms"
+                  f"   peak={row['peak_mem_bytes']}")
     del A, X
     if device == "cuda":
         torch.cuda.empty_cache()
@@ -143,6 +166,7 @@ def make_meta(args, device, lens):
         torch=torch.__version__,
         device=device,
         gpu_name=(torch.cuda.get_device_name(0) if device == "cuda" else None),
+        path=args.path,
         dtype="float32",
         leading_dims=list(LEADING_DIMS),
         d_state=D,
@@ -152,7 +176,8 @@ def make_meta(args, device, lens):
         warmup=args.warmup,
         smoke=args.smoke,
         note="wall_ms is median; peak_mem_bytes is torch.cuda.max_memory_allocated "
-             "(None on CPU); wall_ms=None + error=cuda_oom marks an OOM cell.",
+             "(None on CPU); wall_ms=None + error=cuda_oom marks an OOM cell. "
+             "path=const is the production DEFAULT (constant decay along T).",
         hostname=platform.node(),
     )
 
@@ -164,18 +189,20 @@ def write_results(rows, args, device, lens):
     print(f"[pscan_bench] wrote {len(rows)} rows -> {args.out}")
 
 
-def print_summary(rows, out_path):
+def print_summary(rows, args):
     """Headline: chunkwise/pscan wall-clock ratio per T (fwd_bwd, chunk=64)."""
+    base_name = "pscan_const" if args.path == "const" else "pscan"
+    chunk_name = "chunk_const" if args.path == "const" else "chunkwise"
     for T in sorted({r["T"] for r in rows}):
-        base = next((r for r in rows if r["T"] == T and r["impl"] == "pscan"
+        base = next((r for r in rows if r["T"] == T and r["impl"] == base_name
                      and r["mode"] == "fwd_bwd" and r["wall_ms"]), None)
-        best = next((r for r in rows if r["T"] == T and r["impl"] == "chunkwise"
+        best = next((r for r in rows if r["T"] == T and r["impl"] == chunk_name
                      and r["mode"] == "fwd_bwd" and r["chunk_size"] == 64
                      and r["wall_ms"]), None)
         if base and best:
-            print(f"[summary] T={T}: chunkwise(C=64)/pscan fwd_bwd wall ratio = "
-                  f"{best['wall_ms'] / base['wall_ms']:.3f}x")
-    print(f"[summary] full JSON: {out_path}")
+            print(f"[summary] T={T}: {chunk_name}(C=64)/{base_name} fwd_bwd "
+                  f"wall ratio = {best['wall_ms'] / base['wall_ms']:.3f}x")
+    print(f"[summary] full JSON: {args.out}")
 
 
 def resolve_device(name):
@@ -187,6 +214,9 @@ def resolve_device(name):
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
+    p.add_argument("--path", default="general", choices=["general", "const"],
+                   help="'const' = 生产默认路径 (decay 沿 T 不变), "
+                        "'general' = 逐 token 乘子 (selective)")
     p.add_argument("--smoke", action="store_true",
                    help=f"fast档: T ∈ {SMOKE_SEQ_LENS} only")
     p.add_argument("--seq-lens", type=int, nargs="+", default=SEQ_LENS)

@@ -139,9 +139,10 @@ D 通道广播），X 形状 `(..., T, D)`。chunk_size = C（默认 64）。
 - [x] chunk_size 敏感性：CPU 最优 64，MPS 最优 32（§4）
 - [x] 内存：平手不省（预判修正，§4）
 
-**Phase B 官方基准待跑（`pscan_bench.py`，主 worktree）**：
-- [ ] 全量 JSON 落盘（建议先补 constant-A 对照组——探针已证明它是
-      生产默认路径，bench 矩阵目前缺失；EXPERIMENT_LOG §6-T3）
-- [ ] 训练冒烟（train.py --compile 小跑）确认端到端无回归
+**Phase B 官方基准（2026-08-29 本地 CPU 档已跑，`benchmarks/results/pscan_bench*.json`）**：
+- [x] const（生产默认）路径 chunk/pscan 墙钟比：1K 0.563x / 4K 0.720x /
+      16K 0.844x / 64K 0.398x——全长度为正；64K 反常走高存疑（内存压力
+      嫌疑，待 GPU 复核，不外推），详见 EXPERIMENT_LOG §5.4
+- [x] general 路径慢 3.5~52.9x——P0-1 开关限定（selective 不触达）的正式背书
 - [ ] 有 CUDA 机器后跑 GPU 档（tensor core 溢价假设）
 - [ ] （若达标）是否推进"换用现成 Triton 内核"的独立分支立项
