@@ -43,7 +43,13 @@ SHORT_ATOL = 1e-4
 
 
 def _rand_case(*batch_T, d=6, lo=0.05, hi=0.95, seed=0, signed=False):
-    """Deterministic (A, X) with multipliers in (+-lo, +-hi), |A| < 1."""
+    """Deterministic (A, X): batch_T = (batch..., T), state width via d= kwarg.
+
+    NOTE: d MUST be a keyword arg — passing it positionally makes it a batch
+    dim (that exact misuse shipped this file's first draft and silently
+    collapsed all multi-chunk coverage to single chunks; the carry test's
+    h_init shape mismatch is what exposed it).
+    """
     torch.manual_seed(seed)
     T = batch_T[-1]
     A = torch.rand(*batch_T) * (hi - lo) + lo
@@ -79,14 +85,14 @@ def test_chunkwise_matches_sequential_multishape():
 
 def test_chunkwise_chunk_boundary_sweep():
     # Single short chunk, zero carry: rounding-dominated regime -> tight gate
-    A, X = _rand_case(2, 8, 4, seed=7)
+    A, X = _rand_case(2, 8, d=4, seed=7)
     assert_close(
         pscan_chunkwise(A, X, chunk_size=8), pscan_sequential(A, X),
         rtol=SHORT_RTOL, atol=SHORT_ATOL,
     )
     # Boundary-prone lengths vs the production pscan: T = C, C-1, C+1, ...
     for T in [1, 63, 64, 65, 127, 128, 129, 257]:
-        A, X = _rand_case(2, T, 5, seed=200 + T)
+        A, X = _rand_case(2, T, d=5, seed=200 + T)
         assert_close(
             pscan_chunkwise(A, X, chunk_size=64), pscan(A, X),
             rtol=CHUNKWISE_RTOL, atol=CHUNKWISE_ATOL,
@@ -123,7 +129,7 @@ def test_chunkwise_constant_A_specialisation():
 
 def test_chunkwise_carry_correctness():
     B, T, D = 2, 100, 5
-    A, X = _rand_case(B, T, D, seed=400)
+    A, X = _rand_case(B, T, d=D, seed=400)
     h_init = torch.randn(B, D)
     assert_close(
         pscan_chunkwise(A, X, h_init=h_init, chunk_size=32),
@@ -147,7 +153,7 @@ def test_chunkwise_carry_correctness():
 # ---------------------------------------------------------------------------
 
 def test_chunkwise_signed_and_gradients():
-    A, X = _rand_case(2, 96, 5, seed=500, signed=True)       # |A| in (.05,.95), sign mixed
+    A, X = _rand_case(2, 96, d=5, seed=500, signed=True)     # |A| in (.05,.95), sign mixed
     assert_close(
         pscan_chunkwise(A, X, chunk_size=32), pscan_sequential(A, X),
         rtol=CHUNKWISE_RTOL, atol=CHUNKWISE_ATOL,
