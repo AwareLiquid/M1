@@ -341,6 +341,47 @@ def build_chunks(tok, split, seq_len, wikitext="wikitext-103-raw-v1",
     return torch.from_numpy(ids[:n].astype(np.int64)).reshape(-1, seq_len)
 
 
+def _heldout_ppl(m, test_c, args, device, dtype):
+    """Held-out PPL from the PURE next-token CE (lm_loss), never the training
+    objective (out["loss"] folds in the MTP aux term for mt_lnn_mtp).
+    Baselines/Mamba have no "lm_loss" key → fall back to out["loss"],
+    which for them IS the pure CE.
+    exp() is guarded for exactly the divergence this benchmark exists to
+    measure: a diverged-but-finite model (mean CE > ~709) would raise
+    OverflowError and abort the whole multi-seed sweep; a NaN would poison
+    statistics.mean. Both map to a reported inf instead."""
+    m.eval()
+    nll, ntok = 0.0, 0
+    with torch.no_grad():
+        for i in range(0, min(len(test_c), args.eval_chunks or len(test_c)), args.batch):
+            c, k = _chunk_nll(m, test_c[i:i + args.batch].to(device), device, dtype)
+            nll += c
+            ntok += k
+    mean_nll = nll / ntok if ntok else float("nan")
+    return (math.exp(mean_nll) if math.isfinite(mean_nll) and mean_nll < 709.0
+            else float("inf"))
+
+
+def _chunk_nll(m, ids, device, dtype):
+    """单个 batch 的 CE×token 数（autocast 口径与训练侧一致）。"""
+    with torch.amp.autocast("cuda", dtype=dtype,
+                            enabled=device == "cuda" and dtype != torch.float32):
+        out = m(ids, labels=ids)
+    n = ids.shape[0] * (ids.shape[1] - 1)
+    ce = out.get("lm_loss", out["loss"])
+    return ce.float().item() * n, n
+
+
+def _resolve_recipe(args):
+    """配方显式化（E0 纪律：beta2/clip 行内记录，好配方 --good_recipe 一键）。
+    默认值 = P0 历史口径 (0.95/1.0)，保证与 scaling_fp32/ 已归档结果可复现；
+    E6 文本收益重测按 DEVELOPMENT_PLAN 用 --good_recipe (beta2=0.999, clip=0)。"""
+    beta2, grad_clip = args.beta2, args.grad_clip
+    if args.good_recipe:
+        beta2, grad_clip = 0.999, 0.0
+    return beta2, grad_clip
+
+
 def train_arch(arch, args, device, dtype, seed=0):
     from transformers import AutoTokenizer
 
@@ -380,11 +421,13 @@ def train_arch(arch, args, device, dtype, seed=0):
                            for k, v in _msd.items()}, strict=True)
         del _base
     n_params = count_params(m)
-    opt = torch.optim.AdamW(m.parameters(), lr=args.lr, betas=(0.9, 0.95))
+    beta2, grad_clip = _resolve_recipe(args)
+    opt = torch.optim.AdamW(m.parameters(), lr=args.lr, betas=(0.9, beta2))
     scaler = (torch.amp.GradScaler("cuda")
               if device == "cuda" and dtype == torch.float16 else None)
     m.train()
     stable, last, t0, step, cursor = True, float("nan"), time.time(), 0, 0
+    sanity_failed = False
     ckpt_path = _checkpoint_path(args, arch, seed)
     if args.resume and os.path.exists(ckpt_path):
         ckpt = _load_checkpoint(ckpt_path, m, opt, scaler, device)
@@ -420,7 +463,8 @@ def train_arch(arch, args, device, dtype, seed=0):
                 continue
             with torch.amp.autocast("cuda", dtype=dtype,
                                     enabled=device == "cuda" and dtype != torch.float32):
-                out = m(ids, labels=ids)
+                out = m(ids, labels=ids,
+                        use_lnn_recurrence=not args.lnn_broadcast)
                 loss = out["loss"] / accum
             if not torch.isfinite(loss):
                 stable = False
@@ -433,7 +477,8 @@ def train_arch(arch, args, device, dtype, seed=0):
             micro = 0
             if scaler:
                 scaler.unscale_(opt)
-            torch.nn.utils.clip_grad_norm_(m.parameters(), 1.0)
+            if grad_clip > 0:
+                torch.nn.utils.clip_grad_norm_(m.parameters(), grad_clip)
             (scaler.step(opt), scaler.update()) if scaler else opt.step()
             opt.zero_grad(set_to_none=True)
             last = loss.item() * accum
@@ -449,45 +494,44 @@ def train_arch(arch, args, device, dtype, seed=0):
                                  cursor, last, stable)
                 print(f"  [{arch}] checkpoint saved at step {step}: "
                       f"{ckpt_path}", flush=True)
-        if not stable:
+            # Sanity gate (E6 protocol): mid-run held-out PPL; above the
+            # threshold the remaining budget is not worth the GPU time.
+            # v4's null was invalid precisely because PPL≈470 at 8000 steps
+            # meant the recipe never trained — this gate fails THAT run at
+            # step 2000 instead of burning the other 6000.
+            if (args.sanity_steps and step == args.sanity_steps
+                    and step < args.steps):
+                sppl = _heldout_ppl(m, test_c, args, device, dtype)
+                m.train()
+                print(f"  [{arch}] sanity @ {step}: val PPL {sppl:.2f} "
+                      f"(gate {'PASS' if sppl <= args.sanity_ppl else 'FAIL'} "
+                      f"<= {args.sanity_ppl})", flush=True)
+                if sppl > args.sanity_ppl:
+                    sanity_failed = True
+                    break
+        if not stable or sanity_failed:
             break
         cursor = 0
 
-    if args.ckpt_every and stable:
+    if args.ckpt_every and stable and not sanity_failed:
         _save_checkpoint(ckpt_path, arch, seed, m, opt, scaler, step, cursor,
                          last, stable)
         print(f"  [{arch}] checkpoint saved at step {step}: {ckpt_path}",
               flush=True)
 
-    # held-out PPL
-    m.eval()
-    nll, ntok = 0.0, 0
-    with torch.no_grad():
-        for i in range(0, min(len(test_c), args.eval_chunks or len(test_c)), args.batch):
-            ids = test_c[i:i + args.batch].to(device)
-            with torch.amp.autocast("cuda", dtype=dtype,
-                                    enabled=device == "cuda" and dtype != torch.float32):
-                out = m(ids, labels=ids)
-            n = ids.shape[0] * (ids.shape[1] - 1)
-            # PPL from the PURE next-token CE (lm_loss), never the training
-            # objective (out["loss"] folds in the MTP aux term for mt_lnn_mtp).
-            # Baselines/Mamba have no "lm_loss" key → fall back to out["loss"],
-            # which for them IS the pure CE.
-            ce = out.get("lm_loss", out["loss"])
-            nll += ce.float().item() * n
-            ntok += n
-    # Guard exp() for exactly the divergence this benchmark exists to measure:
-    # a diverged-but-finite model (mean CE > ~709) would raise OverflowError
-    # and abort the whole multi-seed sweep; a NaN would poison statistics.mean.
-    # Map both to a reported inf (a large-but-reported value) instead.
-    mean_nll = nll / ntok if ntok else float("nan")
-    ppl = (math.exp(mean_nll) if math.isfinite(mean_nll) and mean_nll < 709.0
-           else float("inf"))
+    ppl = _heldout_ppl(m, test_c, args, device, dtype)
     del m, opt
     if device == "cuda":
         torch.cuda.empty_cache()
-    return {"arch": arch, "seed": seed, "params": n_params, "stable": stable,
-            "final_loss": last, "val_ppl": ppl, "steps": step}
+    row = {"arch": arch, "seed": seed, "params": n_params, "stable": stable,
+           "final_loss": last, "val_ppl": ppl, "steps": step,
+           # E0 纪律：配方行内记录（好配方与否一眼可辨，防"二手结论"）
+           "beta2": beta2, "grad_clip": grad_clip,
+           "lnn_recurrence": "scan" if not args.lnn_broadcast else "broadcast"}
+    if args.sanity_steps:
+        row["sanity"] = {"steps": args.sanity_steps, "max_ppl": args.sanity_ppl,
+                         "failed": sanity_failed}
+    return row
 
 
 def main():
@@ -502,6 +546,24 @@ def main():
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--steps", type=int, default=2000)
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--beta2", type=float, default=0.95,
+                    help="AdamW beta2 (默认=P0 历史口径 0.95; 好配方见 --good_recipe)")
+    ap.add_argument("--grad_clip", type=float, default=1.0,
+                    help="梯度裁剪范数, 0=off (默认=P0 历史口径 1.0)")
+    ap.add_argument("--good_recipe", action="store_true",
+                    help="好配方一键预设: beta2=0.999 + grad_clip=0 "
+                         "(E 系列实验口径; 会覆盖 --beta2/--grad_clip)")
+    ap.add_argument("--sanity_steps", type=int, default=0,
+                    help=">0 时在 N 步做 held-out 评估, PPL 超过 --sanity_ppl "
+                         "则中止省 GPU (E6 协议: 2000)")
+    ap.add_argument("--sanity_ppl", type=float, default=150.0,
+                    help="sanity 门阈值 (E6 协议: 150 — v4 的 470 在 2000 步就该拦下)")
+    ap.add_argument("--lnn_broadcast", action=argparse.BooleanOptionalAction,
+                    default=False,
+                    help="LM 训练 forward 用 broadcast(并行) 模式而非真循环 scan "
+                         "— 128M 实测 PPL 无差 (153.92 vs 154.61, 2026-08-28 消融) "
+                         "且 ~12% 提速; held-out 评估始终 scan (部署口径)。"
+                         "默认 off 保持 P0 历史口径")
     ap.add_argument("--log_every", type=int, default=100)
     ap.add_argument("--eval_chunks", type=int, default=200)
     ap.add_argument("--seeds", default="0,1,2",

@@ -13,6 +13,10 @@ import torch.nn.functional as F
 
 def init_weights(module: nn.Module, config) -> None:
     """GPT-2-style init with MT-specific overrides."""
+    # 专用初始化的模块 (如 CoreFastWeight 的投影, 独立生成器 + RNG 隔离)
+    # 不参与全局 apply 重初始化 —— 覆盖会破坏专用初始化并移位全局 RNG 流。
+    if getattr(module, "_fw_init_done", False):
+        return
     if isinstance(module, nn.Linear):
         nn.init.normal_(module.weight, mean=0.0, std=0.02)
         if module.bias is not None:
