@@ -337,8 +337,8 @@ consciousness-m1-v2 分支 parity 3/3),而所有生物命名机制(Hebbian/GWT/P
   0.56);② "最小流式内存"绝对化表述让位,限定为"不丢弃上下文前提下最小"。
   任务级影响:窗口外离散取回型任务(长文档 QA/持久个人记忆/仓库级编码/
   流式监控关联)驱逐致命;窗口内任务无损;RAG 检索环路可抵消代价。
-- **待办**:PRD.md S2 行(≈L52/L173)仍是纯 fp16 口径,下轮对齐 frontier
-  新口径;其他分支引用 O(1) 数字一律以 RESULTS.md 新口径为准。
+- ~~**待办**:PRD.md S2 口径对齐~~ (✅ 2026-08-29 已完成,L52/L66/L173 三处
+  换 frontier 口径);其他分支引用 O(1) 数字一律以 RESULTS.md 新口径为准。
 
 ### 3.8.7 KV 前沿实测验证 (2026-08-29, 分支 `iter/kv-measured-frontier`)
 
@@ -376,6 +376,34 @@ KV 前沿账目的最后一个未测残项。3.8.6 的账本已被真模型实�
   偏差超过 g32 上界较多则说明 KIVI 还有未计的存储项,如实补记进
   KV_FRONTIER.md §7。结果入库:分支 `iter/kv-measured-frontier`,
   产物 `benchmarks/results/kivi_official.{json,md}` + KV_FRONTIER §7 更新。
+
+### 3.8.9 KV 前沿线优先级清单 + PR 状态 (2026-08-29 定稿)
+
+**优先级**(基于现状:内存账防守已完成且实测加固;核心资产两条已确权
+一条待确权;ARR 质量 2.15× teacher PPL 仍是短板):
+
+| 级 | 事项 | 成本 | 备注 |
+|---|---|---|---|
+| P0 | 合并/推送 KV 前沿两分支 | 分钟 | 走 PR,不直推 main |
+| P1 | PRD S2 口径对齐 | ✅ 本次已完成 | 3.8.6 待办闭环 |
+| P1 | Kaggle 官方 KIVI 臂 | token 后 1-2h | 阻塞:`~/.kaggle/kaggle.json` 缺失,见 3.8.8 |
+| P2 | **跨窗口召回 0.56 vs 现代循环基线**(Mamba/RWKV/GRU/LSTM,3 seeds) | toy 起步本地可跑 | **最大未测空白**:赢→主张升级为"所有状态类型唯一";输→收缩到产品线。属 recall 分支 |
+| P3 | 驱逐 KV + 液态状态混合栈(`attention_layers` 配比 sweep + 联合账) | 本地 8GB 起步 | 把前沿发现变产品:内存打到驱逐水平 + 窗口外召回 0.56 |
+| P3 | 记忆外挂重跑(LFM2.5-350M,主指标 cross-window recall) | <$10 | §3.8 已设计:修 PEFT 冻结 bug/换指标/换基座 |
+| P4 | 不规则采样边缘线 | — | **并行会话在做**(GRU-D/空气质量/Van der Pol),只消费结果 |
+| P4 | ARR 质量追分 | 长 | 等 P2/P3 定位钉牢后再定预算 |
+
+**不做**:继续堆内存账目(盾已造完);正面拼 PPL(已证伪)。
+若只投一件:投 P2——唯一能改变方向价值的实验。
+
+**PR/分支状态**(2026-08-29,遵循"不直推 main,走 PR"纪律):
+- `iter/kv-cache-frontier` = 本地 main(cad9372) + 账本 5 提交 → PR→main
+- `iter/kv-measured-frontier` = 上者 + 实测 4 提交 → PR→`iter/kv-cache-frontier`(栈式)
+- `sync/local-main-2026-08` = 本地 main 本体 → PR→origin/main:本地 main 领先
+  远程 **27 提交**(code-priority merge+PRD v3+重构批),先合此 PR 再合前沿 PR,
+  否则前沿 PR 会混入积压 diff。三个 PR 均由 gh 创建,base 均为 main/前沿分支。
+- 旧分支指针备份: `backup/kv-cache-a28c97f` / `backup/kv-measured-a853b2d`
+  (08d4edf 基点旧线,含并行会话 parametric 提交,仅存档勿用)。
 
 ## 3.8 外部评审意见(2026-07-30,待 M2 决策,未实施)
 

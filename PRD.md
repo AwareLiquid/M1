@@ -49,7 +49,7 @@ selective_decay 的液态循环核心，换取三种 Transformer 结构上拿不
 
 | Transformer 痛点 | 我们的回答 | 边界（必须同框呈现） |
 |---|---|---|
-| KV cache O(T) 膨胀，长上下文按 A100 计价 | O 系列 ARR：0.381 MB 恒定，1M token 处小 8063× | 仅推理携带状态；训练内存无此优势；out-of-window LM 质量为 null |
+| KV cache O(T) 膨胀，长上下文按 A100 计价 | O 系列 ARR：0.381 MB 恒定，1M 处小 8063×（fp16 GQA1）/ **8567×（最强压缩 2-bit+GQA8）** | 仅推理携带状态；训练内存无此优势；out-of-window LM 质量为 null；小窗驱逐+2bit（0.202 MB）更小但窗口外召回 0.000（docs/KV_FRONTIER.md） |
 | 上下文窗口一丢什么都记不住 | fast-weight 状态跨窗口 recall 0.56 vs attention/LoRA 的结构性 0.000；快照/恢复 bit-exact | 离散 K→V 绑定，不是长上下文语言建模能力 |
 | LM 质量 | **不是我们的主张**：modern Transformer 在同预算下领先我们 11.3% | PPL 只作训练稳定性佐证 |
 | 端侧/边缘部署 | int8 量化（nn.Linear 动态零退化 + 液态 Int8Weight）、ONNX int8 1.27MB、流式 step 图导出 | 2B 全 int8 部署数学已打通，权重未达标待复训 |
@@ -63,7 +63,9 @@ selective_decay 的液态循环核心，换取三种 Transformer 结构上拿不
   （selective 5/6 grok vs stock 0/6）；E5d/E5e 根因闭环（**exp 参数化**决定长度
   外推，d16/d32 回归 6/6）。待办：真实算法任务桥接（E2/A5 三次非对角尝试判负，
   决胜计划见 docs/NONDIAGONAL_TRANSITION.md）。
-- **S2 O(1) 状态效率**：0.381 MB 恒定、2048× 上下文增长状态逐字节不变；
+- **S2 O(1) 状态效率**：0.381 MB 恒定、2048× 上下文增长状态逐字节不变；对最强压缩 KV
+  （2-bit+GQA8）128k/1M 处仍小 1070.9×/8567×，全部未驱逐交叉点 T*∈[17,976]（账本+
+  双真模型实测，docs/KV_FRONTIER.md；唯一反超 = 小窗驱逐+2bit，代价窗口外召回 0.000）；
   外推极限 = 训练长度×8（512 训练 → 16K 平稳）；2B curriculum 8192 已跑完。
 - **S3 跨会话持久记忆**：0.56 vs 0.000、bit-exact 快照；**fast-weight 核心化钩子
   已落地**（`config.fast_weight_core`，低秩因果外积记忆，默认 off 位等价，
@@ -170,7 +172,7 @@ E1-E5 证据链已入档（ABLATIONS.md）；待办按 DEVELOPMENT_PLAN：E4 大
 
 | 指标 | 值 | 来源 |
 |---|---|---|
-| O(1) 携带状态（O 系列） | 0.381 MB 恒定；128k 处 1008×、1M 处 8063× | `benchmarks/results/` decode profile |
+| O(1) 携带状态（O 系列） | 0.381 MB 恒定；128k 1008×、1M 8063×（fp16 GQA1）；vs 最强压缩 2-bit+GQA8：1070.9×/8567×（T*≈119） | `benchmarks/results/` decode profile + kv_frontier 账本 + kv_measured 实测 |
 | 跨窗口 recall | 0.56（3 seeds 0.62/0.43/0.62）vs attention/LoRA 0.000 | RESULTS.md |
 | 快照恢复 | bit-exact，控制组 chance | 同上 |
 | parity 分离（S1） | d16：6 seeds Fisher p=0.0022；d32 12K 步：5/6 vs 0/6 | ABLATIONS E1/E1-d32 |
