@@ -380,6 +380,90 @@ shrinks the KV cache 13x — standard multi-head attention would put the ratio
 the attention-free O-series gets constant memory, which is exactly the
 edge/streaming/unbounded-context niche the product line targets.
 
+> This fp16/GQA=1 table is the *weakest* opposing baseline. The same claim
+> audited against quantized / evicted / GQA=8 KV caches lives in the next
+> section — the O(1) claim survives all of them in the long-context regime
+> and has one honest loss row (small-window eviction + 2-bit).
+
+## KV-compression frontier (2026-08-29) — O(1) vs quantized / evicted / GQA KV
+
+The section above measures ARR against fp16 GQA=1. External compression
+(KIVI 2-bit, KVQuant/NVFP4 4-bit, StreamingLLM/SnapKV eviction, GQA=8)
+shrinks that baseline, so the O(1) claim is re-audited here against the
+**strongest** configurations. Everything below is byte-exact analytic
+accounting on the KV side (bit-packed storage + KIVI asymmetric-quant scale
+metadata; zero-points fold to 0 B) and the **measured** flat ARR state
+loaded from `benchmarks/results/decode.json` — no number is hand-copied, and
+the M-series hybrid is charged `kv@2bit + measured liquid stream` so the
+ledger never compresses only the opponent. Full method + public anchors:
+[docs/KV_FRONTIER.md](docs/KV_FRONTIER.md). Regenerate everything with
+`python benchmarks/kv_frontier.py` (seconds, CPU); artifacts:
+`benchmarks/results/kv_frontier.md` + `kv_frontier_ledger.json`.
+
+Full grid (carried MB; the evict rows flatten at their sink+window cap, the
+KV rows grow linearly, ARR and the hybrid rows are the reference):
+
+| config | bits | gqa | window | T=512 | T=8192 | T=32768 | T=131072 | T=1048576 |
+|---|---|---|---|---|---|---|---|---|
+| **arr_state_measured (O-series)** | — | — | — | **0.381** | **0.381** | **0.381** | **0.381** | **0.381** |
+| kv fp16 | 16 | 1 | — | 1.5 | 24.0 | 96.0 | 384.0 | 3072.0 |
+| kv 8-bit | 8 | 1 | — | 0.763 | 12.189 | 48.751 | 195.001 | 1560.001 |
+| kv 4-bit | 4 | 1 | — | 0.388 | 6.189 | 24.751 | 99.001 | 792.001 |
+| kv 2-bit | 2 | 1 | — | 0.201 | 3.189 | 12.751 | 51.001 | 408.001 |
+| kv fp16 | 16 | 8 | — | 12.0 | 192.0 | 768.0 | 3072.0 | 24576.0 |
+| kv 8-bit | 8 | 8 | — | 6.105 | 97.512 | 390.012 | 1560.012 | 12480.012 |
+| kv 4-bit | 4 | 8 | — | 3.105 | 49.512 | 198.012 | 792.012 | 6336.012 |
+| kv 2-bit | 2 | 8 | — | 1.605 | 25.512 | 102.012 | 408.012 | 3264.012 |
+| evict sink4+w512 | 2 | 1 | 512 | 0.201 | 0.202 | 0.202 | 0.202 | 0.202 |
+| evict sink4+w512 | 4 | 1 | 512 | 0.388 | 0.391 | 0.391 | 0.391 | 0.391 |
+| evict sink4+w4096 | 2 | 1 | 4096 | 0.201 | 1.597 | 1.597 | 1.597 | 1.597 |
+| evict sink4+w4096 | 16 | 8 | 4096 | 12.0 | 96.094 | 96.094 | 96.094 | 96.094 |
+| hybrid kv@2bit + state | 2 | 1 | — | 0.582 | 3.57 | 13.132 | 51.382 | 408.382 |
+| hybrid kv@2bit + state | 2 | 8 | — | 1.986 | 25.893 | 102.393 | 408.393 | 3264.393 |
+
+*(All 26 configurations × all 7 contexts in `benchmarks/results/kv_frontier.md`.)*
+
+Crossover boundaries — T\* is the smallest context at which the config's
+carried bytes exceed the 0.381 MB ARR state; below T\* the config is smaller:
+
+| config | ARR smaller for | config/ARR @128k | @1M |
+|---|---|---|---|
+| kv fp16 GQA=1 (old baseline) | T ≥ 131 | 1007.88x | 8063.0x |
+| kv 8-bit GQA=1 | T ≥ 256 | 511.82x | 4094.5x |
+| kv 4-bit GQA=1 | T ≥ 503 | 259.85x | 2078.75x |
+| kv 2-bit GQA=1 | T ≥ 976 | 133.86x | 1070.87x |
+| kv fp16 GQA=8 | T ≥ 17 | 8063.0x | 64504.01x |
+| kv 8-bit GQA=8 | T ≥ 32 | 4094.52x | 32755.97x |
+| kv 4-bit GQA=8 | T ≥ 62 | 2078.77x | 16629.97x |
+| **kv 2-bit GQA=8 (strongest compression)** | **T ≥ 119** | **1070.9x** | **8566.97x** |
+| evict sink4+w512, 4-bit GQA=1 | T ≥ 503 | 1.03x | 1.03x (de facto tie) |
+| **evict sink4+w512, 2-bit GQA=1** | **never** | **0.53x** | **0.53x — the honest loss** |
+| evict sink4+w4096, any bits/GQA | T ≥ T* (17–976) | 4.19–252.21x | same (constant) |
+
+Validation: the fp16/GQA=1 row reproduces the published table above exactly
+(1.5 MB @512, 1007.9× @128k, 8063.0× @1M) before any extension.
+
+**Reading.** Against every *non-evicted* KV — including the strongest
+2-bit+GQA=8 compression — the ARR state is smaller throughout the common
+range (all T\* ∈ [17, 976] ≪ 128k) and the margin grows with context. The
+one configuration that undercuts ARR at every length is small-window
+eviction + 2-bit + GQA=1 (0.202 MB flat = 0.53×). Memory is not capability:
+eviction wins bytes by discarding tokens, and attention is structurally
+**0.000** on cross-window recall where the fast-weight state scores **0.56**
+(see the "Cross-window associative recall" section) — the two accounts are
+reported side by side, never merged. Honest corrections forced by this table
+are mirrored in RESULTS.md ("What we do NOT claim").
+
+**Measured validation (2026-08-29).** The table's analytic side is exact on
+real models: real HF forwards (TinyLlama GQA=4, Llama-3.2-1B GQA=8,
+T ∈ {512, 2048, 8192}, MPS) reproduce `2·L·n_kv·d_head·T·bytes` with
+**0.0000% deviation in every cell**, and the 2-bit rows are confirmed as
+strict floors — real KIVI-scheme packing of the actual cache tensors adds
++2.96% (zero-points the ledger folds to 0) and KIVI-style g=32 grouping
++24.4–25.6%, all on the *opponent's* side, so the published ARR advantages
+are lower bounds. Artifacts: `benchmarks/results/kv_measured.{json,md}`,
+method: [docs/KV_FRONTIER.md](docs/KV_FRONTIER.md) §7.
+
 ## MTP (multi-token-prediction) aux loss — honest null, not promoted (2026-07-12)
 
 `benchmarks/scaling_comparison.py --mode train`, native MT-LNN 125M, matched
@@ -1353,3 +1437,110 @@ That combination is the deployable niche.
 four tie). No advantage over the transformer on irregular sampling either — the
 transformer is equally robust there and its edge is only excluded by memory, not
 by accuracy. Single dataset, single held-out cell, 128-step windows.
+
+## Event-native sensing streams (2026-08-29) — `iter/event-stream-liquid`
+
+Event cameras emit events only when a pixel's log-intensity changes by θ, so
+**irregularity is the native format, not a corrupted grid**: Δt spans orders of
+magnitude (µs…s). `benchmarks/event_stream.py` generates such streams from DVS
+physics (multi-channel latent signal, emit-when-|Δv|≥θ, motion-burst/silence
+alternation with log-uniform silent gaps); the `span` knob stretches the
+realized Δt distribution from ~1.4 to ~3.2 decades at constant event count.
+`benchmarks/event_bench.py` runs two tasks through the shared `build()` factory
+(mt_lnn / lstm / gru / transformer; **Δt is fed to every architecture** — the
+battery-irregular guardrail):
+
+- **state** — regress the latent signal's current value from the event stream
+  (normalized RMSE, constant predictor = 1.0). This is where "how much time
+  passed" must enter the state update.
+- **next_channel** — predict the next event's channel (6-way, chance 0.167).
+
+10 seeds per cell; every mt_lnn-vs-baseline comparison goes through
+`publishable()` (≥3 seeds, no bimodality, paired sign test p<0.05). Full data:
+`benchmarks/results/event_theta_sweep.json` (240 runs).
+
+### State estimation — mt_lnn best at every event density (nRMSE, 10 seeds)
+
+| θ (density) | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|
+| 0.15 (dense) | **0.974 ± 0.010** | 1.152 | 1.157 | 1.299 |
+| 0.35 (mid) | **0.750 ± 0.023** | 0.860 | 0.810 | 0.937 |
+| 0.8 (sparse) | **0.978 ± 0.009** | 1.215 | 1.242 | 1.298 |
+
+E0 gates: **citable** at θ=0.15 vs lstm and transformer, θ=0.35 vs transformer;
+at θ=0.8 and vs gru at θ=0.15/0.35 the cell is archive-only (bimodality flag
+or p≥0.05) despite the mean separation. The three discrete baselines fail to
+beat the constant predictor (1.0) at θ=0.15/0.8; mt_lnn is the only one that
+does, at every θ.
+
+### Next-channel prediction — a citable NEGATIVE for the liquid core
+
+| θ | mt_lnn | lstm | gru | transformer |
+|---|---|---|---|---|
+| 0.15 | 0.227 | **0.329** | **0.328** | 0.205 |
+| 0.35 | 0.237 | 0.249 | **0.243** | 0.201 |
+| 0.8 | 0.188 | **0.211** | 0.203 | 0.177 |
+
+At the dense tier mt_lnn is **significantly worse** than lstm and gru (both
+gates pass with mt_lnn on the losing side). Continuous-time integration helps
+carry state, not categorical next-event prediction; reported as a negative,
+not buried.
+
+### Δt-span pressure test — the pre-registered verdict is NULL
+
+`benchmarks/event_dt_span.py` (`event_dt_span.json`): sweep realized Δt span
+1.40 → 1.71 → 2.18 → 3.24 decades at constant event budget; judgement fixed
+in the script header BEFORE running — PROVEN only if (a) mt_lnn beats the
+strongest discrete baseline at the widest span through `publishable()` AND
+(b) that gap is wider at the widest span than at the narrowest.
+
+Outcome (state task, 10 seeds): (a) **passed** — at 3.24 decades mt_lnn
+0.774 ± 0.013 vs lstm 0.817 ± 0.035, 9/10 seed-wins, p=0.0215; mt_lnn is
+best at every span. (b) **failed** — the gap NARROWS (0.141 at 1.40 decades →
+0.044 at 3.24) because every architecture gets better as the span stretches;
+nRMSE-vs-span slopes: mt_lnn −0.043, lstm −0.100, gru −0.079, transformer
+−0.034. **Per the pre-registered rule the headline claim "the liquid advantage
+widens with Δt span" is NULL**; the surviving citable statement is the
+significant mt_lnn advantage at the widest tested span. τ-ladder interaction
+(mt_lnn vs single-time-scale mt_lnn_tau1): mt_lnn better in 9/10 seeds at the
+widest span, but the tau1 arm is flagged bimodal → archive-only, NULL.
+
+### Real data: N-Caltech101 — no significant edge (NULL)
+
+`benchmarks/event_real_data.py` (`event_ncaltech101.json`): 4 GB no-auth
+download (Mendeley, URL from tonic), flat zip parsed in memory (Orchard 5-byte
+events, timestamp-overflow handling), 10 train / 10 held-out classes,
+15 samples/class, next-event-polarity prediction (chance 0.5), Δt fed to both
+architectures, 10 seeds. mt_lnn 0.545 ± 0.031 vs gru 0.520 ± 0.027 — sign
+test 5W/3L/2T, **p=0.727: no significant difference**. Recorded as a null;
+no real-data advantage is claimed.
+
+### What this branch establishes and does not
+
+**Establishes (citable cells only).** On synthetic event streams, the liquid
+core is the only architecture that beats a constant predictor on state
+estimation at every event density, with statistically significant margins at
+the dense tier (vs lstm p<0.05, n=10) and vs transformer at two tiers; it is
+significantly best at the widest tested Δt span (3.24 decades). The same
+benchmark produces a citable negative: discrete RNNs win dense-tier
+next-channel prediction.
+
+**Does not establish.** That the advantage *widens* with Δt span
+(pre-registered gate (b) failed — NULL). Any real-data advantage (N-Caltech101
+null). Anything about gru_d (pending merge in `iter/irregular-streaming-edge`;
+not re-implemented here per branch boundaries).
+
+> **Bimodality-flag sensitivity note (2026-08-29, post-hoc, zero retraining).**
+> The bimodality detector's gap_ratio>3 threshold was calibrated for grokking
+> (chance-vs-perfect clusters, near-full-range gaps) and over-flags tightly
+> clustered arms. Recomputed from `event_theta_sweep.json` per-seed values:
+> the state θ=0.8 **mt_lnn** arm's flag is a clear false positive (best-split
+> absolute gap 0.0083 = 0.8% of task scale = 3.5% of the cross-architecture
+> mean separation; its 10 seed values 0.966–0.991 are continuously spread).
+> Under that arm's flag the state θ=0.8 vs lstm/gru cells are archived; their
+> mean separations (0.24 / 0.26) are the largest in the sweep and would pass
+> the sign test outright. The other three flags are genuine or borderline
+> (absolute gap 21%/48%/69% of separation). **Historical verdicts stand** (no
+> post-hoc re-adjudication); a calibrated gate — gap_ratio>3 AND absolute gap
+> >10% of cross-architecture range — is pre-registered in the script
+> docstrings for v2 runs onward.

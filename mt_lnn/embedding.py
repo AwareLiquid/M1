@@ -29,9 +29,21 @@ class RotaryEmbedding(nn.Module):
         max_seq_len extrapolates correctly instead of silently truncating."""
         if needed <= self._table_len:
             return
-        # Grow geometrically to amortise the (rare) rebuild cost.
-        new_len = max(needed, self._table_len * 2)
-        self._build_tables(new_len)
+        self._build_tables(max(needed, self._table_len * 2))
+
+    def reset_non_persistent_buffers(self) -> None:
+        """重算 inv_freq 与 sin/cos 表，值与 ``__init__`` 构造出来的逐位相同。
+
+        transformers >=5 的 ``from_pretrained`` 在 meta device 上建图，加载完
+        把 non-persistent buffer 用 ``torch.empty_like`` 搬回 CPU —— 值是未
+        初始化的垃圾；库自带的重算只认 class 名含 RotaryEmbedding **且**带
+        ``original_inv_freq`` 的模块，我们不在其列。
+        ``MTLNNForCausalLM._init_weights`` 会回调本方法把表填回来。
+        """
+        inv_freq = 1.0 / (10000 ** (torch.arange(
+            0, self.d_head, 2, device=self.inv_freq.device).float() / self.d_head))
+        self.inv_freq.copy_(inv_freq)
+        self._build_tables(self._table_len)
 
     @staticmethod
     def _rotate_half(x: torch.Tensor) -> torch.Tensor:

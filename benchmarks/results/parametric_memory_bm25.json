@@ -1,0 +1,26 @@
+{
+  "curve": [
+    {
+      "n_entries": 100,
+      "accuracy": 1.0,
+      "query_latency_ms_mean": 0.005221609026193619,
+      "query_latency_ms_median": 0.004537403583526611,
+      "store_bytes": 5354
+    },
+    {
+      "n_entries": 1000,
+      "accuracy": 1.0,
+      "query_latency_ms_mean": 0.006265556439757347,
+      "query_latency_ms_median": 0.004959292709827423,
+      "store_bytes": 49284
+    },
+    {
+      "n_entries": 10000,
+      "accuracy": 1.0,
+      "query_latency_ms_mean": 0.004814052954316139,
+      "query_latency_ms_median": 0.004088506102561951,
+      "store_bytes": 432877
+    }
+  ],
+  "conflict_latest_accuracy": 1.0
+}

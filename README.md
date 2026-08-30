@@ -38,7 +38,7 @@ Results that survive convergence and a modern baseline:
 
 And, in the attention-free line:
 
-3. **O(1) inference memory (O-series / ARR only).** Every attention block replaced by a recurrent mixer → carried state **flat at 0.381 MB** regardless of context, versus an O(T) KV cache. Measured at 125M scale across a **2048× context increase (512 → 1,048,576 tokens)** with the state unchanged to the decimal: **1008× smaller at 128k, 8063× at 1M** (where the KV cache alone would be 3 GB). This is the architecture's strongest surviving claim.
+3. **O(1) inference memory (O-series / ARR only).** Every attention block replaced by a recurrent mixer → carried state **flat at 0.381 MB** regardless of context, versus an O(T) KV cache. Measured at 125M scale across a **2048× context increase (512 → 1,048,576 tokens)** with the state unchanged to the decimal: **1008× smaller at 128k, 8063× at 1M** (where the KV cache alone would be 3 GB). Audited against the *strongest* opposing compression, not just fp16: the advantage survives **2-bit KV + GQA=8** (1070.9× @128k, 8567× @1M) and every non-evicted configuration, with all crossovers at 17–976 tokens ≪ 128k — the one honest concession is small-window eviction + 2-bit on pure bytes, which discards the out-of-window recall the fast-weight state keeps (0.56 vs 0.000; see [`docs/KV_FRONTIER.md`](docs/KV_FRONTIER.md)). This is the architecture's strongest surviving claim.
 
 | Result | Number | Caveat |
 |---|---|---|
@@ -47,7 +47,7 @@ And, in the attention-free line:
 | Native 125M vs Mamba | −37.8% val PPL at 2K steps (257 vs 414) | **2K-step only, not re-run at convergence**; width/depth-mismatched external baseline |
 | Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete K→V bindings, not long-context LM |
 | Cross-session snapshot/restore | bit-exact, controls at chance | recall task is high-variance |
-| O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k → **8063× @1M** | attention-free ARR only, not the hybrid; inference carried-state, not training memory |
+| O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k → **8063× @1M** vs fp16 GQA=1; **1070.9× @128k → 8567× @1M vs 2-bit + GQA=8** | attention-free ARR only, not the hybrid; inference carried-state, not training memory; smaller than every *non-evicted* KV past ~0.1–1k tokens, but **never smaller than sink+window(512) eviction @2-bit** (0.202 MB) — that trade is retrieval, not bytes |
 
 ## Honest pain-point framing
 
@@ -58,6 +58,14 @@ And, in the attention-free line:
 | No durable per-user memory across sessions | **Lossless (F,z) snapshot/restore** — bit-exact round-trip. |
 
 *(MT-LNN does **not** give long-context language-modeling gains — out-of-window LM is a measured null. The state is episodic key→value memory, not compressed distributed context.)*
+
+**Event-native sensing streams** (`iter/event-stream-liquid`): a DVS-physics
+event-stream benchmark family where irregularity is the native format — see
+[docs/EVENT_STREAM.md](docs/EVENT_STREAM.md) for why continuous time is a
+structural requirement there, and the "Event-native sensing streams" section
+in [BENCHMARKS.md](BENCHMARKS.md) for the 10-seed results, including the
+pre-registered Δt-span verdict (**NULL** on "advantage widens with span") and
+the N-Caltech101 null.
 
 ## What is retracted
 

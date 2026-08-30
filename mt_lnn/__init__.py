@@ -15,7 +15,13 @@ from .multimodal import (
     fuse,
     build_modality_pad_mask,
 )
-from .parallel_scan import pscan, pscan_sequential, pscan_constant_A
+from .parallel_scan import (
+    pscan,
+    pscan_sequential,
+    pscan_constant_A,
+    pscan_chunkwise,
+    pscan_chunkwise_constant_A,
+)
 from .llama_adapter import (
     MTAdapterConfig,
     MTResidualAdapter,
@@ -253,6 +259,8 @@ __all__ = [
     "pscan",
     "pscan_sequential",
     "pscan_constant_A",
+    "pscan_chunkwise",
+    "pscan_chunkwise_constant_A",
     "MTAdapterConfig",
     "MTResidualAdapter",
     "DecoderLayerWithMTAdapter",

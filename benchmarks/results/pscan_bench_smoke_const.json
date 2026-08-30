@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "script": "benchmarks/pscan_bench.py",
+    "date": "2026-08-29T05:26:53+00:00",
+    "torch": "2.13.0",
+    "device": "cpu",
+    "gpu_name": null,
+    "path": "const",
+    "dtype": "float32",
+    "leading_dims": [
+      2,
+      4,
+      2
+    ],
+    "d_state": 64,
+    "seq_lens": [
+      1024,
+      4096
+    ],
+    "chunk_sizes": [
+      32,
+      64,
+      128
+    ],
+    "iters": 3,
+    "warmup": 1,
+    "smoke": true,
+    "note": "wall_ms is median; peak_mem_bytes is torch.cuda.max_memory_allocated (None on CPU); wall_ms=None + error=cuda_oom marks an OOM cell. path=const is the production DEFAULT (constant decay along T).",
+    "hostname": "AricRedemptions-MacBook-Pro.local"
+  },
+  "results": [
+    {
+      "impl": "pscan_const",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 3.25,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan_const",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 9.543,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 2.026,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 5.464,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 1.889,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 5.188,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 2.14,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 6.656,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan_const",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 13.185,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan_const",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 21.351,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 8.014,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 19.711,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 7.586,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 17.04,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 6.013,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunk_const",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 18.041,
+      "peak_mem_bytes": null
+    }
+  ]
+}

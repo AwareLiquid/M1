@@ -1,0 +1,95 @@
+{
+  "chance": null,
+  "steps": 3000,
+  "model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+  "lm_configs": {
+    "baseline": {
+      "accurate_retrieval": {
+        "mean": 0.53515625,
+        "std": 0.0078125,
+        "n": 3
+      },
+      "test_time_learning": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      },
+      "conflict_resolution": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      },
+      "cross_session_long_range": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      }
+    },
+    "lora_only": {
+      "accurate_retrieval": {
+        "mean": 0.0026041666666666665,
+        "std": 0.004510548978043951,
+        "n": 3
+      },
+      "test_time_learning": {
+        "mean": 0.0026041666666666665,
+        "std": 0.004510548978043951,
+        "n": 3
+      },
+      "conflict_resolution": {
+        "mean": 0.0026041666666666665,
+        "std": 0.0022552744890219755,
+        "n": 3
+      },
+      "cross_session_long_range": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      }
+    },
+    "mt_v2_delta": {
+      "accurate_retrieval": {
+        "mean": 0.0013020833333333333,
+        "std": 0.0022552744890219755,
+        "n": 3
+      },
+      "test_time_learning": {
+        "mean": 0.0013020833333333333,
+        "std": 0.0022552744890219755,
+        "n": 3
+      },
+      "conflict_resolution": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      },
+      "cross_session_long_range": {
+        "mean": 0.0,
+        "std": 0.0,
+        "n": 3
+      }
+    },
+    "mt_v2": {
+      "accurate_retrieval": {
+        "mean": 0.9895833333333334,
+        "std": 0.011276372445109878,
+        "n": 3
+      },
+      "test_time_learning": {
+        "mean": 0.09114583333333333,
+        "std": 0.025113673856752488,
+        "n": 3
+      },
+      "conflict_resolution": {
+        "mean": 0.0013020833333333333,
+        "std": 0.0022552744890219755,
+        "n": 3
+      },
+      "cross_session_long_range": {
+        "mean": 0.06770833333333333,
+        "std": 0.023867581744561668,
+        "n": 3
+      }
+    }
+  }
+}

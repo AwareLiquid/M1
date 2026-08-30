@@ -1,0 +1,291 @@
+{
+  "meta": {
+    "script": "benchmarks/pscan_bench.py",
+    "date": "2026-08-29T05:31:04+00:00",
+    "torch": "2.13.0",
+    "device": "cpu",
+    "gpu_name": null,
+    "path": "general",
+    "dtype": "float32",
+    "leading_dims": [
+      2,
+      4,
+      2
+    ],
+    "d_state": 64,
+    "seq_lens": [
+      1024,
+      4096,
+      16384,
+      65536
+    ],
+    "chunk_sizes": [
+      32,
+      64,
+      128
+    ],
+    "iters": 3,
+    "warmup": 1,
+    "smoke": false,
+    "note": "wall_ms is median; peak_mem_bytes is torch.cuda.max_memory_allocated (None on CPU); wall_ms=None + error=cuda_oom marks an OOM cell. path=const is the production DEFAULT (constant decay along T).",
+    "hostname": "AricRedemptions-MacBook-Pro.local"
+  },
+  "results": [
+    {
+      "impl": "pscan",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 3.179,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 8.85,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 10.509,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 32.546,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 21.924,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 31.29,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 22.153,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 20.442,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 7.882,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 23.227,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 41.038,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 209.046,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 43.947,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 161.94,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 34.383,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 94.483,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 16384,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 18.05,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 16384,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 64.878,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 180.89,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 2144.306,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 208.447,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 1374.355,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 153.091,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 16384,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 708.1,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 65536,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 475.344,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 65536,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 222.215,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 1158.294,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 22912.401,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 861.643,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 11751.253,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 1074.147,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 65536,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 6333.172,
+      "peak_mem_bytes": null
+    }
+  ]
+}

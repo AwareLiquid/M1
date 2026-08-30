@@ -36,6 +36,22 @@ LayerCache = Tuple[
 ]
 
 
+def _scale_residual_exits(model: "MTLNNModel") -> None:
+    """Modern-trunk Task A3: depth-scale both residual-exit projections.
+
+    Every block's attention out_proj and liquid out_proj weight is multiplied
+    by 1/sqrt(2·n_layers) (biases stay zero). Called AFTER the global init
+    passes, so the historical std-0.02 / std-0.01 inits survive up to the
+    multiplicative factor. Deterministic — draws no RNG.
+    """
+    scale = 1.0 / math.sqrt(2.0 * model.config.n_layers)
+    with torch.no_grad():
+        for block in model.blocks:
+            block.lnn.out_proj.weight.mul_(scale)
+            if block.attn is not None:
+                block.attn.out_proj.weight.mul_(scale)
+
+
 class ModelCacheStruct:
     """Full inference cache for incremental decoding."""
     def __init__(self, token_count: int = 0):
@@ -135,6 +151,37 @@ class MTLNNBlock(nn.Module):
                 torch.set_rng_state(_rng_state)
         else:
             self.fast_weight = None
+
+        # Modern-trunk Task A1: gated-expansion SwiGLU FFN as its own pre-norm
+        # sub-layer — the FFN slot the liquid layer's equal-width projections
+        # ate (Qwen3-Next GDN / Kimi KDA keep one per layer). Built only when
+        # config.ffn_swiglu (default off → byte-identical parameter set).
+        # RNG isolation follows the fast_weight pattern above: the extra
+        # nn.Linear constructors would otherwise shift the global init stream
+        # and every later block's init (the mt_lnn_mtp init-luck lesson), so
+        # construction + init are wrapped in save/restore and w1/w3 draw from
+        # a private per-layer generator. w2 zero-init → identity-at-init
+        # (forward bit-identical to off) with a live gradient.
+        if getattr(config, "ffn_swiglu", False):
+            from .mt_lnn_layer import SwiGLUFFN
+            from .utils import RMSNorm
+            _rng_state = torch.get_rng_state()
+            try:
+                self.ffn_norm = RMSNorm(config.d_model)
+                self.ffn = SwiGLUFFN(config.d_model, config.d_ff)
+                _gen = torch.Generator()
+                _gen.manual_seed(0x5FF17 + 1009 * layer_idx)
+                nn.init.normal_(self.ffn.w1.weight, mean=0.0, std=0.02,
+                                generator=_gen)
+                nn.init.normal_(self.ffn.w3.weight, mean=0.0, std=0.02,
+                                generator=_gen)
+                nn.init.zeros_(self.ffn.w2.weight)
+            finally:
+                torch.set_rng_state(_rng_state)
+            self.ffn_drop = nn.Dropout(config.dropout)
+        else:
+            self.ffn_norm = None
+            self.ffn = None
 
         # Latent recurrent depth ("thinking steps", M2 P0). The gate parameter
         # is created ONLY when the config enables iteration, so the default
@@ -266,6 +313,11 @@ class MTLNNBlock(nn.Module):
                 pad_mask=lnn_pad,
             )
         x = x + lnn_out
+        # Modern-trunk Task A1: the FFN sub-layer (RMSNorm 前置), placed after
+        # the liquid residual add, before the fast-weight readout. At init
+        # w2=0 → the added term is exactly +0.0 → residual stream unchanged.
+        if self.ffn is not None:
+            x = x + self.ffn_drop(self.ffn(self.ffn_norm(x)))
         # 第二记忆通道读出: 低秩 fast-weight (1a)。gate=0 时贡献恰为 +0.0,
         # 残差流逐位不变; 即便如此也走完整路径 (gate 梯度才不为零)。
         if self.fast_weight is not None:
@@ -534,6 +586,16 @@ class MTLNNModel(nn.Module):
         self.apply(lambda m: init_weights(m, config))
         nn.init.normal_(self.target_queries, mean=0.0, std=0.02)
         init_mt_params(self, config)
+        # Modern-trunk Task A3: depth-scaled residual-exit init (default off
+        # → untouched). Multiplicative rescale after ALL init passes; wrapped
+        # in the house RNG save/restore pattern — the op itself draws nothing,
+        # which is exactly why same-seed on/off trunks stay A/B comparable.
+        if getattr(config, "scaled_residual_init", False):
+            _rng_state = torch.get_rng_state()
+            try:
+                _scale_residual_exits(self)
+            finally:
+                torch.set_rng_state(_rng_state)
         # The global init_weights pass above re-initialises EVERY nn.Linear to
         # N(0, 0.02) — including CompetitiveGWTBLayer's zero-initialised bid /
         # score projections, silently breaking its 'bid ≡ x, uniform competition

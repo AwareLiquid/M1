@@ -8,6 +8,30 @@ import torch.nn.functional as F
 
 
 # ---------------------------------------------------------------------------
+# RMSNorm — shared by the modern-trunk pieces (QK-norm, SwiGLU FFN pre-norm)
+# ---------------------------------------------------------------------------
+
+class RMSNorm(nn.Module):
+    """Root-mean-square norm with a learnable per-channel scale.
+
+    Same convention as the modern baseline (benchmarks/baselines.py _RMSNorm,
+    Qwen3/Llama style): y = x / sqrt(mean(x²) + eps) * weight. Own class rather
+    than torch.nn.RMSNorm because the repo supports torch>=2.0 (RMSNorm landed
+    in 2.4). Weight init ones draws no RNG, so building it never shifts the
+    global init stream (same-seed on/off A/B comparability).
+    """
+
+    def __init__(self, dim: int, eps: float = 1e-6):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(dim))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        scale = torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return x * scale * self.weight
+
+
+# ---------------------------------------------------------------------------
 # Weight initialisation
 # ---------------------------------------------------------------------------
 

@@ -1,0 +1,182 @@
+{
+ "conventions": {
+  "mac_definition": "multiply-accumulate; flops = 2*MACs",
+  "dense": "1 MAC per applied weight element per token; embedding lookup = 0",
+  "lm_head": "dense, counted per scored position",
+  "attention": "2*H*dh*T_keys per query token; causal prefill T_keys=(T+1)/2",
+  "scan": "1 MAC per state element per step (P*S*D) + blend P*S",
+  "excluded": "norms, softmax, biases, elementwise gating, GTP bias",
+  "bytes": "fp32; weight traffic = applied weight-matrix bytes per forward (single-batch, no cache residency); bias traffic excluded (<2%, isomorphic across paths); embedding is a row lookup (d*4B per token), not a matrix read; KV peak only on CoT path; latent paths carry LNN state L*P*S*D*4B"
+ },
+ "shapes": {
+  "d_model": 104,
+  "n_layers": 2,
+  "n_heads": 4,
+  "n_kv_heads": 2,
+  "d_head": 26,
+  "d_ff": 256,
+  "P": 13,
+  "S": 5,
+  "D": 8,
+  "map_hidden": 64,
+  "d_gw": 13,
+  "n_values": 16,
+  "T": 54,
+  "vocab": 26
+ },
+ "rows": [
+  {
+   "path": "tfm_cot",
+   "N": 0,
+   "macs": 14188304.0,
+   "flops": 28376608.0,
+   "weight_bytes": 1991808,
+   "kv_peak_bytes": 91520,
+   "state_bytes": 0
+  },
+  {
+   "path": "mtlnn_core",
+   "N": 1,
+   "macs": 12344566.0,
+   "flops": 24689132.0,
+   "weight_bytes": 780888,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "mtlnn_stack",
+   "N": 1,
+   "macs": 12344566.0,
+   "flops": 24689132.0,
+   "weight_bytes": 780888,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "tfm_latent",
+   "N": 1,
+   "macs": 13919152.0,
+   "flops": 27838304.0,
+   "weight_bytes": 985088,
+   "kv_peak_bytes": 0,
+   "state_bytes": 0
+  },
+  {
+   "path": "tfm_cot",
+   "N": 1,
+   "macs": 14460576.0,
+   "flops": 28921152.0,
+   "weight_bytes": 2987712,
+   "kv_peak_bytes": 93184,
+   "state_bytes": 0
+  },
+  {
+   "path": "mtlnn_core",
+   "N": 2,
+   "macs": 17698018.0,
+   "flops": 35396036.0,
+   "weight_bytes": 1104800,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "mtlnn_stack",
+   "N": 2,
+   "macs": 21820162.0,
+   "flops": 43640324.0,
+   "weight_bytes": 1364384,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "tfm_latent",
+   "N": 2,
+   "macs": 27835600.0,
+   "flops": 55671200.0,
+   "weight_bytes": 1970176,
+   "kv_peak_bytes": 0,
+   "state_bytes": 0
+  },
+  {
+   "path": "tfm_cot",
+   "N": 2,
+   "macs": 14733264.0,
+   "flops": 29466528.0,
+   "weight_bytes": 3983616,
+   "kv_peak_bytes": 94848,
+   "state_bytes": 0
+  },
+  {
+   "path": "mtlnn_core",
+   "N": 4,
+   "macs": 28404922.0,
+   "flops": 56809844.0,
+   "weight_bytes": 1752624,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "mtlnn_stack",
+   "N": 4,
+   "macs": 40771354.0,
+   "flops": 81542708.0,
+   "weight_bytes": 2531376,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "tfm_latent",
+   "N": 4,
+   "macs": 55668496.0,
+   "flops": 111336992.0,
+   "weight_bytes": 3940352,
+   "kv_peak_bytes": 0,
+   "state_bytes": 0
+  },
+  {
+   "path": "tfm_cot",
+   "N": 4,
+   "macs": 15279888.0,
+   "flops": 30559776.0,
+   "weight_bytes": 5975424,
+   "kv_peak_bytes": 98176,
+   "state_bytes": 0
+  },
+  {
+   "path": "mtlnn_core",
+   "N": 8,
+   "macs": 49818730.0,
+   "flops": 99637460.0,
+   "weight_bytes": 3048272,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "mtlnn_stack",
+   "N": 8,
+   "macs": 78673738.0,
+   "flops": 157347476.0,
+   "weight_bytes": 4865360,
+   "kv_peak_bytes": 0,
+   "state_bytes": 4160
+  },
+  {
+   "path": "tfm_latent",
+   "N": 8,
+   "macs": 111334288.0,
+   "flops": 222668576.0,
+   "weight_bytes": 7880704,
+   "kv_peak_bytes": 0,
+   "state_bytes": 0
+  },
+  {
+   "path": "tfm_cot",
+   "N": 8,
+   "macs": 16378128.0,
+   "flops": 32756256.0,
+   "weight_bytes": 9959040,
+   "kv_peak_bytes": 104832,
+   "state_bytes": 0
+  }
+ ]
+}

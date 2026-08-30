@@ -1,0 +1,10 @@
+{
+  "config": "+ffn",
+  "seed": 0,
+  "params": 195061211,
+  "stable": true,
+  "steps": 2000,
+  "final_loss": 5.620513916015625,
+  "val_ppl": 237.46323866349172,
+  "screening_only": true
+}

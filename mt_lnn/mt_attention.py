@@ -61,6 +61,20 @@ class MicrotubuleAttention(nn.Module):
         self.v_proj = nn.Linear(config.d_model, config.n_kv_heads * config.d_head, bias=False)
         self.out_proj = nn.Linear(config.n_heads * config.d_head, config.d_model, bias=False)
 
+        # Modern-trunk Task A2: QK-RMSNorm — per-head learnable RMSNorm over
+        # d_head, applied after the q/k projections and BEFORE RoPE (and
+        # before SDPA's 1/sqrt(d_head) scaling). Industry-consensus cap on
+        # QK logits (Qwen3/Gemma QK-RMSNorm; Kimi K2's QK-Clip exists because
+        # 1T-scale models still hit this). A normalised K is what enters the
+        # KV cache, so prefill/decode parity is exact. Default off → not
+        # built → bit-identical path; torch.ones init draws no RNG so the
+        # same-seed trunk is untouched when on.
+        self.qk_norm = getattr(config, "qk_norm", False)
+        if self.qk_norm:
+            from .utils import RMSNorm
+            self.q_norm = RMSNorm(config.d_head)
+            self.k_norm = RMSNorm(config.d_head)
+
         # MT parameters (per Q-head)
         self.polarity_direction = nn.Parameter(torch.zeros(config.n_heads))
 
@@ -139,6 +153,16 @@ class MicrotubuleAttention(nn.Module):
         if needed <= self._pos_len:
             return
         self._build_pos_buffers(max(needed, self._pos_len * 2))
+
+    def reset_non_persistent_buffers(self) -> None:
+        """重算 ``_delta`` / ``_causal`` 距离掩码（值与 ``__init__`` 逐位相同）。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成未初始化的垃圾，而这两个掩码直接参与注意力
+        计算 —— 不重算就是静默的错误结果。由
+        ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        self._build_pos_buffers(self._pos_len)
 
     #: γ init for reserved GLOBAL heads: at distance 100 the penalty is only
     #: 0.1 nats — effectively no decay within any practical context window.
@@ -396,6 +420,12 @@ class MicrotubuleAttention(nn.Module):
         Q = self.q_proj(x).view(B, T_new, H_q,  D).transpose(1, 2)   # (B,H_q,T_new,D)
         K = self.k_proj(x).view(B, T_new, H_kv, D).transpose(1, 2)
         V = self.v_proj(x).view(B, T_new, H_kv, D).transpose(1, 2)
+
+        # QK-RMSNorm (Task A2): before RoPE / before the SDPA scaling, and
+        # before K enters the cache — the normalised K is what gets cached.
+        if self.qk_norm:
+            Q = self.q_norm(Q)
+            K = self.k_norm(K)
 
         # RoPE at absolute positions (ORIGINAL PATH ONLY)
         if not self.config.use_position_free_attention:
