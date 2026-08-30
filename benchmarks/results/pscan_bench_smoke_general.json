@@ -1,0 +1,161 @@
+{
+  "meta": {
+    "script": "benchmarks/pscan_bench.py",
+    "date": "2026-08-29T05:26:57+00:00",
+    "torch": "2.13.0",
+    "device": "cpu",
+    "gpu_name": null,
+    "path": "general",
+    "dtype": "float32",
+    "leading_dims": [
+      2,
+      4,
+      2
+    ],
+    "d_state": 64,
+    "seq_lens": [
+      1024,
+      4096
+    ],
+    "chunk_sizes": [
+      32,
+      64,
+      128
+    ],
+    "iters": 3,
+    "warmup": 1,
+    "smoke": true,
+    "note": "wall_ms is median; peak_mem_bytes is torch.cuda.max_memory_allocated (None on CPU); wall_ms=None + error=cuda_oom marks an OOM cell. path=const is the production DEFAULT (constant decay along T).",
+    "hostname": "AricRedemptions-MacBook-Pro.local"
+  },
+  "results": [
+    {
+      "impl": "pscan",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 3.357,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 1024,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 9.505,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 10.174,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 30.754,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 11.348,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 27.989,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 7.576,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 1024,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 17.58,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd",
+      "wall_ms": 5.856,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "pscan",
+      "T": 4096,
+      "chunk_size": null,
+      "mode": "fwd_bwd",
+      "wall_ms": 21.311,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd",
+      "wall_ms": 46.149,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 32,
+      "mode": "fwd_bwd",
+      "wall_ms": 214.22,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd",
+      "wall_ms": 44.359,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 64,
+      "mode": "fwd_bwd",
+      "wall_ms": 158.444,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd",
+      "wall_ms": 32.796,
+      "peak_mem_bytes": null
+    },
+    {
+      "impl": "chunkwise",
+      "T": 4096,
+      "chunk_size": 128,
+      "mode": "fwd_bwd",
+      "wall_ms": 91.785,
+      "peak_mem_bytes": null
+    }
+  ]
+}
