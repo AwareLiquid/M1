@@ -24,7 +24,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .config import MTLNNConfig
-from .parallel_scan import pscan, pscan_constant_A
+from .parallel_scan import (pscan, pscan_constant_A,
+                            pscan_chunkwise_constant_A)
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,19 @@ class VectorizedMultiScaleResonance(nn.Module):
             self.decay_sign_raw = nn.Parameter(init)
         else:
             self.decay_sign_raw = None
+
+        # Chunkwise scan switch (iter/chunkwise-scan, 2026-08-29). False
+        # (default) = the historical Blelloch pscan path, bit-identical.
+        # True routes the diagonal liquid recurrence through the SSD-style
+        # chunkwise form (intra-chunk matmul + inter-chunk carry; see
+        # pscan_chunkwise) — same math, different summation order. The
+        # equivalence tests in tests/test_pscan_chunkwise.py are the merge
+        # gate; kernel-alignment audit: docs/CHECKWISE_NOTES.md.
+        # P0-1: applies ONLY to the constant-A (default decay) path — the
+        # selective path below always uses pscan (general chunkwise measured
+        # 2-16x slower; CHECKWISE_EXPERIMENT_LOG).
+        self.use_chunkwise_scan = getattr(config, "use_chunkwise_scan", False)
+        self.chunkwise_scan_size = int(getattr(config, "chunkwise_scan_size", 64))
 
         # Selective decay (see config.selective_decay): per-step signed
         # transition λ_t = decay · tanh(W_sel·x_t + b_sel). W_sel init small
@@ -457,11 +471,21 @@ class VectorizedMultiScaleResonance(nn.Module):
                 h_active = h_dp
             elif lam_t is not None:
                 # Selective: per-step multipliers via the GENERAL scan.
+                # use_chunkwise_scan deliberately does NOT apply here (P0-1,
+                # CHECKWISE_EXPERIMENT_LOG §2): the general chunkwise form has
+                # no constant-A specialisation and measured 2-16x SLOWER than
+                # pscan at training lengths — routing the switch here would
+                # silently regress selective-decay training.
                 A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)
                 H = pscan(A_lam, X, h_init=h_init_active)             # (B,P,K,T,D)
                 h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             else:
-                H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
+                if self.use_chunkwise_scan:
+                    H = pscan_chunkwise_constant_A(
+                        decay_bps, X, h_init=h_init_active,
+                        chunk_size=self.chunkwise_scan_size)          # (B,P,K,T,D)
+                else:
+                    H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
                 h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             if K_active == S:
                 h_per_scale = h_active

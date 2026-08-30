@@ -177,6 +177,24 @@ class MTLNNConfig:
     # 中学会精确 ±1，外推不再受 soft 累积误差限制。
     selective_decay_ste: bool = False
 
+    # Chunkwise scan (iter/chunkwise-scan, 2026-08-29): route the liquid
+    # recurrence through the SSD-style chunk decomposition (intra-chunk
+    # masked matmul + inter-chunk carry; mt_lnn.parallel_scan.pscan_chunkwise)
+    # instead of the log-depth Blelloch pscan. Same math, different float
+    # summation order — equivalence to the sequential reference is pinned by
+    # tests/test_pscan_chunkwise.py and is the merge gate for turning this on.
+    # False (default) = exact historical pscan path, bit-identical. Do not
+    # flip the default until Phase B equivalence + training smoke are green.
+    # SCOPE (P0-1): applies ONLY to the constant-A default path — the
+    # selective_decay path ignores this switch (general chunkwise measured
+    # 2-16x slower than pscan; see docs/CHECKWISE_EXPERIMENT_LOG.md §2).
+    use_chunkwise_scan: bool = False
+    # Intra-chunk width C: trade matmul size (C² intra-chunk matrix) against
+    # carry-loop depth (T/C sequential steps). 64 is the Mamba-2/GLA/KDA
+    # convention and the Tensor-Core sweet spot; sensitivity sweep in
+    # benchmarks/pscan_bench.py ({32, 64, 128}).
+    chunkwise_scan_size: int = 64
+
     # Householder NDIT — NON-DIAGONAL input-dependent transition
     # (docs/NONDIAGONAL_TRANSITION.md, 2026-08-15). A5 (NC1-complete) needs a
     # non-diagonal state transition (Merrill ICML 2024 Cor 4.7); the diagonal
