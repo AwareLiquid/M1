@@ -229,6 +229,28 @@ class VectorizedMultiScaleResonance(nn.Module):
             self.rhythm_scale = nn.Parameter(torch.tensor(float(rhythm_scale_val)))
         self.register_buffer("last_lavi_mean", torch.zeros(()), persistent=False)
 
+    def reset_non_persistent_buffers(self) -> None:
+        """把诊断类 non-persistent buffer 重置回 ``__init__`` 的值（ones/zeros）。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成未初始化的垃圾。这些量本身只是监控读数，
+        但垃圾值会让"加载后 vs 构造后"的对比失真，也会污染第一个 step 之前
+        被读到的诊断。由 ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        for name in ("last_scale_gate_mean", "last_active_scale_ratio",
+                     "last_nonzero_scale_ratio", "last_sparse_scale_ratio",
+                     "last_sparse_selected_scales"):
+            buffer = getattr(self, name, None)
+            if buffer is not None:
+                buffer.fill_(1.0)
+        self.last_pred_error.zero_()
+        self.last_lavi_mean.zero_()
+        if getattr(self, "use_rhythm", False):
+            self.scale_preference.copy_(
+                torch.linspace(-1.0, 1.0, self.scale_preference.numel(),
+                               device=self.scale_preference.device)
+            )
+
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor,
                 use_scan: bool = True, lavi: torch.Tensor = None,
                 pad_mask: torch.Tensor = None):
@@ -739,10 +761,13 @@ class MTLNNLayer(nn.Module):
         self.gtp_gamma = nn.Parameter(torch.tensor(config.gamma_init))
         # GTP cap renewal period: lateral coupling refreshes every `gtp_period`
         # tokens so long contexts don't silently kill mixing. Stored as a buffer
-        # (non-learned, fixed at config time).
+        # (non-learned, fixed at config time). 非持久 buffer 会被 transformers>=5
+        # 的加载链路覆写成垃圾，而它直接进 GTP 时钟 —— 原始值另存一份供
+        # reset_non_persistent_buffers 重算。
         self.register_buffer("gtp_period",
                              torch.tensor(float(config.gtp_period)),
                              persistent=False)
+        self._gtp_period = float(config.gtp_period)
 
         self.dropout = nn.Dropout(config.dropout)
 
@@ -771,6 +796,15 @@ class MTLNNLayer(nn.Module):
         self.use_hebbian_refactor = getattr(config, "use_hebbian_refactor", False)
         self._hebb_ref_out: Optional[torch.Tensor] = None
         self._hebb_ref_in: Optional[torch.Tensor] = None
+
+    def reset_non_persistent_buffers(self) -> None:
+        """把 ``gtp_period`` 填回配置值。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成垃圾；这个值直接进 GTP 时钟，必须重算。
+        由 ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        self.gtp_period.fill_(self._gtp_period)
 
     def forward(
         self,

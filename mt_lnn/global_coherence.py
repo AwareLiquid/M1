@@ -49,6 +49,14 @@ class GlobalCoherenceLayer(nn.Module):
         # Not a parameter, not saved in state_dict — purely for monitoring.
         self.register_buffer("last_gate", torch.zeros(()), persistent=False)
 
+    def reset_non_persistent_buffers(self) -> None:
+        """把 ``last_gate`` 重置回 0（transformers>=5 的加载链路会填入垃圾）。
+
+        由 ``MTLNNForCausalLM._init_weights`` 回调；完整理由见
+        ``mt_lnn/embedding.py::RotaryEmbedding.reset_non_persistent_buffers``。
+        """
+        self.last_gate.zero_()
+
     def _sparse_causal_scores(
         self, scores: torch.Tensor, q_pos: torch.Tensor, k_pos: torch.Tensor
     ) -> torch.Tensor:
