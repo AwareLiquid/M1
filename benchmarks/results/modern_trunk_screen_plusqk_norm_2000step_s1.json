@@ -1,0 +1,10 @@
+{
+  "config": "+qk_norm",
+  "seed": 1,
+  "params": 126043355,
+  "stable": true,
+  "steps": 2000,
+  "final_loss": 5.9610724449157715,
+  "val_ppl": 244.49183632602956,
+  "screening_only": true
+}

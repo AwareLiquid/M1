@@ -13,13 +13,19 @@ builders below remain.)
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 
 from .llama_adapter import attach_mt_adapters, count_trainable_parameters
+from .adapter_export import (
+    MT_WEIGHTS_NAME,
+    PEFT_SUBDIR,
+    read_adapter_config,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -356,3 +362,129 @@ def apply_lora_only_recipe(
         trainable_percent=100 * trainable / total,
         lora_applied=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# Adapter distribution (M-series) — 加载 mt_lnn.adapter_export 导出的目录
+# ---------------------------------------------------------------------------
+
+def load_mt_adapter_dir(
+    base: Any,
+    adapter_dir: str,
+    *,
+    torch_dtype: Optional[torch.dtype] = None,
+    device: Optional[str] = None,
+    verbose: bool = True,
+) -> Tuple[nn.Module, Dict[str, Any]]:
+    """从 ``adapter_export.export_adapter_dir()`` 产出的目录重建 (模型, 报告)。
+
+    这是 M 系列"pip 装完三行代码"的另一半::
+
+        from mt_lnn.recipes import load_mt_adapter_dir
+        model, info = load_mt_adapter_dir("Qwen/Qwen2.5-0.5B-Instruct", "./adapter")
+
+    ``base`` 可以是 Hub id（走 ``AutoModelForCausalLM``）也可以是已构造好的
+    ``nn.Module``（测试 / 离线场景用这个，避免下载大模型）。
+
+    **重建顺序与 serve/server_hf.py 严格一致**：先挂 MT adapter，再包 PEFT
+    LoRA，最后灌权重。反序会错——训练产物里的 key 带 ``base_model.model.``
+    前缀（PEFT 包装后才有），先包 PEFT 就再也找不到 decoder layer 可挂。
+    """
+    cfg = read_adapter_config(adapter_dir)
+    mt_state = _load_mt_state(adapter_dir)
+    model = _resolve_base_model(base, torch_dtype=torch_dtype, device=device)
+    wrapped = _rebuild_mt_graph(model, cfg["mt"], mt_state)
+    model = _maybe_apply_peft(model, adapter_dir) or model
+    report = model.load_state_dict(mt_state, strict=False)
+    info = {
+        "wrapped_layer_indices": wrapped,
+        "peft_applied": _has_peft(adapter_dir),
+        "missing_mt": [k for k in report.missing_keys if "mt_adapter" in k],
+        "unexpected_mt": [k for k in report.unexpected_keys if "mt_adapter" in k],
+        "mt_tensors": len(mt_state),
+        "config": cfg,
+    }
+    if verbose:
+        print(f"[mt-adapter] layers={wrapped} tensors={info['mt_tensors']} "
+              f"peft={info['peft_applied']} missing={len(info['missing_mt'])} "
+              f"unexpected={len(info['unexpected_mt'])}")
+    return model, info
+
+
+def _resolve_base_model(base: Any, torch_dtype: Optional[torch.dtype],
+                        device: Optional[str]) -> nn.Module:
+    """Hub id -> AutoModelForCausalLM；已经是 nn.Module 就原样返回（零下载）。"""
+    if isinstance(base, nn.Module):
+        return base
+    from transformers import AutoModelForCausalLM
+    model = AutoModelForCausalLM.from_pretrained(
+        base, torch_dtype=torch_dtype, device_map=None, low_cpu_mem_usage=True,
+    )
+    model.config.use_cache = True          # PEFT 会代理 config，包之前先设
+    return model.to(device) if device else model
+
+
+def _rebuild_mt_graph(model: nn.Module, mt_spec: Dict[str, Any],
+                      mt_state: Dict[str, torch.Tensor]) -> List[int]:
+    """按 ``adapter_config.json["mt"]`` 重建 adapter 图，返回被包裹的层号。"""
+    spec = dict(mt_spec)
+    if spec.get("no_mt", False):
+        return []
+    # W_pred 只在训练时开了 predictive coding 才存在，而 args 不记录这个开关
+    # ——和 server_hf.py 一样从权重反推，否则这 6 个张量会落进 unexpected，
+    # 加载守卫就没法声称 adapter 真的生效（W_pred 本身推理时 inert）。
+    want_pc = any("W_pred" in k for k in mt_state)
+    if str(spec.get("adapter", "v1")).lower() == "v2":
+        return _rebuild_mt_v2(model, spec)
+    return _rebuild_mt_v1(model, spec, want_pc)
+
+
+def _rebuild_mt_v1(model: nn.Module, spec: Dict[str, Any], want_pc: bool) -> List[int]:
+    return attach_mt_adapters(
+        model,
+        every=int(spec.get("mt_every", 4)),
+        n_protofilaments=int(spec.get("mt_proto", 13)),
+        n_time_scales=int(spec.get("mt_scales", 5)),
+        map_hidden_dim=int(spec.get("mt_map_hidden", 64)),
+        dropout=float(spec.get("mt_dropout", 0.0)),
+        init_scale=float(spec.get("mt_init_scale", 1e-3)),
+        use_scan=not bool(spec.get("mt_no_scan", False)),
+        use_predictive_coding=want_pc,
+    )
+
+
+def _rebuild_mt_v2(model: nn.Module, spec: Dict[str, Any]) -> List[int]:
+    from .mt_lnn_v2 import attach_mt_v2_adapters
+    return attach_mt_v2_adapters(
+        model,
+        every=int(spec.get("mt_every", 4)),
+        n_protofilaments=int(spec.get("mt_proto", 13)),
+        d_proto=int(spec.get("v2_d_proto", 64)),
+        n_time_scales=int(spec.get("mt_scales", 5)),
+        proj_rank=int(spec.get("v2_rank", 128)),
+        init_scale=float(spec.get("mt_init_scale", 1e-3)),
+        dropout=float(spec.get("mt_dropout", 0.0)),
+        selective_decay=bool(spec.get("v2_selective", False)),
+        selective_decay_mode=str(spec.get("sel_mode", "mamba")),
+        use_fast_weight=not bool(spec.get("v2_no_fw", False)),
+        fast_weight_dim=int(spec.get("v2_fw_dim", 64)),
+        fast_weight_heads=int(spec.get("v2_fw_heads", 1)),
+    )
+
+
+def _maybe_apply_peft(model: nn.Module, adapter_dir: str):
+    """目录带 ``peft_lora/`` 就用 PEFT 原生加载器包一层；否则返回 None。"""
+    if not _has_peft(adapter_dir):
+        return None
+    from peft import PeftModel
+    return PeftModel.from_pretrained(model, os.path.join(adapter_dir, PEFT_SUBDIR))
+
+
+def _load_mt_state(adapter_dir: str) -> Dict[str, torch.Tensor]:
+    payload = torch.load(os.path.join(adapter_dir, MT_WEIGHTS_NAME),
+                         map_location="cpu", weights_only=False)
+    return payload.get("state_dict", payload)
+
+
+def _has_peft(adapter_dir: str) -> bool:
+    return os.path.isdir(os.path.join(adapter_dir, PEFT_SUBDIR))

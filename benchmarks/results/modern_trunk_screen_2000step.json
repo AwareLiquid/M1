@@ -1,0 +1,175 @@
+{
+  "schema": "modern_trunk_screen/1",
+  "screening_only": true,
+  "discipline": "SCREENING ONLY: 2K-step numbers decide direction, nothing else. They must NOT enter RESULTS.md/README (the 2026-07-19 31% retraction was a 2K-step extrapolation). Confirm at 20K via the docs/MODERN_TRUNK.md runbook before any headline.",
+  "p0_recipe": {
+    "dataset": "wikitext-103-raw-v1",
+    "tokenizer": "gpt2",
+    "seq_len": 512,
+    "batch": 4,
+    "lr": 0.0003,
+    "beta2": 0.95,
+    "grad_clip": 1.0,
+    "dtype": "fp32"
+  },
+  "steps": 2000,
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "smoke": false,
+  "rows": [
+    {
+      "config": "base",
+      "seed": 0,
+      "params": 126041819,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.7022223472595215,
+      "val_ppl": 255.17462102631106,
+      "screening_only": true
+    },
+    {
+      "config": "base",
+      "seed": 1,
+      "params": 126041819,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.995553493499756,
+      "val_ppl": 254.94826889539132,
+      "screening_only": true
+    },
+    {
+      "config": "base",
+      "seed": 2,
+      "params": 126041819,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.90872049331665,
+      "val_ppl": 255.6900671545787,
+      "screening_only": true
+    },
+    {
+      "config": "+ffn",
+      "seed": 0,
+      "params": 195061211,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.620513916015625,
+      "val_ppl": 237.46323866349172,
+      "screening_only": true
+    },
+    {
+      "config": "+ffn",
+      "seed": 1,
+      "params": 195061211,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.915665626525879,
+      "val_ppl": 234.31252200791974,
+      "screening_only": true
+    },
+    {
+      "config": "+ffn",
+      "seed": 2,
+      "params": 195061211,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.80488920211792,
+      "val_ppl": 229.98896513737472,
+      "screening_only": true
+    },
+    {
+      "config": "+qk_norm",
+      "seed": 0,
+      "params": 126043355,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.665456771850586,
+      "val_ppl": 244.57659971116655,
+      "screening_only": true
+    },
+    {
+      "config": "+qk_norm",
+      "seed": 1,
+      "params": 126043355,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.9610724449157715,
+      "val_ppl": 244.49183632602956,
+      "screening_only": true
+    },
+    {
+      "config": "+qk_norm",
+      "seed": 2,
+      "params": 126043355,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.878798484802246,
+      "val_ppl": 243.53667649333025,
+      "screening_only": true
+    },
+    {
+      "config": "all_on",
+      "seed": 0,
+      "params": 195062747,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.601901531219482,
+      "val_ppl": 232.38474784289926,
+      "screening_only": true
+    },
+    {
+      "config": "all_on",
+      "seed": 1,
+      "params": 195062747,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.920175552368164,
+      "val_ppl": 230.46302269004335,
+      "screening_only": true
+    },
+    {
+      "config": "all_on",
+      "seed": 2,
+      "params": 195062747,
+      "stable": true,
+      "steps": 2000,
+      "final_loss": 5.815349102020264,
+      "val_ppl": 228.61007919125652,
+      "screening_only": true
+    }
+  ],
+  "verdict": {
+    "paired_diff": {
+      "+ffn": {
+        "ppl_minus_base_per_seed": [
+          -17.7114,
+          -20.6357,
+          -25.7011
+        ],
+        "n_seeds_better": 3
+      },
+      "+qk_norm": {
+        "ppl_minus_base_per_seed": [
+          -10.598,
+          -10.4564,
+          -12.1534
+        ],
+        "n_seeds_better": 3
+      },
+      "all_on": {
+        "ppl_minus_base_per_seed": [
+          -22.7899,
+          -24.4852,
+          -27.08
+        ],
+        "n_seeds_better": 3
+      }
+    },
+    "pre_registered_rule": "all_on beats base on >=2/3 seeds \u2192 CONFIRM, else NULL",
+    "all_on_n_seeds_better": 3,
+    "verdict": "CONFIRM"
+  }
+}

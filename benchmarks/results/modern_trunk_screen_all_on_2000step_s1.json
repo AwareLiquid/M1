@@ -1,0 +1,10 @@
+{
+  "config": "all_on",
+  "seed": 1,
+  "params": 195062747,
+  "stable": true,
+  "steps": 2000,
+  "final_loss": 5.920175552368164,
+  "val_ppl": 230.46302269004335,
+  "screening_only": true
+}

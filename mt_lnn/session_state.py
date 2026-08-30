@@ -13,7 +13,7 @@ import os
 import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 @dataclass
@@ -22,6 +22,11 @@ class HFSessionState:
     open_questions: List[str] = field(default_factory=list)
     evidence_log: List[Dict] = field(default_factory=list)
     history: List[Dict] = field(default_factory=list)
+    # ParametricMemory (F, z) payload (base64 tensors + meta) — the session's
+    # fast-weight state rides the SAME durable envelope as its text fields so
+    # one atomic save_session covers both. None for pure-text sessions; JSON-
+    # safe (str/int only), so the Capsule v2 schema stays wire-compatible.
+    fw_state: Optional[Dict] = None
 
 
 def save_session(session: HFSessionState, path: str) -> None:
@@ -59,4 +64,5 @@ def load_session(path: str) -> HFSessionState:
         open_questions=list(data.get("open_questions", [])),
         evidence_log=list(data.get("evidence_log", [])),
         history=list(data.get("history", [])),
+        fw_state=data.get("fw_state"),
     )

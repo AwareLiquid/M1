@@ -24,7 +24,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .config import MTLNNConfig
-from .parallel_scan import pscan, pscan_constant_A
+from .parallel_scan import (pscan, pscan_constant_A,
+                            pscan_chunkwise_constant_A)
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,19 @@ class VectorizedMultiScaleResonance(nn.Module):
             self.decay_sign_raw = nn.Parameter(init)
         else:
             self.decay_sign_raw = None
+
+        # Chunkwise scan switch (iter/chunkwise-scan, 2026-08-29). False
+        # (default) = the historical Blelloch pscan path, bit-identical.
+        # True routes the diagonal liquid recurrence through the SSD-style
+        # chunkwise form (intra-chunk matmul + inter-chunk carry; see
+        # pscan_chunkwise) — same math, different summation order. The
+        # equivalence tests in tests/test_pscan_chunkwise.py are the merge
+        # gate; kernel-alignment audit: docs/CHECKWISE_NOTES.md.
+        # P0-1: applies ONLY to the constant-A (default decay) path — the
+        # selective path below always uses pscan (general chunkwise measured
+        # 2-16x slower; CHECKWISE_EXPERIMENT_LOG).
+        self.use_chunkwise_scan = getattr(config, "use_chunkwise_scan", False)
+        self.chunkwise_scan_size = int(getattr(config, "chunkwise_scan_size", 64))
 
         # Selective decay (see config.selective_decay): per-step signed
         # transition λ_t = decay · tanh(W_sel·x_t + b_sel). W_sel init small
@@ -214,6 +228,28 @@ class VectorizedMultiScaleResonance(nn.Module):
             rhythm_scale_val = getattr(config, "rhythm_scale_init", 0.1)
             self.rhythm_scale = nn.Parameter(torch.tensor(float(rhythm_scale_val)))
         self.register_buffer("last_lavi_mean", torch.zeros(()), persistent=False)
+
+    def reset_non_persistent_buffers(self) -> None:
+        """把诊断类 non-persistent buffer 重置回 ``__init__`` 的值（ones/zeros）。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成未初始化的垃圾。这些量本身只是监控读数，
+        但垃圾值会让"加载后 vs 构造后"的对比失真，也会污染第一个 step 之前
+        被读到的诊断。由 ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        for name in ("last_scale_gate_mean", "last_active_scale_ratio",
+                     "last_nonzero_scale_ratio", "last_sparse_scale_ratio",
+                     "last_sparse_selected_scales"):
+            buffer = getattr(self, name, None)
+            if buffer is not None:
+                buffer.fill_(1.0)
+        self.last_pred_error.zero_()
+        self.last_lavi_mean.zero_()
+        if getattr(self, "use_rhythm", False):
+            self.scale_preference.copy_(
+                torch.linspace(-1.0, 1.0, self.scale_preference.numel(),
+                               device=self.scale_preference.device)
+            )
 
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor,
                 use_scan: bool = True, lavi: torch.Tensor = None,
@@ -457,11 +493,21 @@ class VectorizedMultiScaleResonance(nn.Module):
                 h_active = h_dp
             elif lam_t is not None:
                 # Selective: per-step multipliers via the GENERAL scan.
+                # use_chunkwise_scan deliberately does NOT apply here (P0-1,
+                # CHECKWISE_EXPERIMENT_LOG §2): the general chunkwise form has
+                # no constant-A specialisation and measured 2-16x SLOWER than
+                # pscan at training lengths — routing the switch here would
+                # silently regress selective-decay training.
                 A_lam = lam_t.permute(0, 2, 3, 1)                     # (B,P,K,T)
                 H = pscan(A_lam, X, h_init=h_init_active)             # (B,P,K,T,D)
                 h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             else:
-                H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
+                if self.use_chunkwise_scan:
+                    H = pscan_chunkwise_constant_A(
+                        decay_bps, X, h_init=h_init_active,
+                        chunk_size=self.chunkwise_scan_size)          # (B,P,K,T,D)
+                else:
+                    H = pscan_constant_A(decay_bps, X, h_init=h_init_active)  # (B,P,K,T,D)
                 h_active = H.permute(0, 3, 1, 2, 4)                   # (B,T,P,K,D)
             if K_active == S:
                 h_per_scale = h_active
@@ -747,10 +793,13 @@ class MTLNNLayer(nn.Module):
         self.gtp_gamma = nn.Parameter(torch.tensor(config.gamma_init))
         # GTP cap renewal period: lateral coupling refreshes every `gtp_period`
         # tokens so long contexts don't silently kill mixing. Stored as a buffer
-        # (non-learned, fixed at config time).
+        # (non-learned, fixed at config time). 非持久 buffer 会被 transformers>=5
+        # 的加载链路覆写成垃圾，而它直接进 GTP 时钟 —— 原始值另存一份供
+        # reset_non_persistent_buffers 重算。
         self.register_buffer("gtp_period",
                              torch.tensor(float(config.gtp_period)),
                              persistent=False)
+        self._gtp_period = float(config.gtp_period)
 
         self.dropout = nn.Dropout(config.dropout)
 
@@ -779,6 +828,15 @@ class MTLNNLayer(nn.Module):
         self.use_hebbian_refactor = getattr(config, "use_hebbian_refactor", False)
         self._hebb_ref_out: Optional[torch.Tensor] = None
         self._hebb_ref_in: Optional[torch.Tensor] = None
+
+    def reset_non_persistent_buffers(self) -> None:
+        """把 ``gtp_period`` 填回配置值。
+
+        transformers >=5 的加载链路会把 non-persistent buffer 用
+        ``torch.empty_like`` 覆写成垃圾；这个值直接进 GTP 时钟，必须重算。
+        由 ``MTLNNForCausalLM._init_weights`` 回调。
+        """
+        self.gtp_period.fill_(self._gtp_period)
 
     def forward(
         self,
