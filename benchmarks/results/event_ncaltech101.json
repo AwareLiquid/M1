@@ -1,0 +1,73 @@
+{
+  "status": "OK",
+  "task": "next-polarity, held-out classes",
+  "train_meta": {
+    "n": 150,
+    "classes": [
+      "BACKGROUND_Google",
+      "Faces_easy",
+      "Leopards",
+      "Motorbikes",
+      "accordion",
+      "airplanes",
+      "anchor",
+      "ant",
+      "barrel",
+      "bass"
+    ]
+  },
+  "test_meta": {
+    "n": 150,
+    "classes": [
+      "beaver",
+      "binocular",
+      "bonsai",
+      "brain",
+      "brontosaurus",
+      "buddha",
+      "butterfly",
+      "camera",
+      "cannon",
+      "car_side"
+    ]
+  },
+  "rows": {
+    "mt_lnn": [
+      0.56,
+      0.56,
+      0.5533333333333333,
+      0.56,
+      0.56,
+      0.5266666666666666,
+      0.5666666666666667,
+      0.58,
+      0.5066666666666667,
+      0.48
+    ],
+    "gru": [
+      0.47333333333333333,
+      0.5,
+      0.5533333333333333,
+      0.56,
+      0.5333333333333333,
+      0.5333333333333333,
+      0.52,
+      0.5133333333333333,
+      0.52,
+      0.49333333333333335
+    ]
+  },
+  "e0": {
+    "ok": false,
+    "reasons": [
+      "\u914d\u5bf9\u7b26\u53f7\u68c0\u9a8c p=0.727 \u2265 0.05"
+    ],
+    "sign_test": {
+      "p": 0.7265625,
+      "wins": 5,
+      "losses": 3,
+      "n_effective": 8
+    }
+  },
+  "gru_d": "pending merge (iter/irregular-streaming-edge)"
+}

@@ -59,6 +59,14 @@ And, in the attention-free line:
 
 *(MT-LNN does **not** give long-context language-modeling gains — out-of-window LM is a measured null. The state is episodic key→value memory, not compressed distributed context.)*
 
+**Event-native sensing streams** (`iter/event-stream-liquid`): a DVS-physics
+event-stream benchmark family where irregularity is the native format — see
+[docs/EVENT_STREAM.md](docs/EVENT_STREAM.md) for why continuous time is a
+structural requirement there, and the "Event-native sensing streams" section
+in [BENCHMARKS.md](BENCHMARKS.md) for the 10-seed results, including the
+pre-registered Δt-span verdict (**NULL** on "advantage widens with span") and
+the N-Caltech101 null.
+
 ## What is retracted
 
 To keep this repo credible, the following earlier headline claims are **withdrawn** (full detail in [RESULTS.md](RESULTS.md) and the BENCHMARKS.md correction notes):
