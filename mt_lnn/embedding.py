@@ -44,9 +44,6 @@ class RotaryEmbedding(nn.Module):
             0, self.d_head, 2, device=self.inv_freq.device).float() / self.d_head))
         self.inv_freq.copy_(inv_freq)
         self._build_tables(self._table_len)
-        # Grow geometrically to amortise the (rare) rebuild cost.
-        new_len = max(needed, self._table_len * 2)
-        self._build_tables(new_len)
 
     @staticmethod
     def _rotate_half(x: torch.Tensor) -> torch.Tensor:
