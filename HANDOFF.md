@@ -1,7 +1,7 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
 > 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
-> 最后更新：2026-08-29 · 分支 `main`（KV 前沿线已合并：#3/#4/#6）
+> 最后更新：2026-08-30 · `main`(KV/#8 事件流/#10 modern-trunk/#12 HF/#13 chunkwise 已并)+ 本支 §8(parametric memory,全量结果已落盘)
 
 ---
 
@@ -540,3 +540,91 @@ python benchmarks/scaling_comparison.py --mode train --steps 20000 \
 - checkpoint（不提交）：`scaling_fp32/converge_probe/checkpoints/*.pt`
 - 施工图：`PUBLICATION_READINESS.md`（私有仓库 AwareLiquid-Web `internal/`）
 - 模型：`mt_lnn/model.py`、`mt_lnn/mt_lnn_layer.py`、`mt_lnn/mt_lnn_v2.py`
+
+## 8. 交接：Parametric memory 四维基准 — 代码就绪，全量待跑（2026-08-29，分支 `iter/parametric-memory`）
+
+> **给执行测试的同事**：本节是完整执行手册。代码（Task 1 runtime + Task 2 bench）
+> 已提交在 `iter/parametric-memory`，你只需要跑测试、判读、把实测数字入库（Task 3）。
+
+### 8.1 已完成（勿重做）
+
+| 项 | 位置 | 状态 |
+|---|---|---|
+| ParametricMemory runtime（write/recall/forget/snapshot/state_bytes，sum\|delta 双写规则） | `mt_lnn/parametric_memory.py` | ✅ 已提交，10 项单测 CPU <5s |
+| 四维基准脚本（D1 in-window / D2 跨窗 / D3 冲突 / D4 真子进程跨会话） | `benchmarks/parametric_memory_bench.py` | ✅ `--smoke` CPU 已验证全链路（含 D4 子进程 + BM25/runtime 曲线） |
+| 定位文档（机制对比表，数字留白） | `docs/PARAMETRIC_MEMORY.md` | ✅ 待全量数字回填后不动它也可 |
+| 单测（写入→召回 / 位精确 / forget 隔离 / O(1) 状态字节） | `tests/test_parametric_memory.py` | ✅ 绿 |
+| 提交链 | `08d4edf → 9d558cd → efb3a6d → d286e4c → e789889` | 分支干净，基线 = main cad9372 |
+
+环境已就绪：venv `/Users/aricredemption/Projects/M1/.venv`（torch 2.13，MPS 可用）；
+TinyLlama-1.1B-Chat 已在 HF cache（离线跑加 `HF_HUB_OFFLINE=1`）。
+**分支在独立 worktree `/Users/aricredemption/Projects/M1-pm`**（主仓库多分支并行占用，
+勿在主仓库切此分支）。macOS 沙箱下临时目录需 `TMPDIR=<repo>/.tmp`（先 mkdir）。
+已探针（单 seed、100 步，**不可引用**，仅证明管线通）：mt_v2 s0 D1 0.555 / D2 0。
+
+### 8.2 执行步骤（按序）
+
+```bash
+cd /Users/aricredemption/Projects/M1-pm
+PY=/Users/aricredemption/Projects/M1/.venv/bin/python
+
+# 1) 单测（~5s，必须先绿）
+$PY -m pytest tests/test_parametric_memory.py tests/test_session_state.py -q
+
+# 2) smoke（~2min，强制 CPU，验证四维+BM25+runtime 曲线全链路）
+BENCH_DEVICE=cpu TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY \
+  benchmarks/parametric_memory_bench.py --smoke
+
+# 3) 全量（~2h，MPS；resume-safe：中断后原命令重跑即续，已有 JSON 自动跳过）
+#    日志全部带 [HH:MM:SS] 时间戳 + PHASE 阶段标记（train/eval/D4/bm25/runtime），
+#    tee 落盘一份便于排查：nan 有 [WARN]，seed 缺失有 [WARN]，
+#    子进程失败搜 "Traceback" 与 "[ERROR"
+TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY benchmarks/parametric_memory_bench.py \
+  2>&1 | tee benchmarks/results/parametric_memory_run.log
+```
+
+产出（全部落 `benchmarks/results/`，这是入库的唯一依据）：
+`parametric_memory_{baseline,lora_only,mt_v2,mt_v2_delta}_s{0,1,2}.json`（12 个，
+每 config×seed 一份，含 D1–D4 全维度）+ `parametric_memory_summary.json`
+（mean±std 汇总）+ `parametric_memory_bm25.json`（外挂库对照：精度/latency/
+存储字节随条目增长曲线）+ `parametric_memory_runtime.json`（参数化 runtime：
+O(1) 状态字节 + sqrt(d/N) 容量曲线）。
+
+### 8.3 判读纪律（红线，违反即返工）
+
+1. **单 seed 不可引用**（HANDOFF §2.5）：表中只写 mean±std（n=3）+ per-seed。
+2. **D3 conflict resolution 如实报**：机制预期 delta（纠错）优于 sum（叠加），
+   正负皆可，写实测；`conflict_in_window_sanity` 列作对照。
+3. **D4 有效性门**：`cross_session_no_restore_control` 必须 ≈ chance（1e-3），
+   否则 harness 泄漏，数字作废先修 harness；`within_window_reference` 是
+   round-trip 损耗的参照（cross_session ≥ 0.7×within 才算无损，同
+   cross_session_recall.py 的 verdict 逻辑）。
+4. **口径诚实**：0.56±0.09 锚点是 TinyLlama 8000 步口径；本 bench 默认 3000 步，
+   D2 数字预期低于锚点——JSON 里已记 steps，文档必须带 steps 写，不得混口径。
+5. **入库顺序**（Task 3）：BENCHMARKS.md 新节（表格口径照 §Cross-window）→
+   RESULTS.md Proven 行 + "What we do NOT claim" 加一条（参数化记忆不提升基座
+   PPL、不提供长上下文 LM 增益，沿用既有 null）→ README Product lines 只加指针。
+   新增每一行必须能被 `benchmarks/results/parametric_memory_*.json` 复现；
+   禁止引用 retracted 主张（adapter 降 PPL / hybrid O(1) / 长上下文增益 /
+   意识 Φ̂ Orch-OR）。
+6. structural zero 对照（baseline/lora_only）在 D2/D3 应为 0.000（结构性）；
+   若非零说明状态通道泄漏，先查 harness 再报数。
+
+### 8.4 PR 就绪包（2026-08-29，代码侧完成、全量待跑）
+
+- **PR 标题**：`feat: parametric memory engine v0 + four-competency bench（代码就绪，全量结果待跑）`
+- **PR 正文**：目标 / 机制对比 / 迭代日志见 `docs/PARAMETRIC_MEMORY.md`；
+  执行手册见本节 §8.2–8.3；全量 JSON 落盘后按 §8.3.5 入库四处文档，
+  再把四维结果表补进 PR 描述。
+- **开 PR 命令**（shell 恢复后，在 worktree `M1-pm` 内）：
+  ```bash
+  git push -u origin iter/parametric-memory
+  gh pr create --base main --head iter/parametric-memory \
+    --title "feat: parametric memory engine v0 + four-competency bench" \
+    --body "$(cat .pr_body.md)"
+  ```
+- **与其他并行 PR 的关系**：irregular-streaming-edge / o-series-hybrid-ratio
+  等线与本分支零文件交叉；唯一潜在交叠是 HANDOFF.md 追加节（合并时两节
+  都保留即可）。另注意 origin/main 停在 c564a5d（本地 main 领先 27 提交
+  未推），其他 PR 若基于新 main 分支开出，diff 会裹挟继承提交——先
+  `git push origin main` 可消除噪声（推前与负责人确认）。
