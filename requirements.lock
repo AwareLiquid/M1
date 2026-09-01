@@ -1,16 +1,7 @@
-# Exact package versions from the local benchmark environment.
-# Use this for reproducible smoke tests and benchmark reruns. Torch CUDA wheels
-# may require the matching PyTorch wheel index for the local accelerator stack.
-torch==2.5.1+cu121
-numpy==1.26.4
-datasets==4.8.5
-tokenizers==0.22.2
-transformers==4.57.3
-peft==0.19.1
-tqdm==4.67.3
-einops==0.8.2
-gradio==6.9.0
-huggingface_hub==0.36.2
-
-# Optional in this environment:
-# wandb was not installed during the 2026-05-24 verification run.
+# requirements.lock — 已弃用（2026-09-01 起）
+#
+# 已按目标环境拆分为两份，请勿继续使用本文件：
+#   - requirements.lock.cpu  → CI / CPU 环境（pip install -r requirements.lock.cpu）
+#   - requirements.lock.gpu  → GPU / CUDA 环境（pip install -r requirements.lock.gpu --extra-index-url https://download.pytorch.org/whl/cu121）
+#
+# 历史内容（GPU 基准环境，2026-05-24 验证）保留于 requirements.lock.gpu。

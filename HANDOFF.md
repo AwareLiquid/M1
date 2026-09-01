@@ -621,7 +621,7 @@ O(1) 状态字节 + sqrt(d/N) 容量曲线）。
   git push -u origin iter/parametric-memory
   gh pr create --base main --head iter/parametric-memory \
     --title "feat: parametric memory engine v0 + four-competency bench" \
-    --body "$(cat .pr_body.md)"
+    --body "$(cat .github/PULL_REQUEST_TEMPLATE.md)"
   ```
 - **与其他并行 PR 的关系**：irregular-streaming-edge / o-series-hybrid-ratio
   等线与本分支零文件交叉；唯一潜在交叠是 HANDOFF.md 追加节（合并时两节

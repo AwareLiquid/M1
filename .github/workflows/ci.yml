@@ -1,0 +1,126 @@
+# =============================================================================
+# CI — 合入门禁
+#
+# 每次 pull_request → main 及 push → main 时全量执行。
+# 三个 job 全部通过 = 可以合入；任何失败 = 平台禁止合并（配合 branch protection）。
+#
+# 参考 vLLM 的 PR 门禁模式：机器强制验证 + 数值复现断言 + 人工 review。
+# =============================================================================
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  HF_HUB_OFFLINE: "1"     # 防意外下载模型（所有测试都是随机权重，无网络依赖）
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  # ── Job 1: 快速失败 ────────────────────────────────────────────────────
+  lint-and-import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock.cpu
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.lock.cpu
+
+      - name: Syntax check (py_compile)
+        run: |
+          find . -name "*.py" -not -path "./.venv/*" -not -path "./.git/*" \
+            -exec python -m py_compile {} +
+        shell: bash
+
+      - name: Import smoke test
+        run: |
+          python -c "
+          from mt_lnn import parallel_scan
+          from mt_lnn import config
+          from mt_lnn import mt_lnn_v2
+          from mt_lnn import salience_events
+          from mt_lnn import parametric_memory
+          from mt_lnn import hf_model
+          from mt_lnn import adapter_export
+          print('✓ All core modules imported successfully')
+          "
+
+  # ── Job 2: 全量 pytest（合入门禁） ─────────────────────────────────────
+  full-test:
+    needs: lint-and-import
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock.cpu
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.lock.cpu
+
+      - name: Run full test suite
+        run: |
+          python -m pytest -q --tb=line -p no:cacheprovider -ra
+        env:
+          HF_HUB_OFFLINE: "1"
+
+      - name: Summary
+        run: |
+          echo "✅ Full test suite passed"
+          echo "Branch: ${{ github.head_ref }} → ${{ github.base_ref }}"
+
+  # ── Job 3: 结果可复现性审计 ────────────────────────────────────────────
+  audit-results:
+    needs: lint-and-import
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.lock.cpu
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.lock.cpu
+
+      - name: Reproduce KV frontier ledger (must be byte-identical)
+        run: |
+          cp benchmarks/results/kv_frontier_ledger.json /tmp/kv_frontier_ledger.bak.json
+          python benchmarks/kv_frontier.py
+          cmp /tmp/kv_frontier_ledger.bak.json benchmarks/results/kv_frontier_ledger.json
+          echo "✓ kv_frontier_ledger.json is reproducible (byte-for-byte)"
+
+      - name: Validate result JSON structure
+        run: |
+          python scripts/validate_results.py
+          echo "✓ All result JSON files pass structural validation"
+
+      - name: Check for untracked changes after benchmark rerun
+        run: |
+          if [ -n "$(git status --porcelain benchmarks/results/)" ]; then
+            echo "⚠️  WARNING: benchmarks rerun produced different output"
+            git diff --stat benchmarks/results/
+            exit 1
+          fi
+          echo "✓ No untracked changes in benchmark results"

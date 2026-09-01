@@ -1,7 +1,8 @@
-# PR 模板（通用）
+# Pull Request 模板
 
-> 标准模板：`.github/PULL_REQUEST_TEMPLATE.md`（GitHub 自动使用）。
-> 本文件仅供脚本 `--body "$(cat .pr_body.md)"` 兼容引用，内容与模板一致。
+> 每条必须填写。缺节会被 CI 拒绝。参考 vLLM 贡献政策：AI 生成内容必须披露并人工审查。
+
+---
 
 ## 验收标准
 
@@ -45,3 +46,4 @@ python -m pytest tests/test_xxx.py -q      # 定向验收
 > **AI 协助声明**：本 PR 是否含 AI 生成内容？`是` / `否`
 >
 > 若含：必须披露生成范围、由人类作者审查确认，并保留 `Co-authored-by:` 标记。
+> 未披露的 AI 内容按 vLLM 政策视为不合规，PR 将被关闭。

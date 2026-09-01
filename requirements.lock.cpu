@@ -1,0 +1,25 @@
+# requirements.lock.cpu — 精确版本锁（CI / CPU 环境）
+#
+# ⚠️ 2026-09-01 修正：本文件从「旧 lock 推测版」改为「实测导出版」——
+#   以下版本是实际跑通全量 pytest（1451 passed）的真实环境版本。
+#   严禁手写版本号；任何依赖变更后必须用 pip freeze 重新导出。
+#
+# 使用：pip install -r requirements.lock.cpu
+
+torch==2.13.0
+numpy==2.5.2
+datasets==5.0.1
+tokenizers==0.23.1
+transformers==5.16.1
+tqdm==4.70.0
+einops==0.8.2
+huggingface_hub==1.29.0
+
+# Test / CI 运行所需（实测版本）
+pytest==9.1.1
+hypothesis==6.167.1
+fastapi==0.141.1
+pillow==12.3.0
+
+# 运行时可选（实测环境未装、全量测试不依赖；装不装不影响门禁）
+# peft / gradio 需要时单独 pip install
