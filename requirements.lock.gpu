@@ -1,0 +1,24 @@
+# requirements.lock.gpu — 精确版本锁（GPU / CUDA 环境）
+#
+# 从 PyTorch CUDA index 安装（https://download.pytorch.org/whl/cu121）。
+# 全量结果基于此版本跑出（PR #8/#10/#13 等的 1405/1428 passed）。
+#
+# 使用：
+#   pip install -r requirements.lock.gpu --extra-index-url https://download.pytorch.org/whl/cu121
+
+torch==2.5.1+cu121
+numpy==1.26.4
+datasets==4.8.5
+tokenizers==0.22.2
+transformers==4.57.3
+peft==0.19.1
+tqdm==4.67.3
+einops==0.8.2
+gradio==6.9.0
+huggingface_hub==0.36.2
+
+# Test / CI 运行所需
+pytest>=7.0.0
+hypothesis>=6.0.0
+fastapi>=0.100.0
+pillow>=10.0.0
