@@ -38,6 +38,14 @@ MT-LNN is a streaming-state recurrent architecture whose **one independently pro
 
 ---
 
+## PREREGISTERED / PENDING — protocol locked, no claims yet
+
+| Line | Status | Where |
+|---|---|---|
+| Latent-recursion adjudication (stack vs core iterations; Coconut arXiv:2412.06769 / Huginn arXiv:2502.05171 alignment; our unique cell = continuous-time loop body via `liquid_step_ladder`) | **Task 2 adjudication complete 2026-08-31 — NULL (`budget_wall`).** 48/48 configs on A100-80GB (30k steps × 6 seeds × 2 modes × d{1,2,4,8}); all 8 tiers at chance (stack d1→d8 = 0.0668→0.0675, non-monotonic, gain 0.0007 « 2σ 0.0048; core d8 = 0.0676). Preregistered `judge_decision`, unmodified: `h_supported=False`, diagnosis=budget_wall — the loop never learned the task at 30k steps, depth effects undecidable at this budget; criteria untouched. Task 3 (anytime frontier vs CoT) **still pending GPU** (A100 probe ≈41 h sequential). Solid output unchanged: analytic compute ledger — 8 latent stack iterations = **4.8× the FLOPs of 8 CoT tokens** at probe scale (latent edge is memory: 0 KV + 4.1 KB constant state vs 104.8 KB KV peak), so the "saves tokens" narrative does not hold on FLOPs | "Latent recursion" in BENCHMARKS.md + docs/LATENT_RECURSION.md |
+
+---
+
 ## RETRACTED / NULL / INERT — must not appear as selling points anywhere
 
 | Old claim | The real number | Status | BENCHMARKS.md section |

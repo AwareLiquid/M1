@@ -603,6 +603,7 @@ What's not yet shown (by design):
 | [mt_lnn_operator_algebra_whitepaper.tex](mt_lnn_operator_algebra_whitepaper.tex) | Operator-algebra math white paper: exact definitions + property-pinned invariants for all 11 zero-parameter operators wrapping the LTC core (honest "identity vs property-pinned vs statistical" grading) |
 | [NEEDLE_FIX.md](docs/reviews/NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
 | [CLOUD_RUN.md](docs/guides/CLOUD_RUN.md) / [KAGGLE_RUN.md](docs/guides/KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
+| [LATENT_RECURSION.md](docs/LATENT_RECURSION.md) | Latent recursion vs Coconut/Huginn: compute ledger (latent iterations vs CoT tokens), preregistered adjudication protocols, continuous-time τ-ladder knob |
 | [llm-viz-QUICKSTART.md](llm-viz-integration/llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |
 
 ---

@@ -1,0 +1,27 @@
+{
+ "task": "pointer_chase",
+ "protocol": "latent_recursion_task2",
+ "mode": "stack",
+ "depth": 4,
+ "seed": 4,
+ "steps": 30000,
+ "batch": 128,
+ "lr": 0.0003,
+ "device": "cuda",
+ "difficulty": 8,
+ "acc_by_k": {
+  "1": 0.0708,
+  "2": 0.064,
+  "3": 0.0762,
+  "4": 0.0625,
+  "5": 0.064,
+  "6": 0.0601,
+  "7": 0.0771,
+  "8": 0.062
+ },
+ "mean_acc": 0.06707763671875,
+ "wall_s": 20198.9,
+ "s_per_step": 0.6733,
+ "git_rev": "unknown",
+ "ts": "2026-08-31T09:27:44"
+}

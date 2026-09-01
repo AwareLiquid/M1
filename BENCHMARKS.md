@@ -1544,3 +1544,45 @@ not re-implemented here per branch boundaries).
 > post-hoc re-adjudication); a calibrated gate — gap_ratio>3 AND absolute gap
 > >10% of cross-architecture range — is pre-registered in the script
 > docstrings for v2 runs onward.
+
+## Latent recursion — 外部坐标系对齐 + 算力账本 (iter/latent-recursion, 2026-08-29)
+
+Full design doc: [docs/LATENT_RECURSION.md](docs/LATENT_RECURSION.md).
+
+Alignment: Coconut (arXiv:2412.06769) / Huginn-Geiping (arXiv:2502.05171)
+coordinate system — loop body = decoder block, test-time variable depth.
+Our unique cell: **continuous-time loop body** (`liquid_step_ladder`, τ-ladder
+weighted iterations; default off, bit-equivalent, zero new params).
+
+**Compute ledger (analytic, conventions frozen 2026-08-29,
+`benchmarks/compute_accounting.py` + 6 unit tests incl. hand-computed values
+123,136 / 49,049 MACs and a parameter-count reconciliation against the real
+built models):** at probe scale (T=54), 8 whole-block latent iterations cost
+**157 MFLOPs vs 33 MFLOPs for 8 explicit CoT tokens (4.8×)**, because each
+latent pass recomputes T×T attention while CoT decodes incrementally. The
+latent path's edge is memory: 0 KV growth + constant 4.1 KB state vs
+104.8 KB KV peak for the CoT path. **The "saves tokens" narrative does not
+hold on FLOPs; it holds on memory.**
+
+**Adjudication (Task 2) — DONE, verdict NULL (`budget_wall`).** The full
+protocol ran on a rented A100-80GB: 30k steps × 6 seeds × {core,stack} ×
+d{1,2,4,8} = **48/48 configs** (≈322 GPU·h total; per-config `wall_s` in the
+row JSONs; batches landed 8/30–8/31 UTC). Every tier sits at chance
+(1/16 = 0.0625): stack d1→d8 = 0.0668 → 0.0675 (**non-monotonic** — d2 dips
+below d1; gain 0.0007 « 2σ = 0.0048), core d8 = 0.0676. The preregistered
+`judge_decision` (unmodified) returns **`h_supported=False`,
+diagnosis=budget_wall** — the loop never learned pointer_chase at this
+budget, so depth effects are moot until steps/curriculum increase; per red
+line the criteria were not moved. The `bimodal=True` flags on the d8 tiers
+are σ-scale noise at chance level, not grokking zones. Provenance: the
+server's in-situ verdict was a crash remnant (n_rows=1; the core-only
+aggregation path raises `KeyError: 'stack'` *after* row JSONs are safely
+written — cosmetic). The committed verdict was **recomputed from the 48
+committed rows with this branch's own frozen judge code**; row `git_rev`
+fields read `unknown` (no git in the container), `device=cuda` as measured.
+
+**Frontier (Task 3, `anytime_frontier.py`) — still awaiting GPU.** Never
+started before the box was reclaimed. A100 probe: CoT 0.154 s/step (×4
+granularities) + latent 0.204 s/step ≈ 6.8 h/seed ≈ 41 h sequential.
+Resume-safe (steps-matched rows skip); the preregistered dominance reading
+stands unchanged.

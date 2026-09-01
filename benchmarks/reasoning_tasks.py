@@ -230,6 +230,64 @@ def gen_s5_word(
                  ans_pos=T - 1)
 
 
+# ── Task 1b: pointer chasing with explicit CoT chain (anytime 前沿基线) ───────
+#
+# iter/latent-recursion Task 3 的 CoT-token 基线。口径 (写死, 2026-08-29):
+# 确定性中间符号 — 粒度 g 的链在跳数 g, 2g, ... 处显式落节点, 链尾必须
+# 落在 k (最后一个中间符号 = f^k(s) = 答案, 无 [ANS] 尾巴、无抄写步):
+#   [BOS] edge-list [START] s k [THINK] f^{g}(s) f^{2g}(s) ... f^{k}(s)
+# 一个 CoT token = 一次 g 跳组合查找; g ≥ k 退化为直接作答 (单 token 链)。
+# 评估口径: 贪心自回归生成整条链, 链尾 token 判分 (错一步后链全错, 与
+# 潜空间单次前向同台对比 — 这是对 CoT 诚实的口径)。
+
+def gen_pointer_chase_cot(
+    batch: int,
+    n_nodes: int,
+    k_hops: int,
+    granularity: int,
+    rng: np.random.Generator,
+) -> Batch:
+    hop_marks = _cot_hop_marks(k_hops, granularity)
+    T = 1 + 3 * n_nodes + 4 + len(hop_marks)   # BOS + edges + START s k THINK + 链
+    toks = np.full((batch, T), PAD, dtype=np.int64)
+    ans = np.zeros(batch, dtype=np.int64)
+
+    for b in range(batch):
+        order = rng.permutation(n_nodes)       # 与单环任务同构: 单 n-环置换
+        f = np.empty(n_nodes, dtype=np.int64)
+        f[order] = np.roll(order, -1)
+        edges = rng.permutation(n_nodes)
+
+        row = [BOS]
+        for u in edges:
+            row += [val_tok(u), ARROW, val_tok(f[u])]
+        s = int(rng.integers(n_nodes))
+        row += [START, val_tok(s), val_tok(k_hops % n_nodes), THINK]
+
+        cur = s
+        for h in hop_marks:                    # 确定性中间符号: 落节点链
+            target = s
+            for _ in range(h):
+                target = int(f[target])
+            row += [val_tok(target)]
+            cur = target
+
+        toks[b, : len(row)] = row
+        ans[b] = val_tok(cur)                  # cur == f^k(s) (链尾即答案)
+
+    return Batch(tokens=toks, answer=ans, ans_pos=T - 1)
+
+
+def _cot_hop_marks(k_hops: int, granularity: int) -> list:
+    """链上落节点的跳数序列: g, 2g, ..., mg, k (去重, 严格递增)。"""
+    if k_hops < 1 or granularity < 1:
+        raise ValueError("k_hops and granularity must be >= 1")
+    marks = list(range(granularity, k_hops + 1, granularity))
+    if not marks or marks[-1] != k_hops:
+        marks.append(k_hops)
+    return marks
+
+
 # ── Convenience: unified generator ───────────────────────────────────────────
 
 def make_generator(task: str, difficulty: int, n_values: int, seed: int):
@@ -325,6 +383,35 @@ def _selftest() -> None:
     x1 = gen_mod_chain(2, 10, 4, r1)
     x2 = gen_mod_chain(2, 10, 4, r2)
     assert (x1.tokens == x2.tokens).all() and (x1.answer == x2.answer).all()
+
+    # CoT 链: 黄金回放 — 从 token 行重建 f, 逐跳核验每个中间符号与链尾
+    bc = gen_pointer_chase_cot(8, n_nodes=8, k_hops=7, granularity=3, rng=rng)
+    marks = _cot_hop_marks(7, 3)
+    assert marks == [3, 6, 7], "链尾必须落在 k (7 = 6+1 补步)"
+    for r in range(8):
+        row = bc.tokens[r]
+        fmap, i = {}, 1
+        while row[i] != START:
+            fmap[int(row[i]) - VALUE_BASE] = int(row[i + 2]) - VALUE_BASE
+            i += 3
+        s0 = int(row[i + 1]) - VALUE_BASE
+        chain = row[i + 4:]                     # THINK 之后的落节点链
+        assert len(chain) == len(marks)
+        for h, tok in zip(marks, chain):
+            t = s0
+            for _ in range(h):
+                t = fmap[t]
+            assert val_tok(t) == tok, f"中间符号必须是 f^{h}(s)"
+        assert chain[-1] == bc.answer[r], "链尾 = 答案"
+    # 粒度退化: g ≥ k → 单 token 直接作答; g=1 → 每跳一 token
+    assert _cot_hop_marks(4, 8) == [4]
+    assert _cot_hop_marks(4, 1) == [1, 2, 3, 4]
+    assert _cot_hop_marks(1, 1) == [1]
+    try:
+        _cot_hop_marks(0, 1)
+        raise AssertionError("k_hops < 1 必须拒绝")
+    except ValueError:
+        pass
 
     print("reasoning_tasks selftest OK")
 
