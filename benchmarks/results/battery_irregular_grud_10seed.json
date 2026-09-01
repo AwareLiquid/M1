@@ -1,0 +1,173 @@
+{
+  "test_cell": "B0018",
+  "seeds": 10,
+  "drops": [
+    0.0,
+    0.3,
+    0.6,
+    0.8
+  ],
+  "results": {
+    "0.0": {
+      "kept_steps": 128,
+      "baseline": 0.15722911059856415,
+      "mt_lnn": {
+        "rmse_mean": 0.09167181178927422,
+        "rmse_std": 0.02033047946057905,
+        "n": 10
+      },
+      "lstm": {
+        "rmse_mean": 0.11219002306461334,
+        "rmse_std": 0.018752692161601144,
+        "n": 10
+      },
+      "gru": {
+        "rmse_mean": 0.09994482174515724,
+        "rmse_std": 0.015984662172102013,
+        "n": 10
+      },
+      "gru_d": {
+        "rmse_mean": 0.11078350245952606,
+        "rmse_std": 0.018360820807645322,
+        "n": 10
+      },
+      "transformer": {
+        "rmse_mean": 0.089594005048275,
+        "rmse_std": 0.01628882448138939,
+        "n": 10
+      }
+    },
+    "0.3": {
+      "kept_steps": 90,
+      "baseline": 0.15722911059856415,
+      "mt_lnn": {
+        "rmse_mean": 0.10439473614096642,
+        "rmse_std": 0.015241862295191094,
+        "n": 10
+      },
+      "lstm": {
+        "rmse_mean": 0.11268689185380935,
+        "rmse_std": 0.023772354777693332,
+        "n": 10
+      },
+      "gru": {
+        "rmse_mean": 0.12193757370114326,
+        "rmse_std": 0.021231432687344853,
+        "n": 10
+      },
+      "gru_d": {
+        "rmse_mean": 0.12445639222860336,
+        "rmse_std": 0.03304170978346379,
+        "n": 10
+      },
+      "transformer": {
+        "rmse_mean": 0.09251261577010154,
+        "rmse_std": 0.02958384742404664,
+        "n": 10
+      }
+    },
+    "0.6": {
+      "kept_steps": 51,
+      "baseline": 0.15722911059856415,
+      "mt_lnn": {
+        "rmse_mean": 0.10841125622391701,
+        "rmse_std": 0.014085357293202743,
+        "n": 10
+      },
+      "lstm": {
+        "rmse_mean": 0.12105291187763215,
+        "rmse_std": 0.021271675674176652,
+        "n": 10
+      },
+      "gru": {
+        "rmse_mean": 0.1554568186402321,
+        "rmse_std": 0.019161144186530615,
+        "n": 10
+      },
+      "gru_d": {
+        "rmse_mean": 0.14209863767027855,
+        "rmse_std": 0.019815948439564583,
+        "n": 10
+      },
+      "transformer": {
+        "rmse_mean": 0.0933485995978117,
+        "rmse_std": 0.017590609381175685,
+        "n": 10
+      }
+    },
+    "0.8": {
+      "kept_steps": 26,
+      "baseline": 0.15722911059856415,
+      "mt_lnn": {
+        "rmse_mean": 0.11078067347407342,
+        "rmse_std": 0.011163267533012994,
+        "n": 10
+      },
+      "lstm": {
+        "rmse_mean": 0.12586336806416512,
+        "rmse_std": 0.020333487872727908,
+        "n": 10
+      },
+      "gru": {
+        "rmse_mean": 0.12821498066186904,
+        "rmse_std": 0.027485385991719763,
+        "n": 10
+      },
+      "gru_d": {
+        "rmse_mean": 0.12497058436274529,
+        "rmse_std": 0.023092491042694827,
+        "n": 10
+      },
+      "transformer": {
+        "rmse_mean": 0.09490890726447106,
+        "rmse_std": 0.024997728674215944,
+        "n": 10
+      }
+    }
+  },
+  "welch_pairwise_sparsest": {
+    "mt_lnn|transformer": -1.833,
+    "lstm|mt_lnn": -2.056,
+    "lstm|transformer": -3.038,
+    "gru|mt_lnn": -1.858,
+    "gru|lstm": -0.218,
+    "gru|gru_d": -0.286,
+    "gru|transformer": -2.835,
+    "gru_d|mt_lnn": -1.749,
+    "gru_d|lstm": 0.092,
+    "gru_d|transformer": -2.793
+  },
+  "degradation_regular_to_sparsest": {
+    "mt_lnn": {
+      "rmse_regular": 0.09167181178927422,
+      "rmse_sparsest": 0.11078067347407342,
+      "delta": 0.019109,
+      "pct": 20.84
+    },
+    "lstm": {
+      "rmse_regular": 0.11219002306461334,
+      "rmse_sparsest": 0.12586336806416512,
+      "delta": 0.013673,
+      "pct": 12.19
+    },
+    "gru": {
+      "rmse_regular": 0.09994482174515724,
+      "rmse_sparsest": 0.12821498066186904,
+      "delta": 0.02827,
+      "pct": 28.29
+    },
+    "gru_d": {
+      "rmse_regular": 0.11078350245952606,
+      "rmse_sparsest": 0.12497058436274529,
+      "delta": 0.014187,
+      "pct": 12.81
+    },
+    "transformer": {
+      "rmse_regular": 0.089594005048275,
+      "rmse_sparsest": 0.09490890726447106,
+      "delta": 0.005315,
+      "pct": 5.93
+    }
+  },
+  "pre_registered_rule": "gru_d absorbs the mt_lnn advantage iff |t(mt_lnn,gru_d)| < 2 AND gru_d degradation within 10pp of mt_lnn at the sparsest tier; otherwise the claim survives"
+}

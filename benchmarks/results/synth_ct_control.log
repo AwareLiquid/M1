@@ -1,0 +1,81 @@
+synthetic continuous-time control | Van der Pol mu=2.0 | 5 seeds | Δt supplied to every arch | target: x(t+0.5) from 48 irregular samples
+
+Δt mean=0.05 cv=0.0  train 2500 / test 800 windows (mean-predictor RMSE 1.4832)
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+    mt_lnn       RMSE 0.0093 ± 0.0056
+    lstm         RMSE 0.0291 ± 0.0251
+    gru          RMSE 0.0264 ± 0.0224
+    gru_d        RMSE 0.0146 ± 0.0205
+/Users/aricredemption/Projects/M1/benchmarks/battery_soh_edge.py:166: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(enc, n_layers)
+    transformer  RMSE 0.0559 ± 0.0360
+
+Δt mean=0.05 cv=1.0  train 2500 / test 800 windows (mean-predictor RMSE 1.4637)
+    mt_lnn       RMSE 0.0216 ± 0.0176
+    lstm         RMSE 0.0145 ± 0.0062
+    gru          RMSE 0.0273 ± 0.0126
+    gru_d        RMSE 0.0165 ± 0.0052
+    transformer  RMSE 0.0351 ± 0.0200
+
+Δt mean=0.15 cv=0.0  train 2500 / test 800 windows (mean-predictor RMSE 1.4739)
+    mt_lnn       RMSE 0.0155 ± 0.0143
+    lstm         RMSE 0.0098 ± 0.0048
+    gru          RMSE 0.0169 ± 0.0167
+    gru_d        RMSE 0.0288 ± 0.0186
+    transformer  RMSE 0.0233 ± 0.0268
+
+Δt mean=0.15 cv=1.0  train 2500 / test 800 windows (mean-predictor RMSE 1.5035)
+    mt_lnn       RMSE 0.0440 ± 0.0310
+    lstm         RMSE 0.0338 ± 0.0197
+    gru          RMSE 0.0270 ± 0.0202
+    gru_d        RMSE 0.0231 ± 0.0041
+    transformer  RMSE 0.0484 ± 0.0287
+
+Δt mean=0.4 cv=0.0  train 2080 / test 665 windows (mean-predictor RMSE 1.4678)
+    mt_lnn       RMSE 0.0186 ± 0.0186
+    lstm         RMSE 0.0321 ± 0.0374
+    gru          RMSE 0.0219 ± 0.0295
+    gru_d        RMSE 0.0121 ± 0.0076
+    transformer  RMSE 0.0317 ± 0.0152
+
+Δt mean=0.4 cv=1.0  train 2167 / test 682 windows (mean-predictor RMSE 1.4629)
+    mt_lnn       RMSE 0.0294 ± 0.0207
+    lstm         RMSE 0.0270 ± 0.0089
+    gru          RMSE 0.0155 ± 0.0025
+    gru_d        RMSE 0.0351 ± 0.0105
+    transformer  RMSE 0.0285 ± 0.0197
+
+==================================================================
+  dt0.05_cv1.0     mt_lnn vs transformer  t=+1.13 within noise
+  dt0.05_cv1.0     lstm vs mt_lnn       t=+0.85 within noise
+  dt0.05_cv1.0     lstm vs transformer  t=+2.20 SIGNIFICANT
+  dt0.05_cv1.0     gru vs mt_lnn       t=-0.60 within noise
+  dt0.05_cv1.0     gru vs lstm         t=-2.05 SIGNIFICANT
+  dt0.05_cv1.0     gru vs gru_d        t=-1.79 within noise
+  dt0.05_cv1.0     gru vs transformer  t=+0.73 within noise
+  dt0.05_cv1.0     gru_d vs mt_lnn       t=+0.62 within noise
+  dt0.05_cv1.0     gru_d vs lstm         t=-0.55 within noise
+  dt0.05_cv1.0     gru_d vs transformer  t=+2.01 SIGNIFICANT
+  dt0.15_cv1.0     mt_lnn vs transformer  t=+0.24 within noise
+  dt0.15_cv1.0     lstm vs mt_lnn       t=+0.62 within noise
+  dt0.15_cv1.0     lstm vs transformer  t=+0.94 within noise
+  dt0.15_cv1.0     gru vs mt_lnn       t=+1.03 within noise
+  dt0.15_cv1.0     gru vs lstm         t=+0.54 within noise
+  dt0.15_cv1.0     gru vs gru_d        t=-0.43 within noise
+  dt0.15_cv1.0     gru vs transformer  t=+1.36 within noise
+  dt0.15_cv1.0     gru_d vs mt_lnn       t=+1.50 within noise
+  dt0.15_cv1.0     gru_d vs lstm         t=+1.19 within noise
+  dt0.15_cv1.0     gru_d vs transformer  t=+1.96 within noise
+  dt0.4_cv1.0      mt_lnn vs transformer  t=-0.07 within noise
+  dt0.4_cv1.0      lstm vs mt_lnn       t=+0.24 within noise
+  dt0.4_cv1.0      lstm vs transformer  t=+0.16 within noise
+  dt0.4_cv1.0      gru vs mt_lnn       t=+1.49 within noise
+  dt0.4_cv1.0      gru vs lstm         t=+2.77 SIGNIFICANT
+  dt0.4_cv1.0      gru vs gru_d        t=+4.05 SIGNIFICANT
+  dt0.4_cv1.0      gru vs transformer  t=+1.47 within noise
+  dt0.4_cv1.0      gru_d vs mt_lnn       t=-0.55 within noise
+  dt0.4_cv1.0      gru_d vs lstm         t=-1.32 within noise
+  dt0.4_cv1.0      gru_d vs transformer  t=-0.66 within noise
+
+results -> benchmarks/results/synth_ct_control.json

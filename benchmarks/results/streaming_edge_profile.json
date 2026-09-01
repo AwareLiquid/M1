@@ -1,0 +1,58 @@
+{
+  "config": {
+    "d_model": 78,
+    "n_layers": 2,
+    "T": 128,
+    "n_feat": 4
+  },
+  "gates": {
+    "onnx_parity_le_1e-5": true,
+    "variable_dt_consistent": true,
+    "int8_available": true
+  },
+  "table": {
+    "onnx_parity_max_abs": 5.960464477539063e-08,
+    "variable_dt_max_abs": 1.1920928955078125e-07,
+    "sizes": {
+      "mt_lnn": {
+        "fp32_bytes": 1515282,
+        "int8_bytes": 1655013,
+        "int8_max_abs_drift": 0.002427816390991211
+      },
+      "lstm": {
+        "fp32_bytes": 403756,
+        "int8_bytes": 115170,
+        "int8_max_abs_drift": 0.00963360071182251
+      },
+      "gru": {
+        "fp32_bytes": 302726,
+        "int8_bytes": 304655,
+        "int8_max_abs_drift": 0.00606989860534668
+      }
+    },
+    "latency_us_per_step": {
+      "single_core": {
+        "mt_lnn": 26.0,
+        "lstm": 21.7,
+        "gru": 20.7,
+        "mt_lnn_onnx": 64.0
+      },
+      "all_cores": {
+        "mt_lnn": 31.2,
+        "lstm": 23.8,
+        "gru": 21.7,
+        "mt_lnn_onnx": 62.7
+      }
+    },
+    "streaming_state_bytes": {
+      "lstm": 1248,
+      "gru": 624,
+      "mt_lnn": 3120,
+      "transformer_kv_at_32k": 40894464
+    }
+  },
+  "notes": [
+    "per-step latency is amortised (one fixed-T forward divided by T) \u2014 the exported graph is a fixed window, how a duty-cycled controller batches steps",
+    "O(1) streaming state is a property of ANY recurrent model \u2014 lstm/gru are also flat and smaller; the claim is the combination with irregular-sampling robustness, not O(1) alone"
+  ]
+}

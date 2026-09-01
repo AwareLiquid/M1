@@ -1,0 +1,233 @@
+{
+  "test_station": "Dingling",
+  "seeds": 5,
+  "drops": [
+    0.0,
+    0.3,
+    0.6
+  ],
+  "targets": [
+    "PM2.5",
+    "TEMP"
+  ],
+  "results": {
+    "0.0": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.9219397902488708,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 22.283798599243163,
+          "rmse_std": 1.0983712387015743,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.070828151702881,
+          "rmse_std": 0.0727893916897956,
+          "n": 5
+        }
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 23.026346969604493,
+          "rmse_std": 0.6270460643169669,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.175870323181153,
+          "rmse_std": 0.09216190704667271,
+          "n": 5
+        }
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 23.232743072509766,
+          "rmse_std": 0.36879059562274086,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.1753418922424315,
+          "rmse_std": 0.08325437552846238,
+          "n": 5
+        }
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 23.159795379638673,
+          "rmse_std": 0.8202229513309185,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.174468898773194,
+          "rmse_std": 0.08127531152163421,
+          "n": 5
+        }
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 24.56921806335449,
+          "rmse_std": 1.518604357202881,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.362148094177246,
+          "rmse_std": 0.08292362615993368,
+          "n": 5
+        }
+      }
+    },
+    "0.3": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.9432862997055054,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 22.923237609863282,
+          "rmse_std": 0.22265506015298764,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.131917572021484,
+          "rmse_std": 0.0549360746988198,
+          "n": 5
+        }
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 23.972740936279298,
+          "rmse_std": 0.5448170630148288,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.188149642944336,
+          "rmse_std": 0.04950123228789636,
+          "n": 5
+        }
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 24.41811294555664,
+          "rmse_std": 0.4391617766130137,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.166609764099121,
+          "rmse_std": 0.10445518491958826,
+          "n": 5
+        }
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 24.482511520385742,
+          "rmse_std": 0.6808796737413059,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.19360933303833,
+          "rmse_std": 0.059468639734079086,
+          "n": 5
+        }
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 24.47850341796875,
+          "rmse_std": 0.9439683425943168,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.255300045013428,
+          "rmse_std": 0.11560940299902357,
+          "n": 5
+        }
+      }
+    },
+    "0.6": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.9224323630332947,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 24.698251724243164,
+          "rmse_std": 0.47465184477616923,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.337321090698242,
+          "rmse_std": 0.04972818880229781,
+          "n": 5
+        }
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 26.94947967529297,
+          "rmse_std": 1.1894117499969896,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.461219024658203,
+          "rmse_std": 0.09726906974570323,
+          "n": 5
+        }
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 27.10010108947754,
+          "rmse_std": 0.5683441247265267,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.528118419647217,
+          "rmse_std": 0.09962948132857159,
+          "n": 5
+        }
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 27.23605079650879,
+          "rmse_std": 0.7434124966737299,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.5589118003845215,
+          "rmse_std": 0.07706395925328419,
+          "n": 5
+        }
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 26.20693130493164,
+          "rmse_std": 0.3488412962928861,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.539474964141846,
+          "rmse_std": 0.040712308223226086,
+          "n": 5
+        }
+      }
+    }
+  },
+  "welch_pairwise_sparsest": {
+    "PM2.5|mt_lnn|transformer": 5.727,
+    "PM2.5|lstm|mt_lnn": -3.931,
+    "PM2.5|lstm|transformer": -1.34,
+    "PM2.5|gru|mt_lnn": -7.253,
+    "PM2.5|gru|lstm": -0.255,
+    "PM2.5|gru|gru_d": 0.325,
+    "PM2.5|gru|transformer": -2.995,
+    "PM2.5|gru_d|mt_lnn": -6.434,
+    "PM2.5|gru_d|lstm": -0.457,
+    "PM2.5|gru_d|transformer": -2.802,
+    "TEMP|mt_lnn|transformer": 7.034,
+    "TEMP|lstm|mt_lnn": -2.536,
+    "TEMP|lstm|transformer": 1.659,
+    "TEMP|gru|mt_lnn": -3.831,
+    "TEMP|gru|lstm": -1.074,
+    "TEMP|gru|gru_d": 0.547,
+    "TEMP|gru|transformer": 0.236,
+    "TEMP|gru_d|mt_lnn": -5.402,
+    "TEMP|gru_d|lstm": -1.76,
+    "TEMP|gru_d|transformer": -0.499
+  },
+  "pre_registered_rule": "claim holds iff |t|>=2 vs gru_d AND lstm AND gru at the sparsest tier on >=2 of 3 domains"
+}

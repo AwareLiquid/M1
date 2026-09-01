@@ -1,0 +1,62 @@
+irregular-sampling sweep | held-out B0018 | 10 seeds | Δt supplied to every arch
+
+drop=0%  kept 128/128 steps  (baseline RMSE 0.1572)
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+    mt_lnn       RMSE 0.0917 ± 0.0203
+    lstm         RMSE 0.1122 ± 0.0188
+    gru          RMSE 0.0999 ± 0.0160
+    gru_d        RMSE 0.1108 ± 0.0184
+/Users/aricredemption/Projects/M1/benchmarks/battery_soh_edge.py:166: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(enc, n_layers)
+    transformer  RMSE 0.0896 ± 0.0163
+
+drop=30%  kept 90/128 steps  (baseline RMSE 0.1572)
+    mt_lnn       RMSE 0.1044 ± 0.0152
+    lstm         RMSE 0.1127 ± 0.0238
+    gru          RMSE 0.1219 ± 0.0212
+    gru_d        RMSE 0.1245 ± 0.0330
+    transformer  RMSE 0.0925 ± 0.0296
+
+drop=60%  kept 51/128 steps  (baseline RMSE 0.1572)
+    mt_lnn       RMSE 0.1084 ± 0.0141
+    lstm         RMSE 0.1211 ± 0.0213
+    gru          RMSE 0.1555 ± 0.0192
+    gru_d        RMSE 0.1421 ± 0.0198
+    transformer  RMSE 0.0933 ± 0.0176
+
+drop=80%  kept 26/128 steps  (baseline RMSE 0.1572)
+    mt_lnn       RMSE 0.1108 ± 0.0112
+    lstm         RMSE 0.1259 ± 0.0203
+    gru          RMSE 0.1282 ± 0.0275
+    gru_d        RMSE 0.1250 ± 0.0231
+    transformer  RMSE 0.0949 ± 0.0250
+
+==================================================================
+degradation from regular to sparsest sampling (lower = more robust)
+  mt_lnn       0.0917 -> 0.1108   Δ +0.0191 (+20.8%)
+  lstm         0.1122 -> 0.1259   Δ +0.0137 (+12.2%)
+  gru          0.0999 -> 0.1282   Δ +0.0283 (+28.3%)
+  gru_d        0.1108 -> 0.1250   Δ +0.0142 (+12.8%)
+  transformer  0.0896 -> 0.0949   Δ +0.0053 (+5.9%)
+
+at drop=80%, mt_lnn vs each (Welch t):
+  vs lstm         t=+2.06  SIGNIFICANT
+  vs gru          t=+1.86  within noise
+  vs gru_d        t=+1.75  within noise
+  vs transformer  t=-1.83  within noise
+
+pairwise Welch t at the sparsest tier (row - col sign: positive = first arch lower RMSE):
+  mt_lnn|transformer           t=-1.83  within noise
+  lstm|mt_lnn                  t=-2.06  SIGNIFICANT
+  lstm|transformer             t=-3.04  SIGNIFICANT
+  gru|mt_lnn                   t=-1.86  within noise
+  gru|lstm                     t=-0.22  within noise
+  gru|gru_d                    t=-0.29  within noise
+  gru|transformer              t=-2.83  SIGNIFICANT
+  gru_d|mt_lnn                 t=-1.75  within noise
+  gru_d|lstm                   t=+0.09  within noise
+  gru_d|transformer            t=-2.79  SIGNIFICANT
+==================================================================
+
+results -> benchmarks/results/battery_irregular_grud_10seed.json

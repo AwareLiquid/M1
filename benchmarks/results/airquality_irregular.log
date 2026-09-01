@@ -1,0 +1,67 @@
+stations: train=11 test=[Dingling] (held out) | dev=mps
+air-quality irregular sweep | held-out Dingling | 5 seeds | Δt supplied to every arch | task: 6h ['PM2.5', 'TEMP'] from 48h history
+
+drop=0%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9219)
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+<string>:127: RuntimeWarning: d_proto=6 is not a multiple of 8 — protofilament einsums won't hit Tensor Cores optimally. Nearest aligned d_model values (n_protofilaments=13, n_heads=13): []
+    mt_lnn       PM2.5  RMSE 22.284 ± 1.098
+    mt_lnn       TEMP   RMSE 4.071 ± 0.073
+    lstm         PM2.5  RMSE 23.026 ± 0.627
+    lstm         TEMP   RMSE 4.176 ± 0.092
+    gru          PM2.5  RMSE 23.233 ± 0.369
+    gru          TEMP   RMSE 4.175 ± 0.083
+    gru_d        PM2.5  RMSE 23.160 ± 0.820
+    gru_d        TEMP   RMSE 4.174 ± 0.081
+/Users/aricredemption/Projects/M1/benchmarks/battery_soh_edge.py:166: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(enc, n_layers)
+    transformer  PM2.5  RMSE 24.569 ± 1.519
+    transformer  TEMP   RMSE 4.362 ± 0.083
+
+drop=30%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9433)
+    mt_lnn       PM2.5  RMSE 22.923 ± 0.223
+    mt_lnn       TEMP   RMSE 4.132 ± 0.055
+    lstm         PM2.5  RMSE 23.973 ± 0.545
+    lstm         TEMP   RMSE 4.188 ± 0.050
+    gru          PM2.5  RMSE 24.418 ± 0.439
+    gru          TEMP   RMSE 4.167 ± 0.104
+    gru_d        PM2.5  RMSE 24.483 ± 0.681
+    gru_d        TEMP   RMSE 4.194 ± 0.059
+    transformer  PM2.5  RMSE 24.479 ± 0.944
+    transformer  TEMP   RMSE 4.255 ± 0.116
+
+drop=60%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9224)
+    mt_lnn       PM2.5  RMSE 24.698 ± 0.475
+    mt_lnn       TEMP   RMSE 4.337 ± 0.050
+    lstm         PM2.5  RMSE 26.949 ± 1.189
+    lstm         TEMP   RMSE 4.461 ± 0.097
+    gru          PM2.5  RMSE 27.100 ± 0.568
+    gru          TEMP   RMSE 4.528 ± 0.100
+    gru_d        PM2.5  RMSE 27.236 ± 0.743
+    gru_d        TEMP   RMSE 4.559 ± 0.077
+    transformer  PM2.5  RMSE 26.207 ± 0.349
+    transformer  TEMP   RMSE 4.539 ± 0.041
+
+==================================================================
+pairwise Welch t at drop=60% (positive = first arch lower RMSE)
+  PM2.5  mt_lnn vs transformer  t=+5.73 SIGNIFICANT
+  PM2.5  lstm vs mt_lnn       t=-3.93 SIGNIFICANT
+  PM2.5  lstm vs transformer  t=-1.34 within noise
+  PM2.5  gru vs mt_lnn       t=-7.25 SIGNIFICANT
+  PM2.5  gru vs lstm         t=-0.26 within noise
+  PM2.5  gru vs gru_d        t=+0.32 within noise
+  PM2.5  gru vs transformer  t=-2.99 SIGNIFICANT
+  PM2.5  gru_d vs mt_lnn       t=-6.43 SIGNIFICANT
+  PM2.5  gru_d vs lstm         t=-0.46 within noise
+  PM2.5  gru_d vs transformer  t=-2.80 SIGNIFICANT
+  TEMP   mt_lnn vs transformer  t=+7.03 SIGNIFICANT
+  TEMP   lstm vs mt_lnn       t=-2.54 SIGNIFICANT
+  TEMP   lstm vs transformer  t=+1.66 within noise
+  TEMP   gru vs mt_lnn       t=-3.83 SIGNIFICANT
+  TEMP   gru vs lstm         t=-1.07 within noise
+  TEMP   gru vs gru_d        t=+0.55 within noise
+  TEMP   gru vs transformer  t=+0.24 within noise
+  TEMP   gru_d vs mt_lnn       t=-5.40 SIGNIFICANT
+  TEMP   gru_d vs lstm         t=-1.76 within noise
+  TEMP   gru_d vs transformer  t=-0.50 within noise
+
+results -> benchmarks/results/airquality_irregular.json
