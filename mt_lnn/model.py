@@ -241,6 +241,7 @@ class MTLNNBlock(nn.Module):
         use_cache: bool = False,
         use_lnn_recurrence: bool = True,
         top_down: Optional[torch.Tensor] = None,    # (B, d_model) or (B, T, d_model)
+        ladder_base: int = 0,                        # τ 阶梯迭代基址 (stack pass × core_iterations)
     ) -> Tuple[torch.Tensor, Optional[LayerCache]]:
 
         past_kv      = layer_cache[0] if layer_cache is not None else None
@@ -303,14 +304,16 @@ class MTLNNBlock(nn.Module):
             position_offset=position_offset,
             use_scan=use_lnn_recurrence,
             pad_mask=lnn_pad,
+            ladder_iter=ladder_base,
         )
-        for _ in range(self.core_iterations - 1):
+        for _i in range(self.core_iterations - 1):
             x_iter = x_normed + torch.tanh(self.core_iter_gate) * lnn_out
             lnn_out, h_last = self.lnn(
                 x_iter, h_last,
                 position_offset=position_offset,
                 use_scan=use_lnn_recurrence,
                 pad_mask=lnn_pad,
+                ladder_iter=ladder_base + 1 + _i,
             )
         x = x + lnn_out
         # Modern-trunk Task A1: the FFN sub-layer (RMSNorm 前置), placed after
@@ -760,6 +763,7 @@ class MTLNNModel(nn.Module):
                     use_cache=use_cache,
                     use_lnn_recurrence=use_lnn_recurrence,
                     top_down=top_down,
+                    ladder_base=_pass * block.core_iterations,
                 )
                 if _is_leader and _gate_period > 1:
                     _shared_active_idx = block.lnn.resonance._last_computed_active_idx

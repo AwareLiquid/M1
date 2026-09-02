@@ -177,6 +177,16 @@ class MTLNNConfig:
     # 中学会精确 ±1，外推不再受 soft 累积误差限制。
     selective_decay_ste: bool = False
 
+    # 液态步长 τ 阶梯 (iter/latent-recursion Task 4 — 连续时间循环体旋钮,
+    # 本仓库独有坐标: Coconut/Huginn 的循环体都是离散等步 decoder 块).
+    # True 时潜空间第 k 次迭代 (core 迭代或 stack pass, 计数从 1 起) 的
+    # 共振 bank 尺度混合加偏置 -τ_s/(κ+k): 快 τ 通道在前几次迭代多走、
+    # 慢 τ 少走, k→∞ 回归 stock 混合 — 一次迭代 ≠ 均匀一步. 第 0 次
+    # (首 pass/首迭代) 不加偏置, 故 N=1 与 stock 逐位一致; 默认 False
+    # 全路径不进 ladder 分支, 零参数、零回归. κ 是 τ 的量纲尺度.
+    liquid_step_ladder: bool = False
+    liquid_step_kappa: float = 1.0
+
     # Chunkwise scan (iter/chunkwise-scan, 2026-08-29): route the liquid
     # recurrence through the SSD-style chunk decomposition (intra-chunk
     # masked matmul + inter-chunk carry; mt_lnn.parallel_scan.pscan_chunkwise)
@@ -672,6 +682,11 @@ class MTLNNConfig:
             raise ValueError(
                 f"n_global_heads must be in [0, n_heads={self.n_heads}]; "
                 f"got {self.n_global_heads}"
+            )
+        if self.liquid_step_ladder and self.liquid_step_kappa <= 0:
+            raise ValueError(
+                f"liquid_step_kappa must be > 0 when liquid_step_ladder "
+                f"is enabled; got {self.liquid_step_kappa}"
             )
 
         # attention_layers: None means all layers; otherwise a de-duplicated
