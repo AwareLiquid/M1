@@ -19,7 +19,20 @@ import torch
 sys.path.insert(0, ".")
 
 from mt_lnn import MTLNNConfig, MTLNNModel
-from mt_lnn.mt_lnn_layer import ladder_scale_bias
+
+# ladder_scale_bias 随 PR #9(iter/latent-recursion)合入;test 文件先行入库(ca60978)。
+# 源码缺席时跳过整个模块,PR #9 合入后自动恢复。
+try:
+    from mt_lnn.mt_lnn_layer import ladder_scale_bias
+    _HAS_LADDER = True
+except ImportError:
+    _HAS_LADDER = False
+    ladder_scale_bias = None
+
+pytestmark = pytest.mark.skipif(
+    not _HAS_LADDER,
+    reason="ladder_scale_bias 不在 main(mt_lnn/mt_lnn_layer.py)——随 PR #9 合入后恢复",
+)
 
 
 def _cfg(**overrides):
