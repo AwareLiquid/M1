@@ -29,6 +29,20 @@ from .parallel_scan import (pscan, pscan_constant_A,
 
 
 # ---------------------------------------------------------------------------
+# τ 阶梯偏置 (iter/latent-recursion Task 4 纯函数)
+# ---------------------------------------------------------------------------
+
+def ladder_scale_bias(tau: torch.Tensor, k: int, kappa: float) -> torch.Tensor:
+    """τ 阶梯偏置 (纯函数): 第 k 次潜空间迭代的 blend logits 加 -τ_s/(κ+k)。
+
+    快 τ (小 τ_s) 通道受罚最轻 → 早期迭代由快尺度主导 ("多走"); 慢 τ 被压
+    → "少走"; k 增大偏置趋平 → 后期迭代慢尺度回归 stock 混合。连续时间语
+    义: 一次离散迭代对不同 τ 的通道是不同比例的一步。fp32 输入输出。
+    """
+    return -tau.float() / (float(kappa) + float(k))
+
+
+# ---------------------------------------------------------------------------
 # VectorizedMultiScaleResonance
 # ---------------------------------------------------------------------------
 
@@ -59,6 +73,10 @@ class VectorizedMultiScaleResonance(nn.Module):
         self.scale_gate_skip_threshold = getattr(config, "scale_gate_skip_threshold", 0.0)
         self.sparse_resonance_kernel = getattr(config, "sparse_resonance_kernel", False)
         self.sparse_resonance_top_k = getattr(config, "sparse_resonance_top_k", 1)
+        # 液态步长 τ 阶梯 (iter/latent-recursion Task 4): 默认 False 时
+        # forward 的 blend 分支完全不进, 路径逐位不变 (零回归).
+        self.ladder = bool(getattr(config, "liquid_step_ladder", False))
+        self.ladder_kappa = float(getattr(config, "liquid_step_kappa", 1.0))
 
         # Shared weights: (P, S, D, D) — independent W_in per (proto, scale)
         self.W_in = nn.Parameter(torch.empty(P, S, D, D))
@@ -253,7 +271,7 @@ class VectorizedMultiScaleResonance(nn.Module):
 
     def forward(self, x: torch.Tensor, h_prev: torch.Tensor,
                 use_scan: bool = True, lavi: torch.Tensor = None,
-                pad_mask: torch.Tensor = None):
+                pad_mask: torch.Tensor = None, ladder_iter: int = 0):
         """
         x:        (B, T, P, D)
         pad_mask: optional (B, T) bool, True = valid token. Only used to mask
@@ -516,7 +534,14 @@ class VectorizedMultiScaleResonance(nn.Module):
                 h_per_scale[:, :, :, active_idx, :] = h_active
 
         # 3. Dynamic Channel Attention (Endogenous Anesthesia) + Blending
-        w = F.softmax(self.blend_weights, dim=-1)                     # (P,S)
+        # 液态步长 τ 阶梯 (Task 4): 第 ladder_iter 次迭代偏置尺度混合 —
+        # 快 τ (小 τ_s) 多走、慢 τ 少走; k→∞ 回归 stock. τ 数学保持 fp32
+        # (与上方 decay 同纪律), 加回 logits 时才对齐 dtype.
+        blend_logits = self.blend_weights
+        if self.ladder and ladder_iter > 0:
+            blend_logits = blend_logits + ladder_scale_bias(
+                tau, ladder_iter, self.ladder_kappa).to(blend_logits.dtype)
+        w = F.softmax(blend_logits, dim=-1)                     # (P,S)
         if self.dynamic_scale_gates:
             if sparse_scale_mask is not None:
                 dynamic_kappa = dynamic_kappa.masked_fill(
@@ -845,6 +870,7 @@ class MTLNNLayer(nn.Module):
         position_offset: int = 0,
         use_scan: bool = True,
         pad_mask: torch.Tensor = None,         # (B, T) bool, True = valid; None = no masking
+        ladder_iter: int = 0,                  # τ 阶梯迭代序号 (0=首 pass, 无偏置)
     ):
         """
         use_scan=True (default): real recurrence via parallel scan.
@@ -877,7 +903,8 @@ class MTLNNLayer(nn.Module):
         # 2. Run the resonance bank. It accepts h_prev in either form and
         # returns the per-scale state we need to cache.
         h_stack, h_last_per_scale = self.resonance(
-            x_split, h_prev, use_scan=use_scan, lavi=lavi, pad_mask=pad_mask
+            x_split, h_prev, use_scan=use_scan, lavi=lavi, pad_mask=pad_mask,
+            ladder_iter=ladder_iter
         )                                                              # (B,T,P,D), (B,P,S,D)
 
         # 4. Lateral coupling with GTP temporal gate.

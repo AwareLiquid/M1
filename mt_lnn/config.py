@@ -3,6 +3,31 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 
+# ---------------------------------------------------------------------------
+# 归档负结果模块(archived-negative)
+# ---------------------------------------------------------------------------
+# BENCHMARKS.md §O1 module switch-matrix(2026-07-05,48M O1,TinyStories 1200 步):
+# 五个可选模块在 48M 全部 PPL-neutral(全栈仅 -0.24 PPL,却在吞吐上 -5.6%)。
+# 默认全 False;代码路径保留供更大规模复测(o1_module_ablation.py 是证伪实验
+# 的历史产物,不动)。显式开启时发警告,防"负结果模块被当活跃旋钮误用"。
+# 证据: docs/PRODUCT_LINES.md「Biological-prior policy」+ BENCHMARKS.md §O1。
+_ARCHIVED_NEGATIVE_MODULES = {
+    # field_name: (模块名, 48M 实测 ΔPPL vs core, 证据节)
+    "use_predictive_coding": ("predictive coding", "+0.65 (worse)",
+                              "BENCHMARKS.md §O1"),
+    "use_competitive_gwtb": ("competitive GWTB", "+0.03",
+                             "BENCHMARKS.md §O1"),
+    "use_world_model": ("world model", "-0.14",
+                        "BENCHMARKS.md §O1"),
+    "use_rhythm": ("rhythm (LAVI)", "-0.28",
+                   "BENCHMARKS.md §O1"),
+    "use_hebbian": ("Hebbian", "+0.29",
+                    "BENCHMARKS.md §O1"),
+    "use_hebbian_refactor": ("Hebbian refactor", "+0.29 (同 Hebbian 判负)",
+                             "BENCHMARKS.md §O1"),
+}
+
+
 @dataclass
 class MTLNNConfig:
     # Vocabulary and sequence
@@ -176,6 +201,16 @@ class MTLNNConfig:
     # 推理 snap 的 OOD 问题（snap 使 in-dist 都崩）。parity 翻转决策在训练
     # 中学会精确 ±1，外推不再受 soft 累积误差限制。
     selective_decay_ste: bool = False
+
+    # 液态步长 τ 阶梯 (iter/latent-recursion Task 4 — 连续时间循环体旋钮,
+    # 本仓库独有坐标: Coconut/Huginn 的循环体都是离散等步 decoder 块).
+    # True 时潜空间第 k 次迭代 (core 迭代或 stack pass, 计数从 1 起) 的
+    # 共振 bank 尺度混合加偏置 -τ_s/(κ+k): 快 τ 通道在前几次迭代多走、
+    # 慢 τ 少走, k→∞ 回归 stock 混合 — 一次迭代 ≠ 均匀一步. 第 0 次
+    # (首 pass/首迭代) 不加偏置, 故 N=1 与 stock 逐位一致; 默认 False
+    # 全路径不进 ladder 分支, 零参数、零回归. κ 是 τ 的量纲尺度.
+    liquid_step_ladder: bool = False
+    liquid_step_kappa: float = 1.0
 
     # Chunkwise scan (iter/chunkwise-scan, 2026-08-29): route the liquid
     # recurrence through the SSD-style chunk decomposition (intra-chunk
@@ -673,6 +708,11 @@ class MTLNNConfig:
                 f"n_global_heads must be in [0, n_heads={self.n_heads}]; "
                 f"got {self.n_global_heads}"
             )
+        if self.liquid_step_ladder and self.liquid_step_kappa <= 0:
+            raise ValueError(
+                f"liquid_step_kappa must be > 0 when liquid_step_ladder "
+                f"is enabled; got {self.liquid_step_kappa}"
+            )
 
         # attention_layers: None means all layers; otherwise a de-duplicated
         # tuple of valid indices. An EMPTY tuple is legal -- a pure-LNN stack --
@@ -712,6 +752,19 @@ class MTLNNConfig:
         else:
             assert len(self.resonance_freqs) == self.n_time_scales, \
                 f"resonance_freqs length {len(self.resonance_freqs)} != n_time_scales {self.n_time_scales}"
+
+        # 归档负结果模块:显式开启(非默认 False)时警告,提示该模块在 48M
+        # 已判 PPL-neutral。保留代码路径供更大规模复测(o1_module_ablation.py)。
+        for _field, (_name, _delta, _ev) in _ARCHIVED_NEGATIVE_MODULES.items():
+            if getattr(self, _field):
+                import warnings as _w  # local: 避免遮蔽调用方的 warnings 名
+
+                _w.warn(
+                    f"[archived-negative] {_field}=True: 模块「{_name}」在 48M "
+                    f"O1 已实测 PPL-neutral(Δ={_delta}, {_ev})——默认关闭,"
+                    f"仅限更大规模复测/历史复现使用。",
+                    stacklevel=2,
+                )
 
     def recommended_aligned_d_model(self, target: int, n: int = 5) -> list:
         """
