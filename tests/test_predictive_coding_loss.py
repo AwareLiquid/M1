@@ -32,9 +32,14 @@ We pin, end to end:
 Run:  python -m pytest tests/test_predictive_coding_loss.py -v
 """
 import sys
+import warnings
 
 import pytest
 import torch
+
+# 行为契约测试:显式开启 predictive coding 验证代码路径,不声称有效性。
+# 归档警告在此模块内静音。
+warnings.filterwarnings("ignore", message=r".*\[archived-negative\].*", category=UserWarning)
 
 sys.path.insert(0, ".")
 

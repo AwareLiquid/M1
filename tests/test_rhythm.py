@@ -9,8 +9,14 @@ Covers:
   - MTLNNLayer with use_rhythm=True: rhythm gate modulates blend
 """
 
+import warnings
+
 import torch
 import torch.nn.functional as F
+
+# 行为契约测试:显式开启 rhythm 验证代码路径,不声称有效性。
+# 归档警告在此模块内静音(pytest.mark.filterwarnings 对该场景不可靠)。
+warnings.filterwarnings("ignore", message=r".*\[archived-negative\].*", category=UserWarning)
 
 from mt_lnn.rhythm import LAVIEstimator, GlobalRhythmController
 from mt_lnn.config import MTLNNConfig

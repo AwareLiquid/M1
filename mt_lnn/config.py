@@ -3,6 +3,31 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 
+# ---------------------------------------------------------------------------
+# 归档负结果模块(archived-negative)
+# ---------------------------------------------------------------------------
+# BENCHMARKS.md §O1 module switch-matrix(2026-07-05,48M O1,TinyStories 1200 步):
+# 五个可选模块在 48M 全部 PPL-neutral(全栈仅 -0.24 PPL,却在吞吐上 -5.6%)。
+# 默认全 False;代码路径保留供更大规模复测(o1_module_ablation.py 是证伪实验
+# 的历史产物,不动)。显式开启时发警告,防"负结果模块被当活跃旋钮误用"。
+# 证据: docs/PRODUCT_LINES.md「Biological-prior policy」+ BENCHMARKS.md §O1。
+_ARCHIVED_NEGATIVE_MODULES = {
+    # field_name: (模块名, 48M 实测 ΔPPL vs core, 证据节)
+    "use_predictive_coding": ("predictive coding", "+0.65 (worse)",
+                              "BENCHMARKS.md §O1"),
+    "use_competitive_gwtb": ("competitive GWTB", "+0.03",
+                             "BENCHMARKS.md §O1"),
+    "use_world_model": ("world model", "-0.14",
+                        "BENCHMARKS.md §O1"),
+    "use_rhythm": ("rhythm (LAVI)", "-0.28",
+                   "BENCHMARKS.md §O1"),
+    "use_hebbian": ("Hebbian", "+0.29",
+                    "BENCHMARKS.md §O1"),
+    "use_hebbian_refactor": ("Hebbian refactor", "+0.29 (同 Hebbian 判负)",
+                             "BENCHMARKS.md §O1"),
+}
+
+
 @dataclass
 class MTLNNConfig:
     # Vocabulary and sequence
@@ -727,6 +752,19 @@ class MTLNNConfig:
         else:
             assert len(self.resonance_freqs) == self.n_time_scales, \
                 f"resonance_freqs length {len(self.resonance_freqs)} != n_time_scales {self.n_time_scales}"
+
+        # 归档负结果模块:显式开启(非默认 False)时警告,提示该模块在 48M
+        # 已判 PPL-neutral。保留代码路径供更大规模复测(o1_module_ablation.py)。
+        for _field, (_name, _delta, _ev) in _ARCHIVED_NEGATIVE_MODULES.items():
+            if getattr(self, _field):
+                import warnings as _w  # local: 避免遮蔽调用方的 warnings 名
+
+                _w.warn(
+                    f"[archived-negative] {_field}=True: 模块「{_name}」在 48M "
+                    f"O1 已实测 PPL-neutral(Δ={_delta}, {_ev})——默认关闭,"
+                    f"仅限更大规模复测/历史复现使用。",
+                    stacklevel=2,
+                )
 
     def recommended_aligned_d_model(self, target: int, n: int = 5) -> list:
         """
