@@ -402,6 +402,11 @@ def models_page():
     return _static_page("models")
 
 
+@app.get("/brand")
+def brand_page():
+    return _static_page("brand")
+
+
 @app.get("/hypercode")
 def hypercode():
     return _static_page("hypercode")
