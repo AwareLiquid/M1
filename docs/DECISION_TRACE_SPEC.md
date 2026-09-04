@@ -40,6 +40,8 @@
 4. **门禁**(PR #14 的 `harvest_registry.py --check` 落地后扩展):
    - 每个带 `lineage.hypothesis` 的 JSON,其 H 工件必须存在;
    - 每个 `status: UNDER_TEST` 以后的 H 工件,必须能解析到 ≥1 个证据文件;
+   - UNDER_TEST 的 H 工件 frontmatter 必须带 `owner` + `deadline`;
+     跨合并窗口 Verdict log 无新条目 = 无声搁置,标记违规(ADJ-006);
    - orphan 判定不变(文件未被 REGISTRY 人写区引用)。
 
 ## 参考实现(第一个带血缘字段的判决文件)

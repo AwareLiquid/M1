@@ -34,6 +34,18 @@
 
 - 文件名:`H###-短横线摘要.md`(如 `H001-stack-depth-monotonic.md`)。
 - frontmatter 字段:`id` / `status` / `thread`(可选)/ `refine_of`(可选)/
-  `created` / `refs`(代码或数据路径列表)。
+  `created` / `refs`(代码或数据路径列表)/ `owner` + `deadline`(UNDER_TEST 必填,ADJ-006)。
 - 必填正文节:`## Statement`(假设陈述)、`## Pre-registered judgment`(判负标准,写死)、
   `## Evidence basis`(立项依据,只引不测)、`## Verdict log`(追加式判决记录)。
+
+## 生命周期纪律(2026-09-04,ADJ-006)
+
+- UNDER_TEST 的 H 必须登记 `owner` 与 `deadline`。期限用事件锚
+  (如"下一次 GPU 会话"/"下一合并窗口"),不强制日历日期;
+- 超期处理二选一,均以 Verdict log 追加条目落地:**续期**(写明新期限
+  与卡点)或 **DORMANT**(写明原因与复燃条件)。跨合并窗口无任何 log
+  条目的无声搁置 = 违规,由合并窗口门禁(`harvest_registry.py --check`)
+  标记;
+- 判定落地(frontmatter 改 SUPPORTED/REFUTED)只认三件套:预注册标准
+  + 证据轨 JSON 入 `benchmarks/results/` + RESULTS.md 状态位回填。
+  三件齐才允许改状态——与 PR_MERGE_POLICY §5 结论级门禁同一条纪律。

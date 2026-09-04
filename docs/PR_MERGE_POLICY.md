@@ -1,11 +1,27 @@
 # 合入门禁政策
 
 > 生效日期：2026-09-01 · 替代 HANDOFF.md 中散落的口头纪律
+> 2026-09-04 修订：三轨拆分 + 结论级门禁（ADJ-006）
 
 ## 总则
 
 `main` 分支是已验证过的主干（生产从它部署）。实验分支一条一个假设，
 null 结果入档不入主干。任何对 main 的变更必须走 PR，不直推。
+
+## 三轨拆分（2026-09-04，ADJ-006）
+
+对 main 的变更按承载物分三轨，各走各的门禁；一个 PR 只走一轨，混轨拆 PR：
+
+| 轨 | 承载 | 合并门禁 |
+|---|---|---|
+| **mechanism** 机制轨 | 实验能力/协议/配方的代码与文档（实验分支主体） | 现行全部门禁（CI + 审查 + 四节模板）。机制验证（pytest / 位等价 / 冒烟）必须**已执行**；**不要求实验判定已出** |
+| **evidence** 证据轨 | 原始结果 JSON / 日志归档，零主张、标注 PENDING | lint + audit-results + 1 approval。**优先放行**——数据扣在未合并分支上 = 丢档风险（ADJ-003 先例） |
+| **verdict** 判定轨 | RESULTS.md / BENCHMARKS.md 回填、kb 判定登记、默认开关翻转 | 结论级门禁（门禁 §5） |
+
+机制与主张分离（业界惯例：vLLM 合入门禁只验机制；HF 新架构在玩具规模
+CI 验证后即合入，效果主张住 model card）：落地门禁回答"机制对不对"，
+不回答"结论出了没"。结论未出的代码不得携带数字主张，数字只能以
+evidence 轨的 PENDING 标注存在于 `benchmarks/results/`。
 
 ## 合入门禁
 
@@ -44,6 +60,21 @@ PR body 必须包含以下四节（模板见 `.github/PULL_REQUEST_TEMPLATE.md`�
 - 等价性测试不绿 → 修复后再合
 - 2K 数字进 RESULTS.md/README → 删除 （见 MODERN_TRUNK.md §5）
 - 未经声明的 AI 内容 → 重新提交
+- 判定性内容（数字回填 / 翻默认 / kb 判定）在假设无注册判定时合并 → 拆到 verdict 轨等判定
+
+### 5. 结论级门禁（verdict 轨，2026-09-04 新增，ADJ-006）
+
+**适用范围**：verdict 轨——RESULTS.md/BENCHMARKS.md 判定回填、kb 判定登记、
+默认开关翻转。mechanism/evidence 轨不适用。
+
+1. 回填判定必须对应 kb 已注册假设与写死的预注册标准，判负标准不事后移动（既有纪律）；
+2. 假设生命周期见 `kb/README.md`：PROPOSED → UNDER_TEST → SUPPORTED / REFUTED / DORMANT。
+   **UNDER_TEST 必须登记 owner 与期限；超期必须显式续期或转 DORMANT（写明原因与复燃条件），
+   禁止无声搁置**——"没有结论"是合法状态（临床试验惯例：ongoing 是常态），
+   "无状态、无主、无期限"才是违规（FDAAA 把超期不报结果定为违规）；
+3. 数字进 RESULTS.md 的唯一路径：预注册标准 + 已入库的证据轨 JSON；
+4. 违规处置：ADJ 登记 + owner + 清偿期限（先例 ADJ-006），不回滚已合代码——
+   回滚仅用于错误主张。
 
 ## 合并方式
 
