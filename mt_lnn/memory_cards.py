@@ -1,5 +1,15 @@
 """Typed personal memory cards for conversational recall.
 
+PORT PROVENANCE (anti-drift anchor, recorded 2026-09-05):
+    upstream:       https://github.com/everest-an/Awareness-Market
+                    typed knowledge cards + query-type-router
+                    (src/core/query-type-router.mjs, cardTypeBoost)
+    ported:         2026-06-24 (this file's birth commit: M1 e0f28e2)
+    upstream state: query-type-router.mjs last changed at 5fc2472 (2026-04-18);
+                    repo HEAD at port time 862df47 (2026-05-05)
+    drift rule: neither repo bumps the other — if the upstream router or
+    taxonomy changes materially, re-diff against this port BY HAND.
+
 DESIGN BORROWED FROM (and credited to) the Awareness-Market project
 (github.com/everest-an/Awareness-Market): knowledge is stored as TYPED cards
 (category + confidence), and retrieval is biased by classifying the query and

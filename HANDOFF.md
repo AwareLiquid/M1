@@ -145,6 +145,23 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 **没有的**:权重。所以没有 FRR / FAR,官网标 `Code shipped — untrained`(灰框,非 Measured 黑框)。
 `o1sound/keywords.py` 里 20 个语种是 **spec 不是结果**;`train.py` 会按名字警告 spec 中磁盘上不存在的语种。
 
+## 2.9 机制裁决:CT 叙事关闭(2026-08-29 已跑完,CLOSED)
+
+`mt_lnn_dt`(LiquidDTRegressor, `battery_soh_edge.py`)把逐步衰减改为
+`λ_t=exp(-Δt_t/τ)` 走通用 pscan,P/S/blend 结构对齐生产线,共享 MLP 补容量
+(参数 50,857,在 mt_lnn/gru 带内,单测强制)。判定 R1(分布内 ≥2/3 个 cv=1
+档胜四对手)/R2(训练 Δt 0.05→测试 0.4 外推档全胜)预注册,实测 **R1=0/3、
+R2 负**:分布内全不显著(dt0.15 档显著输 gru t=−2.09);外推档探针 0.3005
+赢 lstm(+4.41)/特征版 mt_lnn(+8.85) 但输 **gru_d 0.2485(−1.74)**——
+可学习衰减比固定结构衰减更抗 Δt 偏移。**机制故事按预注册规则关闭,
+全仓库不再讲 CT 叙事。** JSON `benchmarks/results/synth_ct_control_dt.json`
+(per-seed/config 回显/git 哈希,evidence PR #23 入库);归档见 RESULTS
+Null 区 + BENCHMARKS §6。
+
+**后续**:air 域加固(Dingling 10 seeds + 第二留出站 Gucheng 5 seeds)在
+原分支 `iter/process-train` 发车,结果未入 main——按证据轨另行清偿,清偿
+前 air 行维持现状。落地叙事收缩为"空气质量类任务实测最优 + 可部署"。
+
 ## 3. 进行中 / 卡点
 
 - **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。

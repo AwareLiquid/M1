@@ -1,6 +1,15 @@
 """
 mt_lnn/graph_linking.py -- reference extraction + matching for graph memory.
 
+PORT PROVENANCE (anti-drift anchor, recorded 2026-09-05):
+    upstream:       https://github.com/everest-an/Awareness-SDK
+                    local/src/core/link-discovery.mjs
+    ported:         2026-06-25 (this file's birth commit: M1 6d2ae64)
+    upstream state: file last changed at c237761 (2026-04-15); repo HEAD at
+                    port time fd67255 (2026-05-05)
+    drift rule: neither repo bumps the other — if the upstream file changes
+    materially, re-diff against this port BY HAND before trusting either.
+
 A faithful Python port of the Awareness-SDK memory graph's primary edge-building
 mechanism (``local/src/core/link-discovery.mjs`` in everest-an/Awareness-SDK):
 scan a text node for code-identifier *references* (backtick names, file paths,

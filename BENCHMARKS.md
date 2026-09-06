@@ -1586,3 +1586,32 @@ started before the box was reclaimed. A100 probe: CoT 0.154 s/step (×4
 granularities) + latent 0.204 s/step ≈ 6.8 h/seed ≈ 41 h sequential.
 Resume-safe (steps-matched rows skip); the preregistered dominance reading
 stands unchanged.
+
+### 6. Mechanism probe: Δt wired into the decay — CLOSED (2026-08-29)
+
+`mt_lnn_dt` (LiquidDTRegressor, `battery_soh_edge.py`) replaces the
+production layer's construction-time constant `config.dt` with the true
+per-step `λ_t = exp(-Δt_t/τ_{p,s})` through the general parallel scan —
+50,857 params, inside the mt_lnn (55K) / gru (74K) band, enforced by tests.
+Rules R1 (in-distribution) / R2 (Δt-shift) were pre-registered in the
+producer docstring before the run; JSON:
+`benchmarks/results/synth_ct_control_dt.json` (per-seed values, config echo,
+code hash). 5 seeds, 6 archs, 6 grid tiers + shift tier.
+
+| tier | mt_lnn | **mt_lnn_dt** | lstm | gru | gru_d | transformer |
+|---|---|---|---|---|---|---|
+| dt0.05 cv1 | 0.0279 | 0.0560 | 0.0282 | 0.0233 | 0.0318 | 0.0567 |
+| dt0.15 cv1 | 0.0409 | 0.0189 | 0.0363 | 0.0325 | 0.0320 | 0.0516 |
+| dt0.4 cv1 | 0.0280 | 0.0252 | 0.0270 | 0.0287 | 0.0228 | 0.0236 |
+| **shift 0.05→0.4** | 0.4624 | **0.3005** | 0.4185 | 0.2722 | **0.2485** | 0.6310 |
+
+**R1: 0/3** — vs gru_d/lstm/gru/mt_lnn all |t|<2 (at dt0.15 significantly
+worse than gru, t=−2.09). **R2: failed** — under the shift, mt_lnn_dt beats
+lstm (+4.41) and feature-wired mt_lnn (+8.85) but loses to gru_d (−1.74) and
+gru (−1.49). Two findings worth keeping: (a) under Δt distribution shift the
+LEARNED GRU-D decay is the most robust of all six — learnable decay
+generalises better than the fixed structural exp(−Δt/τ); (b) every
+architecture degrades ~10× under the shift, i.e. gap-handling under unseen
+gap scales is broadly unsolved, not an architecture checkbox. Verdict per
+the registered mapping: **CLOSED — the continuous-time mechanism story is
+not told anywhere in this repo.**

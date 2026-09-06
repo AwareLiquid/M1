@@ -1,5 +1,15 @@
 """A dedicated sentence-embedding encoder for episodic recall.
 
+PORT PROVENANCE (anti-drift anchor, recorded 2026-09-05):
+    NOT a port: this module was factored out of THIS repo's
+    conversation_memory in M1 28bbeb2 (2026-06-24); the recipes follow the
+    BAAI bge / intfloat e5 model cards, not any Awareness source file.
+    Cross-repo anchor: the Awareness-SDK embedder (github.com/everest-an/
+    Awareness-SDK local/src/core/embedder.mjs, last changed d0b77f5,
+    2026-04-29) ships Xenova/multilingual-e5-small — the SAME e5 family but
+    a DIFFERENT integration (ONNX runtime vs torch HF here). Do NOT
+    "harmonize" the two: they serve different runtimes by design.
+
 WHY THIS EXISTS (evidence, not preference):
   The conversation/knowledge stores need a text -> key function. The obvious
   reuse is the chat model's own mean-pooled hidden state, but a diagnostic

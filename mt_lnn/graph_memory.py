@@ -19,6 +19,15 @@ not a flat Top-K.
 
 What is borrowed, and what is new (honest provenance)
 -----------------------------------------------------
+PORT PROVENANCE (anti-drift anchor, recorded 2026-09-05):
+    upstream:       https://github.com/everest-an/Awareness-SDK memory graph
+                    (typed weighted edges; semantic linking lives in
+                    local/src/_shared/semantic-related.mjs, isSemanticallyRelated)
+    ported:         2026-06-25 (this file's birth commit: M1 051cb37)
+    upstream state: semantic-related.mjs last changed at d0b77f5 (2026-04-29);
+                    repo HEAD at port time fd67255 (2026-05-05)
+    drift rule: neither repo bumps the other — if the upstream graph changes
+    materially, re-diff the borrowed halves BY HAND before trusting either.
 Borrowed from the Awareness-SDK memory graph (everest-an/Awareness-SDK):
   * typed nodes + **weighted typed edges** as the memory substrate;
   * **semantic-cosine linking** with a similarity threshold (their
