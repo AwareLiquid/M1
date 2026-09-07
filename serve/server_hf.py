@@ -53,6 +53,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 MAX_NEW_CAP = int(os.environ.get("MAX_NEW_TOKENS_CAP", "512"))
+# awareness.market 知识库检索（KaaS）: 1 = 默认注入检索 grounding。
+# 检索失败/无命中时 prompt 引导模型诚实拒答，绝不编造。
+_AWARENESS_ENABLED = os.environ.get("AWARENESS_ENABLED", "0").lower() in ("1", "true", "yes")
 
 # Honest default identity. When NO trained MT-LNN adapter is loaded, the model
 # is just the frozen HF base model (the residual adapters are identity-like
@@ -437,6 +440,13 @@ def _startup() -> None:
     think_low = float(os.environ.get("THINK_ENTROPY_LOW", "0.6"))
     think_high = float(os.environ.get("THINK_ENTROPY_HIGH", "4.0"))
     think_samples = int(os.environ.get("THINK_SAMPLES", "5"))
+    # awareness.market KaaS: 检索参数进 _STATE（供 _augment_with_memory 读取）。
+    _STATE["awareness_top_k"] = int(os.environ.get("AWARENESS_TOP_K", "5"))
+    _STATE["awareness_api_key"] = os.environ.get("AWARENESS_API_KEY", "").strip() or None
+    # 领域限定：sciqa 服务是科学问答，默认只检索 science 领域（物理/材料/ML/量子
+    # 信息等 844 条论文）。不限定会命中 business/deals 交易帖，把物理问题检索成
+    # "液冷数据中心/A100 显卡现货"。设 AWARENESS_DOMAIN="" 可关闭限定。
+    _STATE["awareness_domain"] = os.environ.get("AWARENESS_DOMAIN", "science").strip() or None
     print(f"[serve] self-thinking decode: {'ON' if thinking_enabled else 'off'} "
           f"(low={think_low} high={think_high} samples={think_samples})")
 
@@ -636,6 +646,10 @@ class CompletionRequest(BaseModel):
     # lossless snapshot/restore proven in benchmarks/cross_session_recall.py.
     # A no-op when the store is off or the session_id is unseen.
     session_id: Optional[str] = None
+    # awareness.market 知识库检索（KaaS 云端大脑）。None -> 默认跟随
+    # AWARENESS_ENABLED 环境变量；True/False -> 强制。检索命中后把带来源的
+    # 摘要注入 prompt；无证据时模型按 prompt 规则拒答（不编造）。
+    use_awareness: Optional[bool] = None
 
 
 # ---------------------------------------------------------------------------
@@ -943,6 +957,48 @@ def _build_input_ids(prompt: str) -> torch.Tensor:
     return ids.to(device)
 
 
+_CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+
+
+def _translate_zh_to_en(text: str) -> str:
+    """中文 query -> 英文，用于跨语言检索 awareness.market 的英文科学语料。
+
+    科学领域 844 条知识是英文论文，FTS（simple tokenizer）与英文向量对中文
+    分词/跨语言匹配都很弱，中文问题会命中无关内容（甚至降级到 business 交易帖）。
+    把中文问题先翻成英文再检索，命中质量显著提升。无中文 -> 原样返回；
+    翻译失败 -> 返回原 query（检索降级，绝不中断对话）。
+    """
+    if not _CJK_RE.search(text):
+        return text
+    model = _STATE.get("model")
+    tok = _STATE.get("tok")
+    device = _STATE.get("device")
+    if model is None or tok is None:
+        return text
+    try:
+        from mt_lnn.llama_adapter import reset_adapter_streams
+        reset_adapter_streams(model)
+        messages = [
+            {"role": "user",
+             "content": f"Translate to English, output only the translation:\n{text}"}
+        ]
+        prompt = tok.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        ids = tok(prompt, return_tensors="pt").input_ids.to(device)
+        with torch.no_grad():
+            out = model.generate(
+                ids, max_new_tokens=64, do_sample=False,
+                eos_token_id=tok.eos_token_id, pad_token_id=tok.pad_token_id,
+            )
+        new_ids = out[0, ids.shape[1]:]
+        translated = tok.decode(new_ids, skip_special_tokens=True).strip()
+        return translated or text
+    except Exception as exc:  # noqa: BLE001 - 翻译失败不中断对话
+        print(f"[serve] zh->en translate failed: {exc}")
+        return text
+
+
 def _augment_with_memory(req: "CompletionRequest") -> Tuple[str, dict]:
     """Build the memory-augmented prompt for *req* and the per-request memory
     metadata, shared by the buffered and streaming completion endpoints so both
@@ -963,7 +1019,8 @@ def _augment_with_memory(req: "CompletionRequest") -> Tuple[str, dict]:
     """
     aug_prompt = req.prompt
     meta = {"memory_used": False, "memory_hits": [],
-            "conv_memory_used": False, "conv_memory_hits": []}
+            "conv_memory_used": False, "conv_memory_hits": [],
+            "awareness_used": False, "awareness_sources": []}
 
     kb = _STATE.get("kb")
     want_mem = req.use_memory if req.use_memory is not None else (kb is not None)
@@ -1001,6 +1058,48 @@ def _augment_with_memory(req: "CompletionRequest") -> Tuple[str, dict]:
             conv_mem.observe(req.prompt)
         except Exception as exc:  # never let memory writes break a completion
             print(f"[serve] conv-memory observe failed: {exc}")
+
+    # 3. awareness.market 知识库（KaaS 云端大脑）——小模型知识不足的 grounding：
+    #    检索命中 -> 带来源摘要注入 prompt；无命中/网络失败 -> prompt 原样
+    #    （模型按 GROUNDED_PROMPT 规则回答"无依据，不猜"——绝不编造）。
+    want_aw = (req.use_awareness if req.use_awareness is not None
+               else _AWARENESS_ENABLED)
+    if want_aw and req.prompt.strip():
+        try:
+            from mt_lnn.awareness import format_context, retrieve
+            query = _translate_zh_to_en(req.prompt)
+            results = retrieve(query, top_k=_STATE.get("awareness_top_k", 5),
+                               api_key=_STATE.get("awareness_api_key"),
+                               domain=_STATE.get("awareness_domain"))
+            ctx = format_context(results)
+            if ctx:
+                meta["awareness_used"] = True
+                meta["awareness_sources"] = [
+                    {"title": r.get("title"), "ref": r.get("source_ref"),
+                     "citation_count": r.get("citation_count"),
+                     "confidence": r.get("confidence")} for r in results
+                ]
+                aug_prompt = (
+                    "Answer the question below using the provided sources. "
+                    "Reply in the same language as the question.\n\n"
+                    "Sources:\n" + ctx + "\n\n"
+                    "Question: " + req.prompt + "\n\n"
+                    "When a source supports your answer, cite it as [S1], [S2], etc. "
+                    "Only if NO source is relevant, reply with the single sentence: "
+                    "'I don't have reliable sources for this.'\n"
+                    "Answer:"
+                )
+            else:
+                meta["awareness_used"] = False
+                meta["awareness_sources"] = []
+                aug_prompt = (
+                    "I don't have reliable sources for this — I won't guess.\n\n"
+                    f"Question: {req.prompt}"
+                )
+        except Exception as exc:  # never let retrieval break a completion
+            print(f"[serve] awareness retrieve failed: {exc}")
+            meta["awareness_used"] = False
+            meta["awareness_sources"] = []
 
     return aug_prompt, meta
 
@@ -1068,6 +1167,8 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
             "memory_hits": memory_hits,
             "conv_memory_used": conv_used,
             "conv_memory_hits": conv_hits,
+            "awareness_used": mem_meta["awareness_used"],
+            "awareness_sources": mem_meta["awareness_sources"],
         }
 
     want_session = _fw_store() is not None and getattr(req, "session_id", None)
@@ -1102,6 +1203,8 @@ def completions(req: CompletionRequest, _lock=Depends(_gen_lock)):
         "memory_hits": memory_hits,
         "conv_memory_used": conv_used,
         "conv_memory_hits": conv_hits,
+        "awareness_used": mem_meta["awareness_used"],
+        "awareness_sources": mem_meta["awareness_sources"],
     }
 
 
