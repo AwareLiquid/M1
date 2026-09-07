@@ -72,6 +72,7 @@ the N-Caltech101 null.
 To keep this repo credible, the following earlier headline claims are **withdrawn** (full detail in [RESULTS.md](RESULTS.md) and the BENCHMARKS.md correction notes):
 
 - **The "−28.5% / −27.7% / −34.4% PPL at 0.1–0.2% trainable params" adapter results are retracted.** Those runs froze the MT adapter (PEFT) and trained **LoRA only**; a controlled ablation shows the MT adapter adds **≈0 PPL beyond LoRA** (7.98 vs 7.92). The "0.1–0.2% trainable" figures were the LoRA-only param counts.
+- **The "irregular-sampling robustness vs discrete RNNs" edge (battery pilot, 2026-07-24) is retracted as an architectural claim (2026-08-29).** Under the canonical GRU-D baseline the pre-registered absorption test fired, and the original margin did not survive the forced d_model 65→78 width migration. What survives is a single-domain air-quality forecasting result. Full data: [RESULTS.md](RESULTS.md) and BENCHMARKS.md §"Irregular-sampling streaming edge — GRU-D + multi-task"; landing analysis in [docs/STREAMING_EDGE_LANDING.md](docs/STREAMING_EDGE_LANDING.md).
 - **The hybrid is not O(1) and gives no long-context LM gain.** Both are measured nulls for the M-series.
 - **The Orch-OR / Φ̂ / anesthesia "consciousness" results are inert in the trained path** (AVP failed; Φ̂ sign inverted vs theory). Inspiration, not evidence.
 - **The five optional bio modules are PPL-neutral at 48M.** Shipped configs run the lean core.

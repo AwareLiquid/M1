@@ -4,12 +4,13 @@
 > 载体是纯 markdown + 简易 frontmatter,零运行时依赖。
 > 参考:`docs/DECISION_TRACE_SPEC.md`(数据层血缘字段)、`benchmarks/results/ADJUDICATION_LOG.md`(决策日志)。
 
-## 工件类型(当前仅两种)
+## 工件类型(当前三种)
 
 | 前缀 | 类型 | 目录 | 生命周期 |
 |---|---|---|---|
 | `H###` | Hypothesis — 一个可判定的假设,带预注册判负标准 | `kb/hypotheses/` | PROPOSED → UNDER_TEST → SUPPORTED / REFUTED / DORMANT |
 | `T###` | Thread — 一条研究线/方向,可孵化多个 H | `kb/threads/` | PROPOSED → EXPLORING → PROMOTED / CLOSED |
+| `ADJ###` | Decision ADR — 一个关键决策/调整的正文工件(2026-09-06 起,一决策一文件) | `kb/decisions/` | 追加式:新决策开新文件;正文不可变,勘误开新 ADJ 并双向注记。索引 = benchmarks/results/ADJUDICATION_LOG.md(每条 1 行) |
 
 ## 三条铁律
 

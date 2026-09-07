@@ -136,6 +136,7 @@ class SleepWakeConsolidator:
         salience_field: Optional[str] = None,
         n_replay: Optional[int] = None,
         consolidate_fraction: float = 1.0,
+        write_policy: Optional[Callable[[dict], list]] = None,
     ) -> ReplayConsolidationResult:
         """Replay episodes from ``buffer`` and consolidate the salient ones.
 
@@ -163,6 +164,16 @@ class SleepWakeConsolidator:
             Fraction of the replayed episodes to persist, in ``[0, 1]``. ``1.0``
             consolidates everything replayed; smaller keeps only the most salient
             (the brain consolidates a *subset* of the night's replay).
+        write_policy :
+            Optional record→bindings policy (default ``None`` = the plain path,
+            byte-for-byte the pre-policy behaviour). When given, each selected
+            episode is offered to the policy as a record dict (its raw fields,
+            plus canonical ``"key"``/``"content"``/``"meta"``/``"salience"``
+            aliases) and the returned ``[(key, value), ...]`` pairs are what
+            gets written (each carrying the episode's meta) — e.g.
+            :func:`mt_lnn.memory_broker.consolidation_policy.policy_write`,
+            whose salience gate can drop a record to zero bindings. The
+            sampling and salience RANKING above are unchanged either way.
         """
         if not (0.0 <= consolidate_fraction <= 1.0):
             raise ValueError(
@@ -199,8 +210,19 @@ class SleepWakeConsolidator:
         for i in order.tolist():
             content = batch[content_field][i]
             meta = batch[meta_field][i] if meta_field is not None else None
-            knowledge_memory.write(keys[i], content, meta)
-            written += 1
+            if write_policy is None:
+                knowledge_memory.write(keys[i], content, meta)
+                written += 1
+                continue
+            record = {f: batch[f][i] for f in batch}
+            record["key"] = keys[i]
+            record["content"] = content
+            record["meta"] = meta
+            if salience_field is not None:
+                record["salience"] = batch[salience_field][i]
+            for pair_key, pair_value in write_policy(record):
+                knowledge_memory.write(pair_key, pair_value, meta)
+                written += 1
         return ReplayConsolidationResult(replayed=m, consolidated=written)
 
     # ------------------------------------------------------------------

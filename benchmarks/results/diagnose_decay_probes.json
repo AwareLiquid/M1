@@ -1,0 +1,69 @@
+{
+  "purpose": "post-mortem of the closed decay probes; causal gate for the anchor hypothesis",
+  "config": {
+    "train_windows": 1200,
+    "test_windows": 400,
+    "epochs": 12,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "dev": "cpu",
+    "data_seed": 777
+  },
+  "anatomy": {
+    "gate_and_lambda": [
+      "layer0 gate g: mean 0.496 [0.451, 0.521] (init 0.5)",
+      "layer1 gate g: mean 0.499 [0.464, 0.537] (init 0.5)",
+      "shift inputs (\u0394t_norm\u22488): \u03bb_struct 0.047 | \u03bb_mlp 0.507 (corr with \u0394t -0.53, std 0.241) | \u03bb_eff 0.280"
+    ],
+    "gru_d_gamma": [
+      "gru_d W_decay(dt): mean 0.275 max 0.514 (init U(0, 0.5))",
+      "  \u03b3(\u0394t_norm=1) = 0.769 (\u2192 23% toward hbar)",
+      "  \u03b3(\u0394t_norm=8) = 0.249 (\u2192 75% toward hbar)"
+    ]
+  },
+  "ablation": {
+    "gru_d": {
+      "in_dist": [
+        0.3264,
+        0.4313,
+        0.3302,
+        0.2954,
+        0.3556
+      ],
+      "shift": [
+        0.2913,
+        0.258,
+        0.3074,
+        0.3198,
+        0.3511
+      ],
+      "in_dist_mean": 0.3478,
+      "shift_mean": 0.3055
+    },
+    "gru_d_noanchor": {
+      "in_dist": [
+        0.3462,
+        0.3706,
+        0.3032,
+        0.3233,
+        0.3162
+      ],
+      "shift": [
+        0.2528,
+        0.324,
+        0.3444,
+        0.2521,
+        0.3212
+      ],
+      "in_dist_mean": 0.3319,
+      "shift_mean": 0.2989
+    }
+  },
+  "welch_t_shift_noanchor_vs_full": 0.267,
+  "gate": "ANCHOR NOT THE DIFFERENTIATOR \u2014 ablation within noise; the attractor hypothesis dies here, do not build the probe"
+}

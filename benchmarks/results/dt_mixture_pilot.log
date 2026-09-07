@@ -1,0 +1,70 @@
+Δt-mixture pilot | arms narrow(1500) / mixed(1436) | eval shift 341 / in-dist 400 | 12 ep | archs mt_lnn,mt_lnn_dt,gru_d,gru,lstm | dev cpu | EXPLORATORY, no pre-registered claim
+  mt_lnn     narrow seed 0: shift 0.4735 | in-dist 0.0213 (31s)
+  mt_lnn     narrow seed 1: shift 0.4185 | in-dist 0.0190 (30s)
+  mt_lnn     narrow seed 2: shift 0.4620 | in-dist 0.0143 (30s)
+  mt_lnn     narrow seed 3: shift 0.4513 | in-dist 0.0149 (31s)
+  mt_lnn     narrow seed 4: shift 0.4535 | in-dist 0.0134 (30s)
+  mt_lnn     mixed  seed 0: shift 0.0673 | in-dist 0.0281 (29s)
+  mt_lnn     mixed  seed 1: shift 0.0534 | in-dist 0.0362 (29s)
+  mt_lnn     mixed  seed 2: shift 0.0451 | in-dist 0.0214 (29s)
+  mt_lnn     mixed  seed 3: shift 0.0758 | in-dist 0.0253 (29s)
+  mt_lnn     mixed  seed 4: shift 0.0421 | in-dist 0.0201 (29s)
+  mt_lnn     shift: narrow 0.4518 -> mixed 0.0567 (t=+35.17); in-dist: 0.0166 -> 0.0262
+
+  mt_lnn_dt  narrow seed 0: shift 0.2792 | in-dist 0.0347 (19s)
+  mt_lnn_dt  narrow seed 1: shift 0.2834 | in-dist 0.0453 (19s)
+  mt_lnn_dt  narrow seed 2: shift 0.2824 | in-dist 0.0175 (19s)
+  mt_lnn_dt  narrow seed 3: shift 0.3840 | in-dist 0.1177 (19s)
+  mt_lnn_dt  narrow seed 4: shift 0.3085 | in-dist 0.0251 (19s)
+  mt_lnn_dt  mixed  seed 0: shift 0.0667 | in-dist 0.0780 (18s)
+  mt_lnn_dt  mixed  seed 1: shift 0.0731 | in-dist 0.0413 (18s)
+  mt_lnn_dt  mixed  seed 2: shift 0.0362 | in-dist 0.0275 (18s)
+  mt_lnn_dt  mixed  seed 3: shift 0.0363 | in-dist 0.0252 (18s)
+  mt_lnn_dt  mixed  seed 4: shift 0.0811 | in-dist 0.0433 (18s)
+  mt_lnn_dt  shift: narrow 0.3075 -> mixed 0.0587 (t=+11.33); in-dist: 0.0481 -> 0.0431
+
+  gru_d      narrow seed 0: shift 0.1974 | in-dist 0.0431 (26s)
+  gru_d      narrow seed 1: shift 0.1884 | in-dist 0.0310 (27s)
+  gru_d      narrow seed 2: shift 0.3070 | in-dist 0.0275 (26s)
+  gru_d      narrow seed 3: shift 0.2059 | in-dist 0.0174 (26s)
+  gru_d      narrow seed 4: shift 0.3582 | in-dist 0.0267 (26s)
+  gru_d      mixed  seed 0: shift 0.0422 | in-dist 0.0159 (25s)
+  gru_d      mixed  seed 1: shift 0.0912 | in-dist 0.0723 (25s)
+  gru_d      mixed  seed 2: shift 0.0452 | in-dist 0.0300 (25s)
+  gru_d      mixed  seed 3: shift 0.0527 | in-dist 0.0247 (25s)
+  gru_d      mixed  seed 4: shift 0.1230 | in-dist 0.0927 (25s)
+  gru_d      shift: narrow 0.2514 -> mixed 0.0709 (t=+4.79); in-dist: 0.0291 -> 0.0471
+
+  gru        narrow seed 0: shift 0.2236 | in-dist 0.0090 (10s)
+  gru        narrow seed 1: shift 0.2434 | in-dist 0.0131 (10s)
+  gru        narrow seed 2: shift 0.2440 | in-dist 0.0298 (10s)
+  gru        narrow seed 3: shift 0.3338 | in-dist 0.0344 (10s)
+  gru        narrow seed 4: shift 0.2519 | in-dist 0.0098 (10s)
+  gru        mixed  seed 0: shift 0.0582 | in-dist 0.0284 (10s)
+  gru        mixed  seed 1: shift 0.0374 | in-dist 0.0272 (10s)
+  gru        mixed  seed 2: shift 0.0688 | in-dist 0.0602 (10s)
+  gru        mixed  seed 3: shift 0.1359 | in-dist 0.0571 (10s)
+  gru        mixed  seed 4: shift 0.0594 | in-dist 0.0193 (9s)
+  gru        shift: narrow 0.2593 -> mixed 0.0720 (t=+7.35); in-dist: 0.0192 -> 0.0384
+
+  lstm       narrow seed 0: shift 0.3049 | in-dist 0.0130 (12s)
+  lstm       narrow seed 1: shift 0.4386 | in-dist 0.0206 (12s)
+  lstm       narrow seed 2: shift 0.5064 | in-dist 0.0751 (12s)
+  lstm       narrow seed 3: shift 0.4017 | in-dist 0.0184 (12s)
+  lstm       narrow seed 4: shift 0.5038 | in-dist 0.0185 (12s)
+  lstm       mixed  seed 0: shift 0.0640 | in-dist 0.0324 (11s)
+  lstm       mixed  seed 1: shift 0.0380 | in-dist 0.0244 (11s)
+  lstm       mixed  seed 2: shift 0.1260 | in-dist 0.0423 (11s)
+  lstm       mixed  seed 3: shift 0.0738 | in-dist 0.0692 (11s)
+  lstm       mixed  seed 4: shift 0.0459 | in-dist 0.0458 (11s)
+  lstm       shift: narrow 0.4311 -> mixed 0.0695 (t=+8.96); in-dist: 0.0291 -> 0.0428
+
+arch         shift(narrow)  shift(mixed)  in-dist(mixed)
+mt_lnn              0.4518        0.0567          0.0262
+mt_lnn_dt           0.3075        0.0587          0.0431
+lstm                0.4311        0.0695          0.0428
+gru_d               0.2514        0.0709          0.0471
+gru                 0.2593        0.0720          0.0384
+
+total 955s | exploratory pilot
+results -> benchmarks/results/dt_mixture_pilot.json

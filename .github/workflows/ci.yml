@@ -116,6 +116,11 @@ jobs:
           python scripts/validate_results.py
           echo "✓ All result JSON files pass structural validation"
 
+      - name: Check hot-zone doc size budgets
+        run: |
+          python scripts/check_doc_budget.py
+          echo "✓ Hot-zone docs within size budgets"
+
       - name: Check for untracked changes after benchmark rerun
         run: |
           if [ -n "$(git status --porcelain benchmarks/results/)" ]; then

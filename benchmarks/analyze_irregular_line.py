@@ -26,6 +26,7 @@ R = "benchmarks/results"
 BATTERY = os.path.join(R, "battery_irregular_grud_10seed.json")
 AIR = os.path.join(R, "airquality_irregular.json")
 SYNTH = os.path.join(R, "synth_ct_control.json")
+SYNTH_AD = os.path.join(R, "synth_ct_control_ad.json")
 PROFILE = os.path.join(R, "streaming_edge_profile.json")
 
 # Pre-registered rules, verbatim from the producer docstrings / JSON fields:
@@ -65,8 +66,8 @@ def battery_verdict(d):
         return "battery: JSON missing — sweep not finished", None, None
     drops = d["drops"]
     d0, dN = d["results"][f"{drops[0]}"], d["results"][f"{drops[-1]}"]
-    archs = [a for a in ("mt_lnn", "lstm", "gru", "gru_d", "transformer")
-             if a in dN]
+    archs = [a for a in ("mt_lnn", "mt_lnn_dt", "lstm", "gru", "gru_d",
+                         "transformer") if a in dN]
     lines = [f"### battery (held-out {d['test_cell']}, {d['seeds']} seeds, "
              f"drops {drops}) — sparsest tier {drops[-1]:.0%}", ""]
     lines += ["| arch | sparsest RMSE | degradation 0%→sparsest |", "|---|---|---|"]
@@ -132,9 +133,9 @@ def synth_verdict(d):
     if d is None:
         return "synthetic control: JSON missing — sweep not finished", None
     keys = sorted(d["results"].keys())
-    hi = [k for k in keys if d["results"][k]["dt_cv"] == 1.0]
-    archs = [a for a in ("mt_lnn", "lstm", "gru", "gru_d", "transformer")
-             if a in d["results"][hi[0]]]
+    hi = [k for k in keys if d["results"][k].get("dt_cv") == 1.0]
+    archs = [a for a in ("mt_lnn", "mt_lnn_dt", "mt_lnn_ad", "lstm", "gru",
+                         "gru_d", "transformer") if a in d["results"][hi[0]]]
     lines = [f"### synthetic continuous-time control (Van der Pol μ={d['mu']}, "
              f"{d['seeds']} seeds) — all tiers", ""]
     lines.append("| tier | " + " | ".join(archs) + " |")
@@ -159,7 +160,81 @@ def synth_verdict(d):
     lines.append(f"- Verdict (conservative: majority of cv=1 tiers "
                  f"{sum(tier_wins)}/{len(tier_wins)}): "
                  f"{'domain WIN' if win else 'domain not won'}")
+    mp = d.get("mechanism_probe")
+    if mp:
+        lines.append(f"- Mechanism probe (pre-registered R1/R2, recomputed "
+                     f"from the stored pairwise): {mp['verdict']} "
+                     f"(R1={mp['r1_in_distribution']} wins={mp['r1_wins']}, "
+                     f"R2={mp['r2_distribution_shift']})")
     return "\n".join(lines), win
+
+
+def synth_ad_verdict(d):
+    """Independent recheck of the pre-registered mt_lnn_ad rules R2'/R1'.
+
+    Recomputes Welch t from the stored mean/std/n (NOT from the producer's
+    pairwise dict), applies the rules exactly as fixed in the producer's
+    docstring, and compares against the verdict the producer stamped into
+    the JSON. Missing arch/tier counts as not significant (conservative).
+    """
+    if d is None:
+        return "adaptive-decay probe: JSON missing — run not finished", None
+    res = d["results"]
+    tiers = [k for k in res if not res[k].get("extrap")]
+    hi = [k for k in tiers if res[k].get("dt_cv") == 1.0]
+    ek = next((k for k in res if res[k].get("extrap")), None)
+    archs = [a for a in ("mt_lnn", "mt_lnn_dt", "mt_lnn_ad", "lstm", "gru",
+                         "gru_d", "transformer") if a in res[tiers[0]]]
+    lines = [f"### adaptive-decay probe mt_lnn_ad (synth grid re-run, "
+             f"μ={d['mu']}, {d['seeds']} seeds, synth_ct_control_ad.json)",
+             "", "| tier | " + " | ".join(archs) + " |",
+             "|---|" + "---|" * len(archs)]
+    for k in sorted(res.keys()):
+        row = [res[k][a]["rmse_mean"] if a in res[k] else None for a in archs]
+        lines.append(f"| {k} | " + " | ".join(
+            "-" if v is None else f"{v:.4f}" for v in row) + " |")
+    lines.append("")
+
+    def beats(tier, a, b):
+        if tier not in res or a not in res[tier] or b not in res[tier]:
+            return None
+        return welch_better(res[tier][a], res[tier][b])
+
+    r2_detail = {o: (beats(ek, "mt_lnn_ad", o) if ek else None)
+                 for o in ("gru_d", "lstm", "gru", "mt_lnn_dt")}
+    r2 = all(t is not None and t >= SPARSE_T for t in r2_detail.values())
+    lines.append(f"- R2' (shift tier {ek}): " + ", ".join(
+        f"vs {o} {'n/a' if t is None else f'{t:+.2f}'}"
+        for o, t in r2_detail.items()) + f" → {'PASS' if r2 else 'FAIL'}")
+    r1_wins = 0
+    for k in hi:
+        ts = {o: beats(k, "mt_lnn_ad", o) for o in ("gru_d", "lstm", "gru")}
+        w = all(t is not None and t >= SPARSE_T for t in ts.values())
+        r1_wins += int(w)
+        lines.append(f"- R1' {k}: " + ", ".join(
+            f"vs {o} {'n/a' if t is None else f'{t:+.2f}'}"
+            for o, t in ts.items()) + f" → {'WIN' if w else 'not won'}")
+    r1 = r1_wins >= 2
+    if r1 and r2:
+        v = "REOPENED — adaptive multi-scale decay (R2'+R1')"
+    elif r2:
+        v = "NARROW — shift-robustness only (R2')"
+    elif r1:
+        v = "PARTIAL — in-distribution only (R1')"
+    else:
+        v = "ARCHIVED FOR GOOD — double negative with mt_lnn_dt"
+    lines.append(f"- Independent verdict (mapping as registered): {v}")
+    mp = d.get("mechanism_probe_ad")
+    if mp:
+        match = (mp["r2_prime_distribution_shift"] == r2
+                 and mp["r1_prime_in_distribution"] == r1)
+        lines.append(f"- Producer JSON stamped R2'="
+                     f"{mp['r2_prime_distribution_shift']}, R1'="
+                     f"{mp['r1_prime_in_distribution']} (wins="
+                     f"{mp['r1_prime_wins']}) → recheck "
+                     f"{'MATCH' if match else 'MISMATCH'}")
+        lines.append(f"  producer verdict: {mp['verdict']}")
+    return "\n".join(lines), (r1, r2)
 
 
 def profile_table(p):
@@ -189,12 +264,15 @@ def profile_table(p):
 
 def main():
     b, air, s, p = load(BATTERY), load(AIR), load(SYNTH), load(PROFILE)
+    sa = load(SYNTH_AD)
     bt, bwin, absorbed = battery_verdict(b)
     at, awin = air_verdict(air)
     st, swin = synth_verdict(s)
+    sat, _adflags = synth_ad_verdict(sa)
     print(bt, "\n")
     print(at, "\n")
     print(st, "\n")
+    print(sat, "\n")
     print(profile_table(p), "\n")
 
     wins = [w for w in (bwin, awin, swin) if w is not None]

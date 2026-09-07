@@ -1635,3 +1635,205 @@ architecture degrades ~10× under the shift, i.e. gap-handling under unseen
 gap scales is broadly unsolved, not an architecture checkbox. Verdict per
 the registered mapping: **CLOSED — the continuous-time mechanism story is
 not told anywhere in this repo.**
+
+## Irregular-sampling streaming edge — GRU-D + multi-task + deployment profile (2026-08-29)
+
+Scripts: `benchmarks/battery_irregular_sampling.py` (extended with `gru_d`),
+`benchmarks/airquality_irregular.py`, `benchmarks/synth_ct_control.py`,
+`benchmarks/streaming_edge_profile.py`, verdict recomputation in
+`benchmarks/analyze_irregular_line.py`. JSONs:
+`benchmarks/results/{battery_irregular_grud_10seed,airquality_irregular,
+synth_ct_control,streaming_edge_profile}.json`.
+
+**What changed.** The 2026-07-24 pilot claimed the liquid core's one
+architectural edge over discrete RNNs: irregular-sampling robustness
+(+7.7% vs lstm +31.1% / gru +32.8% at 80% drop, d_model=65). Three gaps are
+now closed: (1) the canonical irregular-sampling baseline **GRU-D** (Che et
+al. 2018) is implemented zero-dependency (`GRUDCell`/`GRUDRegressor` in
+`battery_soh_edge.py`, params 74,571 vs gru 74,569 at d=78); (2) two more
+task domains; (3) a CPU/ONNX deployment profile. Judgement rules were
+pre-registered in the producer docstrings BEFORE any run.
+
+**Forced width migration.** Current mt_lnn requires an even d_head (RoPE
+assert), so 65=13×5 no longer constructs; all battery-line runs moved
+uniformly to 78=13×6. Same seeds/epochs/drops/held-out protocol; every arch
+rescaled identically.
+
+### 1. Battery with GRU-D (held-out B0018, 10 seeds, Δt to every arch)
+
+RMSE (Ah), mean ± std over 10 seeds:
+
+| drop | mt_lnn | lstm | gru | gru_d | transformer |
+|---|---|---|---|---|---|
+| 0% | 0.0917±0.0203 | 0.1122±0.0188 | 0.0999±0.0160 | 0.1108±0.0184 | **0.0896**±0.0163 |
+| 30% | 0.1044±0.0152 | 0.1127±0.0238 | 0.1219±0.0212 | 0.1245±0.0330 | **0.0925**±0.0296 |
+| 60% | 0.1084±0.0141 | 0.1211±0.0213 | 0.1555±0.0192 | 0.1421±0.0198 | **0.0933**±0.0176 |
+| 80% | 0.1108±0.0112 | 0.1259±0.0203 | 0.1282±0.0275 | 0.1250±0.0231 | **0.0949**±0.0250 |
+
+Degradation 0%→80%: transformer **+5.9%** < lstm +12.2% < gru_d **+12.8%** <
+mt_lnn +20.8% < gru +28.3%.
+
+At 80% drop, Welch t (positive = mt_lnn lower): vs gru_d **+1.75**, vs lstm
++2.06, vs gru +1.86.
+
+**GRU-D absorption test (pre-registered): FIRED — NEGATIVE.** Both conditions
+hold: |t(mt_lnn,gru_d)| = 1.75 < 2, and gru_d degrades LESS than mt_lnn
+(+12.8pp vs +20.8pp). Additionally, the historical mt_lnn degradation margin
+over lstm/gru did not reproduce at d=78 at all (mt_lnn 0.0917→0.1108 vs lstm
+0.1122→0.1259: lstm is now the more robust RNN). The "irregular-sampling
+robustness vs discrete RNNs" claim does not survive its canonical-baseline
+control, and the original margin appears width-fragile. Recorded as null in
+RESULTS.md. The transformer remains the accuracy-robustness frontier here; its
+exclusion from edge deployment is memory, not accuracy.
+
+### 2. Air quality — UCI Beijing multi-site (held-out Dingling station, 5 seeds)
+
+Real public data (12 stations × 35,064 hourly rows, verified against the UCI
+page; pollutants 2–6% genuinely missing, max outage 343 h). Task: 48 h of 11
+channels (natural-missing rows dropped, Δt appended, fed to every arch) →
+next 6 h PM2.5/TEMP. Natural missingness + extra drop sweep. At the sparsest
+tier (60% extra drop), RMSE in raw units:
+
+| arch | PM2.5 (µg/m³) | TEMP (°C) |
+|---|---|---|
+| **mt_lnn** | **24.70 ± 0.48** | **4.34 ± 0.05** |
+| transformer | 26.21 ± 0.35 | 4.54 ± 0.04 |
+| lstm | 26.95 ± 1.19 | 4.46 ± 0.10 |
+| gru | 27.10 ± 0.57 | 4.53 ± 0.10 |
+| gru_d | 27.24 ± 0.74 | 4.56 ± 0.08 |
+
+Welch t vs gru_d/lstm/gru: PM2.5 **+6.43 / +3.93 / +7.25**, TEMP
+**+5.40 / +2.54 / +3.83** — all significant (conservative reading: both
+targets, n=5). mt_lnn also beats the transformer here (PM2.5 t≈+2.7,
+TEMP t≈+3.9). **Domain WIN** — the one domain of the three where the
+irregular-sampling claim holds, and the only task in this line where the
+liquid core significantly beats the transformer on accuracy.
+
+### 3. Synthetic continuous-time control (Van der Pol μ=2, 5 seeds)
+
+The clean-attribution domain: known dynamics, sampling density (mean Δt
+0.05/0.15/0.4) × jitter (cv 0/1) swept, 48 irregular samples → x at fixed
++0.5 lookahead. RMSE by tier:
+
+| tier | mt_lnn | lstm | gru | gru_d | transformer |
+|---|---|---|---|---|---|
+| dt0.05 cv0 | **0.0093** | 0.0291 | 0.0264 | 0.0146 | 0.0559 |
+| dt0.05 cv1 | 0.0216 | 0.0145 | 0.0273 | 0.0165 | 0.0351 |
+| dt0.15 cv0 | 0.0155 | **0.0098** | 0.0169 | 0.0288 | 0.0233 |
+| dt0.15 cv1 | 0.0440 | 0.0338 | 0.0270 | **0.0231** | 0.0484 |
+| dt0.4 cv0 | 0.0186 | 0.0321 | 0.0219 | **0.0121** | 0.0317 |
+| dt0.4 cv1 | 0.0294 | 0.0270 | **0.0155** | 0.0351 | 0.0285 |
+
+**Domain NOT WON (honest negative).** At every high-irregularity (cv=1)
+tier, mt_lnn vs gru_d/lstm/gru is nowhere significant (t between −1.5 and
++0.6); several tiers have gru_d, lstm or gru numerically ahead. The reversal
+is informative: mt_lnn's clearest synthetic edge is at the REGULAR dense
+tier (0.0093, 3× better than lstm), which is a regular-sampling strength,
+not the irregular-sampling mechanism this line claims. The domain designed
+to isolate continuous-time attribution shows no such attribution.
+
+### 4. Pre-registered overall verdict
+
+Rule (fixed in producer docstrings before any run): the claim needs
+|t|≥2 vs gru_d AND lstm AND gru at the sparsest/high-irregularity tier on
+**≥2 of 3** domains. Outcome: battery **null** (GRU-D absorbs), air **WIN**,
+synthetic **not won** → **1/3 — the multi-domain irregular-sampling claim is
+NEGATIVE as pre-registered.** The surviving positive is the air-quality
+result alone (n=5, one held-out station).
+
+### 5. CPU / ONNX deployment profile (idle machine, d=78, T=128, Δt runtime input)
+
+| arch | params | int8 KiB | 1-core µs/step | all-core µs/step | streaming state B |
+|---|---|---|---|---|---|
+| mt_lnn | 55,161 | 1,616 | 26.0 | 31.2 | 3,120 |
+| lstm | 99,217 | 113 | 21.7 | 23.8 | 1,248 |
+| gru | 74,569 | 298 | 20.7 | 21.7 | 624 |
+| mt_lnn via ORT | — | — | 64.0 | 62.7 | — |
+
+Gates: ONNX parity max|onnx−torch| = **5.96e-08** (≤1e-5, PASS; historical
+standard 3.58e-07); variable-Δt (regular/bursty/lognormal-jitter schedules,
+same checkpoint) worst = **1.19e-07** (PASS). Per-step latency is amortised
+(one fixed-T forward ÷ T; the exported graph is a fixed window). Honest
+notes: (a) dynamic int8 does NOT shrink the liquid graph at this scale —
+1,616 KiB vs 1,480 KiB fp32, because per-op Q/DQ overhead exceeds weight
+savings on the many small liquid ops (lstm shrinks 3.5×; gru unchanged);
+int8 drift ≤2.7e-03 where applied; (b) O(1) streaming state is a property of
+any recurrent model — lstm/gru are also flat and 2–5× smaller; the deployable
+claim is the combination with task performance, not O(1) alone.
+
+### 6. Mechanism probe: Δt wired into the decay — see the preceding §6 (2026-08-29)
+
+编号与判定轨 §6 对齐:mt_lnn_dt 探针的 R1/R2 双判负裁决与数字不在此重刊,
+见上一节 §6(判定轨 PR #26;证据 PR #23,JSON `synth_ct_control_dt.json`)。本节
+§7(自适应衰减探针)是其预注册后续。
+
+### 7. Air-quality hardening: 10 seeds + second held-out station (2026-08-29)
+
+Two follow-ups to §2, both CPU-only (the MPS default crashed twice under
+dual-process GPU contention; CPU reruns were stable):
+
+**Dingling, seeds 5→10** (JSON: `airquality_irregular_10seed.json`). The §2
+WIN strengthens at n=10 — 60% drop tier, mt_lnn best on both targets vs ALL
+four opponents: PM2.5 24.98 vs gru_d 27.44 / lstm 26.49 / gru 27.68 /
+transformer 26.95 (t = +6.51/+7.72/+5.40/+5.29); TEMP 4.37 vs 4.63/4.46/
+4.62/4.59 (t = +5.20/+2.42/+4.35/+3.97).
+
+**Gucheng, held-out station rotation** (JSON: `airquality_irregular_gucheng.json`).
+The advantage does NOT transfer. Regular tier: mt_lnn numerically best
+(22.39/4.75). 60% tier: all six archs converge (PM2.5 29.12–29.93, every
+|t| < 1; TEMP likewise). Training-station gap handling does not generalise
+to a new station's irregular regime — the air claim is single-station.
+
+Verdict bookkeeping: pre-registered 2-of-3 rule counts domains, not
+stations — battery null / air WIN / synth not won stands at **1/3, NEGATIVE
+overall**, with the air WIN now hardened (n=10) but scoped (one station).
+
+### 8. Adaptive-decay probe: hybrid structural+learned λ — ARCHIVED FOR GOOD (2026-08-29)
+
+The licensed follow-up to §6: its one informative loss (shift tier,
+gru_d 0.2485 vs mt_lnn_dt 0.3005) mirrored the literature's
+input-dependent-vs-fixed-decay ordering, so `mt_lnn_ad`
+(LiquidADRegressor, `battery_soh_edge.py`) folds the learnable decay INTO
+the liquid bank: λ_t = g_{p,s}·exp(−Δt_t/τ_{p,s}) +
+(1−g_{p,s})·MLP([per-proto x-summary; Δt_t]), with λ = exp(−softplus(o))
+(same exponential family as the structural path, in (0,1) for any finite
+logit, zero-logit init ≈ 0.5) and a per-(proto, scale) sigmoid gate,
+init 0.5. Everything else is item-for-item identical to mt_lnn_dt, so the
+verdict is attributable to the decay pathway alone. 55,731 params, inside
+the gru band, enforced by tests/test_liquid_ad.py (10 tests, incl. g=1
+exactly reproducing the DT bank). Rules R2'/R1' and the four-way verdict
+mapping were registered in the producer docstring + JSON BEFORE the run
+(commit e94160c precedes the run start; JSON
+`benchmarks/results/synth_ct_control_ad.json` with per-seed values,
+config echo, git hash; log alongside). The six pre-existing archs
+reproduce the §6 run bit-for-bit (same data seed, same seeds) — the
+comparison is on an identical basis.
+
+| tier | mt_lnn | mt_lnn_dt | **mt_lnn_ad** | lstm | gru | gru_d | transformer |
+|---|---|---|---|---|---|---|---|
+| dt0.05 cv1 | 0.0279 | 0.0560 | 0.0444 | 0.0282 | 0.0233 | 0.0318 | 0.0567 |
+| dt0.15 cv1 | 0.0409 | 0.0189 | 0.0518 | 0.0363 | 0.0325 | 0.0320 | 0.0516 |
+| dt0.4 cv1 | 0.0280 | 0.0252 | 0.0542 | 0.0270 | 0.0287 | 0.0228 | 0.0236 |
+| **shift 0.05→0.4** | 0.4624 | 0.3005 | **0.3004** | 0.4185 | 0.2722 | **0.2485** | 0.6310 |
+
+(cv=0 tiers: mt_lnn_ad 0.0260 / 0.0200 / 0.0307 — mid-pack, never best.)
+
+**R2': FAIL** — on the shift tier mt_lnn_ad 0.3004 vs gru_d 0.2485
+(t=−1.85) and gru 0.2722 (−1.78); beats only lstm (+4.79). The headline
+number: **t=+0.00 vs mt_lnn_dt** (0.3004 vs 0.3005) — the learned decay
+path changed NOTHING where it was supposed to matter. **R1': 0/3** —
+behind gru_d/lstm/gru at every cv=1 tier (t ∈ [−2.07, −0.84]); at
+dt0.15 and dt0.4 cv1 the hybrid is also 2–3× worse than the pure
+structural probe (0.0518 vs 0.0189; 0.0542 vs 0.0252, worst of all
+seven there). Independent recheck
+(`analyze_irregular_line.py` → `synth_ad_verdict`, recomputed from the
+stored mean/std/n): **MATCH** with the producer verdict.
+
+Verdict per the registered mapping: **ARCHIVED FOR GOOD — double negative
+with mt_lnn_dt; the decay direction is permanently closed, no third
+probe.** Two findings worth keeping: (a) GRU-D's shift robustness does
+not transfer by gluing a learned λ onto the multi-scale bank — whatever
+makes it robust lives in the whole mechanism (per-unit hidden decay
+toward a running mean, interacting with the gates), not in the decay
+rate alone; (b) in-distribution, the extra pathway mostly added variance,
+not adaptivity.

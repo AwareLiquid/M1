@@ -1,0 +1,105 @@
+Δt-mixture REGISTERED recipe experiment | arms narrow/mixture[0.05, 0.15, 0.4] | eval E1 0.05 / E2 0.4 / E3 OOD 1.6 | 7 archs x 5 seeds | dev cpu
+pre-registered: R1 every-arch E2 t>=2 & >=50% reduction; R2 E1 cost <= +0.03 for >=6/7 archs; E3 descriptive only
+
+data built in 15s | arm size 2375 (mixture parts requested 833x3) | eval sizes E1:800, E2:697, E3:133
+
+  mt_lnn       narrow  seed 0: E1 0.0273 | E2 0.4363 | E3 0.9134 (50s)
+  mt_lnn       narrow  seed 1: E1 0.0732 | E2 0.4902 | E3 0.9438 (48s)
+  mt_lnn       narrow  seed 2: E1 0.0105 | E2 0.4513 | E3 0.9405 (49s)
+  mt_lnn       narrow  seed 3: E1 0.0194 | E2 0.4369 | E3 0.9544 (48s)
+  mt_lnn       narrow  seed 4: E1 0.0321 | E2 0.4025 | E3 0.9164 (49s)
+  mt_lnn       mixture seed 0: E1 0.0281 | E2 0.0492 | E3 0.4130 (48s)
+  mt_lnn       mixture seed 1: E1 0.0262 | E2 0.0326 | E3 0.3387 (49s)
+  mt_lnn       mixture seed 2: E1 0.0110 | E2 0.0379 | E3 0.3808 (49s)
+  mt_lnn       mixture seed 3: E1 0.0575 | E2 0.0604 | E3 0.4100 (48s)
+  mt_lnn       mixture seed 4: E1 0.0254 | E2 0.0608 | E3 0.4064 (49s)
+
+  mt_lnn_dt    narrow  seed 0: E1 0.0187 | E2 0.2516 | E3 0.6789 (31s)
+  mt_lnn_dt    narrow  seed 1: E1 0.0144 | E2 0.2586 | E3 0.7177 (31s)
+  mt_lnn_dt    narrow  seed 2: E1 0.0390 | E2 0.2540 | E3 0.7194 (31s)
+  mt_lnn_dt    narrow  seed 3: E1 0.0166 | E2 0.2835 | E3 0.7462 (31s)
+  mt_lnn_dt    narrow  seed 4: E1 0.0360 | E2 0.2968 | E3 0.7406 (31s)
+  mt_lnn_dt    mixture seed 0: E1 0.0276 | E2 0.0489 | E3 0.2017 (31s)
+  mt_lnn_dt    mixture seed 1: E1 0.0307 | E2 0.0460 | E3 0.2098 (31s)
+  mt_lnn_dt    mixture seed 2: E1 0.0212 | E2 0.0425 | E3 0.1821 (31s)
+  mt_lnn_dt    mixture seed 3: E1 0.0475 | E2 0.0586 | E3 0.1442 (31s)
+  mt_lnn_dt    mixture seed 4: E1 0.1046 | E2 0.2146 | E3 1.0347 (31s)
+
+  mt_lnn_ad    narrow  seed 0: E1 0.0150 | E2 0.2636 | E3 0.8032 (34s)
+  mt_lnn_ad    narrow  seed 1: E1 0.0512 | E2 0.2762 | E3 0.7853 (34s)
+  mt_lnn_ad    narrow  seed 2: E1 0.0167 | E2 0.2271 | E3 0.6997 (34s)
+  mt_lnn_ad    narrow  seed 3: E1 0.0176 | E2 0.2990 | E3 0.7548 (34s)
+  mt_lnn_ad    narrow  seed 4: E1 0.0274 | E2 0.2268 | E3 0.6575 (44s)
+  mt_lnn_ad    mixture seed 0: E1 0.0198 | E2 0.0591 | E3 0.2047 (36s)
+  mt_lnn_ad    mixture seed 1: E1 0.0264 | E2 0.0473 | E3 0.1507 (34s)
+  mt_lnn_ad    mixture seed 2: E1 0.0615 | E2 0.0871 | E3 0.2474 (34s)
+  mt_lnn_ad    mixture seed 3: E1 0.0318 | E2 0.0661 | E3 0.2125 (34s)
+  mt_lnn_ad    mixture seed 4: E1 0.0263 | E2 0.0662 | E3 0.3060 (34s)
+
+  lstm         narrow  seed 0: E1 0.0204 | E2 0.4144 | E3 0.8789 (22s)
+  lstm         narrow  seed 1: E1 0.0198 | E2 0.3845 | E3 0.8830 (22s)
+  lstm         narrow  seed 2: E1 0.0159 | E2 0.3348 | E3 0.8676 (22s)
+  lstm         narrow  seed 3: E1 0.0581 | E2 0.4271 | E3 0.9979 (22s)
+  lstm         narrow  seed 4: E1 0.0185 | E2 0.3624 | E3 0.8507 (22s)
+  lstm         mixture seed 0: E1 0.0316 | E2 0.0456 | E3 0.2977 (22s)
+  lstm         mixture seed 1: E1 0.0234 | E2 0.0557 | E3 0.4398 (22s)
+  lstm         mixture seed 2: E1 0.0183 | E2 0.0699 | E3 0.5082 (22s)
+  lstm         mixture seed 3: E1 0.0846 | E2 0.1638 | E3 0.7197 (22s)
+  lstm         mixture seed 4: E1 0.0974 | E2 0.1029 | E3 0.2263 (22s)
+
+  gru          narrow  seed 0: E1 0.0209 | E2 0.2472 | E3 0.6840 (17s)
+  gru          narrow  seed 1: E1 0.0262 | E2 0.2120 | E3 0.6169 (17s)
+  gru          narrow  seed 2: E1 0.1092 | E2 0.3084 | E3 0.6943 (17s)
+  gru          narrow  seed 3: E1 0.0091 | E2 0.2754 | E3 0.7704 (17s)
+  gru          narrow  seed 4: E1 0.0095 | E2 0.2748 | E3 0.7244 (17s)
+  gru          mixture seed 0: E1 0.0478 | E2 0.0849 | E3 0.4188 (17s)
+  gru          mixture seed 1: E1 0.0606 | E2 0.0922 | E3 0.2636 (17s)
+  gru          mixture seed 2: E1 0.0300 | E2 0.0985 | E3 0.4518 (17s)
+  gru          mixture seed 3: E1 0.0418 | E2 0.1018 | E3 0.5504 (17s)
+  gru          mixture seed 4: E1 0.0303 | E2 0.0850 | E3 0.4477 (17s)
+
+  gru_d        narrow  seed 0: E1 0.0225 | E2 0.2059 | E3 0.6879 (42s)
+  gru_d        narrow  seed 1: E1 0.0275 | E2 0.1822 | E3 0.5342 (42s)
+  gru_d        narrow  seed 2: E1 0.0201 | E2 0.2385 | E3 0.6763 (42s)
+  gru_d        narrow  seed 3: E1 0.0658 | E2 0.3036 | E3 0.8186 (42s)
+  gru_d        narrow  seed 4: E1 0.0141 | E2 0.2069 | E3 0.5426 (42s)
+  gru_d        mixture seed 0: E1 0.0269 | E2 0.2034 | E3 0.7148 (42s)
+  gru_d        mixture seed 1: E1 0.0637 | E2 0.0808 | E3 0.2360 (42s)
+  gru_d        mixture seed 2: E1 0.0300 | E2 0.1117 | E3 0.5105 (42s)
+  gru_d        mixture seed 3: E1 0.0514 | E2 0.0850 | E3 0.4206 (42s)
+  gru_d        mixture seed 4: E1 0.0622 | E2 0.3005 | E3 0.7942 (43s)
+
+/Users/aricredemption/Projects/M1/benchmarks/battery_soh_edge.py:167: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(enc, n_layers)
+  transformer  narrow  seed 0: E1 0.0381 | E2 0.5737 | E3 1.0775 (14s)
+  transformer  narrow  seed 1: E1 0.0215 | E2 0.5934 | E3 1.1117 (14s)
+  transformer  narrow  seed 2: E1 0.0216 | E2 0.5870 | E3 1.1121 (14s)
+  transformer  narrow  seed 3: E1 0.0231 | E2 0.5958 | E3 1.0326 (14s)
+  transformer  narrow  seed 4: E1 0.0258 | E2 0.6784 | E3 1.1445 (14s)
+  transformer  mixture seed 0: E1 0.0379 | E2 0.0420 | E3 0.4537 (14s)
+  transformer  mixture seed 1: E1 0.0460 | E2 0.0530 | E3 0.4870 (14s)
+  transformer  mixture seed 2: E1 0.0562 | E2 0.0566 | E3 0.5158 (14s)
+  transformer  mixture seed 3: E1 0.0351 | E2 0.0837 | E3 0.4648 (14s)
+  transformer  mixture seed 4: E1 0.0160 | E2 0.0488 | E3 0.5033 (14s)
+
+==================================================================
+  E2 mt_lnn       t=+25.83 reduction 89% -> OK
+  E2 mt_lnn_dt    t=+5.43 reduction 70% -> OK
+  E2 mt_lnn_ad    t=+12.46 reduction 75% -> OK
+  E2 lstm         t=+10.92 reduction 77% -> OK
+  E2 gru          t=+10.38 reduction 65% -> OK
+  E2 gru_d        t=+1.51 reduction 31% -> FAIL
+  E2 transformer  t=+27.56 reduction 91% -> OK
+R1 (every-arch repair) = False; R2 (bounded cost, 7/7) = True
+E3 true-OOD (dt=1.6, descriptive only):
+  mt_lnn       narrow 0.9337 -> mixture 0.3898
+  mt_lnn_dt    narrow 0.7205 -> mixture 0.3545
+  mt_lnn_ad    narrow 0.7401 -> mixture 0.2243
+  lstm         narrow 0.8956 -> mixture 0.4383
+  gru          narrow 0.6980 -> mixture 0.4265
+  gru_d        narrow 0.6519 -> mixture 0.5352
+  transformer  narrow 1.0957 -> mixture 0.4849
+
+RECIPE VERDICT (pre-registered R1/R2): RECIPE NEGATIVE — repair does not hold at full scale for every arch; TIDES-style architecture line goes on the agenda
+
+results -> benchmarks/results/synth_mixture_recipe.json

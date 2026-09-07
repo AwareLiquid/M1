@@ -1,0 +1,229 @@
+{
+  "purpose": "\u0394t-mixture training pilot \u2014 recipe question, exploratory, no pre-registered claim",
+  "config": {
+    "per_arm_windows": 1500,
+    "eval_windows": 400,
+    "epochs": 12,
+    "seeds": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "archs": [
+      "mt_lnn",
+      "mt_lnn_dt",
+      "gru_d",
+      "gru",
+      "lstm"
+    ],
+    "dev": "cpu",
+    "data_seed": 777,
+    "mixture": "equal {0.05,0.15,0.4} cv=1, dt channel in narrow units"
+  },
+  "results": {
+    "mt_lnn": {
+      "narrow": {
+        "shift_dt0.4": [
+          0.4735,
+          0.4185,
+          0.462,
+          0.4513,
+          0.4535
+        ],
+        "in_dist_dt0.05": [
+          0.0213,
+          0.019,
+          0.0143,
+          0.0149,
+          0.0134
+        ],
+        "shift_mean": 0.4518,
+        "in_dist_mean": 0.0166
+      },
+      "mixed": {
+        "shift_dt0.4": [
+          0.0673,
+          0.0534,
+          0.0451,
+          0.0758,
+          0.0421
+        ],
+        "in_dist_dt0.05": [
+          0.0281,
+          0.0362,
+          0.0214,
+          0.0253,
+          0.0201
+        ],
+        "shift_mean": 0.0567,
+        "in_dist_mean": 0.0262
+      },
+      "welch_t_shift_mixed_vs_narrow": 35.172
+    },
+    "mt_lnn_dt": {
+      "narrow": {
+        "shift_dt0.4": [
+          0.2792,
+          0.2834,
+          0.2824,
+          0.384,
+          0.3085
+        ],
+        "in_dist_dt0.05": [
+          0.0347,
+          0.0453,
+          0.0175,
+          0.1177,
+          0.0251
+        ],
+        "shift_mean": 0.3075,
+        "in_dist_mean": 0.0481
+      },
+      "mixed": {
+        "shift_dt0.4": [
+          0.0667,
+          0.0731,
+          0.0362,
+          0.0363,
+          0.0811
+        ],
+        "in_dist_dt0.05": [
+          0.078,
+          0.0413,
+          0.0275,
+          0.0252,
+          0.0433
+        ],
+        "shift_mean": 0.0587,
+        "in_dist_mean": 0.0431
+      },
+      "welch_t_shift_mixed_vs_narrow": 11.33
+    },
+    "gru_d": {
+      "narrow": {
+        "shift_dt0.4": [
+          0.1974,
+          0.1884,
+          0.307,
+          0.2059,
+          0.3582
+        ],
+        "in_dist_dt0.05": [
+          0.0431,
+          0.031,
+          0.0275,
+          0.0174,
+          0.0267
+        ],
+        "shift_mean": 0.2514,
+        "in_dist_mean": 0.0291
+      },
+      "mixed": {
+        "shift_dt0.4": [
+          0.0422,
+          0.0912,
+          0.0452,
+          0.0527,
+          0.123
+        ],
+        "in_dist_dt0.05": [
+          0.0159,
+          0.0723,
+          0.03,
+          0.0247,
+          0.0927
+        ],
+        "shift_mean": 0.0709,
+        "in_dist_mean": 0.0471
+      },
+      "welch_t_shift_mixed_vs_narrow": 4.791
+    },
+    "gru": {
+      "narrow": {
+        "shift_dt0.4": [
+          0.2236,
+          0.2434,
+          0.244,
+          0.3338,
+          0.2519
+        ],
+        "in_dist_dt0.05": [
+          0.009,
+          0.0131,
+          0.0298,
+          0.0344,
+          0.0098
+        ],
+        "shift_mean": 0.2593,
+        "in_dist_mean": 0.0192
+      },
+      "mixed": {
+        "shift_dt0.4": [
+          0.0582,
+          0.0374,
+          0.0688,
+          0.1359,
+          0.0594
+        ],
+        "in_dist_dt0.05": [
+          0.0284,
+          0.0272,
+          0.0602,
+          0.0571,
+          0.0193
+        ],
+        "shift_mean": 0.072,
+        "in_dist_mean": 0.0384
+      },
+      "welch_t_shift_mixed_vs_narrow": 7.349
+    },
+    "lstm": {
+      "narrow": {
+        "shift_dt0.4": [
+          0.3049,
+          0.4386,
+          0.5064,
+          0.4017,
+          0.5038
+        ],
+        "in_dist_dt0.05": [
+          0.013,
+          0.0206,
+          0.0751,
+          0.0184,
+          0.0185
+        ],
+        "shift_mean": 0.4311,
+        "in_dist_mean": 0.0291
+      },
+      "mixed": {
+        "shift_dt0.4": [
+          0.064,
+          0.038,
+          0.126,
+          0.0738,
+          0.0459
+        ],
+        "in_dist_dt0.05": [
+          0.0324,
+          0.0244,
+          0.0423,
+          0.0692,
+          0.0458
+        ],
+        "shift_mean": 0.0695,
+        "in_dist_mean": 0.0428
+      },
+      "welch_t_shift_mixed_vs_narrow": 8.956
+    }
+  },
+  "shift_ranking_mixed": [
+    "mt_lnn",
+    "mt_lnn_dt",
+    "lstm",
+    "gru_d",
+    "gru"
+  ]
+}

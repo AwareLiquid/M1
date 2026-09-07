@@ -1,0 +1,28 @@
+/Users/aricredemption/Projects/M1/benchmarks/diagnose_decay_probes.py:182: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /Users/runner/work/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:823.)
+  lines.append(f"gru_d W_decay(dt): mean {float(W[0].mean()):.3f} "
+extrap-tier replication | train 1200 / shift-test 343 / in-dist-eval 400 windows | 12 epochs | dev cpu
+anatomy trained in 41s
+[gate_and_lambda]
+  layer0 gate g: mean 0.496 [0.451, 0.521] (init 0.5)
+  layer1 gate g: mean 0.499 [0.464, 0.537] (init 0.5)
+  shift inputs (Δt_norm≈8): λ_struct 0.047 | λ_mlp 0.507 (corr with Δt -0.53, std 0.241) | λ_eff 0.280
+[gru_d_gamma]
+  gru_d W_decay(dt): mean 0.275 max 0.514 (init U(0, 0.5))
+    γ(Δt_norm=1) = 0.769 (→ 23% toward hbar)
+    γ(Δt_norm=8) = 0.249 (→ 75% toward hbar)
+  gru_d            seed 0: in-dist 0.3264 | shift 0.2913 (24s)
+  gru_d            seed 1: in-dist 0.4313 | shift 0.2580 (23s)
+  gru_d            seed 2: in-dist 0.3302 | shift 0.3074 (23s)
+  gru_d            seed 3: in-dist 0.2954 | shift 0.3198 (24s)
+  gru_d            seed 4: in-dist 0.3556 | shift 0.3511 (23s)
+  gru_d_noanchor   seed 0: in-dist 0.3462 | shift 0.2528 (28s)
+  gru_d_noanchor   seed 1: in-dist 0.3706 | shift 0.3240 (29s)
+  gru_d_noanchor   seed 2: in-dist 0.3032 | shift 0.3444 (29s)
+  gru_d_noanchor   seed 3: in-dist 0.3233 | shift 0.2521 (28s)
+  gru_d_noanchor   seed 4: in-dist 0.3162 | shift 0.3212 (28s)
+
+Welch t (noanchor vs full gru_d, shift tier) = +0.27
+GATE: ANCHOR NOT THE DIFFERENTIATOR — ablation within noise; the attractor hypothesis dies here, do not build the probe
+
+results -> benchmarks/results/diagnose_decay_probes.json

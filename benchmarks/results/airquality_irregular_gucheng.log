@@ -1,0 +1,81 @@
+stations: train=11 test=[Gucheng] (held out) | dev=cpu
+air-quality irregular sweep | held-out Gucheng | 5 seeds | Δt supplied to every arch | task: 6h ['PM2.5', 'TEMP'] from 48h history
+pre-registered rule: domain won iff mt_lnn |t|>=2 vs gru_d AND lstm AND gru at the sparsest tier; claim needs >=2 of 3 domains
+
+drop=0%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9759)
+    mt_lnn       PM2.5  RMSE 22.389 ± 0.797
+    mt_lnn       TEMP   RMSE 4.752 ± 0.107
+    mt_lnn       (56,654 params)
+    lstm         PM2.5  RMSE 23.510 ± 1.145
+    lstm         TEMP   RMSE 4.704 ± 0.142
+    lstm         (100,710 params)
+    gru          PM2.5  RMSE 23.652 ± 2.016
+    gru          TEMP   RMSE 4.736 ± 0.231
+    gru          (76,062 params)
+    gru_d        PM2.5  RMSE 24.453 ± 1.673
+    gru_d        TEMP   RMSE 4.852 ± 0.293
+    gru_d        (76,064 params)
+/Users/aricredemption/Projects/M1/benchmarks/battery_soh_edge.py:167: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(enc, n_layers)
+    transformer  PM2.5  RMSE 24.860 ± 2.054
+    transformer  TEMP   RMSE 4.982 ± 0.367
+    transformer  (153,906 params)
+
+drop=30%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9719)
+    mt_lnn       PM2.5  RMSE 25.627 ± 0.598
+    mt_lnn       TEMP   RMSE 4.977 ± 0.099
+    mt_lnn       (56,654 params)
+    lstm         PM2.5  RMSE 29.098 ± 2.116
+    lstm         TEMP   RMSE 5.412 ± 0.426
+    lstm         (100,710 params)
+    gru          PM2.5  RMSE 28.663 ± 1.705
+    gru          TEMP   RMSE 5.415 ± 0.315
+    gru          (76,062 params)
+    gru_d        PM2.5  RMSE 28.533 ± 1.412
+    gru_d        TEMP   RMSE 5.460 ± 0.222
+    gru_d        (76,064 params)
+    transformer  PM2.5  RMSE 28.476 ± 2.671
+    transformer  TEMP   RMSE 5.257 ± 0.324
+    transformer  (153,906 params)
+
+drop=60%  train 3000 / test 800 windows (standardised-space baseline RMSE 0.9643)
+    mt_lnn       PM2.5  RMSE 29.117 ± 1.551
+    mt_lnn       TEMP   RMSE 4.862 ± 0.134
+    mt_lnn       (56,654 params)
+    lstm         PM2.5  RMSE 29.933 ± 1.501
+    lstm         TEMP   RMSE 4.890 ± 0.154
+    lstm         (100,710 params)
+    gru          PM2.5  RMSE 29.183 ± 1.319
+    gru          TEMP   RMSE 4.924 ± 0.087
+    gru          (76,062 params)
+    gru_d        PM2.5  RMSE 29.914 ± 1.810
+    gru_d        TEMP   RMSE 4.872 ± 0.165
+    gru_d        (76,064 params)
+    transformer  PM2.5  RMSE 29.229 ± 1.799
+    transformer  TEMP   RMSE 4.976 ± 0.264
+    transformer  (153,906 params)
+
+==================================================================
+pairwise Welch t at drop=60% (positive = first arch lower RMSE)
+  PM2.5  mt_lnn vs transformer  t=+0.11 within noise
+  PM2.5  lstm vs mt_lnn       t=-0.85 within noise
+  PM2.5  lstm vs transformer  t=-0.67 within noise
+  PM2.5  gru vs mt_lnn       t=-0.07 within noise
+  PM2.5  gru vs lstm         t=+0.84 within noise
+  PM2.5  gru vs gru_d        t=+0.73 within noise
+  PM2.5  gru vs transformer  t=+0.05 within noise
+  PM2.5  gru_d vs mt_lnn       t=-0.75 within noise
+  PM2.5  gru_d vs lstm         t=+0.02 within noise
+  PM2.5  gru_d vs transformer  t=-0.60 within noise
+  TEMP   mt_lnn vs transformer  t=+0.86 within noise
+  TEMP   lstm vs mt_lnn       t=-0.31 within noise
+  TEMP   lstm vs transformer  t=+0.62 within noise
+  TEMP   gru vs mt_lnn       t=-0.86 within noise
+  TEMP   gru vs lstm         t=-0.42 within noise
+  TEMP   gru vs gru_d        t=-0.62 within noise
+  TEMP   gru vs transformer  t=+0.42 within noise
+  TEMP   gru_d vs mt_lnn       t=-0.11 within noise
+  TEMP   gru_d vs lstm         t=+0.18 within noise
+  TEMP   gru_d vs transformer  t=+0.74 within noise
+
+results -> benchmarks/results/airquality_irregular_gucheng.json

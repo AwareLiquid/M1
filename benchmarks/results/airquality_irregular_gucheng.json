@@ -1,0 +1,248 @@
+{
+  "test_station": "Gucheng",
+  "seeds": 5,
+  "drops": [
+    0.0,
+    0.3,
+    0.6
+  ],
+  "targets": [
+    "PM2.5",
+    "TEMP"
+  ],
+  "results": {
+    "0.0": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.975861132144928,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 22.389267349243163,
+          "rmse_std": 0.7969343601477934,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.75220251083374,
+          "rmse_std": 0.10746931609094963,
+          "n": 5
+        },
+        "params": 56654
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 23.509789276123048,
+          "rmse_std": 1.1447592010865826,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.704227256774902,
+          "rmse_std": 0.1417595667231423,
+          "n": 5
+        },
+        "params": 100710
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 23.652096557617188,
+          "rmse_std": 2.0160113687944623,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.736121368408203,
+          "rmse_std": 0.23062938520879087,
+          "n": 5
+        },
+        "params": 76062
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 24.453308868408204,
+          "rmse_std": 1.6730203222556435,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.852061653137207,
+          "rmse_std": 0.2929398003968671,
+          "n": 5
+        },
+        "params": 76064
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 24.859833908081054,
+          "rmse_std": 2.0543146301330855,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.981607246398926,
+          "rmse_std": 0.36743570708012957,
+          "n": 5
+        },
+        "params": 153906
+      }
+    },
+    "0.3": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.9719290137290955,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 25.62749137878418,
+          "rmse_std": 0.5984935340460453,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.976655673980713,
+          "rmse_std": 0.09940946287150337,
+          "n": 5
+        },
+        "params": 56654
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 29.0984748840332,
+          "rmse_std": 2.1157103190736843,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 5.412490653991699,
+          "rmse_std": 0.4255144454059053,
+          "n": 5
+        },
+        "params": 100710
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 28.663071823120116,
+          "rmse_std": 1.704585532737773,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 5.414747524261474,
+          "rmse_std": 0.3152377369663845,
+          "n": 5
+        },
+        "params": 76062
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 28.53345489501953,
+          "rmse_std": 1.4120402731577693,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 5.45976619720459,
+          "rmse_std": 0.22249873525535077,
+          "n": 5
+        },
+        "params": 76064
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 28.475701904296876,
+          "rmse_std": 2.670548595876689,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 5.25738935470581,
+          "rmse_std": 0.3237302826382991,
+          "n": 5
+        },
+        "params": 153906
+      }
+    },
+    "0.6": {
+      "train_windows": 3000,
+      "test_windows": 800,
+      "baseline_std_rmse": 0.9643077850341797,
+      "mt_lnn": {
+        "PM2.5": {
+          "rmse_mean": 29.116989517211913,
+          "rmse_std": 1.5507067472846936,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.8621550559997555,
+          "rmse_std": 0.13351815454648583,
+          "n": 5
+        },
+        "params": 56654
+      },
+      "lstm": {
+        "PM2.5": {
+          "rmse_mean": 29.933338928222657,
+          "rmse_std": 1.5009584399297982,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.8903909683227536,
+          "rmse_std": 0.15404547177487132,
+          "n": 5
+        },
+        "params": 100710
+      },
+      "gru": {
+        "PM2.5": {
+          "rmse_mean": 29.18315544128418,
+          "rmse_std": 1.3190751906221638,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.923701190948487,
+          "rmse_std": 0.08728155603666841,
+          "n": 5
+        },
+        "params": 76062
+      },
+      "gru_d": {
+        "PM2.5": {
+          "rmse_mean": 29.914104843139647,
+          "rmse_std": 1.8104110782312404,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.872187614440918,
+          "rmse_std": 0.1647598118210544,
+          "n": 5
+        },
+        "params": 76064
+      },
+      "transformer": {
+        "PM2.5": {
+          "rmse_mean": 29.2291748046875,
+          "rmse_std": 1.7994723794126817,
+          "n": 5
+        },
+        "TEMP": {
+          "rmse_mean": 4.975861072540283,
+          "rmse_std": 0.2642627704710774,
+          "n": 5
+        },
+        "params": 153906
+      }
+    }
+  },
+  "welch_pairwise_sparsest": {
+    "PM2.5|mt_lnn|transformer": 0.106,
+    "PM2.5|lstm|mt_lnn": -0.846,
+    "PM2.5|lstm|transformer": -0.672,
+    "PM2.5|gru|mt_lnn": -0.073,
+    "PM2.5|gru|lstm": 0.839,
+    "PM2.5|gru|gru_d": 0.73,
+    "PM2.5|gru|transformer": 0.046,
+    "PM2.5|gru_d|mt_lnn": -0.748,
+    "PM2.5|gru_d|lstm": 0.018,
+    "PM2.5|gru_d|transformer": -0.6,
+    "TEMP|mt_lnn|transformer": 0.859,
+    "TEMP|lstm|mt_lnn": -0.31,
+    "TEMP|lstm|transformer": 0.625,
+    "TEMP|gru|mt_lnn": -0.863,
+    "TEMP|gru|lstm": -0.421,
+    "TEMP|gru|gru_d": -0.618,
+    "TEMP|gru|transformer": 0.419,
+    "TEMP|gru_d|mt_lnn": -0.106,
+    "TEMP|gru_d|lstm": 0.18,
+    "TEMP|gru_d|transformer": 0.744
+  },
+  "pre_registered_rule": "claim holds iff |t|>=2 vs gru_d AND lstm AND gru at the sparsest tier on >=2 of 3 domains"
+}

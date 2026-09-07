@@ -1,5 +1,13 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
+## 0. 当前快照（2026-09-06，冷热分离纪律：本节 ≤40 行，只放当前态）
+
+- **在做的两个 bet**（唯一事实源：`docs/RESEARCH_PLAN.md` §1，PR #33）：P0-A 1M 流式记忆小模型（T002/H004，A 段 POC ≤¥500）；P0-B KaaS grounding 付费验证（T003/H005，≤¥300）。
+- **待合并队列**（CI 全绿，等管理员）：#32 批次3整合（memory_broker+固化策略+边缘批次2）→ #33 研究路线图 → 本 PR（文档治理）。
+- **卡点**：无 GPU 任务在跑。
+- **纪律**：新决策一律 `kb/decisions/` 开新文件（ADJUDICATION_LOG 只做索引，每条 1 行）；活文档只放当前态——剧情归 git 历史与 `docs/archive/`；热区文档尺寸预算由 CI `check_doc_budget` 强制。
+
+
 > 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
 > 最后更新：2026-08-30 · `main`(KV/#8 事件流/#10 modern-trunk/#12 HF/#13 chunkwise 已并)+ 本支 §8(parametric memory,全量结果已落盘)
 
@@ -145,22 +153,14 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 **没有的**:权重。所以没有 FRR / FAR,官网标 `Code shipped — untrained`(灰框,非 Measured 黑框)。
 `o1sound/keywords.py` 里 20 个语种是 **spec 不是结果**;`train.py` 会按名字警告 spec 中磁盘上不存在的语种。
 
-## 2.9 机制裁决:CT 叙事关闭(2026-08-29 已跑完,CLOSED)
+## 2.9 机制裁决:CT 叙事关闭（2026-08-29，CLOSED）→ 已收口，归档
 
-`mt_lnn_dt`(LiquidDTRegressor, `battery_soh_edge.py`)把逐步衰减改为
-`λ_t=exp(-Δt_t/τ)` 走通用 pscan,P/S/blend 结构对齐生产线,共享 MLP 补容量
-(参数 50,857,在 mt_lnn/gru 带内,单测强制)。判定 R1(分布内 ≥2/3 个 cv=1
-档胜四对手)/R2(训练 Δt 0.05→测试 0.4 外推档全胜)预注册,实测 **R1=0/3、
-R2 负**:分布内全不显著(dt0.15 档显著输 gru t=−2.09);外推档探针 0.3005
-赢 lstm(+4.41)/特征版 mt_lnn(+8.85) 但输 **gru_d 0.2485(−1.74)**——
-可学习衰减比固定结构衰减更抗 Δt 偏移。**机制故事按预注册规则关闭,
-全仓库不再讲 CT 叙事。** JSON `benchmarks/results/synth_ct_control_dt.json`
-(per-seed/config 回显/git 哈希,evidence PR #23 入库);归档见 RESULTS
-Null 区 + BENCHMARKS §6。
+叙事全文（判定数字、证据指针、后续记录）见 `docs/archive/handoff-streaming-edge-2026-08.md`；
+当前判定态见 RESULTS.md Null 区与 BENCHMARKS §6/§7/§8，决策见 kb/decisions/ADJ-007、ADJ-008。
 
-**后续**:air 域加固(Dingling 10 seeds + 第二留出站 Gucheng 5 seeds)在
-原分支 `iter/process-train` 发车,结果未入 main——按证据轨另行清偿,清偿
-前 air 行维持现状。落地叙事收缩为"空气质量类任务实测最优 + 可部署"。
+## 2.10 不规则采样证据线（批次2清偿，2026-08-30）→ 已收口，归档
+
+同上：全文见 `docs/archive/handoff-streaming-edge-2026-08.md`。
 
 ## 3. 进行中 / 卡点
 

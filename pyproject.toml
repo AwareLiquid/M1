@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Packaging is for cross-repo installation of the memory interface (the
+# Awareness-SDK install line), not a PyPI release. requirements*.lock stays
+# the source of truth for reproducible environments; this file only declares
+# what `pip install git+...` needs to resolve.
+name = "awareliquid-m1"
+version = "0.1.0"
+description = "MT-LNN / AwareLiquid M1 research repo — installable memory broker interface (mt_lnn.memory_broker)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "torch>=2.0.0",
+    "numpy>=1.24.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0.0"]
+
+[tool.setuptools]
+packages = ["mt_lnn", "mt_lnn.memory_broker"]

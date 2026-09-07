@@ -48,6 +48,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "data", "nasa_battery", "extracted")
@@ -310,9 +311,247 @@ class GRUDRegressor(nn.Module):
         return self.head(self.norm(seq[:, -1])).squeeze(-1)
 
 
+class LiquidDTRegressor(nn.Module):
+    """Mechanism probe: the liquid core with Δt WIRED INTO the decay.
+
+    Why this exists. The production MTLNNLayer decays every step by
+    exp(-config.dt / tau) with a construction-time CONSTANT dt
+    (mt_lnn/mt_lnn_layer.py:55) — so in every irregular-sampling benchmark
+    so far, Δt reached the model only as an input feature, the same channel
+    the RNN baselines get. The three-domain pre-registered verdict was
+    negative, consistent with the continuous-time mechanism never being
+    engaged. This class isolates exactly that one variable:
+
+        lambda_t = exp(-dt_t / tau_{p,s})              per-step, per-scale
+        h_t = lambda_t * h_{t-1} + (1 - lambda_t) * A_t  closed-form LTC
+
+    run through the general parallel scan (per-step A), with P protofilaments
+    x S time-scales blended by a learned softmax — the same bank structure the
+    production layer documents (mt_lnn_layer.py:35-48). A shared post-blend
+    MLP adds capacity that does NOT touch Δt, so the parameter count lands in
+    the mt_lnn/gru band and any performance difference is attributable to the
+    wiring, not to size.
+
+    Δt is read from the LAST channel of x (protocol convention, same as
+    gru_d), in whatever units the caller normalised it to; tau lives in those
+    units and is trainable (softplus, log-spaced ladder init, clamped).
+
+    Status: PROBE. The production layer keeps config.dt until this variant
+    earns a positive pre-registered verdict (synth_ct_control.py docstring).
+    """
+
+    def __init__(self, d_model=78, n_layers=2, n_feat=3,
+                 n_protofilaments=13, n_time_scales=5,
+                 tau_min=1e-3, tau_max=1e3):
+        super().__init__()
+        assert d_model % n_protofilaments == 0
+        self.P, self.S = n_protofilaments, n_time_scales
+        self.Dp = d_model // n_protofilaments
+        self.n_layers = n_layers
+        self.tau_min, self.tau_max = tau_min, tau_max
+        self.inp = nn.Linear(n_feat, d_model)
+        # Per (proto, scale): input coupling, decay timescale, blend weight.
+        # tau ladder spans two decades in NORMALISED-dt units (synth: dt/mean,
+        # battery: dt/T), clamped well outside both ranges.
+        init_tau = torch.logspace(-2.0, 1.0, n_time_scales)
+        for li in range(n_layers):
+            setattr(self, f"w_in_{li}",
+                    nn.Parameter(torch.randn(n_protofilaments,
+                                             n_time_scales, self.Dp)
+                                 * (1.0 / self.Dp) ** 0.5))
+            setattr(self, f"b_in_{li}",
+                    nn.Parameter(torch.zeros(n_protofilaments,
+                                             n_time_scales)))
+            setattr(self, f"log_tau_{li}",
+                    nn.Parameter(torch.log(init_tau.expand(
+                        n_protofilaments, n_time_scales).clone()) - 1.0))
+            # softplus(x-1) ≈ ladder at init
+            setattr(self, f"blend_{li}",
+                    nn.Parameter(torch.zeros(n_protofilaments,
+                                             n_time_scales)))
+            # Shared capacity block — deliberately Δt-free.
+            self.add_module(f"mix_{li}", nn.Sequential(
+                nn.Linear(d_model, 2 * d_model), nn.GELU(),
+                nn.Linear(2 * d_model, d_model)))
+        self.norm = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, 1)
+
+    def _bank(self, li, seq, dt):
+        """One liquid bank: per-step decay from Δt through the general scan."""
+        from mt_lnn.parallel_scan import pscan
+        B, T, D = seq.shape
+        e = seq.reshape(B, T, self.P, self.Dp)
+        w_in = getattr(self, f"w_in_{li}")                    # (P,S,Dp)
+        b_in = getattr(self, f"b_in_{li}")                    # (P,S)
+        A = torch.sigmoid(
+            torch.einsum("btpd,psd->btpsd", e, w_in)
+            + b_in[None, None, :, :, None])                   # (B,T,P,S,Dp)
+        tau = F.softplus(getattr(self, f"log_tau_{li}")) + self.tau_min
+        tau = tau.clamp(self.tau_min, self.tau_max)           # (P,S)
+        # Elapsed time is semantically non-negative. Protocols supply raw
+        # non-negative Δt; the clamp is a stability guard in case a driver
+        # z-scores the whole input block (a negative standardised gap would
+        # otherwise blow exp(-dt/tau) up — found by the synth smoke).
+        dtp = dt.clamp(min=0.0)
+        lam = torch.exp(-dtp[:, :, None, None] / tau[None, None])  # (B,T,P,S)
+        # h_t = lam_t h_{t-1} + (1-lam_t) A_t, scanned over T for each
+        # (B,P,S): pscan takes A (...,T) and X (...,T,D).
+        lam_p = lam.permute(0, 2, 3, 1)                       # (B,P,S,T)
+        X = ((1.0 - lam)[..., None] * A).permute(0, 2, 3, 1, 4)  # (B,P,S,T,Dp)
+        H = pscan(lam_p, X)                                   # (B,P,S,T,Dp)
+        w = torch.softmax(getattr(self, f"blend_{li}"), dim=-1)   # (P,S)
+        blended = torch.einsum("bpstd,ps->btpd", H, w)
+        return blended.reshape(B, T, D)
+
+    def forward(self, x, dt=None):
+        if dt is None:
+            dt = x[..., -1]                                   # (B,T)
+        seq = self.inp(x)
+        for li in range(self.n_layers):
+            seq = seq + self._bank(li, seq, dt)               # residual bank
+            seq = seq + getattr(self, f"mix_{li}")(seq)       # Δt-free MLP
+        return self.head(self.norm(seq[:, -1])).squeeze(-1)
+
+
+class LiquidADRegressor(nn.Module):
+    """Mechanism probe II: hybrid decay — structural prior + learned gate.
+
+    Why this exists. The fixed-Δt-wired probe (LiquidDTRegressor) closed
+    NEGATIVE on both pre-registered rules (synth_ct_control_dt.json): under a
+    Δt distribution shift its structural exp(-Δt/τ) cannot adapt, while
+    GRU-D's LEARNED decay can — gru_d 0.2485 vs probe 0.3005 on the shift
+    tier, the same ordering the literature reports for input-dependent vs
+    fixed decay rates (arXiv:2605.06946 and the GRU-D/Mamba line). This
+    probe asks the single follow-up question that diagnosis licenses: does
+    folding a GRU-D-style learnable decay INTO the liquid multi-scale bank
+    win the shift tier back?
+
+        lam_t = g_{p,s} * exp(-dt_t / tau_{p,s})                 path 1, prior
+              + (1 - g_{p,s}) * mlp_lam([summary_p(x_t); dt_t])  path 2, learned
+
+      * path 1 is EXACTLY the LiquidDTRegressor decay (frozen-optional via
+        freeze_tau) — the multi-scale structural floor;
+      * path 2 is a two-layer MLP (hidden 16) reading a per-proto summary of
+        the step embedding plus the (clamped, non-negative) gap, producing a
+        per-(proto, scale) lambda;
+      * g is a per-(proto, scale) sigmoid gate, init 0.5 — the bank chooses
+        its own prior/data mix per scale.
+
+    lambda parameterisation: exp(-softplus(o)). Chosen over
+    softplus(o).clamp(eps, 1-eps) because (a) it lives in the SAME
+    exponential-decay family as path 1, so the gate blends two quantities of
+    one kind; (b) it is inside (0,1) for ANY finite logit with no hard clamp
+    to fight gradients at the boundary; (c) a zero logit initialises to
+    λ≈0.5, matching the gate's neutral init.
+
+    Everything else — P=13, S=5, blend softmax, shared Δt-free mix MLP,
+    norm+head, dt read from the LAST channel, clamp(min=0) — is identical
+    to LiquidDTRegressor, so any verdict difference is attributable to the
+    decay pathway alone. Params must stay in the mt_lnn/gru band
+    (tests/test_liquid_ad.py); the MLP is the knob to shrink if not.
+
+    Status: PROBE. Rules R2'/R1' pre-registered in synth_ct_control.py
+    BEFORE the run; a double negative archives the direction for good.
+    """
+
+    def __init__(self, d_model=78, n_layers=2, n_feat=3,
+                 n_protofilaments=13, n_time_scales=5,
+                 tau_min=1e-3, tau_max=1e3, lam_hidden=16,
+                 freeze_tau=False):
+        super().__init__()
+        assert d_model % n_protofilaments == 0
+        self.P, self.S = n_protofilaments, n_time_scales
+        self.Dp = d_model // n_protofilaments
+        self.n_layers = n_layers
+        self.tau_min, self.tau_max = tau_min, tau_max
+        self.inp = nn.Linear(n_feat, d_model)
+        init_tau = torch.logspace(-2.0, 1.0, n_time_scales)
+        for li in range(n_layers):
+            # --- path 1: identical to LiquidDTRegressor's bank -----------
+            setattr(self, f"w_in_{li}",
+                    nn.Parameter(torch.randn(n_protofilaments,
+                                             n_time_scales, self.Dp)
+                                 * (1.0 / self.Dp) ** 0.5))
+            setattr(self, f"b_in_{li}",
+                    nn.Parameter(torch.zeros(n_protofilaments,
+                                             n_time_scales)))
+            setattr(self, f"log_tau_{li}",
+                    nn.Parameter(torch.log(init_tau.expand(
+                        n_protofilaments, n_time_scales).clone()) - 1.0))
+            setattr(self, f"blend_{li}",
+                    nn.Parameter(torch.zeros(n_protofilaments,
+                                             n_time_scales)))
+            # --- path 2 + gate: the only additions -----------------------
+            # sigmoid(0) = 0.5: a neutral prior/data mix at init.
+            setattr(self, f"gate_{li}",
+                    nn.Parameter(torch.zeros(n_protofilaments,
+                                             n_time_scales)))
+            self.add_module(f"lam_proj_{li}",
+                            nn.Linear(d_model, n_protofilaments))
+            self.add_module(f"mlp_lam_{li}", nn.Sequential(
+                nn.Linear(n_protofilaments + 1, lam_hidden), nn.GELU(),
+                nn.Linear(lam_hidden, n_protofilaments * n_time_scales)))
+            # Shared capacity block — deliberately Δt-free, as in DT.
+            self.add_module(f"mix_{li}", nn.Sequential(
+                nn.Linear(d_model, 2 * d_model), nn.GELU(),
+                nn.Linear(2 * d_model, d_model)))
+        if freeze_tau:
+            for li in range(n_layers):
+                getattr(self, f"log_tau_{li}").requires_grad_(False)
+        self.norm = nn.LayerNorm(d_model)
+        self.head = nn.Linear(d_model, 1)
+
+    def _lam(self, li, seq, dt):
+        """Blended per-step decay (B,T,P,S), kept in [0,1] by construction:
+        both paths are exponentials of non-positive reals (boundary values
+        only via float underflow at extreme inputs)."""
+        tau = F.softplus(getattr(self, f"log_tau_{li}")) + self.tau_min
+        tau = tau.clamp(self.tau_min, self.tau_max)           # (P,S)
+        dtp = dt.clamp(min=0.0)                               # (B,T)
+        lam_struct = torch.exp(-dtp[:, :, None, None] / tau[None, None])
+        summ = getattr(self, f"lam_proj_{li}")(seq)           # (B,T,P)
+        feats = torch.cat([summ, dtp[..., None]], dim=-1)     # (B,T,P+1)
+        o = getattr(self, f"mlp_lam_{li}")(feats)             # (B,T,P*S)
+        lam_mlp = torch.exp(-F.softplus(o))
+        lam_mlp = lam_mlp.reshape(*dtp.shape, self.P, self.S)
+        g = torch.sigmoid(getattr(self, f"gate_{li}"))        # (P,S)
+        return g[None, None] * lam_struct + (1.0 - g[None, None]) * lam_mlp
+
+    def _bank(self, li, seq, dt):
+        """One liquid bank: blended decay through the general scan."""
+        from mt_lnn.parallel_scan import pscan
+        B, T, D = seq.shape
+        e = seq.reshape(B, T, self.P, self.Dp)
+        w_in = getattr(self, f"w_in_{li}")                    # (P,S,Dp)
+        b_in = getattr(self, f"b_in_{li}")                    # (P,S)
+        A = torch.sigmoid(
+            torch.einsum("btpd,psd->btpsd", e, w_in)
+            + b_in[None, None, :, :, None])                   # (B,T,P,S,Dp)
+        lam = self._lam(li, seq, dt)                          # (B,T,P,S)
+        lam_p = lam.permute(0, 2, 3, 1)                       # (B,P,S,T)
+        X = ((1.0 - lam)[..., None] * A).permute(0, 2, 3, 1, 4)  # (B,P,S,T,Dp)
+        H = pscan(lam_p, X)                                   # (B,P,S,T,Dp)
+        w = torch.softmax(getattr(self, f"blend_{li}"), dim=-1)   # (P,S)
+        blended = torch.einsum("bpstd,ps->btpd", H, w)
+        return blended.reshape(B, T, D)
+
+    def forward(self, x, dt=None):
+        if dt is None:
+            dt = x[..., -1]                                   # (B,T)
+        seq = self.inp(x)
+        for li in range(self.n_layers):
+            seq = seq + self._bank(li, seq, dt)               # residual bank
+            seq = seq + getattr(self, f"mix_{li}")(seq)       # Δt-free MLP
+        return self.head(self.norm(seq[:, -1])).squeeze(-1)
+
+
 def build(arch, d_model, n_layers, seq_len=128):
     if arch == "mt_lnn":
         return LiquidRegressor(d_model, n_layers)
+    if arch == "mt_lnn_dt":
+        return LiquidDTRegressor(d_model, n_layers)
+    if arch == "mt_lnn_ad":
+        return LiquidADRegressor(d_model, n_layers)
     if arch in ("lstm", "gru"):
         return RNNRegressor(arch, d_model, n_layers)
     if arch == "gru_d":
