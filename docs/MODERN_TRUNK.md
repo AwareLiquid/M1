@@ -70,12 +70,12 @@ Gemma）的 mixer 层从不单打独斗——每层仍配齐 SwiGLU 门控扩张
 
 ## 2. Matched-param 分析（对照锚：modern baseline 144.1M）
 
-| 配置 | 参数增量（832/12L 默认形状） | 总量（估） | vs 144.1M 锚 |
+| 配置 | 参数增量（832/12L 默认形状） | 总量（实测） | vs 144.1M 锚 |
 |---|---|---|---|
-| base（lean core） | 0 | ≈125M（实测 TBD(Phase B)） | 欠配 |
-| +qk_norm | 12×(64+64) = 1,536 | ≈125.0M | 欠配（可忽略） |
-| +ffn | 12×3×832×2304 = **69.0M** | ≈194M | **超配 ~35%** |
-| all_on | +ffn 同上（A2/A3 近似零参） | ≈194M | 超配 ~35% |
+| base（lean core） | 0 | 126,041,819 | 欠配 |
+| +qk_norm | 12×(64+64) = 1,536 | 126,043,355 | 欠配（可忽略） |
+| +ffn | 12×3×832×2304 = **69.0M** | 195,061,211 | **超配 ~35%** |
+| all_on | +ffn 同上（A2/A3 近似零参） | 195,062,747 | 超配 ~35% |
 
 诚实口径：+ffn/all_on 在默认形状下**超过** 144.1M 锚。筛选衡量的是
 "方向"，不主张 matched-param parity。若 +ffn 方向为正，两条 matched-param
@@ -84,26 +84,45 @@ Gemma）的 mixer 层从不单打独斗——每层仍配齐 SwiGLU 门控扩张
 1. **缩 FFN**：`ffn_expansion≈0.92` → d_ff=768 → +23.0M → ≈148M ≈ 锚；
 2. **如实报告超配**：确认跑同时报 param 数，结论措辞注明参数不对齐。
 
-参数实测以筛选脚本 row JSON 的 `params` 字段为准：TBD(Phase B)。
+参数实测以筛选脚本 row JSON 的 `params` 字段为准：§2 表已回填（2026-09-06）。
 
 ---
 
-## 3. 筛选实验（Phase B 执行，数字占位）
+## 3. 筛选实验（Phase B 执行，2K 数字已出；screening-only）
 
 四配置 × ≥3 seeds 配对筛选（`benchmarks/modern_trunk_screen.py`，P0 固定
 口径：WT-103 / gpt2 / seq512 / batch4 / lr3e-4 / beta2 0.95 / clip 1.0 /
 fp32）。**预注册判优**：all_on 相对 base 的配对 ΔPPL 在 ≥2/3 seeds 为负
 才 CONFIRM，否则 NULL。
 
-| 配置 | params | val_ppl per seed (2K 步) | ΔPPL vs base per seed |
+| 配置 | params（实测） | val_ppl per seed (2K 步) | ΔPPL vs base per seed |
 |---|---|---|---|
-| base | TBD(Phase B) | TBD(Phase B) | — |
-| +ffn | TBD(Phase B) | TBD(Phase B) | TBD(Phase B) |
-| +qk_norm | TBD(Phase B) | TBD(Phase B) | TBD(Phase B) |
-| all_on | TBD(Phase B) | TBD(Phase B) | TBD(Phase B) |
+| base | 126,041,819 | 255.17 / 254.95 / 255.69 | — |
+| +ffn | 195,061,211 | 237.46 / 234.31 / 229.99 | −17.71 / −20.64 / −25.70 |
+| +qk_norm | 126,043,355 | 244.58 / 244.49 / 243.54 | −10.60 / −10.46 / −12.15 |
+| all_on | 195,062,747 | 232.38 / 230.46 / 228.61 | −22.79 / −24.49 / −27.08 |
 
-判优结果：**TBD(Phase B)**（CONFIRM / NULL）。筛选 JSON 落
-`benchmarks/results/modern_trunk_screen_*.json`（内嵌 screening_only 标记）。
+判优结果：**CONFIRM**（all_on 3/3 seeds 优于 base；三旋钮各自单独为正，
+叠加不冲突）。筛选 JSON 落 `benchmarks/results/modern_trunk_screen_2000step.json`
+（内嵌 screening_only 标记，2K 数字任何情况下不进 RESULTS.md）。
+
+---
+
+## 3.5 20K 确认跑（2026-09-06 执行，结果见下）
+
+2K 判优 CONFIRM → 按 §4 排 20K 确认（维护者排期，A100-80GB fp32，
+base + all_on × 3 seeds，P0 同口径，`--train_token_cap 50000000
+--eval_chunks 200`）：
+
+| 格 | val_ppl (20K) |
+|---|---|
+| base s0 / s1 / s2 | 88.04 / 91.33 / 89.48（mean 89.62，对照历史 88.93±0.33 管道复现 ✓） |
+| **all_on s0 / s1 / s2** | **73.33 / 74.76 / 73.83（mean 73.97）** |
+
+- 配对 ΔPPL：−14.70 / −16.57 / −15.65，**3/3 seeds，verdict = CONFIRM**。
+- all_on **反超 modern Transformer 基线 78.86±0.25**（20K 收敛口径）——
+  三缺失件收复 11.3% 质量缺口并转正 ~6.5%。
+- 逐格 JSON + 汇总：`benchmarks/results/modern_trunk_screen_*_20000step*.json`。
 
 ---
 
@@ -176,16 +195,21 @@ python benchmarks/modern_trunk_screen.py           # 全量 4配置×3seeds×2K�
 
 **测完必须回填的关键指标（逐项勾，缺一不可）**：
 
-- [ ] §2 参数表实测值：base / +qk_norm / +ffn / all_on 的 params（各 row JSON
-      `params` 字段），替换 ≈125M/≈194M 估算
-- [ ] §3 筛选表：每配置 val_ppl per seed、配对 ΔPPL per seed、verdict
-      （CONFIRM / NULL，预注册规则：all_on ≥2/3 seeds 优于 base）
-- [ ] matched-param 决策：若 CONFIRM，20K 确认跑前二选一——缩
-      `ffn_expansion≈0.92`（d_ff=768，≈148M 贴锚）或如实报告超配 35%
-- [ ] BENCHMARKS.md 新节：筛选数字一律标注 **screening-only**
-- [ ] ≤200 字诚实结论：哪个缺失件筛选中最有效、是否值得排 20K 确认跑
-- [ ] 红线自查：2K 数字未进 RESULTS.md/README；20K 未自动触发（runbook §4
-      就绪，仅在判优 CONFIRM 后人工排期）
+- [x] §2 参数表实测值：base 126,041,819 / +qk_norm 126,043,355 / +ffn
+      195,061,211 / all_on 195,062,747（row JSON `params` 字段，2026-09-06 回填）
+- [x] §3 筛选表：val_ppl per seed + 配对 ΔPPL per seed + verdict CONFIRM
+      （all_on 3/3 seeds 优于 base）
+- [x] matched-param 决策：CONFIRM → 20K 确认跑先行（§3.5，2026-09-06
+      A100-80GB 执行，all_on 73.97 vs base 89.62 3/3 seeds）；
+      **matched-param 二选一仍未定**——缩 `ffn_expansion≈0.92`（d_ff=768，
+      ≈148M 贴锚）还是如实报超配 35%，留给"ffn 是否默认 on"决策时定
+- [x] BENCHMARKS.md 新节：2K 数字一律标注 screening-only（见本仓库
+      BENCHMARKS.md modern-trunk 节）
+- [x] ≤200 字诚实结论：见 §3.5 与 RESULTS.md modern-trunk 行——三缺失件
+      全部正向、可叠加；all_on 20K 反超 modern Transformer 基线，值得默认 on
+      讨论（须 matched-param 证据支撑）
+- [x] 红线自查：2K 数字未进 RESULTS.md/README（仅 BENCHMARKS screening-only）；
+      20K 确认跑在判优 CONFIRM 后人工排期执行（2026-09-06）
 
 **worktree 保留**：`../M1-modern-trunk` 暂不移除——远程执行若再暴露 bug，修复
 仍须走 worktree→commit→合回 的协议循环；全部通过后才 `git worktree remove`。

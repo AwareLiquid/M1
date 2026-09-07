@@ -1,0 +1,10 @@
+{
+  "config": "base",
+  "seed": 2,
+  "params": 126041819,
+  "stable": true,
+  "steps": 20000,
+  "final_loss": 4.831191539764404,
+  "val_ppl": 89.47944098228021,
+  "screening_only": true
+}

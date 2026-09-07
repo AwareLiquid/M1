@@ -335,6 +335,26 @@ Findings:
    O(1) carried state and cross-window/cross-session recall, not LM quality.
 4. All 9 runs `stable: true`, no non-finite loss.
 
+### Modern-trunk 三缺失件 — 20K 确认跑 (2026-09-06) — updates finding #3 above
+
+2K 筛选 (2026-08-30, **screening-only**：base 255.2/254.9/255.7 · +ffn 237.5/
+234.3/230.0 · +qk_norm 244.6/244.5/243.5 · all_on 232.4/230.5/228.6, verdict
+CONFIRM) → 20K 确认 (A100-80GB, P0 同口径 fp32, base + all_on × 3 seeds)：
+
+| config | params | val PPL per seed (20K) | mean |
+|---|---|---|---|
+| base | 126.0M | 88.04 / 91.33 / 89.48 | 89.62 |
+| **all_on**（SwiGLU FFN + QK-RMSNorm + 深度缩放残差初始化） | 195.1M | **73.33 / 74.76 / 73.83** | **73.97** |
+
+- 配对 ΔPPL −14.70 / −16.57 / −15.65，**3/3 seeds, verdict CONFIRM**。
+- **all_on 反超 modern Transformer 基线 78.86±0.25**（同 20K 收敛口径）——
+  三缺失件收复 11.3% 缺口并转正 ~6.5%。三个旋钮 2K 各自单独为正（+ffn
+  −17.7~−25.7 / +qk_norm −10.5~−12.2 / all_on −22.8~−27.1），方向一致。
+- 诚实标注：all_on 超配 35%（195.1M vs 144.1M 锚）；matched-param 二选一
+  （缩 `ffn_expansion≈0.92` 或如实报超配）留给"ffn 是否默认 on"决策。
+- 逐格 JSON：`benchmarks/results/modern_trunk_screen_*_20000step*.json`；
+  汇总 `modern_trunk_screen_20000step.json`（verdict CONFIRM）。
+
 Raw JSON + logs: `scaling_fp32/converge_probe/` (`train_*_s{0,1,2}.json`,
 `scaling_train_20000_*.log`, `scaling_train_20000_summary.txt`).
 
