@@ -61,12 +61,20 @@ M1 本质:**带生物模块封装的线性递归模型(SSM 家族)**,与 Mamba/R
 
 ### P0 — 把递归推理证出来(现在,本地 RTX 5060 8GB 可做)
 
+> **结局回填(2026-09-07)**:P0 已执行完毕并出结局 —— A/B 已实现,C 预注册判决判负,D 部分完成。以下勾选框与正文保留立项原文不动,结局以各勾选框下的注记回填(追加式)。
+
 目标:整个 thesis 的最小证据 —— **"多想 = 更准"曲线**。
 
 - [ ] **P0-A** 液体核心加 `thinking_steps` 参数:同一核心循环 N 次做潜空间迭代;训练时随机采样深度(Geiping 式 depth randomization),推理时可变;N=1 严格等价现状(向后兼容)
+  - **结局（2026-09-07 回填）**：**已完成**（commit 8cee459;N=1 向后兼容 + Geiping 式深度随机化;落地名 `core_iterations`）
 - [ ] **P0-B** 合成推理基准 `benchmarks/reasoning_depth.py`:深度敏感任务(多步算术链 / 奇偶校验 / 多跳推理),transformer 对照组,多种子
+  - **结局（2026-09-07 回填）**：**已完成**（`benchmarks/reasoning_depth.py` 已在库,随 commit 8cee459 引入）
 - [ ] **P0-C** 训练 + 出图:思考步数 ∈ {1,2,4,8} vs 准确率曲线;若曲线单调上升 → thesis 成立,进 P1
+  - **结局（2026-09-07 回填）**：**已执行并判负**——预注册判决 h_supported=false（深度增益 0.0007 < 2σ 阈值 0.0048;诊断 budget_wall;判决任务更换依据 ADJ-001:pointer_chase d8 不可学习 → 换 parity d16,换任务后的检验仍待 GPU 会话）。thesis"多想 = 更准"在已测规模未立住,详见 `RESULTS.md` latent-recursion 裁决条目 + `kb/hypotheses/H001-stack-depth-monotonic.md` verdict log + `benchmarks/results/latent_recursion_verdict.json`
 - [ ] **P0-D** 生物模块清理:Hebbian 改 fast-weights 或删;GWT / PC 补 ablation(沿用实验日志的 5-seed 纪律)
+  - **结局（2026-09-07 回填）**：**部分完成**——Hebbian 实测惰性已证（`RESULTS.md` O1 module switch-matrix:5 个 bio 模块 PPL 中性、归档至 flags,GWTB/PC 同批覆盖）;删除/改造决断转向 `docs/RESEARCH_PLAN.md` 的观察名单触发机制（PR #33/#35）
+
+> 下一步方向见 `docs/RESEARCH_PLAN.md`（PR #33/#35）;P1/P2/P3 是否重排由下一合并窗口决定（本 PR 不重排,只回填事实）。
 
 **风险与止损**:若 8 步思考对准确率无增益(多种子),说明当前核心的递归不产生有效迭代计算 → 先修核心的状态更新算子(参考 TRM:递归时注入输入、状态残差连接),而不是加大规模。
 
