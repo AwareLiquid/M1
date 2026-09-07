@@ -121,6 +121,11 @@ jobs:
           python scripts/check_doc_budget.py
           echo "✓ Hot-zone docs within size budgets"
 
+      - name: Cross-check RESULTS.md ledger rows resolve to evidence
+        run: |
+          python scripts/check_claims.py
+          echo "✓ Every RESULTS.md ledger row resolves to a BENCHMARKS.md section or evidence file"
+
       - name: Check for untracked changes after benchmark rerun
         run: |
           if [ -n "$(git status --porcelain benchmarks/results/)" ]; then
