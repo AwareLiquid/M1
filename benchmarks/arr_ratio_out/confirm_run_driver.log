@@ -1,0 +1,83 @@
+[2026-09-06 08:00:18] === ARR confirm-run driver v3 (seed-major) start ===
+[2026-09-06 08:00:18] SKIP 0/s0: ppl=74.45
+[2026-09-06 08:00:18] RUN 1:8/s0 attempt 1/2
+[2026-09-06 08:34:24] RESULT 1:8/s0 attempt 1: ok=True why=ppl=47.87 rc=0
+[2026-09-06 08:34:24] PROGRESS 2/24 valid
+[2026-09-06 08:34:24] RUN 1:4/s0 attempt 1/2
+[2026-09-06 09:03:13] RESULT 1:4/s0 attempt 1: ok=True why=ppl=18.86 rc=0
+[2026-09-06 09:03:13] PROGRESS 3/24 valid
+[2026-09-06 09:03:13] RUN 1:2/s0 attempt 1/2
+[2026-09-06 09:23:54] RESULT 1:2/s0 attempt 1: ok=False why=diverged(ppl=877.6) rc=0
+[2026-09-06 09:23:54] RUN 1:2/s0 attempt 2/2
+[2026-09-06 09:45:02] RESULT 1:2/s0 attempt 2: ok=True why=ppl=319.59 rc=0
+[2026-09-06 09:45:02] PROGRESS 4/24 valid
+[2026-09-06 09:45:02] SKIP 0/s1: ppl=81.82
+[2026-09-06 09:45:02] RUN 1:8/s1 attempt 1/2
+[2026-09-06 10:14:08] RESULT 1:8/s1 attempt 1: ok=True why=ppl=66.22 rc=0
+[2026-09-06 10:14:08] PROGRESS 6/24 valid
+[2026-09-06 10:14:08] RUN 1:4/s1 attempt 1/2
+[2026-09-06 10:39:03] RESULT 1:4/s1 attempt 1: ok=True why=ppl=19.68 rc=0
+[2026-09-06 10:39:03] PROGRESS 7/24 valid
+[2026-09-06 10:39:03] RUN 1:2/s1 attempt 1/2
+[2026-09-06 10:56:01] RESULT 1:2/s1 attempt 1: ok=False why=diverged(ppl=859.6) rc=0
+[2026-09-06 10:56:01] RUN 1:2/s1 attempt 2/2
+[2026-09-06 11:13:45] RESULT 1:2/s1 attempt 2: ok=False why=diverged(ppl=550.5) rc=0
+[2026-09-06 11:13:45] DIVERGED-FINAL 1:2/s1: diverged(ppl=550.5) | kept=ppl=550.52
+[2026-09-06 11:13:45] PROGRESS 7/24 valid
+[2026-09-06 11:13:45] RUN 0/s2 attempt 1/2
+[2026-09-06 11:47:08] RESULT 0/s2 attempt 1: ok=True why=ppl=203.58 rc=0
+[2026-09-06 11:47:08] PROGRESS 8/24 valid
+[2026-09-06 11:47:08] RUN 1:8/s2 attempt 1/2
+[2026-09-06 12:16:54] RESULT 1:8/s2 attempt 1: ok=True why=ppl=211.32 rc=0
+[2026-09-06 12:16:54] PROGRESS 9/24 valid
+[2026-09-06 12:16:54] RUN 1:4/s2 attempt 1/2
+[2026-09-06 12:42:41] RESULT 1:4/s2 attempt 1: ok=True why=ppl=20.49 rc=0
+[2026-09-06 12:42:41] PROGRESS 10/24 valid
+[2026-09-06 12:42:41] RUN 1:2/s2 attempt 1/2
+[2026-09-06 13:00:44] RESULT 1:2/s2 attempt 1: ok=True why=ppl=247.11 rc=0
+[2026-09-06 13:00:44] PROGRESS 11/24 valid
+[2026-09-06 13:00:44] RUN 0/s3 attempt 1/2
+[2026-09-06 13:34:13] RESULT 0/s3 attempt 1: ok=True why=ppl=207.60 rc=0
+[2026-09-06 13:34:13] PROGRESS 12/24 valid
+[2026-09-06 13:34:13] RUN 1:8/s3 attempt 1/2
+[2026-09-06 14:03:37] RESULT 1:8/s3 attempt 1: ok=True why=ppl=103.70 rc=0
+[2026-09-06 14:03:37] PROGRESS 13/24 valid
+[2026-09-06 14:03:37] RUN 1:4/s3 attempt 1/2
+[2026-09-06 14:29:20] RESULT 1:4/s3 attempt 1: ok=True why=ppl=162.12 rc=0
+[2026-09-06 14:29:20] PROGRESS 14/24 valid
+[2026-09-06 14:29:20] RUN 1:2/s3 attempt 1/2
+[2026-09-06 14:48:24] RESULT 1:2/s3 attempt 1: ok=False why=diverged(ppl=572.3) rc=0
+[2026-09-06 14:48:24] RUN 1:2/s3 attempt 2/2
+[2026-09-06 15:06:51] RESULT 1:2/s3 attempt 2: ok=False why=diverged(ppl=1335.6) rc=0
+[2026-09-06 15:06:51] DIVERGED-FINAL 1:2/s3: diverged(ppl=1335.6) | kept=ppl=1335.58
+[2026-09-06 15:06:51] PROGRESS 14/24 valid
+[2026-09-06 15:06:51] RUN 0/s4 attempt 1/2
+[2026-09-06 15:41:04] RESULT 0/s4 attempt 1: ok=True why=ppl=189.53 rc=0
+[2026-09-06 15:41:04] PROGRESS 15/24 valid
+[2026-09-06 15:41:04] RUN 1:8/s4 attempt 1/2
+[2026-09-06 16:10:29] RESULT 1:8/s4 attempt 1: ok=True why=ppl=66.98 rc=0
+[2026-09-06 16:10:29] PROGRESS 16/24 valid
+[2026-09-06 16:10:29] RUN 1:4/s4 attempt 1/2
+[2026-09-06 16:35:56] RESULT 1:4/s4 attempt 1: ok=True why=ppl=164.02 rc=0
+[2026-09-06 16:35:56] PROGRESS 17/24 valid
+[2026-09-06 16:35:56] RUN 1:2/s4 attempt 1/2
+[2026-09-06 16:54:14] RESULT 1:2/s4 attempt 1: ok=False why=diverged(ppl=904.2) rc=0
+[2026-09-06 16:54:14] RUN 1:2/s4 attempt 2/2
+[2026-09-06 17:12:32] RESULT 1:2/s4 attempt 2: ok=True why=ppl=223.87 rc=0
+[2026-09-06 17:12:32] PROGRESS 18/24 valid
+[2026-09-06 17:12:32] RUN 0/s5 attempt 1/2
+[2026-09-06 17:47:03] RESULT 0/s5 attempt 1: ok=True why=ppl=100.39 rc=0
+[2026-09-06 17:47:03] PROGRESS 19/24 valid
+[2026-09-06 17:47:03] RUN 1:8/s5 attempt 1/2
+[2026-09-06 18:16:53] RESULT 1:8/s5 attempt 1: ok=True why=ppl=37.42 rc=0
+[2026-09-06 18:16:53] PROGRESS 20/24 valid
+[2026-09-06 18:16:53] RUN 1:4/s5 attempt 1/2
+[2026-09-06 18:41:49] RESULT 1:4/s5 attempt 1: ok=True why=ppl=19.08 rc=0
+[2026-09-06 18:41:49] PROGRESS 21/24 valid
+[2026-09-06 18:41:49] RUN 1:2/s5 attempt 1/2
+[2026-09-06 18:59:46] RESULT 1:2/s5 attempt 1: ok=False why=diverged(ppl=1764.0) rc=0
+[2026-09-06 18:59:46] RUN 1:2/s5 attempt 2/2
+[2026-09-06 19:16:43] RESULT 1:2/s5 attempt 2: ok=False why=diverged(ppl=2274.7) rc=0
+[2026-09-06 19:16:43] DIVERGED-FINAL 1:2/s5: diverged(ppl=2274.7) | kept=ppl=2274.69
+[2026-09-06 19:16:43] PROGRESS 21/24 valid
+[2026-09-06 19:16:43] === ALL ARMS DONE: 21/24 valid ===
