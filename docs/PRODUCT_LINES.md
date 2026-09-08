@@ -4,6 +4,11 @@ Two model lines, one codebase, deliberately different trade-offs. This split
 exists to keep claims attributable: every capability statement below is
 backed by a table in [BENCHMARKS.md](../BENCHMARKS.md).
 
+Model delivery lines (M-series/O-series) are separate from architecture
+maturity. `m1_stable_config()` is the reproducible trunk; experimental
+cognitive mechanisms live behind `mt_lnn.m2.M2Experiment`. See
+[ARCHITECTURE_PROFILES.md](ARCHITECTURE_PROFILES.md).
+
 ## M-Series — hybrid (attention + liquid adapter)
 
 **What it is.** A frozen pretrained transformer (attention intact) plus the

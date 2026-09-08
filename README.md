@@ -84,6 +84,17 @@ To keep this repo credible, the following earlier headline claims are **withdraw
 
 See [docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md).
 
+## Architecture maturity
+
+- **M1 stable:** confirmed modern language trunk with research-only cognitive
+  modules removed from the graph. Use `m1_stable_config()`.
+- **M2 research:** explicit, one-mechanism-at-a-time experiments. Import
+  `M2Experiment` and `m2_research_config()` from `mt_lnn.m2`.
+- `MTLNNConfig()` remains the historical checkpoint-compatible path.
+
+The boundary and graduation rules are documented in
+[docs/ARCHITECTURE_PROFILES.md](docs/ARCHITECTURE_PROFILES.md).
+
 ## Inspiration (not load-bearing)
 
 MT-LNN's design *draws on* neuroscience — neuronal microtubules and the 13-protofilament count, Global Workspace Theory, Friston's predictive coding, and the Penrose–Hameroff Orch-OR collapse hypothesis. These shaped the initial architecture (e.g. the τ timescale ladder is initialized from biological priors, which the frozen-τ ablation shows is a genuinely good *starting point*: 0.285 vs 0.621 trained recall).

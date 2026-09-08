@@ -5,6 +5,9 @@
 - **在做的两个 bet**（唯一事实源：`docs/RESEARCH_PLAN.md` §1，PR #33）：P0-A 1M 流式记忆小模型（T002/H004，A 段 POC ≤¥500）；P0-B KaaS grounding 付费验证（T003/H005，≤¥300）。
 - **待合并队列**（CI 全绿，等管理员）：#32 批次3整合（memory_broker+固化策略+边缘批次2）→ #33 研究路线图 → 本 PR（文档治理）。
 - **卡点**：无 GPU 任务在跑。
+- **架构边界**：M1 stable / M2 research 已代码化；稳定档使用
+  `m1_stable_config()`，实验机制从 `mt_lnn.m2` 显式单项开启。历史
+  `MTLNNConfig()` 默认不变。详见 `docs/ARCHITECTURE_PROFILES.md`。
 - **纪律**：新决策一律 `kb/decisions/` 开新文件（ADJUDICATION_LOG 只做索引，每条 1 行）；活文档只放当前态——剧情归 git 历史与 `docs/archive/`；热区文档尺寸预算由 CI `check_doc_budget` 强制。
 
 
@@ -101,6 +104,7 @@ modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 | 深度敏感基准(单环指针追踪+模运算链) | `benchmarks/reasoning_tasks.py` | ✅ 已封死"抄起点"捷径 |
 | 深度实验框架(fixed/anytime/mix/消融旋钮) | `benchmarks/reasoning_depth.py` | ✅ 结果落 `benchmarks/results/reasoning_depth.jsonl` |
 | J-Space J1 工作区驻留(`workspace_iterations`) | `mt_lnn/gwtb.py` + `docs/JSPACE_DESIGN.md` | ✅ 默认 1 位等价,零新参数,cache parity 过;J2 持存槽/J3 可报告性/J4 surprise 写入见设计文档,待实验 |
+| M1/M2 配置边界 | `mt_lnn/profiles.py` + `mt_lnn/m2` | ✅ M1 稳定图移除认知实验；M2 按枚举显式开启，旧配置兼容 |
 
 ### 核心发现(改变 M2 设计方向)
 
