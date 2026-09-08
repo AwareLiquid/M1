@@ -79,8 +79,8 @@ def main():
 def _probe_timing(args):
     """每配置跑 probe_steps 步测 s/step，打印全协议 ETA 表 (选型用)。"""
     print(f"probe: {args.probe_steps} 步/配置, device={args.device}")
-    print(f"{'config':<12} {'s/step':>8} {'单配置30k':>12} {'全协议(x'
-          f'{len(args.seeds)} seeds)':>16}")
+    label = f"全协议(x{len(args.seeds)} seeds)"
+    print(f"{'config':<12} {'s/step':>8} {'单配置30k':>12} {label:>16}")
     sweep = 0.0
     for mode, depth in itertools.product(MODES, DEPTHS):
         sps = _measure_sps(args, mode, depth)
