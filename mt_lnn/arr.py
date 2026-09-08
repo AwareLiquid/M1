@@ -19,11 +19,20 @@ Inference is O(1)-state: no KV cache. `model.config.use_cache` must stay
 False; generation runs full-sequence forwards unless the streaming-state
 path (set_adapter_streaming-style, via each mixer's MTLNNLayerV2 state
 contract) is wired by the server.
+
+PARTIAL conversion (a "hybrid") is supported too and is a different product:
+`convert_to_arr(model, layer_indices={...})` leaves every other layer's
+pretrained attention bit-identical, which means those layers still need a
+KV cache. A hybrid is NOT O(1) — its carried state is
+`constant recurrent state + O(T) KV of the surviving attention layers`, and
+every artifact in this repo must report those two columns separately
+(see docs/ARR_RATIO_PARETO.md). Only the FULL conversion is the O-series.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
+import re
+from typing import Iterable, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -124,39 +133,165 @@ class ARRDecoderLayer(nn.Module):
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = residual + self.mlp(hidden_states)
+        # The return contract is the ONE thing that differs across
+        # transformers majors, and a hybrid makes it load-bearing:
+        #   >=5.x  `hidden_states = decoder_layer(...)` and each attention
+        #          layer writes into a shared Cache by layer_idx (verified on
+        #          the pinned 5.16.1) — so a recurrent layer must return the
+        #          BARE TENSOR and is simply absent from the cache, which is
+        #          fine (Cache.update appends lazily up to layer_idx).
+        #   4.x   `hidden_states = layer_outputs[0]` plus a cache slot read
+        #          at [1]; `probe_return_convention()` flips return_tuple for
+        #          that path. If a 4.x hybrid cannot consume it, run with
+        #          `--no_cache` (quality accounting is unaffected).
         return (hidden_states,) if self.return_tuple else hidden_states
 
 
 def convert_to_arr(
     model: nn.Module,
-    layer_indices: Optional[List[int]] = None,
+    layer_indices: Optional[Iterable[int]] = None,
     n_protofilaments: int = 13,
     d_proto: int = 96,
     n_time_scales: int = 5,
     proj_rank: int = 384,
     selective_decay: bool = True,
     fast_weight_dim: int = 96,
+    fast_weight_heads: int = 1,
 ) -> List[int]:
     """Swap self-attention for recurrent mixers in-place; freeze everything
-    else. Returns the converted layer indices (default: ALL layers — a true
-    attention-free model)."""
+    else. Returns the converted layer indices (sorted, de-duplicated).
+
+    `layer_indices` is the SUBSET to convert:
+      None          -> every layer (historical default, bit-for-bit unchanged)
+      set/list/...  -> only those layers. Every other layer keeps its
+                       pretrained attention untouched: same module object,
+                       same weights, same KV path — nothing is inserted,
+                       wrapped or reinitialised, so the comparison at
+                       ratio>0 is against an unmodified attention layer.
+
+    A partial conversion is a HYBRID, not the O-series: the surviving
+    attention layers still need a KV cache, so `config.use_cache` stays True.
+    Only the full conversion (no attention left) turns it off.
+    """
     from .llama_adapter import find_decoder_layers, freeze_module
 
     freeze_module(model)
     layers = find_decoder_layers(model)
+    chosen = normalize_layer_indices(layer_indices, len(layers))
     hidden = model.config.hidden_size
-    chosen = (list(layer_indices) if layer_indices is not None
-              else list(range(len(layers))))
     dtype = next(model.parameters()).dtype
     for idx in chosen:
-        mixer = MTRecurrentMixer(
-            hidden, n_protofilaments=n_protofilaments, d_proto=d_proto,
-            n_time_scales=n_time_scales, proj_rank=proj_rank,
-            selective_decay=selective_decay, fast_weight_dim=fast_weight_dim,
-        ).to(dtype)
+        mixer = _build_mixer(hidden, n_protofilaments, d_proto, n_time_scales,
+                             proj_rank, selective_decay, fast_weight_dim,
+                             fast_weight_heads).to(dtype)
         layers[idx] = ARRDecoderLayer(layers[idx], mixer)
-    model.config.use_cache = False   # no KV cache exists anymore
+    model.config.use_cache = len(chosen) < len(layers)
     return chosen
+
+
+def _build_mixer(hidden: int, n_protofilaments: int, d_proto: int,
+                 n_time_scales: int, proj_rank: int, selective_decay: bool,
+                 fast_weight_dim: int,
+                 fast_weight_heads: int) -> MTRecurrentMixer:
+    return MTRecurrentMixer(
+        hidden, n_protofilaments=n_protofilaments, d_proto=d_proto,
+        n_time_scales=n_time_scales, proj_rank=proj_rank,
+        selective_decay=selective_decay, fast_weight_dim=fast_weight_dim,
+        fast_weight_heads=fast_weight_heads,
+    )
+
+
+def normalize_layer_indices(layer_indices: Optional[Iterable[int]],
+                            n_layers: int) -> List[int]:
+    """Canonicalise a layer subset: sorted, de-duplicated, range-checked.
+
+    None means "every layer" — the pre-existing default, and the path the
+    bit-equivalence test pins down. A set/list passes through unchanged in
+    content (only ordered), so the caller's choice of layers is preserved.
+    """
+    if layer_indices is None:
+        return list(range(n_layers))
+    chosen = sorted({int(i) for i in layer_indices})
+    bad = [i for i in chosen if not 0 <= i < n_layers]
+    if bad:
+        raise ValueError(f"layer indices out of range [0, {n_layers}): {bad}")
+    return chosen
+
+
+def plan_hybrid_layers(n_layers: int,
+                       ratio: float) -> Tuple[List[int], List[int]]:
+    """Split a stack of `n_layers` at attention fraction `ratio`.
+
+    Returns (layers KEEPING full attention, layers CONVERTED to recurrence).
+    ratio=0 -> pure ARR (the O-series control); ratio=0.25 -> the 3:1
+    linear:attention mix Qwen3-Next and Kimi Linear both landed on.
+    """
+    keep = select_attention_layers(n_layers, ratio)
+    return keep, [i for i in range(n_layers) if i not in set(keep)]
+
+
+def select_attention_layers(n_layers: int, ratio: float) -> List[int]:
+    """Which layers keep full attention: `ratio` of the stack, evenly spread.
+
+    Equal-sized bins each contribute their MIDPOINT, so the surviving
+    attention layers stay distributed over the whole depth instead of
+    clustering at one end (a front-loaded stack degenerates into "attention
+    encoder + recurrent decoder", which is a different model). The achieved
+    ratio `len(result)/n_layers` is reported by the ledger — rounding to a
+    whole layer count means it is only approximately `ratio`.
+    """
+    n_keep = int(round(ratio * n_layers))
+    if n_keep <= 0:
+        return []
+    if n_keep >= n_layers:
+        return list(range(n_layers))
+    return sorted({min(n_layers - 1, (2 * i + 1) * n_layers // (2 * n_keep))
+                   for i in range(n_keep)})
+
+
+_RATIO_RE = re.compile(r"^\s*(\d+)\s*:\s*(\d+)\s*$")
+
+
+def parse_ratio(text) -> float:
+    """'1:4' -> 0.25 (one attention layer per four); '0' -> 0.0; '0.25' -> 0.25."""
+    m = _RATIO_RE.match(str(text))
+    if not m:
+        return float(text)
+    num, den = int(m.group(1)), int(m.group(2))
+    if den == 0:
+        raise ValueError(f"ratio denominator is zero: {text!r}")
+    return num / den
+
+
+def recurrent_state_elems(n_protofilaments: int = 13, d_proto: int = 96,
+                          n_time_scales: int = 5, fast_weight_dim: int = 96,
+                          fast_weight_heads: int = 1) -> int:
+    """Elements of CONSTANT carried state per converted layer (per sequence).
+
+    The scan state is (P, S, d_proto) and the fast-weight carry is (F, z) =
+    (H, D, D) + (H, D): both are flat in T, which is the whole O(1) claim for
+    the ratio-0 stack. Analytic, so it can be computed without a GPU; the
+    streaming test pins it against the tensors a real forward produces.
+    """
+    return (n_protofilaments * n_time_scales * d_proto
+            + fast_weight_heads * fast_weight_dim * (fast_weight_dim + 1))
+
+
+def measured_state_bytes(model: nn.Module, elem_bytes: int = 2) -> int:
+    """Bytes actually carried by the ARR mixers' streaming state, batch-1.
+
+    Only meaningful AFTER a streaming forward — before that the state
+    attributes are None and this returns 0. Its job is to audit the analytic
+    `recurrent_state_elems` ledger, not to replace it.
+    """
+    total = 0
+    for m in model.modules():
+        if not isinstance(m, MTRecurrentMixer):
+            continue
+        for tensor in (m._stream_h, *(m._stream_fw or ())):
+            if tensor is not None:
+                total += tensor[0].numel() * elem_bytes
+    return total
 
 
 def probe_return_convention(model: nn.Module) -> bool:

@@ -40,7 +40,42 @@ import torch.nn.functional as F
 from benchmarks.attribution_ablation import build_chunks  # DLL-order safe
 
 from mt_lnn.arr import (convert_to_arr, count_mixer_parameters,
-                        iter_mixer_parameters, probe_return_convention)
+                        iter_mixer_parameters, parse_ratio,
+                        plan_hybrid_layers, probe_return_convention)
+
+
+def hybrid_plan(n_layers, args):
+    """(layers keeping attention, layers converted) for a partial conversion.
+
+    --keep_ratio=0 (the default) converts EVERY layer: the historical
+    O-series behaviour, unchanged. Anything above 0 is a HYBRID — the kept
+    layers are the pretrained attention, frozen like everything else, and
+    they still need a KV cache (which is the whole point of
+    benchmarks/arr_ratio_sweep.py: is the quality worth the O(T) bytes?).
+    """
+    if args.keep_layers:
+        keep = sorted({int(x) for x in args.keep_layers.split(",") if x.strip()})
+    else:
+        keep, _ = plan_hybrid_layers(n_layers, parse_ratio(args.keep_ratio))
+    return keep, [i for i in range(n_layers) if i not in set(keep)]
+
+
+def _geometry(teacher, n_layers, keep):
+    """Model geometry the analytic KV ledger needs, straight from the config.
+
+    Recorded so benchmarks/arr_ratio_sweep.py never has to re-derive (or
+    hand-copy) the layer count / head geometry its byte columns charge for.
+    """
+    cfg = teacher.config
+    n_heads = getattr(cfg, "num_attention_heads")
+    return {
+        "n_layers": n_layers,
+        "attention_layers": keep,
+        "n_attention_layers": len(keep),
+        "d_head": cfg.hidden_size // n_heads,
+        "n_kv_heads": getattr(cfg, "num_key_value_heads", n_heads),
+        "hidden_size": cfg.hidden_size,
+    }
 
 
 class InputTap:
@@ -90,6 +125,13 @@ class LayerTap:
 
 
 @torch.no_grad()
+def _warmup_scale(step, warmup_steps):
+    """stage-B 线性 warmup: step 从 0 计; warmup_steps<=0 = off, 恒 1.0。"""
+    if warmup_steps <= 0:
+        return 1.0
+    return min(1.0, (step + 1) / warmup_steps)
+
+
 def eval_ppl(model, chunks, device, dtype, batch=1, max_chunks=0):
     model.eval()
     if max_chunks and max_chunks < len(chunks):
@@ -117,12 +159,20 @@ def main():
     ap.add_argument("--grad_accum", type=int, default=4)
     ap.add_argument("--lr_a", type=float, default=1e-3)
     ap.add_argument("--lr_b", type=float, default=5e-4)
+    ap.add_argument("--warmup_b", type=int, default=0,
+                    help="stage B 线性 warmup 步数 (0=off, 现行协议不变)。"
+                         "2026-08-31 批次: stage A→B 目标切换冲击下部分种子"
+                         "发散(NaN/714.9), clip 不足以拦 — 确认跑预注册时选择")
     ap.add_argument("--kd_tau", type=float, default=2.0)
     ap.add_argument("--kd_alpha", type=float, default=0.7,
                     help="weight of KL vs CE in stage B")
     ap.add_argument("--d_proto", type=int, default=96)
     ap.add_argument("--proj_rank", type=int, default=384)
     ap.add_argument("--fw_dim", type=int, default=96)
+    ap.add_argument("--n_protofilaments", type=int, default=13)
+    ap.add_argument("--n_time_scales", type=int, default=5,
+                    help="mixer geometry; arr_ratio_sweep passes the same "
+                         "values it charges the state-byte ledger for")
     ap.add_argument("--log_every", type=int, default=50)
     ap.add_argument("--eval_chunks", type=int, default=0, help="0 = all")
     ap.add_argument("--seed", type=int, default=0)
@@ -135,6 +185,18 @@ def main():
     # layer (MOHAWK stage 2), decoupling all layers.
     ap.add_argument("--align_mode", choices=["teacher_forced", "free"],
                     default="teacher_forced")
+    ap.add_argument("--keep_ratio", default="0",
+                    help="fraction of layers that KEEP pretrained attention "
+                         "('0', '1:8', '1:4', '1:2'); 0 = the pure-ARR "
+                         "O-series control, >0 = a hybrid that is NOT O(1)")
+    ap.add_argument("--keep_layers", default="",
+                    help="explicit comma-separated attention layer indices; "
+                         "overrides --keep_ratio")
+    ap.add_argument("--no_cache", action="store_true",
+                    help="force config.use_cache off on a hybrid student "
+                         "(escape hatch if the pinned transformers version "
+                         "cannot consume the recurrent layers' None cache "
+                         "slot — quality accounting is unaffected)")
     ap.add_argument("--resume", default="",
                     help="mixer checkpoint (.pt) to load before training")
     args = ap.parse_args()
@@ -164,13 +226,23 @@ def main():
     teacher.to(device).eval()
 
     student = copy.deepcopy(teacher)
+    from mt_lnn.llama_adapter import find_decoder_layers
+    n_layers = len(find_decoder_layers(student))
+    keep, to_convert = hybrid_plan(n_layers, args)
     converted = convert_to_arr(
-        student, d_proto=args.d_proto, proj_rank=args.proj_rank,
-        fast_weight_dim=args.fw_dim,
+        student, layer_indices=to_convert, d_proto=args.d_proto,
+        proj_rank=args.proj_rank, fast_weight_dim=args.fw_dim,
+        n_protofilaments=args.n_protofilaments,
+        n_time_scales=args.n_time_scales,
     )
+    if args.no_cache:
+        student.config.use_cache = False
     student.to(device)
     rt = probe_return_convention(student)
     print(f"layer return convention: {'tuple' if rt else 'tensor'}", flush=True)
+    print(f"hybrid plan: {len(keep)}/{n_layers} layers keep attention "
+          f"{keep} | {len(converted)} converted | use_cache="
+          f"{student.config.use_cache}", flush=True)
     if args.resume and os.path.exists(args.resume):
         sd = torch.load(args.resume, map_location="cpu",
                         weights_only=False)["state_dict"]
@@ -195,7 +267,10 @@ def main():
         else:
             loss.backward()
 
-    def opt_apply(opt):
+    def opt_apply(opt, lr_scale=1.0):
+        if lr_scale != 1.0:
+            for g in opt.param_groups:
+                g["lr"] = g["initial_lr"] * lr_scale
         if scaler is not None:
             scaler.unscale_(opt)
         torch.nn.utils.clip_grad_norm_(
@@ -217,6 +292,8 @@ def main():
         s_tap = (LayerTap(s_layers, converted)
                  if args.align_mode == "free" else None)
         opt = torch.optim.AdamW(iter_mixer_parameters(student), lr=args.lr_a)
+        for g in opt.param_groups:
+            g.setdefault("initial_lr", args.lr_a)
         student.train()
         step, t0 = 0, time.time()
         opt.zero_grad(set_to_none=True)
@@ -249,7 +326,7 @@ def main():
                     loss = loss / len(converted) / args.grad_accum
                 opt_step(opt, loss)
                 if (step + 1) % args.grad_accum == 0:
-                    opt_apply(opt)
+                    opt_apply(opt, _warmup_scale(step, args.warmup_b))
                 step += 1
                 if step % args.log_every == 0:
                     dt = max(time.time() - t0, 1e-3)
@@ -271,6 +348,8 @@ def main():
     # ---------------- Stage B: logit KD + CE ----------------
     if args.steps_b > 0:
         opt = torch.optim.AdamW(iter_mixer_parameters(student), lr=args.lr_b)
+        for g in opt.param_groups:
+            g.setdefault("initial_lr", args.lr_b)
         student.train()
         step, t0 = 0, time.time()
         opt.zero_grad(set_to_none=True)
@@ -318,7 +397,7 @@ def main():
         "model": args.model, "teacher_ppl": teacher_ppl,
         "student_ppl_after_a": ppl_a, "student_ppl_final": student_ppl,
         "mixer_params": n_mix, "converted_layers": converted,
-        "args": vars(args),
+        "args": vars(args), **_geometry(teacher, n_layers, keep),
     }
     with open(os.path.join(args.out_dir, "arr_result.json"), "w") as f:
         json.dump(payload, f, indent=2)

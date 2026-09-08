@@ -484,6 +484,59 @@ strict floors — real KIVI-scheme packing of the actual cache tensors adds
 are lower bounds. Artifacts: `benchmarks/results/kv_measured.{json,md}`,
 method: [docs/KV_FRONTIER.md](docs/KV_FRONTIER.md) §7.
 
+## O-series hybrid-ratio sweep — quality vs KV memory, 0:1 → 3:1 (confirmed 2026-09-06, 6 seeds)
+
+The O-series is all-or-nothing: O(1) carried state at 2.15× the teacher's PPL
+(25.4 vs 11.8). The frontier has converged on back-filling a slice of the
+layers with full attention — Qwen3-Next and Kimi Linear both landed on 3:1,
+GLM-5.3-Flash on 3 linear : 1 sparse, MiniCPM4 on InfLLM v2 trainable sparse
+attention. Those ratios were chosen at 10¹⁰–10¹¹ parameter scale, so the
+question for this repo is whether ~1:4 is *our*拐点 at *our* distillation
+budget. Full method, competitor table and runbook:
+[docs/ARR_RATIO_PARETO.md](docs/ARR_RATIO_PARETO.md).
+
+Design: `convert_to_arr(model, layer_indices=...)` converts a SUBSET — the
+remaining layers keep their pretrained attention bit-identical (pinned by
+`tests/test_arr_hybrid_ratio.py`). `benchmarks/arr_ratio_sweep.py` drives
+`benchmarks/distill_arr.py` once per (ratio, seed) over {0, 1:8, 1:4, 1:2} ×
+2 seeds at a fixed teacher and budget, so `--keep_ratio` is the only knob
+that moves and the control row runs the identical pipeline.
+
+**Boundary, restated because it is the point of the section:** a hybrid is
+**not O(1)**. Carried memory = constant recurrent state + O(T) KV of the
+surviving attention layers, reported as two columns that are never merged,
+with the KV column billed by the same `kv_bytes` formula (and the same 2-bit
+KIVI accounting) `benchmarks/kv_frontier.py` charges every opponent.
+
+| ratio | attn layers | val PPL | PPL 改善 vs 0 | 恒定循环状态 MB | KV MB @fp16 | KV MB @2bit | 判定 |
+|---|---|---|---|---|---|---|---|
+| 0（对照，唯一 O(1) 行） | 0/22 | 142.89 | — | 0.653 | **0** | **0** | control |
+| 1:8 | 3/22 | 88.92 | +37.8% | 0.564 | 96.0 | 12.75 | 探索性 |
+| **1:4** | 6/22 | **67.37** | **+52.9%** | 0.475 | 192.0 | 25.50 | **PASS（门限 ≥15%）** |
+| 1:2 | 11/22 | 263.52 | −84.4% | 0.326 | 352.0 | 46.76 | 探索性（3/6 臂发散剔除） |
+
+确认跑（2026-09-06，A100-80GB bf16，4 比例 × 6 seeds，21/24 臂有效；
+稳定化配方 `--warmup_b 200`，依赖 stage-A `initial_lr` 修复 e265875）。
+KV 列为参考上下文 T=32768 的解析账（`kv_frontier.kv_bytes` 同口径）。
+8/31 的 9/12 臂作废（子集 bug + warmup 旋钮从未生效），证据与账本见
+`benchmarks/arr_ratio_out/` + `benchmarks/results/rebuilt/`。
+**双峰性警示**：1:4 好模式 18.9–20.5 / 坏模式 162.1–164.0（对照同样双峰
+74.5–207.6）；warmup 改善坏模式（8/31 无 warmup 时 220–305）但未消除。
+引用均值必须附 spread；配对口径 6/6 全胜不受影响。1:2 在 3000 步蒸馏
+预算内系统性不可训（与 8/31 一致），判负。
+
+Gates were fixed before any number existed: primary improvement is
+`(ppl_0 − ppl_k)/ppl_0` on seed means, the 1:4 gate is **≥15%**, and missing
+it is recorded as the negative result "回填无效" rather than re-negotiated.
+Gap closure toward the teacher is reported as a second column so a reader who
+prefers that definition does not need a rerun. **Confirmed at 6 seeds (2026-09-06):
+1:4 passes the gate (+52.9%) and is promotable; the H002 verdict is SUPPORTED
+(see RESULTS.md row + kb/hypotheses/H002).**
+
+Reproduce: `python benchmarks/arr_ratio_sweep.py --dry_run` (plan) →
+`--smoke` (CPU, minutes) → full (remote GPU, 8 distillation runs) →
+`python -m pytest tests/test_arr_hybrid_ratio.py -q`.
+
 ## MTP (multi-token-prediction) aux loss — honest null, not promoted (2026-07-12)
 
 `benchmarks/scaling_comparison.py --mode train`, native MT-LNN 125M, matched

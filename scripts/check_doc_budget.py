@@ -32,7 +32,7 @@ BUDGETS = {
     "README.md": 650,
     "docs/RESEARCH_PLAN.md": 220,             # §1 状态表 + pitch；决策记录去 kb/decisions/
     # 参考型（宽松上限，防失控不防篇幅）
-    "BENCHMARKS.md": 1850,
+    "BENCHMARKS.md": 1950,
 }
 
 VERBOSE = "-v" in sys.argv

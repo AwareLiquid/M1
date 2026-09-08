@@ -52,6 +52,48 @@ cross-window recall: negative at current budget (curriculum retry queued).
 KV-cache growth is disqualifying. A deliberate trade: some quality for
 extreme memory behaviour.
 
+## O-Series-hybrid — ARR + 回填注意力（研究中，尚无数字）
+
+**What it is.** The same recipe, but only a *fraction* of the layers are
+converted; the rest keep their pretrained attention, bit-identical. The knob
+is `--keep_ratio` on `benchmarks/distill_arr.py`, driven over
+{0, 1:8, 1:4, 1:2} by `benchmarks/arr_ratio_sweep.py`.
+
+**Why it exists.** The frontier (Qwen3-Next, Kimi Linear, GLM-5.3-Flash) has
+converged on keeping ~1/4 of the layers as full attention. Those ratios were
+chosen at 10¹⁰–10¹¹ parameter scale; whether 1:4 is also the拐点 at our
+distillation budget is an open question this repo has to answer with its own
+numbers.
+
+**Status: confirmed 2026-09-06** (4 比例 × 6 seeds, 21/24 臂有效,
+`--warmup_b 200` 稳定化配方, A100-80GB bf16) —
+see [docs/ARR_RATIO_PARETO.md](ARR_RATIO_PARETO.md) + the ledger in
+`benchmarks/results/rebuilt/arr_ratio_pareto.{json,md}`.
+
+| claim | status |
+|---|---|
+| 回填注意力改善 PPL | ✅ **1:4 PASS** — mean 67.37 vs ratio-0 142.89 = **+52.9%**（门限 ≥15%） |
+| 哪个比例落在质量/内存帕累托前沿上 | ✅ **1:4**（6/22 注意力层；192.0 MB @32K fp16 vs 0 比例 0.65 MB O(1)）；1:8 +37.8%；1:2 判负（3/6 臂发散） |
+| 单位携带内存下优于任一父本 | ✅ 曲线实测：O(1) 端（0.65 MB）与质量端（1:4，接近教师）都是曲线上真实端点 |
+| **O(1) / 恒定内存** | ✘ **do not claim** — 见下方边界 |
+
+**双峰性警示（写进引用处）**：1:4 好模式 18.9–20.5 / 坏模式 162.1–164.0；
+对照同样双峰 74.5–207.6。配对口径 6/6 全胜；均值口径方差大，引用附 spread。
+后续（G1 盲区）：1:4 上补跑 cross-window recall 作补充列（需重训留存 checkpoint）。
+
+**Honest boundary (write it into every artifact).** A hybrid is **not O(1)**:
+carried memory = constant recurrent state **+ O(T) KV of the surviving
+attention layers**. The two are reported in separate columns and never
+merged; only ratio 0 (the pure O-series above) has an empty KV column. KV is
+billed by the same `kv_bytes` formula `benchmarks/kv_frontier.py` uses, at
+both fp16 and 2-bit — our hybrid does not get a friendlier accountant than
+the competition.
+
+**Positioning (confirmed 2026-09-06).** 1:4 cleared the gate (+52.9% vs the
+ratio-0 control, 6/6 paired seeds): this is the line for "unbounded stream,
+but quality matters more than the absolute memory floor" — O(1) and quality
+are now endpoints of a measured curve rather than a binary choice.
+
 ## Why not one model with an `enable_attention` switch?
 
 Attention weights and mixer weights are different training artifacts — a
