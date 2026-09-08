@@ -122,6 +122,7 @@ class MTLNNConfig:
     # GWTBLayer 预分配 O(T²) causal mask（128k ≈ 17GB），是 O 系列无注意力
     # 之后唯一的 O(T²) 残留。默认 True = 历史路径。
     use_gwtb: bool = True
+    use_global_coherence: bool = True
     # J-Space J1 (docs/JSPACE_DESIGN.md): workspace reverberation. The
     # workspace self-attention iterates this many weight-tied passes per
     # forward — content "reverberates on the stage" before broadcast. At

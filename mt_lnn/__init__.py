@@ -1,4 +1,5 @@
 from .config import MTLNNConfig
+from .profiles import M2Experiment, m1_stable_config, m2_research_config
 from .model import MTLNNModel, MTLNNBlock, ModelCacheStruct
 from .memory import SessionMemory
 from .knowledge_memory import PersistentKnowledgeMemory
@@ -208,6 +209,9 @@ def __getattr__(name):
 
 __all__ = [
     "MTLNNConfig",
+    "M2Experiment",
+    "m1_stable_config",
+    "m2_research_config",
     "MTLNNModel",
     "MTLNNBlock",
     "ModelCacheStruct",

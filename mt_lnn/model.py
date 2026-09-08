@@ -380,7 +380,11 @@ class MTLNNModel(nn.Module):
             self.gwtb = None
 
         # Orch-OR collapse layer (complementary to GWTB)
-        self.coherence = GlobalCoherenceLayer(config)
+        self.coherence = (
+            GlobalCoherenceLayer(config)
+            if getattr(config, "use_global_coherence", True)
+            else None
+        )
         self.final_norm = nn.LayerNorm(config.d_model)
 
         # Global rhythm controller: reads per-layer LAVI buffers after the block
@@ -844,13 +848,17 @@ class MTLNNModel(nn.Module):
             if use_cache:
                 new_cache.gwtb_kv = gwtb_new_kv
 
-        coh_past = cache.coherence_kv if cache is not None else None
-        x, coh_new_kv = self.coherence(
-            x, past_kv=coh_past, position_offset=position_offset, use_cache=use_cache,
-            pad_mask=pad_mask,
-        )
-        if use_cache:
-            new_cache.coherence_kv = coh_new_kv
+        if self.coherence is not None:
+            coh_past = cache.coherence_kv if cache is not None else None
+            x, coh_new_kv = self.coherence(
+                x,
+                past_kv=coh_past,
+                position_offset=position_offset,
+                use_cache=use_cache,
+                pad_mask=pad_mask,
+            )
+            if use_cache:
+                new_cache.coherence_kv = coh_new_kv
 
         x = self.final_norm(x)
 
@@ -1212,9 +1220,10 @@ class MTLNNModel(nn.Module):
                 diag["hebbian_signal_mean"] = sum(hebb_sigs) / len(hebb_sigs)
             diag["hebbian_lavi_temperature"] = self.hebbian_reg.lavi_temperature.item()
 
-        diag["coherence_scale"] = self.coherence.coherence_scale.item()
-        diag["collapse_threshold"] = self.coherence.collapse_threshold.item()
-        diag["collapse_gate_last"] = self.coherence.last_gate.item()
+        if self.coherence is not None:
+            diag["coherence_scale"] = self.coherence.coherence_scale.item()
+            diag["collapse_threshold"] = self.coherence.collapse_threshold.item()
+            diag["collapse_gate_last"] = self.coherence.last_gate.item()
 
         if self.gwtb is not None:
             # Single top-level GWTB (standard or competitive)
