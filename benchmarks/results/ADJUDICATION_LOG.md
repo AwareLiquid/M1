@@ -22,3 +22,4 @@
 | [ADJ-008](kb/decisions/ADJ-008-edge-line-batch2-clearance.md) | 2026-09-06 | 边缘证据线批次2清偿:生产者代码 + 6 份判负/加固证据 + 判定轨回填 |
 | [ADJ-009](kb/decisions/ADJ-009-merge-window-consolidation.md) | 2026-09-07 | 绿 PR 队列批次整合纪律(合并窗口制) |
 | [ADJ-010](kb/decisions/ADJ-010-doc-budget-benchmarks-hybrid-ratio.md) | 2026-09-08 | BENCHMARKS 预算 1850→1950（hybrid-ratio 确认节随 ARR 工具入 main） |
+| [ADJ-011](kb/decisions/ADJ-011-main-approval-requirement-relaxed.md) | 2026-09-08 | main 批准门槛 1→0（双账号排程约束移除，CI 门禁保留） |
