@@ -117,8 +117,9 @@ class ParametricMemory:
         lexicon_capacity: int = 1024,
         dtype: torch.dtype = torch.float32,
     ):
-        if update_rule not in ("sum", "delta"):
-            raise ValueError(f"update_rule must be 'sum' or 'delta', got {update_rule!r}")
+        if update_rule not in ("sum", "delta", "falcon_nlms"):
+            raise ValueError(
+                f"update_rule must be 'sum'/'delta'/'falcon_nlms', got {update_rule!r}")
         if not 0.0 < decay <= 1.0:
             raise ValueError(f"decay must be in (0, 1], got {decay!r}")
         if not 0.0 < eta <= 1.0:
@@ -176,8 +177,9 @@ class ParametricMemory:
         one store can A/B the two trained mechanisms (mt_v2 vs mt_v2_delta).
         delta carries z unchanged, mirroring FastWeightMemoryV2's contract."""
         rule = update_rule or self.update_rule
-        if rule not in ("sum", "delta"):
-            raise ValueError(f"update_rule must be 'sum' or 'delta', got {rule!r}")
+        if rule not in ("sum", "delta", "falcon_nlms"):
+            raise ValueError(
+                f"update_rule must be 'sum'/'delta'/'falcon_nlms', got {rule!r}")
         k = self._embed(key)
         v = self._embed(value)
         s = self._session(session_id)
@@ -185,12 +187,19 @@ class ParametricMemory:
             # Outer-product accumulation with decay: F <- decay*F + k v^T.
             s.F = self.decay * s.F + torch.outer(k, v)
             s.z = self.decay * s.z + k
-        else:
+        elif rule == "delta":
             # Gradient-as-memory: F <- decay*F - eta * k (k^T F - v)^T.
             # k must be unit-norm (it is, by _embed) so the per-step
             # contraction eigenvalue is (decay - eta) in (-1, 1) — bounded.
             pred = k @ s.F                          # (d,) = k^T F
             s.F = self.decay * s.F - self.eta * torch.outer(k, pred - v)
+        else:
+            # Falcon-1 scalar NLMS (arXiv:2608.27763): F <- decay*F +
+            # eta (v - F k) k^T / (||k||^2 + eps), scale-invariant step.
+            pred = s.F @ k
+            s.F = self.decay * s.F + self.eta * torch.outer(v - pred, k) / (
+                float(k.dot(k)) + _EPS
+            )
         s.read_rule = rule
         if isinstance(value, str):
             s.lexicon[value] = v

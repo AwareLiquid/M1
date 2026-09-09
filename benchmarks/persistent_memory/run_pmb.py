@@ -178,9 +178,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="PMB v0 — Persistent Memory Benchmark runner")
     p.add_argument("--task", choices=["t1", "t2", "t3", "all"], default="t1")
-    p.add_argument("--system", choices=["none", "oracle", "rag", "fastweight"],
-                   default="rag")
+    p.add_argument("--system", choices=["none", "oracle", "rag", "parametric",
+                                        "fastweight"], default="rag")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--update-rule", choices=["sum", "delta", "falcon_nlms"],
+                   default="falcon_nlms",
+                   help="parametric fast-weight write rule (Falcon-1 NLMS "
+                        "default; sum/delta are the existing baselines)")
     p.add_argument("--encoder", choices=["hash", "e5"], default="hash",
                    help="rag encoder: hash = offline hashed BoW; "
                         "e5 = mt_lnn SentenceEncoder (multilingual-e5-small)")
@@ -214,7 +218,8 @@ def main(argv=None) -> int:
 
     def factory() -> MemorySystem:
         return make_system(args.system, encoder=args.encoder, topk=args.topk,
-                           dim=args.dim, max_tokens=args.max_tokens)
+                           dim=args.dim, max_tokens=args.max_tokens,
+                           update_rule=args.update_rule)
 
     tasks = ["t1", "t2", "t3"] if args.task == "all" else [args.task]
     report = {
@@ -223,6 +228,7 @@ def main(argv=None) -> int:
         "seed": args.seed,
         "config": {"encoder": args.encoder, "topk": args.topk,
                    "dim": args.dim, "max_tokens": args.max_tokens,
+                   "update_rule": args.update_rule,
                    "context_char_budget": args.context_char_budget},
         "results": {t: TASK_RUNNERS[t](factory, args.seed,
                                        args.context_char_budget)

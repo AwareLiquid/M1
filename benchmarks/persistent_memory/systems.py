@@ -510,12 +510,96 @@ class FastWeightSystem(MemorySystem):
 
 
 # ---------------------------------------------------------------------------
+# parametric — fast-weight (F, z) memory with selectable write rule
+# ---------------------------------------------------------------------------
+
+_NON_NAME_CAPS = frozenset({
+    "The", "What", "Which", "For", "Please", "According", "Note", "Update",
+    "Correction", "Effective",
+})
+
+
+class ParametricMemorySystem(MemorySystem):
+    """Fast-weight (F, z) memory backed by ``mt_lnn.parametric_memory`` with a
+    selectable write rule (``sum`` / ``delta`` / ``falcon_nlms``). Generative
+    mode: parses fact sentences into ``key -> code`` bindings written into the
+    (F, z) state; answers by recalling the bound code through the state."""
+
+    name = "parametric"
+    mode = "generative"
+    _SNAP_FORMAT = "pmb-parametric-v1"
+    _SID = "pmb"
+
+    def __init__(self, d_mem: int = 256, update_rule: str = "falcon_nlms",
+                 decay: float = 0.99, eta: float = 0.5, seed: int = 0):
+        from mt_lnn.parametric_memory import ParametricMemory
+        self.memory = ParametricMemory(d_mem=d_mem, update_rule=update_rule,
+                                       decay=decay, eta=eta, seed=seed)
+        self.update_rule = update_rule
+        self.d_mem = d_mem
+
+    @staticmethod
+    def _attr_in(sentence: str) -> Optional[str]:
+        try:
+            from .tasks import ATTRIBUTES
+        except ImportError:
+            from tasks import ATTRIBUTES
+        for a in ATTRIBUTES:
+            if a in sentence:
+                return a
+        return None
+
+    @staticmethod
+    def _key_of(sentence: str) -> Optional[str]:
+        """Extract ``name attr`` from a fact/question sentence (None if not
+        fact-shaped; no 6-digit code / no known attribute)."""
+        attr = ParametricMemorySystem._attr_in(sentence)
+        if attr is None:
+            return None
+        rest = sentence.replace(attr, " ")
+        rest = re.sub(r"\b\d{6}\b", " ", rest)
+        caps = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b", rest)
+        caps = [c for c in caps if c.split()[0] not in _NON_NAME_CAPS]
+        if not caps:
+            return None
+        return f"{caps[-1].strip()} {attr}"
+
+    def ingest(self, session_id: str, text: str) -> None:
+        for sent in _split_sentences(text):
+            code = re.search(r"\b\d{6}\b", sent)
+            key = self._key_of(sent)
+            if code and key:
+                self.memory.write(self._SID, key, code.group(0))
+
+    def snapshot(self, session_id: str) -> bytes:
+        snap = self.memory.snapshot(self._SID)
+        if snap is None:
+            return b""
+        return json.dumps(snap, ensure_ascii=False).encode("utf-8")
+
+    def restore(self, blob: bytes) -> None:
+        if not blob:
+            return
+        self.memory.restore(self._SID, json.loads(blob.decode("utf-8")))
+
+    def answer(self, question: str) -> str:
+        key = self._key_of(question)
+        if key is None:
+            return ""
+        hits = self.memory.recall(self._SID, key, top_k=1)
+        if not hits or hits[0][0] is None:
+            return ""
+        return str(hits[0][0])
+
+
+# ---------------------------------------------------------------------------
 # factory
 # ---------------------------------------------------------------------------
 
 def make_system(name: str, *, encoder: str = "hash", topk: int = 8,
                 dim: int = 256, max_tokens: int = 8000,
-                device: str = "cpu", **fastweight_kwargs) -> MemorySystem:
+                device: str = "cpu", update_rule: str = "falcon_nlms",
+                **fastweight_kwargs) -> MemorySystem:
     """Build a fresh system instance (the runner calls this per session to
     enforce the disk round-trip — no in-process state may survive)."""
     if name == "none":
@@ -524,7 +608,10 @@ def make_system(name: str, *, encoder: str = "hash", topk: int = 8,
         return OracleContextSystem(max_tokens=max_tokens)
     if name == "rag":
         return RagSystem(encoder=encoder, topk=topk, dim=dim, device=device)
+    if name == "parametric":
+        return ParametricMemorySystem(d_mem=dim, update_rule=update_rule)
     if name == "fastweight":
         return FastWeightSystem(device=device, **fastweight_kwargs)
     raise ValueError(
-        f"unknown system {name!r} (expected none|oracle|rag|fastweight)")
+        f"unknown system {name!r} "
+        f"(expected none|oracle|rag|parametric|fastweight)")
