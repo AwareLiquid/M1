@@ -125,23 +125,36 @@ def train(args):
     print(f"Device: {device}")
 
     # ------------------------------------------------------------------
+    # Scale preset + length curriculum (2B skeleton)
+    # ------------------------------------------------------------------
+    if args.model_size == "2b" and args.d_model == 832 and args.n_layers == 12:
+        args.d_model, args.n_layers = 2496, 28
+        args.n_heads, args.n_kv_heads = 24, 4
+        print("[model_size=2b] preset: d_model=2496(13×192) n_layers=28 "
+              "n_heads=24 n_kv_heads=4 ≈1.97B")
+    curriculum = None
+    if args.curriculum:
+        curriculum = []
+        for pair in args.curriculum.split(","):
+            seq_s, step_s = pair.split(":")
+            curriculum.append((int(seq_s), int(step_s)))
+        curriculum.sort(key=lambda t: t[1])
+        if curriculum[0][1] != 0:
+            raise SystemExit("--curriculum: first stage STEP must be 0")
+        print(f"[curriculum] {curriculum}")
+    final_seq_len = curriculum[-1][0] if curriculum else args.seq_len
+
+    # ------------------------------------------------------------------
     # Data
     # ------------------------------------------------------------------
     if args.dummy:
         cfg_kwargs = dict(vocab_size=args.vocab_size or 1000)
-        train_ds = DummyDataset(cfg_kwargs["vocab_size"], args.seq_len, n_samples=200)
-        val_ds   = DummyDataset(cfg_kwargs["vocab_size"], args.seq_len, n_samples=20)
     else:
         meta_path = os.path.join(args.data_dir, "meta.json")
         assert os.path.exists(meta_path), \
             f"No meta.json at {meta_path}. Run `python prepare_data.py` first."
         meta = json.load(open(meta_path))
         cfg_kwargs = dict(vocab_size=meta["vocab_size"])
-        train_ds = BinDataset(os.path.join(args.data_dir, "train.bin"), args.seq_len)
-        val_path = os.path.join(args.data_dir, "validation.bin")
-        if not os.path.exists(val_path):
-            val_path = os.path.join(args.data_dir, "test.bin")
-        val_ds = BinDataset(val_path, args.seq_len)
     # Selective transition knobs (E5e, 2026-08-15): config-level switches for
     # the parity/length-extrapolation line. Default off = historical path.
     # tau_max is NOT overridden here — parity protocols set it explicitly via
@@ -155,6 +168,28 @@ def train(args):
         cfg_kwargs["attention_layers"] = tuple(args.attention_layers)
     if args.no_gwtb:
         cfg_kwargs["use_gwtb"] = False
+
+    def make_loaders(seq_len):
+        if args.dummy:
+            tr = DummyDataset(cfg_kwargs["vocab_size"], seq_len, n_samples=200)
+            va = DummyDataset(cfg_kwargs["vocab_size"], seq_len, n_samples=20)
+        else:
+            tr = BinDataset(os.path.join(args.data_dir, "train.bin"), seq_len)
+            va_path = os.path.join(args.data_dir, "validation.bin")
+            if not os.path.exists(va_path):
+                va_path = os.path.join(args.data_dir, "test.bin")
+            va = BinDataset(va_path, seq_len)
+        tr_loader = DataLoader(
+            tr, batch_size=args.batch, shuffle=True,
+            num_workers=args.num_workers, pin_memory=True, drop_last=True)
+        va_loader = DataLoader(
+            va, batch_size=args.batch, shuffle=False,
+            num_workers=args.num_workers, pin_memory=True, drop_last=True)
+        return tr_loader, va_loader, tr, va
+
+    seq0 = curriculum[0][0] if curriculum else args.seq_len
+    train_loader, val_loader, train_ds, val_ds = make_loaders(seq0)
+    if args.no_gwtb:
         train_tokens = getattr(train_ds, "data", None)
         val_tokens = getattr(val_ds, "data", None)
         if train_tokens is not None:
@@ -162,15 +197,6 @@ def train(args):
                   f"Val tokens: {len(val_tokens):,}")
         else:
             print(f"Train samples: {len(train_ds)}  Val samples: {len(val_ds)}")
-
-    train_loader = DataLoader(
-        train_ds, batch_size=args.batch, shuffle=True,
-        num_workers=args.num_workers, pin_memory=True, drop_last=True,
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=args.batch, shuffle=False,
-        num_workers=args.num_workers, pin_memory=True, drop_last=True,
-    )
 
     # ------------------------------------------------------------------
     # Model
@@ -181,7 +207,7 @@ def train(args):
         n_heads=args.n_heads,
         n_kv_heads=args.n_kv_heads,
         d_head=args.d_model // args.n_heads,
-        max_seq_len=args.seq_len,
+        max_seq_len=final_seq_len,
         dropout=args.dropout,
         # v2.0 modules — all default False to preserve existing behaviour
         gwtb_n_heads=args.gwtb_n_heads,
@@ -210,6 +236,20 @@ def train(args):
         print("Direct target mode: backbone frozen; training target_queries/target_norm/target_head only.")
     print(f"Parameters: {n_params/1e6:.1f}M  (config: {config.d_model}d × {config.n_layers}L × {config.n_heads}H, GQA={config.n_kv_heads})")
 
+    if args.activation_checkpointing:
+        # MTLNNBlock.forward carries cache/recurrence kwargs, so per-block
+        # checkpointing must live inside mt_lnn/model.py — out of skeleton
+        # scope. 2B long-seq runs should add it there; here we just confirm.
+        print("[activation_checkpointing] not wired: needs block-level "
+              "checkpointing inside mt_lnn/model.py (see train.py --help)")
+    if args.fsdp:
+        if not torch.distributed.is_available() or not torch.distributed.is_initialized():
+            raise SystemExit("--fsdp requires torchrun launch: "
+                             "torchrun --nproc_per_node=N train.py --fsdp ...")
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        model = FSDP(model, device_id=int(os.environ.get("LOCAL_RANK", 0)))
+        print(f"[fsdp] model wrapped (world size {torch.distributed.get_world_size()})")
+
     # torch.compile for speed (skip on CPU since the gain isn't there)
     if args.compile and device == "cuda":
         print("Compiling model with torch.compile …")
@@ -219,7 +259,15 @@ def train(args):
     # Optimiser + scheduler
     # ------------------------------------------------------------------
     param_groups = make_param_groups(model, base_lr=args.lr)
-    optimizer = torch.optim.AdamW(param_groups, betas=(0.9, 0.95), eps=1e-8)
+    if args.optimizer == "adamw8bit":
+        try:
+            import bitsandbytes as bnb
+        except ImportError:
+            raise SystemExit("--optimizer adamw8bit requires bitsandbytes: "
+                             "pip install bitsandbytes")
+        optimizer = bnb.optim.AdamW8bit(param_groups, betas=(0.9, 0.95), eps=1e-8)
+    else:
+        optimizer = torch.optim.AdamW(param_groups, betas=(0.9, 0.95), eps=1e-8)
     scheduler = WarmupCosineScheduler(optimizer, args.warmup_steps, args.steps,
                                        min_lr=args.lr * 0.1)
 
@@ -299,7 +347,15 @@ def train(args):
     t0 = time.time()
     model.train()
 
+    stage_idx = 0
     while step < args.steps:
+        if curriculum and stage_idx + 1 < len(curriculum) \
+                and step >= curriculum[stage_idx + 1][1]:
+            stage_idx += 1
+            args.seq_len = curriculum[stage_idx][0]
+            del train_loader, val_loader
+            train_loader, val_loader, _, _ = make_loaders(args.seq_len)
+            print(f"[curriculum] step {step}: seq_len -> {args.seq_len}")
         for inp, lbl in train_loader:
             if step >= args.steps:
                 break
@@ -437,6 +493,12 @@ def parse_args():
     # 125M defaults — Tensor-Core aligned:
     # d_model=832 = 13 × 64 means d_proto=d_head=64 (8-multiple). n_heads=13
     # makes each attention head correspond to one protofilament.
+    # 2B preset (DEEP_INTEGRATION_PLAN 1b): d_model=2496 = 13×192 (d_proto=192),
+    # 28 layers, GQA 24:4 heads — ≈1.97B params (calibrated c≈10.56·d²/layer).
+    # Preset applies only when the dims below are still at their defaults.
+    p.add_argument("--model_size",    choices=["125m", "2b"], default="125m",
+                   help="Scale preset; '2b' overrides d_model/n_layers/n_heads/"
+                        "n_kv_heads when those are left at their defaults")
     p.add_argument("--d_model",       type=int,   default=832)
     p.add_argument("--n_layers",      type=int,   default=12)
     p.add_argument("--n_heads",       type=int,   default=13)
@@ -444,6 +506,10 @@ def parse_args():
     # Start with 512; once converged, fine-tune at 2048+ — RoPE + MT bias
     # generalise well past the training length.
     p.add_argument("--seq_len",       type=int,   default=512)
+    p.add_argument("--curriculum",    type=str,   default=None,
+                   help="Length curriculum 'SEQ:STEP,...' e.g. "
+                        "'512:0,2048:2000,8192:4000,32768:6000' — rebuilds the "
+                        "loaders when step crosses each STEP")
     p.add_argument("--dropout",       type=float, default=0.1)
     p.add_argument("--gwtb_n_heads",  type=int,   default=4,
                    help="Number of GWTB workspace attention heads (must divide d_model//gwtb_ratio)")
@@ -453,6 +519,10 @@ def parse_args():
     # learning on the LNN side).
     p.add_argument("--batch",         type=int,   default=8)
     p.add_argument("--grad_accum",    type=int,   default=64)
+    p.add_argument("--optimizer",     choices=["adamw", "adamw8bit"],
+                   default="adamw",
+                   help="adamw8bit = bitsandbytes 8-bit AdamW (single-GPU 2B "
+                        "feasibility on 40GB; requires bitsandbytes)")
     p.add_argument("--lr",            type=float, default=6e-4)
     p.add_argument("--grad_clip",     type=float, default=1.0)
     p.add_argument("--warmup_steps",  type=int,   default=2000)
@@ -467,6 +537,12 @@ def parse_args():
     p.add_argument("--num_workers",   type=int,   default=2)
     # Switches
     p.add_argument("--compile",       action="store_true", help="Enable torch.compile")
+    p.add_argument("--activation_checkpointing", action="store_true",
+                   help="Wrap backbone blocks with torch.utils.checkpoint to "
+                        "trade compute for activation memory (long-seq 2B)")
+    p.add_argument("--fsdp",          action="store_true",
+                   help="Wrap model in FSDP (multi-GPU sharding). Launch with "
+                        "torchrun --nproc_per_node=N train.py --fsdp ...")
     p.add_argument("--wandb",         action="store_true", help="Enable W&B logging")
     p.add_argument("--wandb_project", type=str,   default="mt-lnn")
     p.add_argument("--wandb_run_name", type=str,  default=None)
