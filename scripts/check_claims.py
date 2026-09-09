@@ -170,6 +170,12 @@ def parse_row(raw: str) -> list[str]:
 
 
 def check(args: argparse.Namespace) -> int:
+    # GBK 终端 errors=strict 会让 RESULTS 行里的 ✓ 等字符 UnicodeEncodeError 崩;
+    # errors=replace 把不能编码字符变 ? 而不中断(encoding 不变)。
+    try:
+        sys.stdout.reconfigure(encoding=sys.stdout.encoding, errors="replace")
+    except (AttributeError, ValueError):
+        pass
     results_p = Path(args.results)
     bench_p = Path(args.benchmarks)
     benches = Benchmarks(bench_p)
@@ -267,16 +273,16 @@ def check(args: argparse.Namespace) -> int:
     # ── 汇总 ──────────────────────────────────────────────────────────
     print(f"账本行: {rows_checked}  失败: {len(failures)}  警告: {len(warnings)}")
     for f in failures:
-        print(f"  ❌ {f}")
+        print(f"  [FAIL] {f}")
     for w in warnings:
-        print(f"  ⚠️  {w}")
+        print(f"  [WARN] {w}")
     if failures and not args.report_only:
-        print("❌ check_claims: 账本存在不可溯源行")
+        print("[FAIL] check_claims: 账本存在不可溯源行")
         return 1
     if failures:
-        print("⚠️  report-only 模式: 存在失败但不阻塞")
+        print("[WARN] report-only 模式: 存在失败但不阻塞")
         return 0
-    print("✅ check_claims: 每个账本行均可溯源 (章节锚点/证据文件)")
+    print("[OK] check_claims: 每个账本行均可溯源 (章节锚点/证据文件)")
     return 0
 
 

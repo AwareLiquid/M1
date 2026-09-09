@@ -1,5 +1,12 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
+> 组件审计与最终分类：[COMPONENT_AUDIT.md](docs/COMPONENT_AUDIT.md)。
+> 研发主体保持液态/类脑；物理头归Physics，暂未迁移；接口通过不代表能力获益。
+
+> 2026-09-09 历史成果整理入口：[保留清单与训练准入](docs/RESEARCH_RECOVERY.md)。
+> 原始成果保留；融合式 PCLiquidCore 与主 LM 的外挂 PC 不同，不能互相替代裁决。
+> 下文含历史快照；训练前按上述索引及 RESULTS.md 核对，不直接照旧待办重跑。
+
 ## 0. 当前快照（2026-09-06，冷热分离纪律：本节 ≤40 行，只放当前态）
 
 - **在做的两个 bet**（唯一事实源：`docs/RESEARCH_PLAN.md` §1，PR #33）：P0-A 1M 流式记忆小模型（T002/H004，A 段 POC ≤¥500）；P0-B KaaS grounding 付费验证（T003/H005，≤¥300）。

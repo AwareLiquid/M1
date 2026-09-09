@@ -44,6 +44,7 @@ KeyboardInterrupt 打断在 write 与 replace 之间,恰好是唯一命名的 tm
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import time
@@ -53,13 +54,36 @@ from typing import Any
 __all__ = ["atomic_write_bytes", "atomic_write_text", "atomic_write_json"]
 
 
-def _tmp_name(path: Path) -> Path:
-    """每次调用生成独占 tmp 名:<dest>.<pid>.<nonce>.tmp。
+_nonce = itertools.count()
 
-    pid 供人排查硬杀残留;time_ns 提供实际唯一性(见模块 docstring)。
+
+def _tmp_name(path: Path) -> Path:
+    """每次调用生成独占 tmp 名:<dest>.<pid>.<time_ns>.<counter>.tmp。
+
+    pid 供人排查硬杀残留;time_ns 提供跨进程唯一性;counter 保证同进程
+    内唯一——Windows 的 time_ns 分辨率不足,64 次快速调用会撞同一纳秒
+    (test_no_shared_tmp_name 实测),counter 兜底。
     """
-    nonce = time.time_ns()
-    return path.with_name(f"{path.name}.{os.getpid()}.{nonce}.tmp")
+    return path.with_name(
+        f"{path.name}.{os.getpid()}.{time.time_ns()}.{next(_nonce)}.tmp"
+    )
+
+
+def _replace(tmp: Path, dest: Path) -> None:
+    """os.replace 的 Windows 竞态重试包装。
+
+    Windows 上 replace 到"刚被并发 replace 过的目标"会短暂抛
+    PermissionError(WinError 32,文件句柄释放竞态);Linux 无此问题但重试
+    无害。backoff 重试 5 次,真权限错误最终仍 raise。
+    """
+    for attempt in range(5):
+        try:
+            os.replace(tmp, dest)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(0.01 * (attempt + 1))
 
 
 def atomic_write_bytes(path: str | os.PathLike[str], data: bytes) -> None:
@@ -72,7 +96,7 @@ def atomic_write_bytes(path: str | os.PathLike[str], data: bytes) -> None:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
-        os.replace(tmp, dest)
+        _replace(tmp, dest)
     except BaseException:
         try:
             os.unlink(tmp)
