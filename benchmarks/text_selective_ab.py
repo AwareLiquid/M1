@@ -130,10 +130,17 @@ if __name__ == "__main__":
     steps = 2000
     if "--steps" in sys.argv:
         steps = int(sys.argv[sys.argv.index("--steps") + 1])
-    print(f"steps={steps} resume={('--resume' in sys.argv)}", flush=True)
+    # --sel/--seed: restrict to one combo so 6 processes can run in parallel.
+    sels, seeds = [False, True], [0, 1, 2]
+    if "--sel" in sys.argv:
+        sels = [int(sys.argv[sys.argv.index("--sel") + 1]) == 1]
+    if "--seed" in sys.argv:
+        seeds = [int(sys.argv[sys.argv.index("--seed") + 1])]
+    print(f"steps={steps} resume={('--resume' in sys.argv)} "
+          f"sels={sels} seeds={seeds}", flush=True)
     rows = []
-    for sel in [False, True]:
-        for seed in [0, 1, 2]:
+    for sel in sels:
+        for seed in seeds:
             rows.append(train_eval(sel, seed, steps=steps))
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "a", encoding="utf-8") as f:
