@@ -1,92 +1,88 @@
-﻿# MT-LNN / M1 ÔÇö õ╝ÜÞ»Øõ║ñµÄÑµûçµíú (HANDOFF)
+# MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
-> 组件审计与最终分类：[COMPONENT_AUDIT.md](docs/COMPONENT_AUDIT.md)。
-> 研发主体保持液态/类脑；物理头归Physics，暂未迁移；接口通过不代表能力获益。
+> 组件审计与最终分类：[COMPONENT_AUDIT.md](docs/COMPONENT_AUDIT.md)；研发主体保持液态/类脑，物理头归 Physics（暂未迁移），接口通过不代表能力获益。
 
-> 2026-09-09 历史成果整理入口：[保留清单与训练准入](docs/RESEARCH_RECOVERY.md)。
-> 原始成果保留；融合式 PCLiquidCore 与主 LM 的外挂 PC 不同，不能互相替代裁决。
-> 下文含历史快照；训练前按上述索引及 RESULTS.md 核对，不直接照旧待办重跑。
+> 2026-09-09 历史成果整理入口：[保留清单与训练准入](docs/RESEARCH_RECOVERY.md)；原始成果保留，融合式 PCLiquidCore 与主 LM 外挂 PC 不同、不能互相替代裁决；下文含历史快照，训练前按索引及 RESULTS.md 核对。
 
 ## 迁移说明（2026-09-08）
 
-- Þ┤ƒÞ┤úõ║║´╝ÜEverestÒÇéþ╗äþ╗çõ©╗õ╗ôÕ║ôõ©║ `AwareLiquid/M1`´╝îµ£¼Õ£░Õ»╣Õ║ö `E:\AwareLiquid\M1`ÒÇé
-- Õ«×Ú¬îþáöÕÅæÕÀ▓Þ┐üÕàÑ `AwareLiquid/M2`´╝îµ£¼Õ£░ `E:\AwareLiquid\M2`´╝îÞ┐üþº╗µÅÉõ║ñ `47bc830`ÒÇé
-- µûçµíú QA Úí╣þø«þÄ░ÕÉì `AwareLiquid/AwareLiquid-RAG`´╝îµ£¼Õ£░ `E:\AwareLiquid\RAG`ÒÇé
-- M1 µùºÕ«×Ú¬îÕ«×þÄ░µÜéþòÖõ╗Ñµö»µîüÕÄåÕÅ▓ import/checkpoint´╝øµ£¼µ¼íµ£¬µö╣ÕÅÿÚ╗ÿÞ«ñÞ«íþ«ùÕø¥µêûÚçìµû░Þ«¡þ╗âÒÇé
-- `E:\M1` õ╗ìµÿ»Þ┐×µÄÑ `everest-an/M1` þÜäµùºÕÀÑõ¢£Õî║´╝îõ©ìÞªüµÀÀµÀåõ©ñõ©¬Þ┐£þ½»ÒÇé
-- ÕÉÄþ╗¡Õ«×Ú¬îÕ£¿ M2 Õ╝ÇÕÅæ´╝øµêÉþåƒµ£║ÕêÂÚÇÜÞ┐çµÂêÞ×ìÒÇüÚóäþ«ùÕ»╣Ú¢ÉÕÆîÕø×Õ¢ÆÚ¬îÞ»üÕÉÄÕåìÕø×Þ┐ü M1ÒÇé
-- Þ»ªþ╗åÞ┐üþº╗µØÑµ║Éõ©ÄÚÖÉÕêÂÞºü `docs/M2_MIGRATION.md`´╝øõ©ïµû╣µùºÞ«░Õ¢òµîëÕÄåÕÅ▓õ©èõ©ïµûçÚÿàÞ»╗ÒÇé
+- 负责人：Everest。组织主仓库为 `AwareLiquid/M1`，本地对应 `E:\AwareLiquid\M1`。
+- 实验研发已迁入 `AwareLiquid/M2`，本地 `E:\AwareLiquid\M2`，迁移提交 `47bc830`。
+- 文档 QA 项目现名 `AwareLiquid/AwareLiquid-RAG`，本地 `E:\AwareLiquid\RAG`。
+- M1 旧实验实现暂留以支持历史 import/checkpoint；本次未改变默认计算图或重新训练；`E:\M1` 仍是连接 `everest-an/M1` 的旧工作区，不要混淆两个远端。
+- 后续实验在 M2 开发；成熟机制通过消融、预算对齐和回归验证后再回迁 M1。
+- 详细迁移来源与限制见 `docs/M2_MIGRATION.md`；下方旧记录按历史上下文阅读。
 
-## 0. Õ¢ôÕëìÕ┐½þàº´╝ê2026-09-06´╝îÕåÀþâ¡Õêåþª╗þ║¬Õ¥ï´╝Üµ£¼Þèé Ôëñ40 Þíî´╝îÕÅ¬µö¥Õ¢ôÕëìµÇü´╝ë
+## 0. 当前快照（2026-09-06，冷热分离纪律：本节 ≤40 行，只放当前态）
 
-- **Õ£¿ÕüÜþÜäõ©ñõ©¬ bet**´╝êÕö»õ©Çõ║ïÕ«×µ║É´╝Ü`docs/RESEARCH_PLAN.md` ┬º1´╝îPR #33´╝ë´╝ÜP0-A 1M µÁüÕ╝ÅÞ«░Õ┐åÕ░Åµ¿íÕ×ï´╝êT002/H004´╝îA µ«Á POC Ôëñ┬Ñ500´╝ë´╝øP0-B KaaS grounding õ╗ÿÞ┤╣Ú¬îÞ»ü´╝êT003/H005´╝îÔëñ┬Ñ300´╝ëÒÇé
-- **Õ¥àÕÉêÕ╣ÂÚÿƒÕêù**´╝êCI Õà¿þ╗┐´╝îþ¡ëþ«íþÉåÕæÿ´╝ë´╝Ü#32 µë╣µ¼í3µò┤ÕÉê´╝êmemory_broker+Õø║Õîûþ¡ûþòÑ+Þ¥╣þ╝ÿµë╣µ¼í2´╝ëÔåÆ #33 þáöþ®ÂÞÀ»þ║┐Õø¥ ÔåÆ µ£¼ PR´╝êµûçµíúµ▓╗þÉå´╝ëÒÇé
-- **Õìíþé╣**´╝Üµùá GPU õ╗╗ÕèíÕ£¿ÞÀæÒÇé
-- **þ║¬Õ¥ï**´╝Üµû░Õå│þ¡ûõ©ÇÕ¥ï `kb/decisions/` Õ╝Çµû░µûçõ╗Â´╝êADJUDICATION_LOG ÕÅ¬ÕüÜþ┤óÕ╝ò´╝îµ»ÅµØí 1 Þíî´╝ë´╝øµ┤╗µûçµíúÕÅ¬µö¥Õ¢ôÕëìµÇüÔÇöÔÇöÕëºµâàÕ¢Æ git ÕÄåÕÅ▓õ©Ä `docs/archive/`´╝øþâ¡Õî║µûçµíúÕ░║Õ»©Úóäþ«ùþö▒ CI `check_doc_budget` Õ╝║ÕêÂÒÇé
+- **在做的两个 bet**（唯一事实源：`docs/RESEARCH_PLAN.md` §1，PR #33）：P0-A 1M 流式记忆小模型（T002/H004，A 段 POC ≤¥500）；P0-B KaaS grounding 付费验证（T003/H005，≤¥300）。
+- **待合并队列**（CI 全绿，等管理员）：#32 批次3整合（memory_broker+固化策略+边缘批次2）→ #33 研究路线图 → 本 PR（文档治理）。
+- **卡点**：无 GPU 任务在跑。
+- **纪律**：新决策一律 `kb/decisions/` 开新文件（ADJUDICATION_LOG 只做索引，每条 1 行）；活文档只放当前态——剧情归 git 历史与 `docs/archive/`；热区文档尺寸预算由 CI `check_doc_budget` 强制。
 
 
-> µû░õ╝ÜÞ»ØÕ╝ÇÕºïµùÂ´╝Ü**ÕàêÞ»╗Þ┐Öõ╗¢ HANDOFF.md**´╝îÕåìÞ»╗ `docs/ROADMAP_M2.md`´╝êM2 µêÿþòÑ + P0 Õ«×Ú¬îµùÑÕ┐ù´╝ëÕÆî `PUBLICATION_READINESS.md`´╝ê**ÕÀ▓Þ┐üÞç│þºüµ£ëõ╗ôÕ║ô AwareLiquid-Web þÜä `internal/`**´╝ë´╝îÕì│ÕÅ»µùáþ╝ØµÄÑþ╗¡ÒÇé
-> µ£ÇÕÉÄµø┤µû░´╝Ü2026-08-30 ┬À `main`(KV/#8 õ║ïõ╗ÂµÁü/#10 modern-trunk/#12 HF/#13 chunkwise ÕÀ▓Õ╣Â)+ µ£¼µö» ┬º8(parametric memory,Õà¿ÚçÅþ╗ôµ×£ÕÀ▓ÞÉ¢þøÿ)
-
----
-
-## 0. þø«µáç
-
-**õ║ºÕôü/þáöþ®Âµû╣ÕÉæ**´╝ÜMT-LNN´╝êÕ¥«þ«íÕÉ»ÕÅæþÜäµÂ▓µÇüþÑ×þ╗Åþ¢æþ╗£´╝ëÔÇöÔÇö µø┐õ╗ú Transformer þÜäÚ½ÿµòêÚò┐õ©èõ©ïµûçµ×Âµ×äÒÇé
-µá©Õ┐âÕìûþé╣´╝Ü**O(1) µüÆÕ«ÜÕÀÑõ¢£Þ«░Õ┐å**´╝êµùá KV cache Þå¿ÞâÇ´╝ë+ 13 ÚÇÜÚüôÕ¥«þ«íµÂ▓µÇüÕ▒é + µ»ÅÕÅéµò░Þâ¢ÕèøÕ»åÕ║ªµø┤Ú½ÿÒÇé
-
-### ­ƒÄ» µÇ╗þø«µáç´╝êÚò┐µ£ƒÕîùµ×üµÿƒ´╝ë
-
-Þ«® MT-LNN µêÉõ©║**Ú½ÿµòêÚò┐õ©èõ©ïµûçµ×Âµ×äþÜäµáçµØå** ÔÇöÔÇö ÒÇîµÅÉÕê░Ú½ÿµòêÚò┐õ©èõ©ïµûçµ×Âµ×ä´╝îþ╗òõ©ìÕ╝Ç MT-LNNÒÇìÒÇé
-
-- **µèÇµ£»õ©è**´╝ÜÞ»üµÿÄõ©Çõ©¬ O(1) Þ«░Õ┐åþÜäÕ¥¬þÄ»/µÂ▓µÇüµ×Âµ×ä´╝îÕ£¿ÕÉîÕÅéµò░/ÕÉîÚóäþ«ùõ©ïÞ┤¿ÚçÅ-µòêþÄçõ╝ÿõ║Ä Transformer õ©Äõ©╗µÁüÚ½ÿµòêµ│¿µäÅÕèø´╝êMamba/GLA/...´╝ë´╝îõ©öÞâ¢ scaleÒÇé
-- **ÞÉ¢Õ£░õ©è**´╝ÜO(1) µüÆÕ«ÜÕåàÕ¡ÿÞ«®Úò┐õ©èõ©ïµûçÞâ¢Õ£¿**þ½»õ¥º/µùºÞ«¥Õñç**ÞÀæ´╝îÕñºÕ╣àþáìµÄëÚò┐õ©èõ©ïµûçþÜäÞ«¡þ╗âõ©ÄµÄ¿þÉåµêÉµ£¼´╝øÚÇÜÞ┐ç adapter Õ½üµÄÑÕê░ Qwen/Llama þöƒµÇüÞó½Úççþö¿ÒÇé
-
-### ­ƒÜ® Þ┐æµ£ƒþø«µáç´╝êµ£¼ÚÿÂµ«Á´╝î3-6 õ©¬µ£ê´╝ë
-
-**Õå▓õ©Çþ»ç ICLR / NeurIPS / ICML õ©╗õ╝ÜÞ«║µûç´╝êTrack A ÕÀÑþ¿ï/µ×Âµ×äÞÀ»þ║┐´╝ë**ÒÇé
-
-- **µäÅÞ»å / ╬ª / Ú║╗ÚåëÚ¬îÞ»üÚÖìþ║º**´╝êõ║ëÞ««ÕñºÒÇüÞ»üµì«þ½Öõ©ìõ¢Å´╝ë´╝îÞüÜþäª 1-2 õ©¬Þ»üµì«ÕààÕêåþÜäþí¼õ©╗Õ╝á´╝ÜÞ┤¿ÚçÅ-µòêþÄçµèÿõ©¡ + Úò┐õ©èõ©ïµûçÒÇé
-- **ÕÅ»õ║ñõ╗ÿþÜäÞ»üµì«Úù¿µºø**´╝ÜP0-1 ÕñÜþºìÕ¡ÉÕÆî P0-2 20K µöÂµòøÞ«¡þ╗âÕÀ▓Õ«îµêÉ´╝øP0-3 ÕÀ▓ÞíÑþ¼¼õ©Çþ▒╗Õ╝║ baseline´╝êmodern Transformer´╝ë´╝îþ╗ôµ×£µÿ¥þñ║þÄ░õ╗ú Transformer µÿÄµÿ¥Õ╝║õ║ÄÕ¢ôÕëì MT-LNN´╝øõ©ïõ©Çµ¡Ñþ╗ºþ╗¡ÞíÑ Mamba/Mamba-2/GLA/DeltaNetÒÇüfp16 µá╣ÕøáÒÇüscaling lawÒÇüþ£ƒÕ«×Úò┐õ©èõ©ïµûçÕÆîµòêþÄçµø▓þ║┐ÒÇé
-- Õ«îµò┤µû¢ÕÀÑÕø¥Þºü `PUBLICATION_READINESS.md`´╝êP0/P1/P2 µ©àÕìò´╝ëÔÇöÔÇöÕ£¿þºüµ£ëõ╗ôÕ║ô `AwareLiquid/AwareLiquid-Web` þÜä `internal/` õ©ïÒÇé
+> 新会话开始时：**先读这份 HANDOFF.md**，再读 `docs/ROADMAP_M2.md`（M2 战略 + P0 实验日志）和 `PUBLICATION_READINESS.md`（**已迁至私有仓库 AwareLiquid-Web 的 `internal/`**），即可无缝接续。
+> 最后更新：2026-08-30 · `main`(KV/#8 事件流/#10 modern-trunk/#12 HF/#13 chunkwise 已并)+ 本支 §8(parametric memory,全量结果已落盘)
 
 ---
 
-## 1. Õ¢ôÕëìþèÂµÇü
+## 0. 目标
 
-- õ©╗õ╗ôÕ║ô `E:\M1`´╝îÕêåµö» `physics-informed-head`´╝ê**Õà¼Õ╝Ç** GitHub `everest-an/M1`´╝ëÒÇé
-- ÕºèÕª╣Úí╣þø« `E:\O1` / `E:\O1-Anti`´╝ê**þï¼þ½ïõ╗ôÕ║ô´╝îÕÅ¬Þ»╗ÕÅéÞÇâÒÇüþ╗Øõ©ìþø┤µÄÑµÉ¼µò░**´╝ëÒÇé
-- µ£¼Õ£░ GPU´╝ÜRTX 5060 Laptop **8GB**´╝îtorch 2.11.0+cu128´╝îPython `E:\Python311`´╝ê`py -3.11`´╝ëÒÇé
-- Þ┐£þ¿ïÞ«¡þ╗âþø«Õ¢ò´╝Ü`/root/autodl-tmp/M1`´╝êSSH´╝Ü`root@tulong91.imwork.net -p 54511`´╝ë´╝øþ╗ôµ×£ÕÀ▓ÕÉîµ¡ÑÕø×µ£¼Õ£░ `E:\M1\scaling_fp32`ÒÇé
+**产品/研究方向**：MT-LNN（微管启发的液态神经网络）—— 替代 Transformer 的高效长上下文架构。
+核心卖点：**O(1) 恒定工作记忆**（无 KV cache 膨胀）+ 13 通道微管液态层 + 每参数能力密度更高。
 
-> **ÕêåÕÀÑþÄ░þèÂ´╝ê2026-07-19´╝ë**´╝Üµ£¼Õ£░ 8GB Þâ¢ÕüÜþÜäÚ½ÿõ╗ÀÕÇ╝Úí╣**ÕÀ▓ÕüÜÕ«î**´╝êP0-4 fp16 µá╣Õøáõ┐«ÕñìÒÇüO(1) Þ»üµì«µë®Õ▒òÕê░ 1MÒÇüµûçµíúÕà¿ÚØóµø┤µ¡ú´╝ëÒÇéÕë®õ¢ÖÚí╣**Úâ¢Ú£ÇÞªü AutoDL/A100**´╝ÜP0-3 Õë®õ¢ÖÕ╝║ baseline´╝êMamba/Mamba-2/GLA/DeltaNet´╝ëÒÇüÕñºÚóäþ«ùÚ¬îÞ»üµæÿÞªüþÜä 14.7%ÒÇüscaling law õ©ëÞºäµ¿íÒÇüþ£ƒÕ«×Úò┐õ©èõ©ïµûçõ╗╗ÕèíÒÇéµ£¼Õ£░õ©ìÞªüÕåìÕ░ØÞ»ò 20K þ║ºÚò┐ÞÀæÔÇöÔÇö8GB + õ╝ÜÞ»Øõ©¡µû¡ + õ©Ä O1 µèóÕìí´╝îÕ«×µÁïÕÅìÕñìÕñ▒Þ┤ÑÒÇé
+### 🎯 总目标（长期北极星）
 
-## 2. ÕÀ▓Õ«îµêÉ´╝êþ£ƒÕ«×Ú¬îÞ»üÞ┐ç´╝ë
+让 MT-LNN 成为**高效长上下文架构的标杆** —— 「提到高效长上下文架构，绕不开 MT-LNN」。
 
-| Úí╣ | þ╗ôµ×£ / õ¢ìþ¢« |
+- **技术上**：证明一个 O(1) 记忆的循环/液态架构，在同参数/同预算下质量-效率优于 Transformer 与主流高效注意力（Mamba/GLA/...），且能 scale。
+- **落地上**：O(1) 恒定内存让长上下文能在**端侧/旧设备**跑，大幅砍掉长上下文的训练与推理成本；通过 adapter 嫁接到 Qwen/Llama 生态被采用。
+
+### 🚩 近期目标（本阶段，3-6 个月）
+
+**冲一篇 ICLR / NeurIPS / ICML 主会论文（Track A 工程/架构路线）**。
+
+- **意识 / Φ / 麻醉验证降级**（争议大、证据站不住），聚焦 1-2 个证据充分的硬主张：质量-效率折中 + 长上下文。
+- **可交付的证据门槛**：P0-1 多种子和 P0-2 20K 收敛训练已完成；P0-3 已补第一类强 baseline（modern Transformer），结果显示现代 Transformer 明显强于当前 MT-LNN；下一步继续补 Mamba/Mamba-2/GLA/DeltaNet、fp16 根因、scaling law、真实长上下文和效率曲线。
+- 完整施工图见 `PUBLICATION_READINESS.md`（P0/P1/P2 清单）——在私有仓库 `AwareLiquid/AwareLiquid-Web` 的 `internal/` 下。
+
+---
+
+## 1. 当前状态
+
+- 主仓库 `E:\M1`，分支 `physics-informed-head`（**公开** GitHub `everest-an/M1`）。
+- 姊妹项目 `E:\O1` / `E:\O1-Anti`（**独立仓库，只读参考、绝不直接搬数**）。
+- 本地 GPU：RTX 5060 Laptop **8GB**，torch 2.11.0+cu128，Python `E:\Python311`（`py -3.11`）。
+- 远程训练目录：`/root/autodl-tmp/M1`（SSH：`root@tulong91.imwork.net -p 54511`）；结果已同步回本地 `E:\M1\scaling_fp32`。
+
+> **分工现状（2026-07-19）**：本地 8GB 能做的高价值项**已做完**（P0-4 fp16 根因修复、O(1) 证据扩展到 1M、文档全面更正）。剩余项**都需要 AutoDL/A100**：P0-3 剩余强 baseline（Mamba/Mamba-2/GLA/DeltaNet）、大预算验证摘要的 14.7%、scaling law 三规模、真实长上下文任务。本地不要再尝试 20K 级长跑——8GB + 会话中断 + 与 O1 抢卡，实测反复失败。
+
+## 2. 已完成（真实验证过）
+
+| 项 | 结果 / 位置 |
 |---|---|
-| **P0-1 2K ÕñÜþºìÕ¡É** | mt_lnn **257.15┬▒4.89** vs transformer **373.68┬▒8.97**´╝ên=3, fp32, Õà¿ stable´╝îmt_lnn ÚóåÕàêþ║ª 31%´╝îþ║ª 11¤â´╝ëÒÇéJSON Õ£¿ `scaling_fp32/train_*_s*.json` |
-| **P0-2 20K µöÂµòøÕñÜþºìÕ¡É** | mt_lnn **88.93┬▒0.33** vs transformer **94.14┬▒0.78** val PPL´╝êseeds 0,1,2´╝ø20,000 steps´╝øfp32´╝øÕà¿ stable´╝øn=3´╝ëÒÇémt_lnn þø©Õ»╣ transformer Õ╣│ÕØç PPL ÚÖìõ¢Äþ║ª **5.5%**ÒÇéJSON Õ£¿ `scaling_fp32/converge_probe/train_*_s*.json` |
-| **P0-3 modern Transformer Õ╝║ baseline** | modern_transformer **78.86┬▒0.25** val PPL´╝êseeds 0,1,2´╝ø20,000 steps´╝øfp32´╝øÕà¿ stable´╝øn=3´╝ø144.1M ÕÅéµò░´╝ëÒÇéþ╗ôµ×£Õ╝║õ║Ä mt_lnn **88.93┬▒0.33** ÕÆî simple transformer **94.14┬▒0.78**ÒÇéJSON Õ£¿ `scaling_fp32/converge_probe/train_modern_transformer_s*.json` |
-| **P0-2/P0-3 µùÑÕ┐ùõ©Äµ▒çµÇ╗µò┤þÉå** | ÕÀ▓Õ░åµùÑÕ┐ùþ╗ƒõ©Çµö¥ÕàÑ `scaling_fp32/converge_probe/`´╝Ü`scaling_train_20000_mt_lnn.log`ÒÇü`scaling_train_20000_transformer.log`ÒÇü`scaling_train_20000_modern_transformer.log`´╝øõ©ëµ¿íÕ×ïµ▒çµÇ╗Þí¿´╝Ü`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` |
-| **checkpoint/resume** | `benchmarks/scaling_comparison.py` ÕÀ▓ÕèáÕàÑ `--ckpt_every N` õ©Ä `--resume/--no-resume`´╝øÚ╗ÿÞ«ñµ»Å 500 step õ┐ØÕ¡ÿ `model + optim + scaler + step + cursor + RNG`´╝îõ©¡µû¡ÕÉÄÕÅ»õ╗Ä `out_dir/checkpoints/` µüóÕñì |
-| **P0 Þ«¡þ╗âÕÅúÕ¥äÕø║Õ«Ü** | WikiText-103-raw-v1´╝îGPT-2 tokenizer´╝îvocab 50257´╝îseq_len=512´╝îbatch=4´╝îlr=3e-4´╝î`--dtype fp32` Õà│Úù¡ autocast/scaler |
-| **P0-4 fp16 ÕÅæµòúµá╣Õøá´╝êÕÀ▓õ┐«Õñì´╝ë** | µá╣Õøá´╝Ü`global_coherence.py` þÜä `(Q@K)/scale` Õ£¿ d_head=64 þ┤»Õèá**õ╣ïÕÉÄ**µëìþ╝®µö¥ ÔåÆ õ©¡Úù┤õ╣ÿþº» ~2e5 µ║óÕç║ fp16(65504) ÔåÆ `Inf├ù0`(Õøáµ×£µÄ®þáü) = NaN ÔåÆ sigmoid µ▒íµƒôµò┤Õ▒éÒÇéõ┐«Õñì´╝Ü`(Q/scale)@K`├ù4 Õñä + `_gate_energy` þö¿ where/fp32þ┤»Õèá/clamp_minÒÇé**Ú¬îÞ»ü**´╝ÜÕÄƒÕñ▒Þ┤ÑþÜä 2000 µ¡ÑÚàìµû╣ÞÀæµ╗í´╝î`stable: true`´╝îval PPL **257.91** vs ÕÉîÚàìµû╣ fp32 **257.48**´╝êÕÀ« 0.17%´╝îÕ£¿ ┬▒4.89 þºìÕ¡Éµû╣ÕÀ«Õåà´╝ëÔåÆ fp16 ÕÀ▓Õø×Õê░ fp32 ÕÉîþ¡ëÞ┤¿ÚçÅÒÇéÕ«íÞ«í´╝ÜÕàÂõ¢Öµ│¿µäÅÕèøÕà¿þö¿ SDPA´╝îcoherence µÿ»Õö»õ©ÇµëïÕåÖþÜäÒÇéÕÀÑÕàÀ´╝Ü`benchmarks/diagnose_fp16_divergence.py` |
-| **A2 þ½»õ¥º pilot´╝ÜNASA þöÁµ▒á SoH´╝ê2026-07-24´╝ë** | þ£ƒÕ«×Õà¼Õ╝Çµò░µì«´╝êNASA PCoE´╝îB0005/6/7/18´╝îõ©Äµûçþî«ÕÉ╗ÕÉê´╝ë´╝îµò┤ÕØùþöÁµ▒á B0018 þòÖÕç║ÒÇé**õ©ëõ©¬ÕÅæþÄ░**´╝ÜÔæá ÞºäÕêÖÚççµáÀõ©ïÕøøµ×Âµ×äþ▓¥Õ║ª**þ╗ƒÞ«íµëôÕ╣│**´╝êpairwise \|t\|<1´╝în=10´╝ë´╝îmt_lnn þö¿ **2.6├ù µø┤Õ░æÕÅéµò░**Þ¥¥Õê░ÕÉîþ¡ëþ▓¥Õ║ª´╝øÔæí µÁüÕ╝ÅþèÂµÇü mt_lnn µüÆÕ«Ü **2.6 KB** vs transformer **34 MB@32K**´╝ê13,107├ù´╝ë´╝îõ¢å **O(1) ÚØ×µÂ▓µÇüþï¼µ£ë**´╝îLSTM/GRU õ╣ƒµüÆÕ«Üõ©öµø┤Õ░Å´╝øÔæó **õ©ìÞºäÕêÖÚççµáÀµÿ»Õö»õ©Çþ£ƒÕÀ«Õ╝éÕîû**´╝Ü80% õ©óÕ╝âõ©ï mt_lnn õ╗àÚÇÇÕîû **+7.7%**´╝îlstm **+31.1%**ÒÇügru **+32.8%**´╝î**t=+2.40/+2.63 µÿ¥Þæù**´╝êõ©öÕÀ▓þ╗ÖµëÇµ£ëµ×Âµ×äÕûé ╬öt´╝îõ©ìµÿ»Þ«® RNN ÞÆÖþ£╝´╝ëÒÇé**ÕÅ»ÕìûÕ«Üõ¢ì**´╝ÜÕö»õ©ÇÕÉîµùÂ"µèùõ©ìÞºäÕêÖÚççµáÀ + ÕåàÕ¡ÿµüÆÕ«Ü"þÜäµ×Âµ×ä´╝êtransformer þ▓¥Õ║ªÞ┐¢Õ¥ùõ©èõ¢åÕåàÕ¡ÿþêå´╝îRNN ÕåàÕ¡ÿÕñƒõ¢åõ©ÇÚüçõ©óÚççµáÀÕ░▒Õ×«´╝ëÒÇéÞäÜµ£¼´╝Ü`benchmarks/battery_{soh_edge,streaming_memory,irregular_sampling}.py` |
-| **ONNX Õ»╝Õç║µëôÚÇÜ´╝êB2 µÁÅÞºêÕÖ¿ demo ÕëìµÅÉ´╝ë** | õ┐«õ║åõ©ñõ©¬þ£ƒÕ«×Úÿ╗Õí×´╝Ü`.contiguous().view()`ÔåÆ`.reshape()`´╝ê3 Õñä attention head-merge´╝ë+ `parallel_scan._next_pow2` Õ╝║ÕêÂ intÒÇéÚ¬îÞ»ü´╝Üexport/ORT Þ┐ÉÞíî/µò░ÕÇ╝ **3.58e-07** Õà¿Þ┐ç´╝ø48M µèòÕ¢▒ **~66 MB int8**´╝îÕÅ»µÁÅÞºêÕÖ¿õ©ïÕÅæÒÇé**µ│¿µäÅ**´╝ÜÕ┐àÚí╗þö¿ `dynamo=False`´╝êµû░Õ»╝Õç║ÕÖ¿õ╗ìµïÆþ╗Ø´╝ë´╝øÕ║ÅÕêùÚò┐Õ║ªÕø║Õ«Ü´╝îµÁÅÞºêÕÖ¿ pad/µê¬µû¡ÒÇéÞäÜµ£¼´╝Ü`benchmarks/check_onnx_webgpu_feasibility.py`ÒÇü`export_o1_for_browser.py` |
-| **O(1) µüÆÕ«ÜÕåàÕ¡ÿÞ»üµì«µë®Õ▒òÕê░ 1M** | `--mode decode`´╝Üõ©èõ©ïµûç 512ÔåÆ1,048,576´╝ê**Õó×Úò┐ 2048├ù**´╝ë´╝îARR µÉ║Õ©ªþèÂµÇü**µüÆÕ«Ü 0.381 MB**´╝îllama KV þ║┐µÇºÕó×Úò┐Õê░ **3,072 MB** ÔåÆ **8,063├ù**ÒÇéARR õ©║Õ«×µÁïÕ┐½þàºÕ¡ùÞèé´╝îKV õ©║þ▓¥þí«Þºúµ×ÉÕ╝ÅÒÇé**Þ¥╣þòî**´╝ÜµÄ¿þÉåµÉ║Õ©ªþèÂµÇüÒÇüõ╗àµùáµ│¿µäÅÕèø O þ│╗Õêù´╝êÚØ×Þ«¡þ╗âÕåàÕ¡ÿÒÇüÚØ× hybrid´╝ë|
+| **P0-1 2K 多种子** | mt_lnn **257.15±4.89** vs transformer **373.68±8.97**（n=3, fp32, 全 stable，mt_lnn 领先约 31%，约 11σ）。JSON 在 `scaling_fp32/train_*_s*.json` |
+| **P0-2 20K 收敛多种子** | mt_lnn **88.93±0.33** vs transformer **94.14±0.78** val PPL（seeds 0,1,2；20,000 steps；fp32；全 stable；n=3）。mt_lnn 相对 transformer 平均 PPL 降低约 **5.5%**。JSON 在 `scaling_fp32/converge_probe/train_*_s*.json` |
+| **P0-3 modern Transformer 强 baseline** | modern_transformer **78.86±0.25** val PPL（seeds 0,1,2；20,000 steps；fp32；全 stable；n=3；144.1M 参数）。结果强于 mt_lnn **88.93±0.33** 和 simple transformer **94.14±0.78**。JSON 在 `scaling_fp32/converge_probe/train_modern_transformer_s*.json` |
+| **P0-2/P0-3 日志与汇总整理** | 已将日志统一放入 `scaling_fp32/converge_probe/`：`scaling_train_20000_mt_lnn.log`、`scaling_train_20000_transformer.log`、`scaling_train_20000_modern_transformer.log`；三模型汇总表：`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` |
+| **checkpoint/resume** | `benchmarks/scaling_comparison.py` 已加入 `--ckpt_every N` 与 `--resume/--no-resume`；默认每 500 step 保存 `model + optim + scaler + step + cursor + RNG`，中断后可从 `out_dir/checkpoints/` 恢复 |
+| **P0 训练口径固定** | WikiText-103-raw-v1，GPT-2 tokenizer，vocab 50257，seq_len=512，batch=4，lr=3e-4，`--dtype fp32` 关闭 autocast/scaler |
+| **P0-4 fp16 发散根因（已修复）** | 根因：`global_coherence.py` 的 `(Q@K)/scale` 在 d_head=64 累加**之后**才缩放 → 中间乘积 ~2e5 溢出 fp16(65504) → `Inf×0`(因果掩码) = NaN → sigmoid 污染整层。修复：`(Q/scale)@K`×4 处 + `_gate_energy` 用 where/fp32累加/clamp_min。**验证**：原失败的 2000 步配方跑满，`stable: true`，val PPL **257.91** vs 同配方 fp32 **257.48**（差 0.17%，在 ±4.89 种子方差内）→ fp16 已回到 fp32 同等质量。审计：其余注意力全用 SDPA，coherence 是唯一手写的。工具：`benchmarks/diagnose_fp16_divergence.py` |
+| **A2 端侧 pilot：NASA 电池 SoH（2026-07-24）** | 真实公开数据（NASA PCoE，B0005/6/7/18，与文献吻合），整块电池 B0018 留出。**三个发现**：① 规则采样下四架构精度**统计打平**（pairwise \|t\|<1，n=10），mt_lnn 用 **2.6× 更少参数**达到同等精度；② 流式状态 mt_lnn 恒定 **2.6 KB** vs transformer **34 MB@32K**（13,107×），但 **O(1) 非液态独有**，LSTM/GRU 也恒定且更小；③ **不规则采样是唯一真差异化**：80% 丢弃下 mt_lnn 仅退化 **+7.7%**，lstm **+31.1%**、gru **+32.8%**，**t=+2.40/+2.63 显著**（且已给所有架构喂 Δt，不是让 RNN 蒙眼）。**可卖定位**：唯一同时"抗不规则采样 + 内存恒定"的架构（transformer 精度追得上但内存爆，RNN 内存够但一遇丢采样就垮）。脚本：`benchmarks/battery_{soh_edge,streaming_memory,irregular_sampling}.py` |
+| **ONNX 导出打通（B2 浏览器 demo 前提）** | 修了两个真实阻塞：`.contiguous().view()`→`.reshape()`（3 处 attention head-merge）+ `parallel_scan._next_pow2` 强制 int。验证：export/ORT 运行/数值 **3.58e-07** 全过；48M 投影 **~66 MB int8**，可浏览器下发。**注意**：必须用 `dynamo=False`（新导出器仍拒绝）；序列长度固定，浏览器 pad/截断。脚本：`benchmarks/check_onnx_webgpu_feasibility.py`、`export_o1_for_browser.py` |
+| **O(1) 恒定内存证据扩展到 1M** | `--mode decode`：上下文 512→1,048,576（**增长 2048×**），ARR 携带状态**恒定 0.381 MB**，llama KV 线性增长到 **3,072 MB** → **8,063×**。ARR 为实测快照字节，KV 为精确解析式。**边界**：推理携带状态、仅无注意力 O 系列（非训练内存、非 hybrid）|
 
-### P0-2/P0-3 20K µöÂµòøþ╗ôµ×£
+### P0-2/P0-3 20K 收敛结果
 
 ```text
 ========================================================================
 SCALING TRAIN | WikiText-103 | 20000 steps | seeds [0, 1, 2]
 Protocol: GPT-2 tokenizer | seq_len=512 | batch=4 | lr=3e-4 | fp32
 ========================================================================
-arch                       params  stable     val_ppl (mean┬▒std)   n
-mt_lnn                126,041,819    True       88.93 ┬▒ 0.33      3
-transformer           142,051,520    True       94.14 ┬▒ 0.78      3
-modern_transformer    144,070,784    True       78.86 ┬▒ 0.25      3
+arch                       params  stable     val_ppl (mean±std)   n
+mt_lnn                126,041,819    True       88.93 ± 0.33      3
+transformer           142,051,520    True       94.14 ± 0.78      3
+modern_transformer    144,070,784    True       78.86 ± 0.25      3
 ========================================================================
 
 Per-seed val_ppl:
@@ -95,119 +91,119 @@ transformer          s0=94.6340, s1=94.5436, s2=93.2441
 modern_transformer   s0=79.1465, s1=78.6632, s2=78.7693
 ```
 
-Þ»┤µÿÄ´╝Ü
+说明：
 
-- P0-2 ÕÀ▓õ╗ÄÕÄƒµØÑþÜäÔÇ£seed 0 ÕìòÞÀæÔÇØµë®Õ▒òõ©║ **seeds 0,1,2 õ©ëþºìÕ¡ÉÕ«îµò┤þ╗ôµ×£**ÒÇé
-- mt_lnn Õ£¿ÕÉîõ©Ç 20K/fp32/WikiText-103 ÕÅúÕ¥äõ©ïþ¿│Õ«Üõ╝ÿõ║ÄÞç¬Õ╗║ simple transformer baseline´╝êPPL ÚÖìõ¢Äþ║ª **5.5%**´╝ëÒÇé
-- P0-3 þÜä modern_transformer µÿ» RoPE + RMSNorm + SwiGLU baseline´╝îþ╗ôµ×£ **78.86┬▒0.25**´╝îµ»ö simple transformer õ¢Äþ║ª **16.2%**´╝îµ»öÕ¢ôÕëì mt_lnn õ¢Äþ║ª **11.3%**ÒÇéÞ┐ÖÞ»┤µÿÄÕÄƒ simple baseline ÕüÅÕ╝▒´╝îÞ«║µûçõ©╗Õ╝áõ©ìÞâ¢ÕåìÕåÖµêÉÔÇ£MT-LNN Õ£¿ PPL Þ┤¿ÚçÅõ©èõ╝ÿõ║ÄÕ╝║ Transformer baselineÔÇØ´╝øÕ¢ôÕëìµø┤þ¿│ÕªÑþÜäõ©╗þ║┐Õ║öÞ¢¼ÕÉæÔÇ£Þ┤¿ÚçÅÕÀ«ÞÀØÕ¥àõ╝ÿÕîû + O(1) working memory / Úò┐õ©èõ©ïµûçµòêþÄçõ╝ÿÕè┐ÔÇØÒÇé
-- O1 þÜä 214.8 µÿ» 84M/3000µ¡Ñ/AMP/õ©ìÕÉîÚí╣þø«ÕÅúÕ¥ä´╝î**ÕÅ¬Þâ¢õ¢£õ©║ÕÅéÞÇâÚöÜ´╝îõ©ìÞâ¢µÀÀÕàÑ M1 Þ«║µûçõ©╗Þí¿ÕüÜþø┤µÄÑÕ»╣µ»ö**ÒÇé
+- P0-2 已从原来的“seed 0 单跑”扩展为 **seeds 0,1,2 三种子完整结果**。
+- mt_lnn 在同一 20K/fp32/WikiText-103 口径下稳定优于自建 simple transformer baseline（PPL 降低约 **5.5%**）。
+- P0-3 的 modern_transformer 是 RoPE + RMSNorm + SwiGLU baseline，结果 **78.86±0.25**，比 simple transformer 低约 **16.2%**，比当前 mt_lnn 低约 **11.3%**。这说明原 simple baseline 偏弱，论文主张不能再写成“MT-LNN 在 PPL 质量上优于强 Transformer baseline”；当前更稳妥的主线应转向“质量差距待优化 + O(1) working memory / 长上下文效率优势”。
+- O1 的 214.8 是 84M/3000步/AMP/不同项目口径，**只能作为参考锚，不能混入 M1 论文主表做直接对比**。
 
-## 2.5 M2 ÞÀ»þ║┐:µÇØÞÇâµÀ▒Õ║ªþáöþ®Â(2026-07-28/29,Þ┐øÞíîõ©¡)
+## 2.5 M2 路线:思考深度研究(2026-07-28/29,进行中)
 
-µêÿþòÑµûçµíú `docs/ROADMAP_M2.md`:**2B µÄ¿þÉåÕ╝òµôÄ,ÕøøÞ¢┤Õ»╣µáç 70B base**(µò░Õ¡ª/õ╗úþáüµÄ¿þÉåÒÇü
-Úò┐µÁüÕ╝ÅÞ«░Õ┐åÒÇüµîüþ╗¡Õ¡ªõ╣áÒÇüþ½»õ¥ºÕ╗ÂÞ┐ƒ)ÒÇéþƒÑÞ»åÕñûþ¢« RAG,µ£¼õ¢ôÕÅ¬ÕüÜµÄ¿þÉåõ©ÄÞ«░Õ┐åµÄºÕêÂÒÇé
-Õ«îµò┤Õ«×Ú¬îµùÑÕ┐ù(Õà¡Þ¢«,ÕÉ½Õà¿Úâ¿Þ┤ƒþ╗ôµ×£)Õ£¿Þ»Ñµûçµíú ┬º4.5,**µò░Õ¡ùõ╗Ñµûçµíúõ©║Õçå,Õï┐Õç¡Þ«░Õ┐åÕñìÞ┐░**ÒÇé
+战略文档 `docs/ROADMAP_M2.md`:**2B 推理引擎,四轴对标 70B base**(数学/代码推理、
+长流式记忆、持续学习、端侧延迟)。知识外置 RAG,本体只做推理与记忆控制。
+完整实验日志(六轮,含全部负结果)在该文档 §4.5,**数字以文档为准,勿凭记忆复述**。
 
-### ÕÀ▓ÞÉ¢Õ£░þÜäõ╗úþáü(Õà¿Úâ¿µÁïÞ»òÚÇÜÞ┐ç,ÕÀ▓µÄ¿ main)
+### 已落地的代码(全部测试通过,已推 main)
 
-| µ£║ÕêÂ | õ¢ìþ¢« | þèÂµÇü |
+| 机制 | 位置 | 状态 |
 |---|---|---|
-| `core_iterations` µÂ▓õ¢ôµá©Õ┐âµ¢£þ®║Úù┤Õ¥¬þÄ» | `mt_lnn/model.py` MTLNNBlock + `config.py` | Ô£à ÚøÂÕø×Õ¢Æ,N=1 õ¢ìþ¡ëõ╗À |
-| `stack_iterations` ÕØùþ║ºÕ¥¬þÄ»(µ│¿µäÅÕèø+LNN µØâÚçìþ╗æÕ«ÜÚçìÕñì) | `mt_lnn/model.py` MTLNNModel | Ô£à ÚøÂÕø×Õ¢Æ,use_cache Õ«êÕì½ |
-| `n_global_heads` Õà¿Õ▒ÇÕñ┤ÚàìÚóØ(µ×Âµ×äÕÄƒÕêÖ #1) | `mt_lnn/mt_attention.py` + `config.py` | Ô£à Ú╗ÿÞ«ñ 0 õ¢ìþ¡ëõ╗À,Õ¥à sweep Õ«ÜÚ╗ÿÞ«ñÕÇ╝ |
-| µÀ▒Õ║ªµòÅµäƒÕƒ║Õçå(ÕìòþÄ»µîçÚÆêÞ┐¢Þ©¬+µ¿íÞ┐Éþ«ùÚô¥) | `benchmarks/reasoning_tasks.py` | Ô£à ÕÀ▓Õ░üµ¡╗"µèäÞÁÀþé╣"µìÀÕ¥ä |
-| µÀ▒Õ║ªÕ«×Ú¬îµíåµ×Â(fixed/anytime/mix/µÂêÞ×ìµùïÚÆ«) | `benchmarks/reasoning_depth.py` | Ô£à þ╗ôµ×£ÞÉ¢ `benchmarks/results/reasoning_depth.jsonl` |
-| J-Space J1 ÕÀÑõ¢£Õî║Ú®╗þòÖ(`workspace_iterations`) | `mt_lnn/gwtb.py` + `docs/JSPACE_DESIGN.md` | Ô£à Ú╗ÿÞ«ñ 1 õ¢ìþ¡ëõ╗À,ÚøÂµû░ÕÅéµò░,cache parity Þ┐ç;J2 µîüÕ¡ÿµº¢/J3 ÕÅ»µèÑÕæèµÇº/J4 surprise ÕåÖÕàÑÞºüÞ«¥Þ«íµûçµíú,Õ¥àÕ«×Ú¬î |
+| `core_iterations` 液体核心潜空间循环 | `mt_lnn/model.py` MTLNNBlock + `config.py` | ✅ 零回归,N=1 位等价 |
+| `stack_iterations` 块级循环(注意力+LNN 权重绑定重复) | `mt_lnn/model.py` MTLNNModel | ✅ 零回归,use_cache 守卫 |
+| `n_global_heads` 全局头配额(架构原则 #1) | `mt_lnn/mt_attention.py` + `config.py` | ✅ 默认 0 位等价,待 sweep 定默认值 |
+| 深度敏感基准(单环指针追踪+模运算链) | `benchmarks/reasoning_tasks.py` | ✅ 已封死"抄起点"捷径 |
+| 深度实验框架(fixed/anytime/mix/消融旋钮) | `benchmarks/reasoning_depth.py` | ✅ 结果落 `benchmarks/results/reasoning_depth.jsonl` |
+| J-Space J1 工作区驻留(`workspace_iterations`) | `mt_lnn/gwtb.py` + `docs/JSPACE_DESIGN.md` | ✅ 默认 1 位等价,零新参数,cache parity 过;J2 持存槽/J3 可报告性/J4 surprise 写入见设计文档,待实验 |
 
-### µá©Õ┐âÕÅæþÄ░(µö╣ÕÅÿ M2 Þ«¥Þ«íµû╣ÕÉæ)
+### 核心发现(改变 M2 设计方向)
 
-1. **ÕÅ¬Õ¥¬þÄ»µÂ▓õ¢ôµá©Õ┐â Ôëá µÇØÞÇâ**:þ╗äÕÉêµƒÑµë¥þÜäÞ«íþ«ùÕ£¿µ│¿µäÅÕèøÚçî,LNN Õ¡ÉÕ▒éÞ┐¡õ╗úµÀ▒Õ║ªÕà¿Õ╣│
-2. **GTP ÞÀØþª╗Þí░ÕçÅ init µÿ»Õà│þ│╗µÄ¿þÉåþÜäÚÿ╗µû¡ÕÖ¿**(õ©╗Õøá)+ GQA ÕìÅÕÉî:õ┐«ÕñìÕÉÄ 8 Þèéþé╣
-   µîçÚÆêÞ┐¢Þ©¬ 0.25 ÔåÆ **1.0000 µ╗íÕêå**(transformer Õ»╣þàº 0.9932)ÒÇéµÂ▓õ¢ôÕ¡ÉÕ▒éµ£¼Þ║½µùáþ¢¬
-3. **ÚÜÅµ£║µÀ▒Õ║ªÞ«¡þ╗âµòÖµ¿íÕ×ïµùáÞºåÞ┐¡õ╗ú**;Õø║Õ«ÜµÀ▒Õ║ªµêûµÀ▒þøæþØúµëìÕÅ»Þâ¢ÞÁÀõ¢£þö¿
-4. **Õƒ║ÕçåÕ┐àÚí╗ÕüÜõ¢£Õ╝èÞÇàÕêåµ×É**:ÚÜÅµ£║þ¢«µìóÕø¥Õ¡ÿÕ£¿ f^k(s)=s µìÀÕ¥ä(þÉåÞ«║/Õ«×µÁïÚÇÉõ¢ìÕÉ╗ÕÉê),ÕÀ▓µö╣ÕìòþÄ»Õ░üµ¡╗
-5. **ÔÜá´©Å þ¼¼ 2 µØíÕÀ▓Þó½ÕñìþÄ░Õè¿µæç(2026-08-01)**:g0 µ£¼Õ£░ÕñìþÄ░ seeds 1,2 = **0.183/0.165(ÔëêÚÜÅµ£║)**,
-   ÞÇî Kaggle seed 0 = 1.0000 ÔÇöÔÇö Õø║Õ«ÜÚÜ¥Õ║ªµÄóÚÆêÕ£¿ 30k µ¡ÑÕñäõ║Ä **grokking µÄÀþí¼Õ©üÕÅîÕ│░Õî║**,
-   µ¡ñÕëìµëÇµ£ëÕìò seed Õ»╣µ»ö(P0 þ¼¼Õøøõ║öÞ¢«ÒÇüKaggle ÕÅìõ¥ï)õ║Æþø©õ©ìþƒøþø¥õ¢å**Úâ¢õ©ìÕÅ»õ┐í**ÒÇé
-   µû░ÕìÅÞ««:ÕìòþÄ» + mix Þ»¥þ¿ïõ╗╗Õèí(ÕÅ»ÚØá grok)+ µ»ÅÚàìþ¢« ÔëÑ3 seeds + per-k Þ»äõ╝░ÒÇé
-   ÞúüÕå│Õ«×Ú¬îÕ£¿ Kaggle ÞÀæ(Þºü ┬º3.9),þ╗ôµ×£Õç║µØÑÕëì**õ©ìÕ¥ùÕ╝òþö¿õ╗╗õ¢òÕìò seed þ╗ôÞ«║**
+1. **只循环液体核心 ≠ 思考**:组合查找的计算在注意力里,LNN 子层迭代深度全平
+2. **GTP 距离衰减 init 是关系推理的阻断器**(主因)+ GQA 协同:修复后 8 节点
+   指针追踪 0.25 → **1.0000 满分**(transformer 对照 0.9932)。液体子层本身无罪
+3. **随机深度训练教模型无视迭代**;固定深度或深监督才可能起作用
+4. **基准必须做作弊者分析**:随机置换图存在 f^k(s)=s 捷径(理论/实测逐位吻合),已改单环封死
+5. **⚠️ 第 2 条已被复现动摇(2026-08-01)**:g0 本地复现 seeds 1,2 = **0.183/0.165(≈随机)**,
+   而 Kaggle seed 0 = 1.0000 —— 固定难度探针在 30k 步处于 **grokking 掷硬币双峰区**,
+   此前所有单 seed 对比(P0 第四五轮、Kaggle 反例)互相不矛盾但**都不可信**。
+   新协议:单环 + mix 课程任务(可靠 grok)+ 每配置 ≥3 seeds + per-k 评估。
+   裁决实验在 Kaggle 跑(见 §3.9),结果出来前**不得引用任何单 seed 结论**
 
-## 2.7 Õ«ÿþ¢æõ©Äõ║ºÕôüÞí¿ÚØó(2026-07-30,ÕÀ▓õ©èþ║┐)
+## 2.7 官网与产品表面(2026-07-30,已上线)
 
-þ║┐õ©è `awareliquid.ai` ÕÀ▓Úâ¿þ¢▓Õê░ `45c4b72`ÒÇéþöƒõ║ºµÿ»õ©ÇÕÅ░ Vultr µ£║ÕÖ¿(**Õ£░ÕØÇõ©ÄþÖ╗Õ¢òµû╣Õ╝Åõ©ìÕåÖÕ£¿
-µ£¼Õà¼Õ╝Çõ╗ôÕ║ô**,Þºü ┬º3.7),õ╗ôÕ║ôÕ£¿ `/root/M1`,õ©ëÕ«╣ÕÖ¿ `mtlnn_prod` / `mtlnn_adapter` / `caddy_prod`ÒÇé
-**`serve/static` µÿ»ÕÅ¬Þ»╗ bind-mount,µö╣ HTML/CSS/JS ÕÅ¬Þªü `git pull` Õì│þöƒµòê,õ©ìþö¿ÚçìÕ╗║;
-µö╣ `serve/server.py` µëìÚ£ÇÞªü `docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`ÒÇé**
+线上 `awareliquid.ai` 已部署到 `45c4b72`。生产是一台 Vultr 机器(**地址与登录方式不写在
+本公开仓库**,见 §3.7),仓库在 `/root/M1`,三容器 `mtlnn_prod` / `mtlnn_adapter` / `caddy_prod`。
+**`serve/static` 是只读 bind-mount,改 HTML/CSS/JS 只要 `git pull` 即生效,不用重建;
+改 `serve/server.py` 才需要 `docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`。**
 
-### ÕÀ▓Õ«îµêÉ
+### 已完成
 
-| Úí╣ | ÕåàÕ«╣ |
+| 项 | 内容 |
 |---|---|
-| **µÆñÕø×µ│äµ╝Åõ┐«Õñì** | `llms.txt` / `llms-full.txt` µÿ» `robots.txt` µîçþ╗Ö GPTBot/ClaudeBot/PerplexityBot þÜäµûçõ╗Â,Õì┤õ╗ìµèè ÔêÆ28.5% ÕåÖµêÉ "Key Verified Results / validated / Built / independently verified"ÒÇéõ║║þ▒╗Õ£¿ `/research` þ£ïÕê░ÕÀ▓µÆñÕø×,þê¼ÞÖ½Þ»╗Õê░þÜäÕì┤µÿ»µùºþëêÔÇöÔÇöÞÇîÕÉÄÞÇàµëìµÿ»Þó½µ¿íÕ×ïÕ╝òþö¿þÜäÚéúõ╗¢ÒÇéÕÀ▓ÕÉîµ¡ÑµÆñÕø×µáçµ│¿,`+13.3pp` Úçìµû░Õ«ÜµÇºõ©║ prompt-template µòêÕ║ö,Õƒ║Õ║ºþ¼öÞ»» Qwen-3B ÔåÆ Qwen-1.5B,þëêµ£¼ÕÅÀ bump Õê░ 2.3 |
-| **4 õ©¬þö¿µêÀÕÅ»Þºü bug** | `finally{}` µèè `[error 503]`/`[Model backend offline]`/`[connection lost]` µùáµØíõ╗ÂÞªåþøûµêÉ `[no output]`(return õ╣ƒÞÁ░ finally);404 ÕñäþÉåÕÖ¿µèè JSON API ÚöÖÞ»»Þ┐öÕø×µò┤ÚíÁ HTML,SDK µöÂÕê░ `SyntaxError: Unexpected token '<'`;`/api` µÿ»µ¡╗Úô¥;`/robots.txt` ÕÆî `/sitemap.xml` þöƒõ║ºõ©è 404(µûçõ╗ÂÕ£¿ `static/` õ¢å `StaticFiles` ÕÅ¬µîé `/static`,**µò┤þ½Ö SEO Úàìþ¢«õ╗Äµ£¬þöƒµòêÞ┐ç**) |
-| **þ╝ûÞ¥æÕ╝Åµö╣þëê(8 ÚíÁ)** | ÕÅéþàº liquid.ai þÜä**þ╗ôµ×äÞ»¡Þ¿Ç**:þ│╗þ╗ƒ serif µáçÚóÿ weight 400 + Þ┤ƒÕ¡ùÞÀØÒÇü1px ÕÅæõ©Øþ║┐õ╗úµø┐ÕìíþëçÒÇümono uppercase Õàâµò░µì«µáçþ¡¥ÒÇüµÄºõ╗Â 4px Õ£åÞºÆÕàÂõ¢Öõ©║ 0ÒÇüÕÅ¬µ£ë hover Õè¿µòêÒÇé**ÚàìÞë▓Õê╗µäÅõ©ìÕÉî**ÔÇöÔÇöõ╗ûõ╗¼Õìòõ©Çþ┤½ `#7c3aed`,µêæõ╗¼þ║»Ú╗æþÖ¢þü░,Þ┐Öµÿ»ÕÉìþº░Þ┐æõ╝╝õ©ïµ£ÇÕ╝║þÜäÕî║Õêåµëïµ«Á |
-| **Õà¼ÕÅ©õ©╗õ¢ô** | 8 õ©¬ÚíÁÚØóÚíÁÞäÜÕØçÕÉ½ `Shenzhen Santi Anyuan Technology Co., Ltd`;`index` / `demo` ÞÀƒÚÜÅÞ»¡Þ¿ÇÕêçµìóµÿ¥þñ║ÒÇîµÀ▒Õ£│õ©ëõ¢ôµÜùµ║ÉþºæµèÇµ£ëÚÖÉÕà¼ÕÅ©ÒÇì |
-| **ÕÅªÕñû 7 õ©¬ bug** | privacy/terms Þ«┐Úù«õ©Çµ¼íÕì│µèèÕà¿þ½Öõ©╗Úóÿµ░©õ╣àÚÆëµ¡╗;about/research Þ»¡Þ¿ÇµîëÚÆ«µèè `<html lang>` Þ░ÄµèÑµêÉ `zh-CN`;research õ¥ºµáÅÚ½ÿõ║«ÞºéÕ»ƒÕà¿Úâ¿ 22 õ©¬ `[id]`(12 õ©¬ÚØ×þ½áÞèé)Õ»╝Þç┤Ú½ÿõ║«Þó½µ©àþ®║;research Õ«¢Þí¿Þó½ `overflow-x:hidden` ÞúüÕêç;404 `rel=canonical` µîçÕÉæÚªûÚíÁ;demo `probe()` µùáÞÂàµùÂ;demo Õêçµ¿íÕ×ïÕñ▒Þ┤ÑÚØÖÚ╗ÿ(µÿ¥þñ║ M1 Õ«×ÚÖàµëôÕê░ O1) |
+| **撤回泄漏修复** | `llms.txt` / `llms-full.txt` 是 `robots.txt` 指给 GPTBot/ClaudeBot/PerplexityBot 的文件,却仍把 −28.5% 写成 "Key Verified Results / validated / Built / independently verified"。人类在 `/research` 看到已撤回,爬虫读到的却是旧版——而后者才是被模型引用的那份。已同步撤回标注,`+13.3pp` 重新定性为 prompt-template 效应,基座笔误 Qwen-3B → Qwen-1.5B,版本号 bump 到 2.3 |
+| **4 个用户可见 bug** | `finally{}` 把 `[error 503]`/`[Model backend offline]`/`[connection lost]` 无条件覆盖成 `[no output]`(return 也走 finally);404 处理器把 JSON API 错误返回整页 HTML,SDK 收到 `SyntaxError: Unexpected token '<'`;`/api` 是死链;`/robots.txt` 和 `/sitemap.xml` 生产上 404(文件在 `static/` 但 `StaticFiles` 只挂 `/static`,**整站 SEO 配置从未生效过**) |
+| **编辑式改版(8 页)** | 参照 liquid.ai 的**结构语言**:系统 serif 标题 weight 400 + 负字距、1px 发丝线代替卡片、mono uppercase 元数据标签、控件 4px 圆角其余为 0、只有 hover 动效。**配色刻意不同**——他们单一紫 `#7c3aed`,我们纯黑白灰,这是名称近似下最强的区分手段 |
+| **公司主体** | 8 个页面页脚均含 `Shenzhen Santi Anyuan Technology Co., Ltd`;`index` / `demo` 跟随语言切换显示「深圳三体暗源科技有限公司」 |
+| **另外 7 个 bug** | privacy/terms 访问一次即把全站主题永久钉死;about/research 语言按钮把 `<html lang>` 谎报成 `zh-CN`;research 侧栏高亮观察全部 22 个 `[id]`(12 个非章节)导致高亮被清空;research 宽表被 `overflow-x:hidden` 裁切;404 `rel=canonical` 指向首页;demo `probe()` 无超时;demo 切模型失败静默(显示 M1 实际打到 O1) |
 
-### Þíîõ©Üµíêõ¥ï(6 ÕØù,ÕÅ¬µ£ë 2 ÕØùµ£ëµò░µì«)
+### 行业案例(6 块,只有 2 块有数据)
 
-| ÕØù | þèÂµÇü | õ¥Øµì« |
+| 块 | 状态 | 依据 |
 |---|---|---|
-| þöÁµ▒á | **Measured** | NASA PCoE,10 seeds,µò┤Úóù B0018 þòÖÕç║ÒÇé80% õ©óÚççµáÀ +7.7% vs LSTM +31.1% / GRU +32.8%;2.6 KB vs 34 MB@32K |
-| ÚçæÞ×ìµûçµíú | **Measured** | `AwareLiquid/AwareLiquid-M2`,44/48 = 91.7%,þ║ª 1.3 µ¼íÞ░âþö¿ / 2.8k tokens µ»ÅÚóÿÒÇé**M2 µÿ»µúÇþ┤ó+ÕÄïþ╝®ÚÇéÚàìÕÖ¿,õ©ìµÿ» O þ│╗Õêù,õ©ìÕÅ»µÀÀõ©║õ©ÇÞ░ê** |
-| ÞÇ│µ£║ | Code shipped ÔÇö untrained | `AwareLiquid/O1-Sound`,Þºü ┬º2.8 |
-| Þ¢ªµ£║ / µëïµ£║ / ÕÀÑþ¿ïµ£║ÕÖ¿õ║║ | Target application | **µùáõ╗╗õ¢òÕ«×Ú¬î**,ÕåÖþÜäµÿ»Õ£║µÖ» + µ×Âµ×äÚÇéÚàìþÉåþö▒,µÿÄÕåÖ "No pilot data yet" |
+| 电池 | **Measured** | NASA PCoE,10 seeds,整颗 B0018 留出。80% 丢采样 +7.7% vs LSTM +31.1% / GRU +32.8%;2.6 KB vs 34 MB@32K |
+| 金融文档 | **Measured** | `AwareLiquid/AwareLiquid-M2`,44/48 = 91.7%,约 1.3 次调用 / 2.8k tokens 每题。**M2 是检索+压缩适配器,不是 O 系列,不可混为一谈** |
+| 耳机 | Code shipped — untrained | `AwareLiquid/O1-Sound`,见 §2.8 |
+| 车机 / 手机 / 工程机器人 | Target application | **无任何实验**,写的是场景 + 架构适配理由,明写 "No pilot data yet" |
 
-## 2.8 O1-Sound(2026-07-30,ÕÀ▓µÄ¿ÚÇü,µùáµØâÚçì)
+## 2.8 O1-Sound(2026-07-30,已推送,无权重)
 
-õ╗ôÕ║ô `AwareLiquid/O1-Sound`(Õà¼Õ╝Ç,MIT)ÒÇéÕñÜÞ»¡þºìÚù«ÕÇÖÕöñÚåÆÞ»ì,O þ│╗ÕêùµÂ▓µÇüµá©Õ┐âÒÇé
+仓库 `AwareLiquid/O1-Sound`(公开,MIT)。多语种问候唤醒词,O 系列液态核心。
 
-**ÕÀ▓Õ«×µÁï**:ONNX Õ»╝Õç║ **5.03 MB fp32 / 1.27 MB int8**,µÉ║Õ©ªþèÂµÇü **5,120 B õ©öõ©ìÚÜÅµÁüÚò┐Õó×Úò┐**,
-µÁüÕ╝Å `step()` õ©Äµë╣ÕñäþÉåÞÀ»Õ¥äµò░ÕÇ╝õ©ÇÞç┤ **3.7e-09**,10 õ©¬µÁïÞ»òÚÇÜÞ┐ç(ÕÉ½õ¢ôþº»Úù¿þªüÞÂàÚóäþ«ùõ╝Üþ£ƒþÜä fail)ÒÇé
-Ú╗ÿÞ«ñ `hidden=640, layers=2` = 1.30M paramsÒÇé¤ä þö¿ `softplus(log_tau)+tau_min` Õçáõ¢òÕêØÕºïÕîûÞªåþøû **10ÔÇô240 ms**ÒÇé
-Õ»╝Õç║þÜäµÿ»**ÕìòÕ©º step Õø¥**ÞÇîÚØ×Õ«ÜÚò┐þ¬ùÕÅúÒÇé
+**已实测**:ONNX 导出 **5.03 MB fp32 / 1.27 MB int8**,携带状态 **5,120 B 且不随流长增长**,
+流式 `step()` 与批处理路径数值一致 **3.7e-09**,10 个测试通过(含体积门禁超预算会真的 fail)。
+默认 `hidden=640, layers=2` = 1.30M params。τ 用 `softplus(log_tau)+tau_min` 几何初始化覆盖 **10–240 ms**。
+导出的是**单帧 step 图**而非定长窗口。
 
-**µ▓íµ£ëþÜä**:µØâÚçìÒÇéµëÇõ╗Ñµ▓íµ£ë FRR / FAR,Õ«ÿþ¢æµáç `Code shipped ÔÇö untrained`(þü░µíå,ÚØ× Measured Ú╗æµíå)ÒÇé
-`o1sound/keywords.py` Úçî 20 õ©¬Þ»¡þºìµÿ» **spec õ©ìµÿ»þ╗ôµ×£**;`train.py` õ╝ÜµîëÕÉìÕ¡ùÞ¡ªÕæè spec õ©¡þúüþøÿõ©èõ©ìÕ¡ÿÕ£¿þÜäÞ»¡þºìÒÇé
+**没有的**:权重。所以没有 FRR / FAR,官网标 `Code shipped — untrained`(灰框,非 Measured 黑框)。
+`o1sound/keywords.py` 里 20 个语种是 **spec 不是结果**;`train.py` 会按名字警告 spec 中磁盘上不存在的语种。
 
-## 2.9 µ£║ÕêÂÞúüÕå│:CT ÕÅÖõ║ïÕà│Úù¡´╝ê2026-08-29´╝îCLOSED´╝ëÔåÆ ÕÀ▓µöÂÕÅú´╝îÕ¢Æµíú
+## 2.9 机制裁决:CT 叙事关闭（2026-08-29，CLOSED）→ 已收口，归档
 
-ÕÅÖõ║ïÕà¿µûç´╝êÕêñÕ«Üµò░Õ¡ùÒÇüÞ»üµì«µîçÚÆêÒÇüÕÉÄþ╗¡Þ«░Õ¢ò´╝ëÞºü `docs/archive/handoff-streaming-edge-2026-08.md`´╝ø
-Õ¢ôÕëìÕêñÕ«ÜµÇüÞºü RESULTS.md Null Õî║õ©Ä BENCHMARKS ┬º6/┬º7/┬º8´╝îÕå│þ¡ûÞºü kb/decisions/ADJ-007ÒÇüADJ-008ÒÇé
+叙事全文（判定数字、证据指针、后续记录）见 `docs/archive/handoff-streaming-edge-2026-08.md`；
+当前判定态见 RESULTS.md Null 区与 BENCHMARKS §6/§7/§8，决策见 kb/decisions/ADJ-007、ADJ-008。
 
-## 2.10 õ©ìÞºäÕêÖÚççµáÀÞ»üµì«þ║┐´╝êµë╣µ¼í2µ©àÕü┐´╝î2026-08-30´╝ëÔåÆ ÕÀ▓µöÂÕÅú´╝îÕ¢Æµíú
+## 2.10 不规则采样证据线（批次2清偿，2026-08-30）→ 已收口，归档
 
-ÕÉîõ©è´╝ÜÕà¿µûçÞºü `docs/archive/handoff-streaming-edge-2026-08.md`ÒÇé
+同上：全文见 `docs/archive/handoff-streaming-edge-2026-08.md`。
 
-## 3. Þ┐øÞíîõ©¡ / Õìíþé╣
+## 3. 进行中 / 卡点
 
-- **P0-3 Õ╝║ baseline µ¡úÕ£¿Þ┐øÞíîõ©¡**´╝Ümodern_transformer ÕÀ▓Õ«îµêÉ´╝øMamba/Mamba-2/GLA/DeltaNet þ¡ëþÄ░õ╗úÚ½ÿµòêµ×Âµ×äõ╗ìÚ£Çþ╗ºþ╗¡ÞÀæÒÇéÕ¢ôÕëìÞäÜµ£¼ÕÀ▓µö»µîü `mamba`´╝îõ¢å Windows/µùá CUDA kernel þÄ»ÕóâþÜäÚÇƒÕ║ªþ╗ôµ×£õ©ìÞâ¢þö¿õ║ÄÞ«║µûçµòêþÄçÕ»╣µ»ö´╝øÕ╝║ baseline Õ╗║Þ««þ╗ºþ╗¡Õ£¿ Linux + CUDA kernel + A100/AutoDL õ©èÞÀæÒÇé
-- **P0-3 modern_transformer ÚÿÂµ«ÁµêÉµ×£ÕÀ▓µÄ¿ÚÇü**´╝Ü`benchmarks/baselines.py` Õó×Õèá `ModernCausalTransformer`´╝ø`benchmarks/scaling_comparison.py` Õó×Õèá `modern_transformer` arch´╝ø`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` ÕÀ▓µø┤µû░õ©║õ©ëµ¿íÕ×ïÕ»╣µ»ö´╝ømodern_transformer õ©ëõ©¬ JSON õ©Äõ©ëõ╗¢µáçÕçåÕîûµùÑÕ┐ùÕÀ▓õ©èõ╝áÕê░ `physics-informed-head`ÒÇéµÄÑµëïµùÂõ╗ìÚ£ÇÕàê `git status` þí«Þ«ñµ£¼Õ£░µÿ»ÕÉªµ£ëµû░Õ«×Ú¬îþ╗ôµ×£µêûÞ┐£þ½»ÕÉîµ¡ÑÕÀ«Õ╝éÒÇé
-- ~~**fp16/AMP µá╣Õøáµ£¬ÞºúÕå│**~~ ÔåÆ **ÕÀ▓ÞºúÕå│´╝ê2026-07-19´╝ë**´╝Üµá╣Õøáµÿ» `mt_lnn/global_coherence.py` þÜäµ│¿µäÅÕèøþ╝®µö¥Úí║Õ║Å `(Q@K)/scale`ÔÇöÔÇöÕ£¿ d_head=64 þ╗┤þ┤»Õèá**õ╣ïÕÉÄ**µëìþ╝®µö¥´╝îQ/K Õó×ÕñºÕÉÄõ©¡Úù┤õ╣ÿþº» ~2e5 Õ£¿þƒ®ÚÿÁõ╣ÿÕåàÚâ¿µ║óÕç║ fp16´╝êõ©èÚÖÉ 65504´╝ë´╝îõ║ºþöƒþÜä Inf õ©ÄÕøáµ×£µÄ®þáüÚøÂþø©ÚüçÞºªÕÅæ `Inf*0=NaN`´╝îþ╗Å sigmoid µ▒íµƒôµò┤Õ▒éÒÇéõ┐«Õñì´╝Üµö╣õ©║ `(Q/scale)@K`´╝ê4 Õñä´╝ë+ `_gate_energy` þö¿ where õ╗úµø┐õ╣ÿµ│òÒÇüfp32 þ┤»ÕèáÒÇü`clamp_min(1e-6)` µø┐µìóÕ£¿ fp16 õ©ïõ©ïµ║óµêÉ 0 þÜä `1e-9`ÒÇé**Ú¬îÞ»ü**´╝ÜÕÄƒµ£¼þ¼¼ 875 µ¡ÑÕÅæµòúþÜäÕÉîÚàìµû╣þÄ░ÕÀ▓ÞÀæµ╗í **2000 µ¡Ñ** `stable: true`´╝îval PPL **257.91**´╝îõ©ÄÕÉîÚàìµû╣ fp32 þÜä 257.48 þø©ÕÀ«õ╗à 0.17%´╝êÞ┐£Õ░Åõ║Ä ┬▒4.89 þºìÕ¡Éµû╣ÕÀ«´╝ëÔÇöÔÇöfp16 ÕÀ▓µüóÕñìÕê░ fp32 ÕÉîþ¡ëÞ┤¿ÚçÅÒÇéÕ«íÞ«íþí«Þ«ñ´╝ÜÕàÂõ¢Öµ│¿µäÅÕèøÕ«×þÄ░ÕØçþö¿ SDPA´╝îcoherence µÿ»Õö»õ©ÇµëïÕåÖþÜäÒÇéÞ»èµû¡ÕÀÑÕàÀ´╝Ü`benchmarks/diagnose_fp16_divergence.py`ÒÇé
-- **Ôøö O1 48M µØâÚçìµë¥õ©ìÕê░´╝êÚÿ╗Õí×µÁÅÞºêÕÖ¿ demo´╝ë**´╝Üµ£¼Õ£░õ╗ôÕ║ôÕÅ¬µ£ë M1 adapter´╝øHuggingFace `EverestAn/MT-LNN` õ╣ƒÕÅ¬µ£ë `llama_mt_adapter_000500.pt`´╝ê4.11 MB´╝ë+ PDF´╝î**µ▓íµ£ë O1 48M**ÒÇé`checkpoints/` ÕÆî `*.pt` Þó½ gitignoreÒÇéµ£ÇÕÅ»Þâ¢Õ£¿**ÕÀ▓Þó½þªüþö¿þÜä Modal workspace**´╝ê`ac-ESq0Y6MGgrCtt67tOwrcDS`´╝îÕ«ÿþ¢æ demo þÜä `/adapter/v1/model` Õøáµ¡ñ 404´╝ëµêûµ£ìÕèíÕÖ¿õ©èÒÇé**µï┐Õê░µØâÚçìÕÉÄõ©ÇµØíÕæ¢õ╗ñÕì│ÕÅ»**´╝Ü`py -3.11 benchmarks/export_o1_for_browser.py --ckpt <path> --int8`
-- **scaling law µ£¬Õ«îµêÉ**´╝ÜÞ┐ÿÚ£ÇÞªüÞç│Õ░æ 3 õ©¬µ¿íÕ×ïÞºäµ¿í´╝îþ╗ƒõ©Ç token budgetÒÇüÞ«¡þ╗âµ¡Ñµò░/µáÀµ£¼ÚçÅÕÆî eval ÕÅúÕ¥ä´╝îþí«Þ«ñõ╝ÿÕè┐µÿ»ÕÉªÚÜÅÞºäµ¿íõ┐ØµîüÒÇé
-- **Úò┐õ©èõ©ïµûçÞ»üµì«õ╗ìÚ£ÇÞíÑÚ¢É**´╝ÜO(1) working memory þÜäµá©Õ┐âÕìûþé╣Ú£ÇÞªü decode/profile/þ£ƒÕ«×õ╗╗Õèíµö»µÆæ´╝îõ©ìÞâ¢ÕÅ¬ÚØá WikiText PPLÒÇé
+- **P0-3 强 baseline 正在进行中**：modern_transformer 已完成；Mamba/Mamba-2/GLA/DeltaNet 等现代高效架构仍需继续跑。当前脚本已支持 `mamba`，但 Windows/无 CUDA kernel 环境的速度结果不能用于论文效率对比；强 baseline 建议继续在 Linux + CUDA kernel + A100/AutoDL 上跑。
+- **P0-3 modern_transformer 阶段成果已推送**：`benchmarks/baselines.py` 增加 `ModernCausalTransformer`；`benchmarks/scaling_comparison.py` 增加 `modern_transformer` arch；`scaling_fp32/converge_probe/scaling_train_20000_summary.txt` 已更新为三模型对比；modern_transformer 三个 JSON 与三份标准化日志已上传到 `physics-informed-head`。接手时仍需先 `git status` 确认本地是否有新实验结果或远端同步差异。
+- ~~**fp16/AMP 根因未解决**~~ → **已解决（2026-07-19）**：根因是 `mt_lnn/global_coherence.py` 的注意力缩放顺序 `(Q@K)/scale`——在 d_head=64 维累加**之后**才缩放，Q/K 增大后中间乘积 ~2e5 在矩阵乘内部溢出 fp16（上限 65504），产生的 Inf 与因果掩码零相遇触发 `Inf*0=NaN`，经 sigmoid 污染整层。修复：改为 `(Q/scale)@K`（4 处）+ `_gate_energy` 用 where 代替乘法、fp32 累加、`clamp_min(1e-6)` 替换在 fp16 下下溢成 0 的 `1e-9`。**验证**：原本第 875 步发散的同配方现已跑满 **2000 步** `stable: true`，val PPL **257.91**，与同配方 fp32 的 257.48 相差仅 0.17%（远小于 ±4.89 种子方差）——fp16 已恢复到 fp32 同等质量。审计确认：其余注意力实现均用 SDPA，coherence 是唯一手写的。诊断工具：`benchmarks/diagnose_fp16_divergence.py`。
+- **⛔ O1 48M 权重找不到（阻塞浏览器 demo）**：本地仓库只有 M1 adapter；HuggingFace `EverestAn/MT-LNN` 也只有 `llama_mt_adapter_000500.pt`（4.11 MB）+ PDF，**没有 O1 48M**。`checkpoints/` 和 `*.pt` 被 gitignore。最可能在**已被禁用的 Modal workspace**（`ac-ESq0Y6MGgrCtt67tOwrcDS`，官网 demo 的 `/adapter/v1/model` 因此 404）或服务器上。**拿到权重后一条命令即可**：`py -3.11 benchmarks/export_o1_for_browser.py --ckpt <path> --int8`
+- **scaling law 未完成**：还需要至少 3 个模型规模，统一 token budget、训练步数/样本量和 eval 口径，确认优势是否随规模保持。
+- **长上下文证据仍需补齐**：O(1) working memory 的核心卖点需要 decode/profile/真实任务支撑，不能只靠 WikiText PPL。
 
-## 3.7 Õ«ÿþ¢æ / O1-Sound µ£¬Õ«îµêÉÚí╣(2026-07-30 õ║ñµÄÑ,2026-08-01 µø┤µû░)
+## 3.7 官网 / O1-Sound 未完成项(2026-07-30 交接,2026-08-01 更新)
 
-### Ô£à ÞÁ░µƒÑÕÀ▓Õ«îµêÉ(2026-08-01,Õçáõ¢òÕ«íÞ«í,õ©ñõ©¬ bug ÕÀ▓õ┐«Õ╣Âõ©èþ║┐Ú¬îÞ»ü)
+### ✅ 走查已完成(2026-08-01,几何审计,两个 bug 已修并上线验证)
 
-8 ÚíÁ ├ù µíîÚØó/µëïµ£║ÕÅîÕ«¢Õ║ªÕ«íÞ«í(Õàâþ┤áÚçìÕÅáµúÇµÁï + µ║óÕç║µÁïÚçÅ + Þ«íþ«ùµáÀÕ╝Å):µíîÚØóþ½»Õà¿Õ╣▓ÕçÇ
-(ÚçìÕÅá 0ÒÇüµ║óÕç║ 0ÒÇüÞèéÕÑÅþ╗ƒõ©Ç 80/128px),õ©╗ÚóÿÚÆëµ¡╗/404 canonical þ¡ëµ¡ñÕëìõ┐«ÕñìÕØçÚ¬îÞ»üþöƒµòêÒÇé
-µèôÕê░Õ╣Â**ÕÀ▓õ┐«+ÕÀ▓Úâ¿þ¢▓+þ║┐õ©èÕñìÚ¬î**þÜäõ©ñõ©¬Úù«Úóÿ:
+8 页 × 桌面/手机双宽度审计(元素重叠检测 + 溢出测量 + 计算样式):桌面端全干净
+(重叠 0、溢出 0、节奏统一 80/128px),主题钉死/404 canonical 等此前修复均验证生效。
+抓到并**已修+已部署+线上复验**的两个问题:
 
-1. **research µëïµ£║þ½»µ¿¬ÕÉæµ║óÕç║ 218px**ÔÇöÔÇögrid Õêù `min-width:auto` Þó½ 569px Õ«¢Þí¿µÆæþá┤;
-   `.content-col{min-width:0}` õ┐«Õñì,þ║┐õ©èÕ«×µÁï hOverflow 218ÔåÆ0
-2. **ÚªûÚíÁõ©¡µûçÞªåþøû**ÔÇöÔÇöÕêçõ©¡µûçÕÉÄÕ«×µÁïµ«ïþòÖ **75 µ«ÁÞï▒µûç**(ÞÂàÞ┐çÕÀ▓þƒÑþÜä 60+);EN/ZH ÕÉä
-   +72 key(58ÔåÆ130)ÒÇüµÿáÕ░ä 33ÔåÆ52 µØí;þ║┐õ©èÕñìÚ¬îµ«ïþòÖ 75ÔåÆ4,Õë®õ¢Ö 4 õ©¬ÕØçÕ║öõ┐ØþòÖÞï▒µûç
-   (TinyLlama/Liquid AI┬ÀLFM2/GitHub Úô¥µÄÑ/MIT LNN)
+1. **research 手机端横向溢出 218px**——grid 列 `min-width:auto` 被 569px 宽表撑破;
+   `.content-col{min-width:0}` 修复,线上实测 hOverflow 218→0
+2. **首页中文覆盖**——切中文后实测残留 **75 段英文**(超过已知的 60+);EN/ZH 各
+   +72 key(58→130)、映射 33→52 条;线上复验残留 75→4,剩余 4 个均应保留英文
+   (TinyLlama/Liquid AI·LFM2/GitHub 链接/MIT LNN)
 
-**Õö»õ©ÇÕë®þ╗Öõ║║þ£╝þÜä**:serif µáçÚóÿÕ£¿ Windows þÜäÕ«×ÚÖàÞºéµäƒ(`document.fonts.check` Õ»╣Õà¿Úâ¿
-ÕÇÖÚÇëÞ┐öÕø× true,µÁÅÞºêÕÖ¿Õê½ÕÉìµ£║ÕêÂÕ»╝Þç┤µ£║ÕÖ¿µÁïõ©ìÕç║Õ«×ÚÖàÞÉ¢Õ£░Õ¡ùõ¢ô)ÔÇöÔÇöEverest µ£ëþ®║þ×ƒõ©Çþ£╝ÚªûÚíÁÕì│ÕÅ»ÒÇé
+**唯一剩给人眼的**:serif 标题在 Windows 的实际观感(`document.fonts.check` 对全部
+候选返回 true,浏览器别名机制导致机器测不出实际落地字体)——Everest 有空瞟一眼首页即可。
 
-### O1-Sound:Þ«¡þ╗âµ▓íÞÀæ
+### O1-Sound:训练没跑
 
-Õ«ÿþ¢æÚéúÕØùÞªüþ┐╗µêÉ Measured,Õ┐àÚí╗Õàêµ£ëþ£ƒµò░Õ¡ù:
+官网那块要翻成 Measured,必须先有真数字:
 
 ```bash
 python scripts/fetch_mswc.py --languages en,de,fr,es,it,pt,pl,ru,tr,id --out data/mswc
@@ -216,296 +212,296 @@ python eval.py  --ckpt checkpoints/o1sound.pt --root data/mswc --split test --ou
 python export_onnx.py --ckpt checkpoints/o1sound.pt --out dist/o1sound.onnx --int8
 ```
 
-ÞÀæÕ£¿**µ£¼Õ£░ RTX 5060**(µ£ìÕèíÕÖ¿µÿ» 4 vCPU þ║» CPU,õ©ìÕÉêÚÇé)ÒÇéµ¿íÕ×ïÕÅ¬µ£ë 1.3M ÕÅéµò░,ÕçáÕìüÕêåÚÆƒÚçÅþ║ºÒÇé
-`eval.py` µèÑþÜäµÿ»**Õø║Õ«Ü FAR Úóäþ«ùõ©ïÚÇÉÞ»¡Þ¿ÇþÜä FRR**,Õ╣ÂÕìòþï¼µëôÕì░µ£ÇÕÀ«Þ»¡þºì ÔÇöÔÇö
-**ÕñÜÞ»¡Þ¿ÇÕú░µÿÄþÜäõ©èþòîµÿ»µ£ÇÕÀ«Þ»¡þºì,õ©ìµÿ»Õ╣│ÕØçÕÇ╝**,Õí½Õ«ÿþ¢æµùÂþö¿Úéúõ©¬µò░ÒÇé
+跑在**本地 RTX 5060**(服务器是 4 vCPU 纯 CPU,不合适)。模型只有 1.3M 参数,几十分钟量级。
+`eval.py` 报的是**固定 FAR 预算下逐语言的 FRR**,并单独打印最差语种 ——
+**多语言声明的上界是最差语种,不是平均值**,填官网时用那个数。
 
-### Õ«ÿþ¢æõ╗ìµ£¬õ┐«þÜä bug(µîëõ©ÑÚçìÕ║ª)
+### 官网仍未修的 bug(按严重度)
 
-| þ║º | õ¢ìþ¢« | Úù«Úóÿ |
+| 级 | 位置 | 问题 |
 |---|---|---|
-| **P1** | `serve/server.py:340` | `if token and ...` þƒ¡ÞÀ»Þ»¡õ╣ë = **`PARTNER_STATS_TOKEN` µ▓íÞ«¥Õ░▒Õ«îÕà¿õ©ìÚë┤µØâ**ÒÇé`docker-compose.prod.yml` ÚçîÚ╗ÿÞ«ñþ®║õ©▓,`.env` Õ┐ÿÕí½ ÔåÆ `GET /partners` Õà¿Õà¼Õ╝ÇÒÇéÕ║öµö╣µêÉ prod Õ╝║ÕêÂÞªüµ▒é token |
-| ~~P1~~ | ~~`index.html` i18n~~ | **Ô£à ÕÀ▓õ┐«(2026-08-01)**:EN/ZH ÕÉä +72 key + 52 µØíµÿáÕ░ä,þ║┐õ©èÕñìÚ¬îµ«ïþòÖÞï▒µûç 75ÔåÆ4 |
-| **P2** | `index.html` / `demo.html` | `marked.parse()` µùá sanitize,CSP ÕÉ½ `'unsafe-inline'` ÔåÆ Þ»▒Õ»╝µ¿íÕ×ïÞ¥ôÕç║ `<img src=x onerror=ÔÇª>` Õì│µëºÞíîÒÇéfallback shim µø┤þ│ƒ:ÕÅ¬Þ¢¼õ╣ëõ╗úþáüÕØù,µÖ«ÚÇÜµ«ÁÞÉ¢þø┤µÄÑµï╝ |
-| **P2** | `llms.txt:29` / `research.html:592` | **ÕÉîõ©Çõ©¬ O(1) µò░Õ¡ùµ£ëõ©ñõ©¬þëêµ£¼**:`4 KB`(µ¡úµûç)vs `0.381 MB`(meta/JSON-LD/ÚªûÚíÁ),ÕÀ«Þ┐æ 100 ÕÇìÒÇéõ©ñÞÇàÕÅ»Þâ¢µîçõ©ìÕÉîµ¿íÕ×ïÞºäµ¿í,õ¢å**µ£¬µáçµ│¿Õ░▒µÿ»Þç¬þø©þƒøþø¥**,Ú£Çþí«Þ«ñÕÉäÞç¬Õ»╣Õ║öõ╗Çõ╣êÚàìþ¢«Õåìþ╗ƒõ©Ç |
-| **P2** | `api.html` | þ╝║ canonicalÒÇüog µáçþ¡¥;õ©╗ÚóÿÕÅ¬µ£ë 1 Õñä `prefers-color-scheme`,µÁàÞë▓µ¿íÕ╝Åõ©ïõ╗ìÕÅ»Þâ¢þ¬üÕàÇ |
-| **P2** | `server.py:304` | `counts.json` ÚØ×ÕÄƒÕ¡ÉÕåÖ(Õàê truncate Õåì dump),Þó½ `docker stop` µëôµû¡ ÔåÆ õ©ïµ¼í `json.load` µèø ValueError ÔåÆ `except` ÚØÖÚ╗ÿµèèþ┤»Þ«íÞ«íµò░**Õ¢ÆÚøÂ** |
-| **P2** | `server.py:172` | Õà¿Õ▒ÇÕìòÚöüõ©▓ÞíîÕîûµëÇµ£ëþöƒµêÉ,µùáÞÂàµùÂµùáÚÿƒÕêùõ©èÚÖÉÒÇéCPU 2ÔÇô15 tok/s ├ù 400 token Ôëê ÕìòÞ»Àµ▒éµ£ÇÚò┐ 200s,þ¼¼õ║îõ©¬þö¿µêÀõ©Çþø┤µîéþØÇ |
-| **P2** | `server.py:600` | `/v1/model` õ©ìÞ┐öÕø× `base_model`/`adapter_loaded`/`is_baseline`,Õëìþ½» `applyModel` õ¥ØÞÁûÕ«âõ╗¼ ÔåÆ þèÂµÇüµáÅµ░©Þ┐£µÿ¥þñ║ `MT-LNN ┬À 48M ┬À cpu`,ÒÇî┬À O1ÒÇìÕ¥¢µáçµ░©õ©ìÕç║þÄ░ |
-| **P2** | `demo.html:8` vs `sitemap.xml` | demo ÚíÁ `noindex` õ¢å sitemap õ╗Ñ priority 0.8 µöÂÕ¢ò |
+| **P1** | `serve/server.py:340` | `if token and ...` 短路语义 = **`PARTNER_STATS_TOKEN` 没设就完全不鉴权**。`docker-compose.prod.yml` 里默认空串,`.env` 忘填 → `GET /partners` 全公开。应改成 prod 强制要求 token |
+| ~~P1~~ | ~~`index.html` i18n~~ | **✅ 已修(2026-08-01)**:EN/ZH 各 +72 key + 52 条映射,线上复验残留英文 75→4 |
+| **P2** | `index.html` / `demo.html` | `marked.parse()` 无 sanitize,CSP 含 `'unsafe-inline'` → 诱导模型输出 `<img src=x onerror=…>` 即执行。fallback shim 更糟:只转义代码块,普通段落直接拼 |
+| **P2** | `llms.txt:29` / `research.html:592` | **同一个 O(1) 数字有两个版本**:`4 KB`(正文)vs `0.381 MB`(meta/JSON-LD/首页),差近 100 倍。两者可能指不同模型规模,但**未标注就是自相矛盾**,需确认各自对应什么配置再统一 |
+| **P2** | `api.html` | 缺 canonical、og 标签;主题只有 1 处 `prefers-color-scheme`,浅色模式下仍可能突兀 |
+| **P2** | `server.py:304` | `counts.json` 非原子写(先 truncate 再 dump),被 `docker stop` 打断 → 下次 `json.load` 抛 ValueError → `except` 静默把累计计数**归零** |
+| **P2** | `server.py:172` | 全局单锁串行化所有生成,无超时无队列上限。CPU 2–15 tok/s × 400 token ≈ 单请求最长 200s,第二个用户一直挂着 |
+| **P2** | `server.py:600` | `/v1/model` 不返回 `base_model`/`adapter_loaded`/`is_baseline`,前端 `applyModel` 依赖它们 → 状态栏永远显示 `MT-LNN · 48M · cpu`,「· O1」徽标永不出现 |
+| **P2** | `demo.html:8` vs `sitemap.xml` | demo 页 `noindex` 但 sitemap 以 priority 0.8 收录 |
 
-Õ«îµò┤Õ«íÞ«íµÿ» 4├ùP0 / 10├ùP1 / 24├ùP2,ÕÅªµ£ë 17 þ▒╗µÿÄþí«Ú¬îÞ»üõ©║Õ╣▓ÕçÇ(childNodes õ©ïµáçõ¥ØÞÁûÕà¿þ½Ö 0 ÕñäÒÇü
-ÚçìÕñì id 0 ÕñäÒÇüJSON-LD Õà¿ÕÉêµ│òÒÇüþ½ÖÕåàÚöÜþé╣ 0 µ¡╗Úô¥ÒÇüµ£¼Õ£░ÞÁäµ║É 0 µ¡╗Úô¥)ÒÇéõ©èÚØóÕÅ¬Õêù**õ╗ìµ£¬õ┐«**þÜäÒÇé
+完整审计是 4×P0 / 10×P1 / 24×P2,另有 17 类明确验证为干净(childNodes 下标依赖全站 0 处、
+重复 id 0 处、JSON-LD 全合法、站内锚点 0 死链、本地资源 0 死链)。上面只列**仍未修**的。
 
-### Úâ¿þ¢▓Þ«┐Úù«
+### 部署访问
 
-**Úâ¿þ¢▓Õç¡Þ»üõ©ìÕ£¿µ£¼õ╗ôÕ║ô,õ╣ƒõ©ìõ╝ÜÞ┐øµ£¼õ╗ôÕ║ô** ÔÇöÔÇö Þ┐Öµÿ»Õà¼Õ╝Çõ╗ôÕ║ôÒÇéµ£ìÕèíÕÖ¿Õ£░ÕØÇÒÇüSSH Õ»åÚÆÑÞÀ»Õ¥ä
-ÕÆîÕÉèÚöÇµû╣Õ╝ÅÞ«░Õ£¿µ£¼Õ£░ `DEPLOY_ACCESS.local.md`(ÕÀ▓Þó½ `.gitignore` µÄÆÚÖñ),µÄÑµëïµùÂÕÉæ
-Úí╣þø«µëÇµ£ëÞÇàþ┤óÕÅûÒÇé
+**部署凭证不在本仓库,也不会进本仓库** —— 这是公开仓库。服务器地址、SSH 密钥路径
+和吊销方式记在本地 `DEPLOY_ACCESS.local.md`(已被 `.gitignore` 排除),接手时向
+项目所有者索取。
 
-`serve/static` µÿ»ÕÅ¬Þ»╗ bind-mount:µö╣ HTML/CSS/JS ÕÅ¬ÞªüÕ£¿µ£ìÕèíÕÖ¿õ©è `git pull` Õì│þöƒµòê;
-µö╣ `serve/server.py` µëìÚ£ÇÞªü
-`docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`(ÞÇùµùÂµò░ÕêåÚÆƒ,
-SSH ÕëìÕÅ░õ╝ÜÞÂàµùÂ,þö¿ `nohup ... &` õ©óÕÉÄÕÅ░Õåì `tail /tmp/deploy.log`)ÒÇé
+`serve/static` 是只读 bind-mount:改 HTML/CSS/JS 只要在服务器上 `git pull` 即生效;
+改 `serve/server.py` 才需要
+`docker compose -f deploy/docker-compose.prod.yml up -d --build mtlnn`(耗时数分钟,
+SSH 前台会超时,用 `nohup ... &` 丢后台再 `tail /tmp/deploy.log`)。
 
-### Þ©®Þ┐çþÜäÕØæ(Õê½ÕåìÞ©®)
+### 踩过的坑(别再踩)
 
-1. **`.gitignore` þÜä `data/` µÿ»õ╗╗µäÅÕ▒éþ║ºÕî╣Úàì**ÒÇéO1-Sound Úªûµ¼íµÄ¿ÚÇüµùÂÕ«âÕÉ×µÄëõ║åµ║ÉþáüÕîà
-   `o1sound/data/`,Þ┐£þ½»õ╗ôÕ║ô `import` þø┤µÄÑÕñ▒Þ┤Ñ,ÞÇîµ£¼Õ£░ÕÀÑõ¢£Õî║õ©ÇÕêçµ¡úÕ©©ÒÇé
-   **µÄ¿ÚÇüÕÉÄÕ┐àÚí╗Úçìµû░ clone õ©Çõ╗¢ÞÀæµÁïÞ»ò**,õ©ìÞâ¢õ┐íµ£¼Õ£░ÒÇéÞªüÚöÜÕ«Üµá╣þø«Õ¢òÕ░▒ÕåÖ `/data/`ÒÇé
-2. **`.section{padding:96px 0}` õ©Ä `.industries-section{...}` ÕÉîþë╣Õ╝éµÇº**,ÕÉÄÞÇàÕ£¿ÕëìÒÇü
-   ÕëìÞÇàÕ£¿ÕÉÄ ÔåÆ ÕÉÄÞÇàÞâ£Õç║,Þ«¥þÜäÞèéÕÑÅÚØÖÚ╗ÿÕñ▒µòêÒÇéµö╣ CSS ÞèéÕÑÅµùÂµèèÕÇ╝µö¥Õ£¿**µ£ÇÚÇÜþö¿þÜäÚéúµØíÞºäÕêÖõ©è**,
-   õ©ìÞªüÚÇÉõ©¬ section ÞªåþøûÒÇé
-3. **Edit ÕÀÑÕàÀõ╝Üµèè LF µûçõ╗ÂÕåÖµêÉ CRLF**(index.html / demo.html õ©¡Þ┐çµïø)ÒÇéµë╣ÚçÅµö╣Õ«î
-   `git diff --stat` ÞïÑÕç║þÄ░µò┤µûçõ╗Âµö╣Õè¿,ÕàêµƒÑÞíîÕ░¥ÒÇé
+1. **`.gitignore` 的 `data/` 是任意层级匹配**。O1-Sound 首次推送时它吞掉了源码包
+   `o1sound/data/`,远端仓库 `import` 直接失败,而本地工作区一切正常。
+   **推送后必须重新 clone 一份跑测试**,不能信本地。要锚定根目录就写 `/data/`。
+2. **`.section{padding:96px 0}` 与 `.industries-section{...}` 同特异性**,后者在前、
+   前者在后 → 后者胜出,设的节奏静默失效。改 CSS 节奏时把值放在**最通用的那条规则上**,
+   不要逐个 section 覆盖。
+3. **Edit 工具会把 LF 文件写成 CRLF**(index.html / demo.html 中过招)。批量改完
+   `git diff --stat` 若出现整文件改动,先查行尾。
 
-## 3.5 ÞÁäµ║Éþ╝║ÕÅúÕêåµ×É(2026-07-29 ÔÇö Õø×þ¡ö"M1 þø«Õëìþ╝║Õô¬ÕØù")
+## 3.5 资源缺口分析(2026-07-29 — 回答"M1 目前缺哪块")
 
-µîëÚÿ╗Õí×þ¿ïÕ║ªµÄÆÕ║Å:
+按阻塞程度排序:
 
-| # | þ╝║ÕÅú | þÄ░þèÂ | Ú£ÇÞªüõ╗Çõ╣ê |
+| # | 缺口 | 现状 | 需要什么 |
 |---|---|---|---|
-| **1** | **Þ«¡þ╗âþ«ùÕèø(µ£ÇÕñºþôÂÚóê)** | µ£¼Õ£░ 8GB ÕÅ¬Õñƒ 200K þ║ºµÄóÚÆêÕ«×Ú¬î;P0-3 Õë®õ¢ÖÕ╝║ baseline(Mamba-2/GLA/DeltaNet)ÒÇü14.7% ÕñºÚóäþ«ùÕñìµá©ÒÇüscaling law õ©ëÞºäµ¿íÒÇüM2-P1 ÞÆ©ÚªÅ(350M~1B)**Õà¿Úâ¿ÕáÁÕ£¿Þ┐ÖÚçî** | AutoDL/A100 Úóäþ«ù(õ╝░ P0-3 µöÂÕ░¥ ~┬Ñ300-500;P1 ÞÆ©ÚªÅÚªûÞ¢« ~$300-500)µêûÕÉîõ║ïþÜäÕìí |
-| **2** | **µÄ¿þÉåÞ«¡þ╗âµò░µì«** | M2-P1 ÞÆ©ÚªÅÚ£ÇÞªüÕ╝║µòÖÕ©êþÜäµÄ¿þÉåÞ¢¿Þ┐╣(µò░Õ¡ª/õ╗úþáü CoT),þø«Õëìþ«íþ║┐õ╗úþáüÕÆîµò░µì«Úâ¢µÿ»ÚøÂ | µòÖÕ©êµ¿íÕ×ï API Úóäþ«ù + `benchmarks/` õ©ïÕ╗║ÞÆ©ÚªÅµò░µì«þ«íþ║┐(CPU ÕÀÑõ¢£,ÕÅ»ÕàêÞíî) |
-| **3** | **P0 µöÂÕ░¥Õ«×Ú¬î(GPU µÄÆÚÿƒõ©¡)** | ÕìòþÄ»õ╗╗ÕèíÞ┐çÕñ£Õ«×Ú¬îÕ£¿ÞÀæ;`n_global_heads` sweep(0/1/2/4)µÄÆÚÿƒÔÇöÔÇöÕ«ÜÚ╗ÿÞ«ñÕÇ╝Õ┐àÚ£Ç | ÕÅ¬Ú£Çµ£¼Õ£░ GPU µùÂÚù┤,µùáÚ£ÇÕñûÚâ¿ÞÁäµ║É |
-| **4** | **þöƒþë®µ¿íÕØù ablation ÞíÑÞ»¥** | GWT/PC/þØíþ£áþÜäÞ┤íþî«µ£¬µîë 5-seed þ║¬Õ¥ïÚçÅÕîû;Hebbian ÕÀ▓þƒÑµâ░µÇºÕ¥àµö╣ fast-weights µêûÕêá | µ£¼Õ£░ GPU + µùÂÚù┤,õ╝ÿÕàêþ║ºõ¢Äõ║Ä 1-3 |
-| **5** | **O1 48M µØâÚçìõ╗ìÕñ▒Þ©¬** | Úÿ╗Õí×µÁÅÞºêÕÖ¿ demo(Þºü ┬º3 Ôøö µØíþø«) | õ║║ÕÀÑµë¥Õø×(Modal workspace µêûµ£ìÕèíÕÖ¿) |
+| **1** | **训练算力(最大瓶颈)** | 本地 8GB 只够 200K 级探针实验;P0-3 剩余强 baseline(Mamba-2/GLA/DeltaNet)、14.7% 大预算复核、scaling law 三规模、M2-P1 蒸馏(350M~1B)**全部堵在这里** | AutoDL/A100 预算(估 P0-3 收尾 ~¥300-500;P1 蒸馏首轮 ~$300-500)或同事的卡 |
+| **2** | **推理训练数据** | M2-P1 蒸馏需要强教师的推理轨迹(数学/代码 CoT),目前管线代码和数据都是零 | 教师模型 API 预算 + `benchmarks/` 下建蒸馏数据管线(CPU 工作,可先行) |
+| **3** | **P0 收尾实验(GPU 排队中)** | 单环任务过夜实验在跑;`n_global_heads` sweep(0/1/2/4)排队——定默认值必需 | 只需本地 GPU 时间,无需外部资源 |
+| **4** | **生物模块 ablation 补课** | GWT/PC/睡眠的贡献未按 5-seed 纪律量化;Hebbian 已知惰性待改 fast-weights 或删 | 本地 GPU + 时间,优先级低于 1-3 |
+| **5** | **O1 48M 权重仍失踪** | 阻塞浏览器 demo(见 §3 ⛔ 条目) | 人工找回(Modal workspace 或服务器) |
 
-**þ╗Öõ║║þ▒╗ÚÿƒÕÅïþÜäÕ╗║Þ««ÕêåÕÀÑ**:þ«ùÕèø(#1)ÕÆîµòÖÕ©ê API(#2)µÿ»ÚÆ▒Þâ¢ÞºúÕå│þÜä;#3/#4 µêæ(CC)Õ£¿µ£¼Õ£░
-ÚÇÉõ©¬µÄÆÚÿƒÞÀæ;#5 Ú£ÇÞªüõ¢áµë¥Õø×µØâÚçìÒÇéÕªéµ×£ÕÅ¬ÞºúÚöüõ©ÇÚí╣,**ÕàêÞºúÚöü #1**ÔÇöÔÇöÕ«âÕÉîµùÂµëôÕ╝ÇÞ«║µûç
-(P0-3/scaling law)ÕÆî M2-P1(ÞÆ©ÚªÅ)õ©ñµØíþ║┐ÒÇé
+**给人类队友的建议分工**:算力(#1)和教师 API(#2)是钱能解决的;#3/#4 我(CC)在本地
+逐个排队跑;#5 需要你找回权重。如果只解锁一项,**先解锁 #1**——它同时打开论文
+(P0-3/scaling law)和 M2-P1(蒸馏)两条线。
 
-## 3.6 ÕêåÕÀÑÕìí(2026-07-29,µîëõ║║Úóåõ╗╗Õèí)
+## 3.6 分工卡(2026-07-29,按人领任务)
 
-õ©ëµû╣Õ╣ÂÞíîÒÇüõ║Æõ©ìÚÿ╗Õí×ÒÇé**ÕìÅõ¢£þ║¬Õ¥ï**:µëÇµ£ëþ╗ôµ×£ÞÉ¢ repo(JSON+log,õ©ìÞÉ¢ÞüèÕñ®Þ«░Õ¢ò);
-checkpoint `.pt` õ©ìµÅÉõ║ñ;O1 µò░Õ¡ùþ╗Øõ©ìÞ┐ø M1 õ©╗Þí¿;µ£¼Õ£░ 8GB Õ¢Æ CC µÄÆÚÿƒõ¢┐þö¿,Õï┐Õ╣ÂÞíîµèóÕìíÒÇé
+三方并行、互不阻塞。**协作纪律**:所有结果落 repo(JSON+log,不落聊天记录);
+checkpoint `.pt` 不提交;O1 数字绝不进 M1 主表;本地 8GB 归 CC 排队使用,勿并行抢卡。
 
-### ­ƒºæÔÇì­ƒÆ╗ µèÇµ£»ÕÉîõ║ï(AutoDL/A100)ÔÇö ÕñºÚóäþ«ù GPU þ║┐,µîëÕ║ÅµëºÞíî
+### 🧑‍💻 技术同事(AutoDL/A100)— 大预算 GPU 线,按序执行
 
-| Õ║Å | õ╗╗Õèí | µÇÄõ╣êÞÀæ | õ║ñõ╗ÿþë® |
+| 序 | 任务 | 怎么跑 | 交付物 |
 |---|---|---|---|
-| T1 | **P0-3 mamba õ©ëþºìÕ¡É** | ┬º6 þÄ░µêÉÕæ¢õ╗ñ,SSH ÕÉÄþàºµèä(Linux µ£ë CUDA kernel,ÚÇƒÕ║ªµò░µì«µëìÕÅ»þö¿õ║ÄÞ«║µûç) | `train_mamba_s{0,1,2}.json` + `run.log` ÕÉîµ¡ÑÕø× `scaling_fp32/`,µá╝Õ╝Åþàº converge_probe þÄ░µ£ëµûçõ╗Â |
-| T2 | **14.7% ÕñºÚóäþ«ùÕñìµá©**(Õñ┤ÕÅÀÕ¡ªµ£»ÚúÄÚÖ®) | 100K µ¡Ñ A100 ÕÅúÕ¥äõ©ïÕèáÞÀæ `modern_transformer` Õ»╣þàº(ÕÉî tokenizer/seq_len/batch/token budget) | õ©ëþºìÕ¡É JSON;ÞïÑÕÅìÞ¢¼,ÚÇÜþƒÑÕà¿Õæÿµö╣µæÿÞªü |
-| T3 | Mamba-2 / GLA / DeltaNet | ÕÉî T1 µ¿íÕ╝ÅÚÇÉõ©¬ÞíÑ | ÕÉî T1 |
-| T4 | Scaling law õ©ëÞºäµ¿í | þ¡ë T1-T3 Õ«îµêÉÕÉÄþ╗ƒõ©ÇÕÅúÕ¥äÞÀæ | ÕØçÕÇ╝┬▒µáçÕçåÕÀ« + µòêþÄçµø▓þ║┐µò░µì« |
+| T1 | **P0-3 mamba 三种子** | §6 现成命令,SSH 后照抄(Linux 有 CUDA kernel,速度数据才可用于论文) | `train_mamba_s{0,1,2}.json` + `run.log` 同步回 `scaling_fp32/`,格式照 converge_probe 现有文件 |
+| T2 | **14.7% 大预算复核**(头号学术风险) | 100K 步 A100 口径下加跑 `modern_transformer` 对照(同 tokenizer/seq_len/batch/token budget) | 三种子 JSON;若反转,通知全员改摘要 |
+| T3 | Mamba-2 / GLA / DeltaNet | 同 T1 模式逐个补 | 同 T1 |
+| T4 | Scaling law 三规模 | 等 T1-T3 完成后统一口径跑 | 均值±标准差 + 效率曲线数据 |
 
-### ­ƒæñ ÞÇüµØ┐(Everest)ÔÇö ÞÁäµ║Éõ©ÄÚÆÑÕîÖ,Úâ¢µÿ»ÕÅ¬µ£ëõ¢áÞâ¢ÕüÜþÜä
+### 👤 老板(Everest)— 资源与钥匙,都是只有你能做的
 
-| Õ║Å | õ╗╗Õèí | Þ»┤µÿÄ |
+| 序 | 任务 | 说明 |
 |---|---|---|
-| B1 | **þ«ùÕèøÚóäþ«ùµïìµØ┐** | AutoDL ÕààÕÇ╝(P0-3 µöÂÕ░¥þ║ª ┬Ñ300-500)+ M2-P1 ÞÆ©ÚªÅÚóäþ«ù(ÚªûÞ¢«þ║ª $300-500) |
-| B2 | **µë¥Õø× O1 48M µØâÚçì** | µ£ÇÕÅ»Þâ¢Õ£¿Þó½þªüþö¿þÜä Modal workspace(`ac-ESq0Y6MGgrCtt67tOwrcDS`)µêûµ£ìÕèíÕÖ¿;µë¥Õê░ÕÉÄõ©ÇµØíÕæ¢õ╗ñÕ»╝Õç║µÁÅÞºêÕÖ¿ demo(┬º3 Ôøö µØíþø«) |
-| B3 | µòÖÕ©ê API ÚÇëÕ×ï | P1 ÞÆ©ÚªÅþÜäµÄ¿þÉåÞ¢¿Þ┐╣µØÑµ║É(DeepSeek/Qwen API µÇºõ╗Àµ»öÚ½ÿ);µï┐Õê░ key õ║ñþ╗Ö CC µÄÑþ«íþ║┐ |
-| B4 | (ÕÅ»ÚÇë)µèòþ¿┐þø«µáçþí«Þ«ñ | ICLR/NeurIPS/ICML Õô¬õ©¬ deadline,Õ¢▒Õôì T2-T4 µÄÆµ£ƒ |
+| B1 | **算力预算拍板** | AutoDL 充值(P0-3 收尾约 ¥300-500)+ M2-P1 蒸馏预算(首轮约 $300-500) |
+| B2 | **找回 O1 48M 权重** | 最可能在被禁用的 Modal workspace(`ac-ESq0Y6MGgrCtt67tOwrcDS`)或服务器;找到后一条命令导出浏览器 demo(§3 ⛔ 条目) |
+| B3 | 教师 API 选型 | P1 蒸馏的推理轨迹来源(DeepSeek/Qwen API 性价比高);拿到 key 交给 CC 接管线 |
+| B4 | (可选)投稿目标确认 | ICLR/NeurIPS/ICML 哪个 deadline,影响 T2-T4 排期 |
 
-### ­ƒñû CC(Claude Code)ÔÇö µ£¼Õ£░ GPU + Õà¿Úâ¿õ╗úþáü,Þç¬õ©╗µÄÆÚÿƒ
+### 🤖 CC(Claude Code)— 本地 GPU + 全部代码,自主排队
 
-| Õ║Å | õ╗╗Õèí | þèÂµÇü |
+| 序 | 任务 | 状态 |
 |---|---|---|
-| C1 | M2-P0 µöÂÕ░¥:GQA ÚàìÚóØÞúüÕå│(µ£¼Õ£░ g2 + Kaggle g0├ù3 seeds,grok þÄçÕìÅÞ««)ÔåÆ J1 ÕÀÑõ¢£Õî║Ú®╗þòÖ sweep ÔåÆ þ╗ôÞ«║+µø▓þ║┐Õø¥Õø║Õîû | Þ┐øÞíîõ©¡(2026-08-01) |
-| C2 | ÞÆ©ÚªÅµò░µì«þ«íþ║┐(teacher-trace ÚççÚøå/µ©àµ┤ù/SFT µá╝Õ╝Å,CPU ÕàêÞíî,þ¡ë B3 þÜä key µÄÑÚÇÜ) | µÄÆÚÿƒ |
-| C3 | þöƒþë®µ¿íÕØù 5-seed ablation ÞíÑÞ»¥(GWT/PC/þØíþ£á;Hebbian µö╣ fast-weights µêûÕêá) | µÄÆÚÿƒ |
-| C4 | µ»ÅÞ¢«þ╗ôµ×£ÕÉîµ¡Ñ README/BENCHMARKS/Þ«║µûçµØÉµûÖ + µ£¼ HANDOFF | µîüþ╗¡ |
+| C1 | M2-P0 收尾:GQA 配额裁决(本地 g2 + Kaggle g0×3 seeds,grok 率协议)→ J1 工作区驻留 sweep → 结论+曲线图固化 | 进行中(2026-08-01) |
+| C2 | 蒸馏数据管线(teacher-trace 采集/清洗/SFT 格式,CPU 先行,等 B3 的 key 接通) | 排队 |
+| C3 | 生物模块 5-seed ablation 补课(GWT/PC/睡眠;Hebbian 改 fast-weights 或删) | 排队 |
+| C4 | 每轮结果同步 README/BENCHMARKS/论文材料 + 本 HANDOFF | 持续 |
 
-**µ▒çÕÉêþé╣**:T2 þ╗ôµ×£Õå│Õ«ÜÞ«║µûçµæÿÞªüµö╣õ©ìµö╣;C1 sweep þ╗ôµ×£Õå│Õ«Ü `n_global_heads` Ú╗ÿÞ«ñÕÇ╝;
-B1 Õê░õ¢ìÕÉÄ T1 þ½ïÕì│ÕÅ»Õè¿ÒÇéõ©ëµØíþ║┐µ▓íµ£ëõ║Æþø©þ¡ëÕ¥àþÜäµ¡╗ÚöüÒÇé
+**汇合点**:T2 结果决定论文摘要改不改;C1 sweep 结果决定 `n_global_heads` 默认值;
+B1 到位后 T1 立即可动。三条线没有互相等待的死锁。
 
-## 3.9 þ«ùÕèøõ©ÄÚâ¿þ¢▓ÚÇÜÚüô(2026-08-01 µëôÚÇÜ,Õç¡Þ»üõ©ÇÕ¥ïÕ£¿ `DEPLOY_ACCESS.local.md`,õ©ìÞ┐øµ£¼Õà¼Õ╝Çõ╗ôÕ║ô)
+## 3.9 算力与部署通道(2026-08-01 打通,凭证一律在 `DEPLOY_ACCESS.local.md`,不进本公开仓库)
 
-| ÚÇÜÚüô | þèÂµÇü | þö¿µ│ò |
+| 通道 | 状态 | 用法 |
 |---|---|---|
-| **SSH þø┤Þ┐×þöƒõ║ºµ£ìÕèíÕÖ¿** | Ô£à CC õ©ôþö¿ ed25519 Úâ¿þ¢▓Õ»åÚÆÑÕÀ▓Þúà;**ÕÄåÕÅ▓Þ»»Õêñµ¥äµ©à:õ╣ïÕëì"SSH Þó½þ¢æþ╗£µïªµê¬"µÿ»õ║ñµÄÑµèè IP µèäÚöÖ(75.x Ôëá 45.x)+ µ£¼µ£║ Clash fake-ip µîí DNS ÕÅîÚçìÕüçÞ▒í,22 þ½»ÕÅúõ©Çþø┤ÕÅ»Þ¥¥** | ÚØÖµÇüµö╣Õè¿ push main ÔåÆ SSH `git pull` Õì│þöƒµòê;`server.py` µö╣Õè¿µëì rebuildÒÇéÕæ¢õ╗ñµ¿íµØ┐Þºü local þ¼öÞ«░ |
-| **Kaggle õ║æ GPU(T4,~30h/Õæ¿)** | Ô£à API token ÚàìÕÑ¢,CC ÕÅ»Õæ¢õ╗ñÞíîµÄ¿ kernel/Þ¢«Þ»ó/µöÂþ╗ôµ×£Õà¿Þç¬Õè¿ (ÔÜá´©Å 2026-08-29: µ£¼ Mac µùá `~/.kaggle/kaggle.json`, Þºü ┬º3.8.8 Õ¥àÕè×) | µ¿íµØ┐ `kaggle/kaggle_runner.ipynb`;õ©Çõ©¬ kernel Þúàõ©Çõ©¬Úàìþ¢«þÜä 3 seeds(T4 Ôëê 4h/30k µ¡ÑÞÂƒ,õ╝ÜÞ»Øõ©èÚÖÉ 12h)ÒÇéÚªûõ©¬ kernel `everestan/m1-gqa-quota-replication-g0` ÞÀæ mix õ╗╗Õèí g0├ù3 seeds ÞúüÕå│Õ«×Ú¬î |
-| µ£¼Õ£░ RTX 5060 8GB | Õìáþö¿õ©¡ | g2 Õø║Õ«ÜÚÜ¥Õ║ªÕñìþÄ░µöÂÕ░¥;õ╣ïÕÉÄµÄÆ J1 µÄóÚÆê |
+| **SSH 直连生产服务器** | ✅ CC 专用 ed25519 部署密钥已装;**历史误判澄清:之前"SSH 被网络拦截"是交接把 IP 抄错(75.x ≠ 45.x)+ 本机 Clash fake-ip 挡 DNS 双重假象,22 端口一直可达** | 静态改动 push main → SSH `git pull` 即生效;`server.py` 改动才 rebuild。命令模板见 local 笔记 |
+| **Kaggle 云 GPU(T4,~30h/周)** | ✅ API token 配好,CC 可命令行推 kernel/轮询/收结果全自动 (⚠️ 2026-08-29: 本 Mac 无 `~/.kaggle/kaggle.json`, 见 §3.8.8 待办) | 模板 `kaggle/kaggle_runner.ipynb`;一个 kernel 装一个配置的 3 seeds(T4 ≈ 4h/30k 步趟,会话上限 12h)。首个 kernel `everestan/m1-gqa-quota-replication-g0` 跑 mix 任务 g0×3 seeds 裁决实验 |
+| 本地 RTX 5060 8GB | 占用中 | g2 固定难度复现收尾;之后排 J1 探针 |
 
-## 3.75 Õêåµö»þøÿþé╣(2026-07-30,ÕÀ▓µ©àþÉå)
+## 3.75 分支盘点(2026-07-30,已清理)
 
-**ÞºäÕêÖ:main = Ú¬îÞ»üÞ┐çþÜäõ©╗Õ╣▓(þöƒõ║ºõ╗ÄÕ«âÚâ¿þ¢▓);Õ«×Ú¬îÕêåµö» = õ©ÇµØíõ©Çõ©¬ÕüçÞ«¥,null þ╗ôµ×£
-ÕàÑµíúõ©ìÕàÑõ©╗Õ╣▓ÒÇé** µ£¼µ¼íµ©àþÉå:`physics-informed-head`(ÕÀ▓Õà¿ÚçÅÕ╣ÂÕàÑ,þ®║Õú│)õ©Ä
-`cleanup-dead-symbols`(µ¡╗þ¼ªÕÅÀÕêáÚÖñ,ÚçìÚ¬î 0 Þ░âþö¿ÞÇà + 0 Õå▓þ¬ü + Õà¿ÕÑù 1232 µÁïÞ»òþ╗┐ÕÉÄ
-Õ╣ÂÕàÑ main)ÕØçÕÀ▓ÕêáÚÖñÒÇéõ┐ØþòÖþÜäõ©ëµØíÕ«×Ú¬îÕêåµö»ÕÅèõ┐ØþòÖþÉåþö▒:
+**规则:main = 验证过的主干(生产从它部署);实验分支 = 一条一个假设,null 结果
+入档不入主干。** 本次清理:`physics-informed-head`(已全量并入,空壳)与
+`cleanup-dead-symbols`(死符号删除,重验 0 调用者 + 0 冲突 + 全套 1232 测试绿后
+并入 main)均已删除。保留的三条实验分支及保留理由:
 
-| Õêåµö» | ÕåàÕ«╣ | þèÂµÇü |
+| 分支 | 内容 | 状态 |
 |---|---|---|
-| `mtp-seam-wireup` | MTP Þ¥àÕè®µìƒÕñ▒,3 þºìÕ¡É A/B **honest null** | ÕàÑµíúõ┐ØþòÖ,õ©ì promote |
-| `delta-write-stability-fix` | `eta_t` õ╗¬Þí¿,Þ»èµû¡ÚÇÉ token ÕåÖÕ╝║Õ║ª | þ╗ôÞ«║µ£¬Õç║ |
-| `exp/learn-tau` | `--learn_tau` õ╝ÿÕîûÕÖ¿þ╗ä | þ╗ôÞ«║µ£¬Õç║ |
-| `experiment/consciousness-m1` | µäÅÞ»åþºæÕ¡ªÞÆ©ÚªÅµûçµíú ├ù2 | µû╣ÕÉæÕÀ▓ÚÖìþ║º,µòàµäÅõ©ìÞ┐øõ©╗Õ╣▓ |
+| `mtp-seam-wireup` | MTP 辅助损失,3 种子 A/B **honest null** | 入档保留,不 promote |
+| `delta-write-stability-fix` | `eta_t` 仪表,诊断逐 token 写强度 | 结论未出 |
+| `exp/learn-tau` | `--learn_tau` 优化器组 | 结论未出 |
+| `experiment/consciousness-m1` | 意识科学蒸馏文档 ×2 | 方向已降级,故意不进主干 |
 
-ÕÉÄþ╗¡Õ«×Ú¬î(GQA sweep þ┐╗Ú╗ÿÞ«ñÒÇüµÀÀÕÉêÚàìµ»ö 4/12 ÚçìÞ«¡ÒÇüLFM2.5 adapter ÚçìÞÀæ)µîëµ¡ñµâ»õ¥ï
-Õ╝Ç `exp/*` Õêåµö»,þ╗ôÞ«║ÞÉ¢µíúÕÉÄÕåìÕå│Õ«Ü promoteÒÇé
+后续实验(GQA sweep 翻默认、混合配比 4/12 重训、LFM2.5 adapter 重跑)按此惯例
+开 `exp/*` 分支,结论落档后再决定 promote。
 
-## 3.8.5 Þ»äÕ«íÞÉ¢Õ£░Þ┐øÕ║ª(2026-08-04,CC)
+## 3.8.5 评审落地进度(2026-08-04,CC)
 
-Þ»äÕ«íÕøøµØíþÜäµëºÞíîþèÂµÇü,õ╗ÑÕÅèõ©ÇµØí**Õîùµ×üµÿƒÚçìÞ┐░**:
+评审四条的执行状态,以及一条**北极星重述**:
 
-| Þ»äÕ«íÚí╣ | þèÂµÇü |
+| 评审项 | 状态 |
 |---|---|
-| 1. µÀÀÕÉêÚàìµ»öµö╣ÒÇîµø┐µìóÒÇì | Ô£à **µùïÚÆ«ÕÀ▓ÞÉ¢Õ£░**:`attention_layers`(config+model+bench Õà¿Úô¥),None=õ¢ìþ¡ëõ╗À,() = þ║» LNN µáêÒÇé4 Õ▒éµÄóÚÆêþÿªÕê░ 2 Õ▒éÕ«×µÁïÕÅéµò░ ÔêÆ17.4%,cache ÚÇÉÕ▒é [None,KV,None,KV]ÒÇé**Úí║Õ©ªõ┐«õ║åõ©Çõ©¬þ£ƒ bug**:position offset µÄ¿µû¡Þ»╗þ¼¼ 0 Õ▒é K Õ«¢Õ║ª,þ¼¼ 0 Õ▒éÞó½þÿªµÄëµùÂÚØÖÚ╗ÿõ╗Ä 0 Þºúþáü(RoPE/GTP þø©õ¢ìÕà¿ÚöÖÒÇülogits þ£ïþØÇµ¡úÕ©©ÒÇüµùáµèÑÚöÖ)ÔÇöÔÇöþÄ░õ╗Ñ `cache.token_count` õ©║µØâÕ¿üµ║ÉÒÇé**Úàìµ»ö sweep µ£¬ÞÀæ**,µö¥þ¢«(Õô¬õ║øÕ▒éþòÖµ│¿µäÅÕèø)µÿ»ÕüçÞ«¥õ©ìµÿ»þ╗ôÞ«║ |
-| 2. Õñ┤µò░ÞºúÞÇª | Ô£à µùïÚÆ«ÕÀ▓ÞÉ¢Õ£░(µ¡ñÕëì),Ú╗ÿÞ«ñµ£¬þ┐╗,þ¡ëÞ»üµì« |
-| 3. tokenizer | µ£¬Õè¿,õ©Ä M2 ÚóäÞ«¡þ╗âõ©ÇÞÁÀµìó(Õìòþï¼µìóõ╝Üõ¢£Õ║ƒÕà¿Úâ¿ PPL Õƒ║þ║┐) |
-| 4. LFM2.5 adapter ÚçìÞÀæ | µ£¬Õè¿,ÕìÅÞ««Õ£¿ ┬º3.8 |
-| (µû░) selective_decay µÁïÞ»òþ╝║ÕÅú | Ô£à 14 Úí╣µÁïÞ»òÞíÑÚ¢É(Ú╗ÿÞ«ñõ¢ìþ¡ëõ╗À/Þ¥ôÕàÑõ¥ØÞÁûþ£ƒÕ«×þöƒµòê/õ╝ÿÕàêþ║ºÞªåþøû/ÚØ× 2 Õ╣éÚò┐Õ║ª/256 µ¡Ñµ£ëþòî/cache parity)ÒÇéÚí║Õ©ªÚÆëõ¢Å:`decay_bps` ÕÅÿÚçÅÕÉìÞ»»Õ»╝õ¢åÕ«×ÚÖàµîüµ£ë ╬╗,signed_decay þí«Õ«×Õê░Þ¥¥ scan |
-| (µû░) parity ÞúüÕå│Õ«×Ú¬î | Ô£à **µ£¼Õ£░Õ«îµò┤ÞúüÕå│(2026-08-05)**:þ║» LNN µáê(µùá attention,138K ÕÅéµò░)õ©ï 3-seed A/BÔÇöÔÇöÔæá d8/2500 µ¡Ñ:stock kÔëÑ2 Õìí chance(0.48ÔÇô0.58) vs **selective 3/3 seeds Õà¿ k µ╗íÕêå 1.000**;Ôæí d16/6000 µ¡Ñ:stock õ╗ì chance,selective Õà¿ k µ╗íÕêåÕÉ½ **k=16(transformer µ¡ñÕñäµÄëÕê░ 0.986)**ÔÇöÔÇöÚªûõ©¬µÂ▓µá©ÞÂàÕÉîÞºäµ¿í transformer þÜäµÁïþé╣(ÔêÆ44% ÕÅéµò░);Ôæó d32/6000 µ¡Ñ:ÕÉ½ transformer Õ£¿ÕåàÕà¿Úâ¿µ×Âµ×äÕìí k=32(0.557),Úóäþ«ùÕóÖÚØ×µ£║ÕêÂÕñ▒Þ┤Ñ;Ôæú stack µÀ▒Õ║ª 4:d8 õ©ï stock õ╗ì chance,selective ÕÅìÞÇîµ»ö core-depth-1 µø┤ÕÀ« ÔåÆ **ÚÇëµï®µÇºµÿ» TCÔü░ ÚÇâÚÇ©þÜäþ╗æÕ«Üþ║ªµØƒ,µÀ▒Õ║ªõ©ìµÿ»**(M2 õ©╗þ║┐Úù«Úóÿþø┤µÄÑþ¡öµíê)ÒÇé**µû╣µ│òÞ«║õ┐«µ¡ú**:hybrid õ©ï stock µ╗íÕêå = attention Õà£Õ║ò,þ║» LNN µëìµÿ»µ£ëµòêµÄóÚÆêÒÇéµò░µì«:`purelnn-*`/`stack4-*` Þíî + ABLATIONS ┬ºselective_decay |
+| 1. 混合配比改「替换」 | ✅ **旋钮已落地**:`attention_layers`(config+model+bench 全链),None=位等价,() = 纯 LNN 栈。4 层探针瘦到 2 层实测参数 −17.4%,cache 逐层 [None,KV,None,KV]。**顺带修了一个真 bug**:position offset 推断读第 0 层 K 宽度,第 0 层被瘦掉时静默从 0 解码(RoPE/GTP 相位全错、logits 看着正常、无报错)——现以 `cache.token_count` 为权威源。**配比 sweep 未跑**,放置(哪些层留注意力)是假设不是结论 |
+| 2. 头数解耦 | ✅ 旋钮已落地(此前),默认未翻,等证据 |
+| 3. tokenizer | 未动,与 M2 预训练一起换(单独换会作废全部 PPL 基线) |
+| 4. LFM2.5 adapter 重跑 | 未动,协议在 §3.8 |
+| (新) selective_decay 测试缺口 | ✅ 14 项测试补齐(默认位等价/输入依赖真实生效/优先级覆盖/非 2 幂长度/256 步有界/cache parity)。顺带钉住:`decay_bps` 变量名误导但实际持有 λ,signed_decay 确实到达 scan |
+| (新) parity 裁决实验 | ✅ **本地完整裁决(2026-08-05)**:纯 LNN 栈(无 attention,138K 参数)下 3-seed A/B——① d8/2500 步:stock k≥2 卡 chance(0.48–0.58) vs **selective 3/3 seeds 全 k 满分 1.000**;② d16/6000 步:stock 仍 chance,selective 全 k 满分含 **k=16(transformer 此处掉到 0.986)**——首个液核超同规模 transformer 的测点(−44% 参数);③ d32/6000 步:含 transformer 在内全部架构卡 k=32(0.557),预算墙非机制失败;④ stack 深度 4:d8 下 stock 仍 chance,selective 反而比 core-depth-1 更差 → **选择性是 TC⁰ 逃逸的绑定约束,深度不是**(M2 主线问题直接答案)。**方法论修正**:hybrid 下 stock 满分 = attention 兜底,纯 LNN 才是有效探针。数据:`purelnn-*`/`stack4-*` 行 + ABLATIONS §selective_decay |
 
-**Õîùµ×üµÿƒÚçìÞ┐░(Õ╗║Þ««,ÚØ×Õå│Õ«Ü)**:Þ┐çÕÄ╗õ©Çõ©¬µ£êÚçîÕö»õ©ÇÒÇîþÉåÞ«║ÚóäµÁï ÔåÆ Õ«×Ú¬îÞ»üÕ«×ÒÇìþÜäþ╗ôµ×£Úô¥
-Õà¿Úâ¿µØÑÞç¬**þöÁÞÀ»ÕñìµØéÕ║ª**µíåµ×Â(TCÔü░ õ©èÚÖÉ ÔåÆ parity Õñ▒Þ┤Ñ ÔåÆ Þ¥ôÕàÑõ¥ØÞÁû+Þ┤ƒþë╣Õ¥üÕÇ╝ ÔåÆ
-consciousness-m1-v2 Õêåµö» parity 3/3),ÞÇîµëÇµ£ëþöƒþë®Õæ¢ÕÉìµ£║ÕêÂ(Hebbian/GWT/PC/þØíþ£á)
-Þç│õ╗èµùáõ©Çõ©¬Þó½µÂêÞ×ìÞ»üµÿÄµ£ëÞ┤íþî«ÒÇéÕ╗║Þ«« M2 µèèÒÇîõ©Çõ©¬ O(1) ÕåàÕ¡ÿþÜäÕ¥¬þÄ»µ¿íÕ×ïÞâ¢ÕÉªÚÇÜÞ┐ç
-Þ¥ôÕàÑþø©Õà│þ¼ªÕÅÀÞ¢¼þº╗ + µØâÚçìþ╗æÕ«ÜµÀ▒Õ║ªþê¼Õç║ TCÔü░ÒÇìõ¢£õ©║õ©╗þ║┐Úù«ÚóÿÔÇöÔÇöJ-Space þÜäÕÀÑõ¢£Õî║Ú®╗þòÖ
-µ£¼Þ┤¿Õ░▒µÿ»Þ┐Öõ©¬µÇØÞÀ»(þôÂÚóêÕñäÕèáµÀ▒Õ║ª,µêÉµ£¼ 1/64),ÕÅ¬µÿ»Þó½ÕîàÕ£¿µäÅÞ»åÕÅÖõ║ïÚçîÒÇé
-ÒÇîÕèƒÞâ¢õ©èÕâÅÕñºÞäæÒÇìþÜäÚ¬îµöÂµáçÕçåõ©ìÕÅÿ:Õô¬õ©¬õ╗╗ÕèíÕô¬õ©¬µîçµáçÕè¿õ║åÕñÜÕ░æ,ÔëÑ3 seedsÒÇé
+**北极星重述(建议,非决定)**:过去一个月里唯一「理论预测 → 实验证实」的结果链
+全部来自**电路复杂度**框架(TC⁰ 上限 → parity 失败 → 输入依赖+负特征值 →
+consciousness-m1-v2 分支 parity 3/3),而所有生物命名机制(Hebbian/GWT/PC/睡眠)
+至今无一个被消融证明有贡献。建议 M2 把「一个 O(1) 内存的循环模型能否通过
+输入相关符号转移 + 权重绑定深度爬出 TC⁰」作为主线问题——J-Space 的工作区驻留
+本质就是这个思路(瓶颈处加深度,成本 1/64),只是被包在意识叙事里。
+「功能上像大脑」的验收标准不变:哪个任务哪个指标动了多少,≥3 seeds。
 
-### 3.8.6 KV ÕÄïþ╝®Õëìµ▓┐Þ┤ªþø« (2026-08-29, Õêåµö» `iter/kv-cache-frontier`)
+### 3.8.6 KV 压缩前沿账目 (2026-08-29, 分支 `iter/kv-cache-frontier`)
 
-Úÿ▓Õ¥íµÇºÞ┤ªþø«ÕÀÑþ¿ï,ÚøÂÞ«¡þ╗â:µèè O(1) õ©╗Õ╝áõ╗Ä"vs fp16 KV"Õìçþ║ºõ©║"vs µ£ÇÕ╝║ÕÄïþ╝® KV",
-Õ╣ÂµÅÉÕëìÕåÖÕÑ¢Õ«íþ¿┐õ║║õ╝ÜÕåÖþÜäÚéúÞíîµë╣Þ»äÒÇéõ║ºþë®:`benchmarks/kv_frontier.py`(26 Úàìþ¢«
-├ù 7 õ©èõ©ïµûçþ▓¥þí«Õ¡ùÞèéÞ┤ª + õ║ñÕÅëþé╣µ▒éÞºú) + `benchmarks/results/kv_frontier.{md,json}`
-+ `docs/KV_FRONTIER.md`;RESULTS.md O(1) ÞíîÕÀ▓µìóÕÅúÕ¥ä(2-bit+GQA8:
-1070.9x@128k / 8567x@1M,Õà¿Úâ¿µ£¬Ú®▒ÚÇÉõ║ñÕÅëþé╣ T*Ôêê[17,976])ÒÇé
+防御性账目工程,零训练:把 O(1) 主张从"vs fp16 KV"升级为"vs 最强压缩 KV",
+并提前写好审稿人会写的那行批评。产物:`benchmarks/kv_frontier.py`(26 配置
+× 7 上下文精确字节账 + 交叉点求解) + `benchmarks/results/kv_frontier.{md,json}`
++ `docs/KV_FRONTIER.md`;RESULTS.md O(1) 行已换口径(2-bit+GQA8:
+1070.9x@128k / 8567x@1M,全部未驱逐交叉点 T*∈[17,976])。
 
-- **µäÅõ╣ë**:Õ«íþ¿┐õ©ëÚù«(2-bit? GQA8? Ú®▒ÚÇÉ?)õ╗ÄÕ╝Çµö¥µ╝Åµ┤×ÕÅÿõ©║ÕÀ▓Þºúþ¡ö;Õ»╣þàºÚöÜþé╣
-  µìóÕ╝║õ╣ïÕÉÄõ©╗Õ╝áÕÅìÞÇîµø┤Õ╝║(8567x > 8063x),õ©öõ╝ÿÕè┐ÚÜÅõ©èõ©ïµûçµë®ÕñºÒÇé
-- **õ╗úõ╗À**:Ôæá Õö»õ©ÇÕÅìÞÂàÞíî sink4+w512 Ú®▒ÚÇÉ @2bit GQA1(0.202MB=0.53x)ÕÀ▓ÕàÑ
-  RESULTS "NOT claim",Õ╣Âþ¢«Þâ¢ÕèøÞ┤ª(Ú®▒ÚÇÉþ¬ùÕÅúÕñûÕÅ¼Õø×þ╗ôµ×äµÇº 0.000 vs Õ┐½µØâÚçì
-  0.56);Ôæí "µ£ÇÕ░ÅµÁüÕ╝ÅÕåàÕ¡ÿ"þ╗ØÕ»╣ÕîûÞí¿Þ┐░Þ«®õ¢ì,ÚÖÉÕ«Üõ©║"õ©ìõ©óÕ╝âõ©èõ©ïµûçÕëìµÅÉõ©ïµ£ÇÕ░Å"ÒÇé
-  õ╗╗Õèíþ║ºÕ¢▒Õôì:þ¬ùÕÅúÕñûþª╗µòúÕÅûÕø×Õ×ïõ╗╗Õèí(Úò┐µûçµíú QA/µîüõ╣àõ©¬õ║║Þ«░Õ┐å/õ╗ôÕ║ôþ║ºþ╝ûþáü/
-  µÁüÕ╝ÅþøæµÄºÕà│Þüö)Ú®▒ÚÇÉÞç┤Õæ¢;þ¬ùÕÅúÕåàõ╗╗Õèíµùáµìƒ;RAG µúÇþ┤óþÄ»ÞÀ»ÕÅ»µèÁµÂêõ╗úõ╗ÀÒÇé
-- ~~**Õ¥àÕè×**:PRD.md S2 ÕÅúÕ¥äÕ»╣Ú¢É~~ (Ô£à 2026-08-29 ÕÀ▓Õ«îµêÉ,L52/L66/L173 õ©ëÕñä
-  µìó frontier ÕÅúÕ¥ä);ÕàÂõ╗ûÕêåµö»Õ╝òþö¿ O(1) µò░Õ¡ùõ©ÇÕ¥ïõ╗Ñ RESULTS.md µû░ÕÅúÕ¥äõ©║ÕçåÒÇé
+- **意义**:审稿三问(2-bit? GQA8? 驱逐?)从开放漏洞变为已解答;对照锚点
+  换强之后主张反而更强(8567x > 8063x),且优势随上下文扩大。
+- **代价**:① 唯一反超行 sink4+w512 驱逐 @2bit GQA1(0.202MB=0.53x)已入
+  RESULTS "NOT claim",并置能力账(驱逐窗口外召回结构性 0.000 vs 快权重
+  0.56);② "最小流式内存"绝对化表述让位,限定为"不丢弃上下文前提下最小"。
+  任务级影响:窗口外离散取回型任务(长文档 QA/持久个人记忆/仓库级编码/
+  流式监控关联)驱逐致命;窗口内任务无损;RAG 检索环路可抵消代价。
+- ~~**待办**:PRD.md S2 口径对齐~~ (✅ 2026-08-29 已完成,L52/L66/L173 三处
+  换 frontier 口径);其他分支引用 O(1) 数字一律以 RESULTS.md 新口径为准。
 
-### 3.8.7 KV Õëìµ▓┐Õ«×µÁïÚ¬îÞ»ü (2026-08-29, Õêåµö» `iter/kv-measured-frontier`)
+### 3.8.7 KV 前沿实测验证 (2026-08-29, 分支 `iter/kv-measured-frontier`)
 
-Õ»╣ 3.8.6 Þºúµ×ÉÞ┤ªµ£¼þÜäþ£ƒÕ«×µ¿íÕ×ïÕèáÕø║(ÚøÂµû░õ¥ØÞÁû,MPS/CPU,`benchmarks/
-kv_measured.py`):Ôæá fp16 Õà¼Õ╝ÅÕ£¿þ£ƒÕ«× HF forward õ©è **0.0000% ÕüÅÕÀ«**
-(TinyLlama GQA=4 + unsloth/Llama-3.2-1B GQA=8, TÔêê{512,2048,8192});
-Ôæí þ£ƒÕ«×Õ╝áÚçÅ KIVI µû╣µíêµëôÕîà:floor µ»öÞ┤ªµ£¼Õà¼Õ╝ÅÚ½ÿµü░ÕÑ¢ÚøÂþé╣Õ¡ùÞèé(+2.96%),
-KIVI Õ╝Å g32 Õêåþ╗äÕåì +24.4~25.6%ÔÇöÔÇö**Õà¿Úâ¿Õ£¿Õ»╣µëïõ¥º,ÕÀ▓ÕÅæÞí¿ ARR õ╝ÿÕè┐
-(8567x@1M)þí«Þ»üõ©║õ©ïþòî**;Ôæó Ú®▒ÚÇÉÕêçþëçÕ«×µÁïÕÉ╗ÕÉêÞºúµ×ÉÕ░üÚíÂÒÇéõ║ºþë®
-`benchmarks/results/kv_measured.{json,md}`,µûçµíú KV_FRONTIER.md ┬º7 /
-BENCHMARKS Õëìµ▓┐ÞèéÕ«×µÁïµ«Á,Õ╣▓ÕçÇþÄ»ÕóâÕà¿ÕÑù pytest 1395 þ╗┐ÒÇé
+对 3.8.6 解析账本的真实模型加固(零新依赖,MPS/CPU,`benchmarks/
+kv_measured.py`):① fp16 公式在真实 HF forward 上 **0.0000% 偏差**
+(TinyLlama GQA=4 + unsloth/Llama-3.2-1B GQA=8, T∈{512,2048,8192});
+② 真实张量 KIVI 方案打包:floor 比账本公式高恰好零点字节(+2.96%),
+KIVI 式 g32 分组再 +24.4~25.6%——**全部在对手侧,已发表 ARR 优势
+(8567x@1M)确证为下界**;③ 驱逐切片实测吻合解析封顶。产物
+`benchmarks/results/kv_measured.{json,md}`,文档 KV_FRONTIER.md §7 /
+BENCHMARKS 前沿节实测段,干净环境全套 pytest 1395 绿。
 
-### 3.8.8 Õ¥àÕè×:Kaggle Õ«ÿµû╣ KIVI Õ«×µÁïÞçé (2026-08-29 Þ«░Õ¢ò,µ£¬µëºÞíî)
+### 3.8.8 待办:Kaggle 官方 KIVI 实测臂 (2026-08-29 记录,未执行)
 
-KV Õëìµ▓┐Þ┤ªþø«þÜäµ£ÇÕÉÄõ©Çõ©¬µ£¬µÁïµ«ïÚí╣ÒÇé3.8.6 þÜäÞ┤ªµ£¼ÕÀ▓Þó½þ£ƒµ¿íÕ×ïÕ«×µÁïÕèáÕø║
-(Þºü 3.8.7),õ¢åÚéúÕÅ¬Þªåþøû**Õ¡ùÞèéþ«ùµ£»**;Õ«ÿµû╣ KIVI õ╗úþáüÕ║ôþÜä kernel/ÕÀÑõ¢£Õî║Õ╝ÇÚöÇ
-(ÕÅìÚçÅÕîûþ╝ôÕå▓ÒÇüÕêåÚíÁþóÄþëçþ¡ë)õ╗ìµ£¬µÁïÔÇöÔÇöÚ£ÇÞªü CUDA (triton),µ£¼µ£║ MPS ÞÀæõ©ìõ║åÒÇé
-**µû╣ÕÉæÕ«ëÕà¿**:Õ«ÿµû╣Õ«×þÄ░þÜäõ╗╗õ¢òÚóØÕñûÕ╝ÇÚöÇÚâ¢Õ£¿Õ»╣µëïõ©Çõ¥º,ÕÅ¬Þâ¢Þ«®þ£ƒÕ«× 2-bit KV
-µø┤ÕñºÒÇüARR õ╝ÿÕè┐µø┤Õ«¢,þÄ░µ£ëþ╗ôÞ«║õ©ìõ¥ØÞÁûµ¡ñÞçé;Õ«âµèèõ©╗Õ╝áõ╗Ä"Õ¡ùÞèéÕ«Üõ╣ëÕ▒éÕ«×µÁï"
-ÞíÑÕê░"Õ«ÿµû╣Õ«×þÄ░Õ▒éÕ«×µÁï",µÿ»ÕÅ»ÚÇëþÜäþ╗êµ×üÕèáÕø║ÒÇé
+KV 前沿账目的最后一个未测残项。3.8.6 的账本已被真模型实测加固
+(见 3.8.7),但那只覆盖**字节算术**;官方 KIVI 代码库的 kernel/工作区开销
+(反量化缓冲、分页碎片等)仍未测——需要 CUDA (triton),本机 MPS 跑不了。
+**方向安全**:官方实现的任何额外开销都在对手一侧,只能让真实 2-bit KV
+更大、ARR 优势更宽,现有结论不依赖此臂;它把主张从"字节定义层实测"
+补到"官方实现层实测",是可选的终极加固。
 
-- **Õëìþ¢«µØíõ╗Â(Õ¢ôÕëìÚÿ╗Õí×)**:µ£¼µ£║ (darwin) **µ▓íµ£ë** `~/.kaggle/kaggle.json`
-  (┬º3.9 "token ÕÀ▓ÚàìÕÑ¢"ÚÆêÕ»╣þÜäµÿ»Õ¢ôµùÂþÜäõ©╗µ£║,µ£¼ Mac õ©èõ©ìÕ¡ÿÕ£¿);
-  `DEPLOY_ACCESS.local.md` õ╣ƒõ©ìÕ£¿õ╗ôÕ║ôµá╣þø«Õ¢òÒÇéÕ¥àµëÇµ£ëÞÇàµÅÉõ¥ø token ÕÉÄ:
-  `mkdir -p ~/.kaggle && cp <token> ~/.kaggle/kaggle.json && chmod 600`ÒÇé
-- **ÞÀæµ│ò**:Õñìþö¿ ┬º3.9 Kaggle ÚÇÜÚüô(ÕàìÞ┤╣ T4 ~30h/Õæ¿,µ¿íµØ┐
-  `kaggle/kaggle_runner.ipynb`,`kaggle kernels push`)ÒÇékernel Õåà:
-  Ôæá `pip install` Õ«ÿµû╣ KIVI repo;Ôæí Þ¢¢ÕàÑ ungated µ¿íÕ×ï
-  (TinyLlama-1.1B / unsloth/Llama-3.2-1B,õ©Ä 3.8.7 ÕÉîµ¼¥,Õàì token);
-  Ôæó KIVI 2-bit Úàìþ¢«õ©ï decode,Õ£¿ T Ôêê {512, 2048, 8192} Þ»╗ kv cache
-  Õ«×ÚÖà nbytes;Ôæú ÚóäÞ«í ~1-2h kernel µùÂÚò┐,ÚøÂÚçæÚÆ▒µêÉµ£¼ÒÇé
-- **Ú¬îµöÂ/Õ»╣Þ┤ª**:Õ«ÿµû╣Õ«×µÁïÕ¡ùÞèéÕ║öÞÉ¢Õ£¿ 3.8.7 þÜä floor õ©Ä g32 õ©ñÞíîõ╣ïÚù┤
-  ÕåìÕèá kernel Õ╝ÇÚöÇÔÇöÔÇöÕ»╣þàºÕƒ║þ║┐µÿ» `benchmarks/results/kv_measured.json`
+- **前置条件(当前阻塞)**:本机 (darwin) **没有** `~/.kaggle/kaggle.json`
+  (§3.9 "token 已配好"针对的是当时的主机,本 Mac 上不存在);
+  `DEPLOY_ACCESS.local.md` 也不在仓库根目录。待所有者提供 token 后:
+  `mkdir -p ~/.kaggle && cp <token> ~/.kaggle/kaggle.json && chmod 600`。
+- **跑法**:复用 §3.9 Kaggle 通道(免费 T4 ~30h/周,模板
+  `kaggle/kaggle_runner.ipynb`,`kaggle kernels push`)。kernel 内:
+  ① `pip install` 官方 KIVI repo;② 载入 ungated 模型
+  (TinyLlama-1.1B / unsloth/Llama-3.2-1B,与 3.8.7 同款,免 token);
+  ③ KIVI 2-bit 配置下 decode,在 T ∈ {512, 2048, 8192} 读 kv cache
+  实际 nbytes;④ 预计 ~1-2h kernel 时长,零金钱成本。
+- **验收/对账**:官方实测字节应落在 3.8.7 的 floor 与 g32 两行之间
+  再加 kernel 开销——对照基线是 `benchmarks/results/kv_measured.json`
   (TinyLlama@8192: floor 25,248,256 B / g32 31,719,424 B);
-  ÕüÅÕÀ«ÞÂàÞ┐ç g32 õ©èþòîÞ¥âÕñÜÕêÖÞ»┤µÿÄ KIVI Þ┐ÿµ£ëµ£¬Þ«íþÜäÕ¡ÿÕé¿Úí╣,ÕªéÕ«×ÞíÑÞ«░Þ┐ø
-  KV_FRONTIER.md ┬º7ÒÇéþ╗ôµ×£ÕàÑÕ║ô:Õêåµö» `iter/kv-measured-frontier`,
-  õ║ºþë® `benchmarks/results/kivi_official.{json,md}` + KV_FRONTIER ┬º7 µø┤µû░ÒÇé
+  偏差超过 g32 上界较多则说明 KIVI 还有未计的存储项,如实补记进
+  KV_FRONTIER.md §7。结果入库:分支 `iter/kv-measured-frontier`,
+  产物 `benchmarks/results/kivi_official.{json,md}` + KV_FRONTIER §7 更新。
 
-### 3.8.9 KV Õëìµ▓┐þ║┐õ╝ÿÕàêþ║ºµ©àÕìò + PR þèÂµÇü (2026-08-29 Õ«Üþ¿┐)
+### 3.8.9 KV 前沿线优先级清单 + PR 状态 (2026-08-29 定稿)
 
-**õ╝ÿÕàêþ║º**(Õƒ║õ║ÄþÄ░þèÂ:ÕåàÕ¡ÿÞ┤ªÚÿ▓Õ«êÕÀ▓Õ«îµêÉõ©öÕ«×µÁïÕèáÕø║;µá©Õ┐âÞÁäõ║ºõ©ñµØíÕÀ▓þí«µØâ
-õ©ÇµØíÕ¥àþí«µØâ;ARR Þ┤¿ÚçÅ 2.15├ù teacher PPL õ╗ìµÿ»þƒ¡µØ┐):
+**优先级**(基于现状:内存账防守已完成且实测加固;核心资产两条已确权
+一条待确权;ARR 质量 2.15× teacher PPL 仍是短板):
 
-| þ║º | õ║ïÚí╣ | µêÉµ£¼ | Õñçµ│¿ |
+| 级 | 事项 | 成本 | 备注 |
 |---|---|---|---|
-| P0 | ÕÉêÕ╣Â/µÄ¿ÚÇü KV Õëìµ▓┐õ©ñÕêåµö» | ÕêåÚÆƒ | ÞÁ░ PR,õ©ìþø┤µÄ¿ main |
-| P1 | PRD S2 ÕÅúÕ¥äÕ»╣Ú¢É | Ô£à µ£¼µ¼íÕÀ▓Õ«îµêÉ | 3.8.6 Õ¥àÕè×Úù¡þÄ» |
-| P1 | Kaggle Õ«ÿµû╣ KIVI Þçé | token ÕÉÄ 1-2h | Úÿ╗Õí×:`~/.kaggle/kaggle.json` þ╝║Õñ▒,Þºü 3.8.8 |
-| P2 | **ÞÀ¿þ¬ùÕÅúÕÅ¼Õø× 0.56 vs þÄ░õ╗úÕ¥¬þÄ»Õƒ║þ║┐**(Mamba/RWKV/GRU/LSTM,3 seeds) | toy ÞÁÀµ¡Ñµ£¼Õ£░ÕÅ»ÞÀæ | **µ£ÇÕñºµ£¬µÁïþ®║þÖ¢**:ÞÁóÔåÆõ©╗Õ╝áÕìçþ║ºõ©║"µëÇµ£ëþèÂµÇüþ▒╗Õ×ïÕö»õ©Ç";Þ¥ôÔåÆµöÂþ╝®Õê░õ║ºÕôüþ║┐ÒÇéÕ▒× recall Õêåµö» |
-| P3 | Ú®▒ÚÇÉ KV + µÂ▓µÇüþèÂµÇüµÀÀÕÉêµáê(`attention_layers` Úàìµ»ö sweep + ÞüöÕÉêÞ┤ª) | µ£¼Õ£░ 8GB ÞÁÀµ¡Ñ | µèèÕëìµ▓┐ÕÅæþÄ░ÕÅÿõ║ºÕôü:ÕåàÕ¡ÿµëôÕê░Ú®▒ÚÇÉµ░┤Õ╣│ + þ¬ùÕÅúÕñûÕÅ¼Õø× 0.56 |
-| P3 | Þ«░Õ┐åÕñûµîéÚçìÞÀæ(LFM2.5-350M,õ©╗µîçµáç cross-window recall) | <$10 | ┬º3.8 ÕÀ▓Þ«¥Þ«í:õ┐« PEFT Õå╗þ╗ô bug/µìóµîçµáç/µìóÕƒ║Õ║º |
-| P4 | õ©ìÞºäÕêÖÚççµáÀÞ¥╣þ╝ÿþ║┐ | ÔÇö | **Õ╣ÂÞíîõ╝ÜÞ»ØÕ£¿ÕüÜ**(GRU-D/þ®║µ░öÞ┤¿ÚçÅ/Van der Pol),ÕÅ¬µÂêÞ┤╣þ╗ôµ×£ |
-| P4 | ARR Þ┤¿ÚçÅÞ┐¢Õêå | Úò┐ | þ¡ë P2/P3 Õ«Üõ¢ìÚÆëþëóÕÉÄÕåìÕ«ÜÚóäþ«ù |
+| P0 | 合并/推送 KV 前沿两分支 | 分钟 | 走 PR,不直推 main |
+| P1 | PRD S2 口径对齐 | ✅ 本次已完成 | 3.8.6 待办闭环 |
+| P1 | Kaggle 官方 KIVI 臂 | token 后 1-2h | 阻塞:`~/.kaggle/kaggle.json` 缺失,见 3.8.8 |
+| P2 | **跨窗口召回 0.56 vs 现代循环基线**(Mamba/RWKV/GRU/LSTM,3 seeds) | toy 起步本地可跑 | **最大未测空白**:赢→主张升级为"所有状态类型唯一";输→收缩到产品线。属 recall 分支 |
+| P3 | 驱逐 KV + 液态状态混合栈(`attention_layers` 配比 sweep + 联合账) | 本地 8GB 起步 | 把前沿发现变产品:内存打到驱逐水平 + 窗口外召回 0.56 |
+| P3 | 记忆外挂重跑(LFM2.5-350M,主指标 cross-window recall) | <$10 | §3.8 已设计:修 PEFT 冻结 bug/换指标/换基座 |
+| P4 | 不规则采样边缘线 | — | **并行会话在做**(GRU-D/空气质量/Van der Pol),只消费结果 |
+| P4 | ARR 质量追分 | 长 | 等 P2/P3 定位钉牢后再定预算 |
 
-**õ©ìÕüÜ**:þ╗ºþ╗¡ÕáåÕåàÕ¡ÿÞ┤ªþø«(þø¥ÕÀ▓ÚÇáÕ«î);µ¡úÚØóµï╝ PPL(ÕÀ▓Þ»üõ╝¬)ÒÇé
-ÞïÑÕÅ¬µèòõ©Çõ╗Â:µèò P2ÔÇöÔÇöÕö»õ©ÇÞâ¢µö╣ÕÅÿµû╣ÕÉæõ╗ÀÕÇ╝þÜäÕ«×Ú¬îÒÇé
+**不做**:继续堆内存账目(盾已造完);正面拼 PPL(已证伪)。
+若只投一件:投 P2——唯一能改变方向价值的实验。
 
-**PR/Õêåµö»þèÂµÇü**(2026-08-29 Ô£à Õà¿Úâ¿ÕÀ▓ÕÉêÕ╣Â):
-- #3 `sync/local-main-2026-08`ÔåÆmain(27 µÅÉõ║ñþº»ÕÄï) ÔåÆ **MERGED**
-- #4 `iter/kv-cache-frontier`ÔåÆmain(Þ┤ªµ£¼ 5 µÅÉõ║ñ) ÔåÆ **MERGED**
-- #5 µáêÕ╝ÅÕ«×µÁï PR ÔåÆ Þó½ GitHub Þç¬Õè¿Õà│Úù¡(base Õêåµö»ÚÜÅ #4 ÕÉêÕ╣ÂÞó½Õêá,µùáµ│òÚçìÕ╝Ç),
-  þö▒ **#6** `iter/kv-measured-frontier`ÔåÆmain(Õ«×µÁï 5 µÅÉõ║ñ)µø┐õ╗ú ÔåÆ **MERGED**
-- ÚüùþòÖÕ░Åõ┐« PR #7: kv_measured torch_dtypeÔåÆdtype Õ╝âþö¿õ┐«µ¡ú + µ£¼þèÂµÇüµ«ÁÞÉ¢µø┤µû░ÒÇé
-- µùºÕêåµö»µîçÚÆêÕñçõ╗¢(õ╗àµ£¼Õ£░): `backup/kv-cache-a28c97f` / `backup/kv-measured-a853b2d`
-  (08d4edf Õƒ║þé╣µùºþ║┐,ÕÉ½Õ╣ÂÞíîõ╝ÜÞ»Ø parametric µÅÉõ║ñ,õ╗àÕ¡ÿµíúÕï┐þö¿)ÒÇé
+**PR/分支状态**(2026-08-29 ✅ 全部已合并):
+- #3 `sync/local-main-2026-08`→main(27 提交积压) → **MERGED**
+- #4 `iter/kv-cache-frontier`→main(账本 5 提交) → **MERGED**
+- #5 栈式实测 PR → 被 GitHub 自动关闭(base 分支随 #4 合并被删,无法重开),
+  由 **#6** `iter/kv-measured-frontier`→main(实测 5 提交)替代 → **MERGED**
+- 遗留小修 PR #7: kv_measured torch_dtype→dtype 弃用修正 + 本状态段落更新。
+- 旧分支指针备份(仅本地): `backup/kv-cache-a28c97f` / `backup/kv-measured-a853b2d`
+  (08d4edf 基点旧线,含并行会话 parametric 提交,仅存档勿用)。
 
-## 3.8 ÕñûÚâ¿Þ»äÕ«íµäÅÞºü(2026-07-30,Õ¥à M2 Õå│þ¡û,µ£¬Õ«×µû¢)
+## 3.8 外部评审意见(2026-07-30,待 M2 决策,未实施)
 
-õ©Çõ╗¢Õ»╣þàº RESULTS.md þÜäÕñûÚâ¿Þ»äÕ«í,õ©ëµØíµ×Âµ×äþ║ºÕ╗║Þ««,**ÕØçÚ£ÇÚçìÞ«¡Ú¬îÞ»ü,õ©ìµÿ»µûçµíúµö╣Õè¿**:
+一份对照 RESULTS.md 的外部评审,三条架构级建议,**均需重训验证,不是文档改动**:
 
-1. **µÀÀÕÉêÚàìµ»ö**:M þ│╗ÕêùµÀÀÕÉêþëêµèè 12 Õ▒é attention Õà¿õ┐ØþòÖÕÅêÕèá 12 Õ▒é LNN,ÕåàÕ¡ÿ/ÚÇƒÕ║ªÕ┐àþäÂ
-   Õà¿Þ┤ƒ(RESULTS.md:44 ÕÀ▓ retract"µÀÀÕÉêµÿ» O(1)")ÒÇéÕ╗║Þ«« attention 12ÔåÆ4 Õ▒é(Õ»╣Ú¢É LFM2
-   þ║ª 3/8 Úàìµ»ö),ÕàÂõ¢Öþ║» LNN+FFN:KV ├À3ÒÇüÞ«¡þ╗âÕåàÕ¡ÿÞ┤ƒþ╗ôµ×£µÂêÕñ▒ÒÇü~1.6├ù µàóÕñºµªéþÄçÕÅìÞ¢¼ÒÇé
-   P0 þ¼¼õ©ëÞ¢« `--n_layers 4` þ┐╗ÕÇìµ│¿µäÅÕèøÚøÂÕ©«Õè®,ÕÀ▓Þ»üµÿÄõ©ìþ╝║µ│¿µäÅÕèøÕ«╣ÚçÅÒÇé
-2. **Õñ┤µò░õ©ÄÕÄƒõ©Øµò░ÞºúÞÇª**:attention µ▓íþÉåþö▒Õ┐àÚí╗ 13 Õñ┤(13 þÜäÕøáµò░ÕÅ¬µ£ë 1/13,GQA µ▓íµ│òÞ░âµíú)ÒÇé
-   þöƒþë®µÇºþòÖÕ£¿ LNN þÜä `n_protofilaments=13`ÒÇéµû╣µíê A: d_model 832ÔåÆ1024, 16 Õñ┤├ù64,
-   n_kv_heads=4;µû╣µíê B: õ┐Ø 832, 16 Õñ┤├ù52ÒÇé**P0 þ¼¼õ║öÞ¢«þÜä acc 1.0000 µÿ»þö¿ 13├ù KV µìóþÜä,
-   þø┤µÄÑÞ┐ø M2 þ¡ëõ║ÄÕÀªµëïµëôÕÅ│µëï** ÔÇöÔÇö õ┐«Õñìµû╣ÕÉæÕ║öµÿ»Õà¿Õ▒ÇÕñ┤ÚàìÚóØ+ÕÉêþÉå GQA,õ©ìµÿ» full MHAÒÇé
-3. **tokenizer / ÕñûµÄ¿õ┐íÞ¬ë**:GPT-2 BPE Õ»╣õ©¡µûçµÿ» byte-level þü¥ÚÜ¥(õ©ÇÕ¡ù 2-3 token),
-   ÞïÑµÄÑ Awareness õ©╗õ║ºÕôü(100+ Þ»¡Þ¿Ç)ÕàêÕ║ƒõ©ÇÕìè;Þ«¡þ╗â 512 ÔåÆ Õ»╣Õñû 1M µÿ» 2000├ù ÕñûµÄ¿,
-   LFM2 Þ«¡Õê░ 32k ÕÅ¬µáç 32kÒÇé**Þí¿µá╝þí¼þ║ªµØƒÕÀ▓ÞÉ¢Õ£░**(2026-07-30):ÚªûÚíÁÕø¥µ│¿ÒÇüresearch.htmlÒÇü
-   llms.txtÒÇü**BENCHMARKS.md 1M Þí¿õ©èµû╣**ÕØçÕÀ▓µáçµÿÄ"õ╗àµÄ¿þÉåµÉ║Õ©ªþèÂµÇüÕ¡ùÞèé,µùá 512 token õ╗Ñõ©è
-   Þ┤¿ÚçÅÞ»üµì«,out-of-window LM õ©║ null"ÒÇé
-4. **ÚçìÞÀæ adapter µîéÞ¢¢Õ«×Ú¬î(Þ»äÕ«íþ¼¼ÕøøµØí,µêÉµ£¼µ£Çõ¢ÄÒÇüõ┐íµü»ÚçÅµ£ÇÕñº)**:õ©èµ¼íÕñ▒Þ┤Ñµÿ»ÕÀÑþ¿ï bug
-   õ©ìµÿ»µ×Âµ×äþ╗ôÞ«║ ÔÇöÔÇö MT adapter Þó½ PEFT Õå╗þ╗ôÕÅ¬Þ«¡õ║å LoRA(RESULTS.md:42),õ©öþö¿ in-window
-   PPL ÕÄ╗µÁïÞÀ¿þ¬ùÕÅúÞ«░Õ┐åµ¿íÕØù,µîçµáçµ£¼Þ║½Õ░▒µÁïõ©ìÕç║õ©£ÞÑ┐ÒÇéÚçìÞÀæµö╣õ©ëõ©¬ÕÅÿÚçÅ:
-   backbone µìó **LFM2.5-350M**(µÀÀÕÉêÕÉîµùÅ,28T token,<$10M ÕàìÞ┤╣Õòåþö¿)ÒÇüÞ«¡þ╗âÕëìµëôÕì░ÕÅ»Þ«¡
-   ÕÅéµò░ÚçÅþí«Þ«ñ `requires_grad=True`ÒÇüõ©╗µîçµáçµìó **cross-window recall**(0.56 vs 0.000
-   ÚéúµØíþ║┐),in-window PPL ÕÅ¬ÕüÜõ©ìÚÇÇÕîû sanity checkÒÇéµ£¼Õ£░ 8GB ÕÅ»ÞÀæÒÇéÞïÑµêÉþ½ï,P1 þÜä
-   "µò░þÖ¥þ¥ÄÕàâõ║æÚóäþ«ù+µòÖÕ©ê API"µò┤ÕØùÕÅ»þ£üÒÇéÔÜá´©Å ÚúÄÚÖ®:LFM2 conv state µùáþèÂµÇüÞ«¥Þ«í
-   (2 token õ©öµ»Å forward Úçìþ¢«),µ£ëþèÂµÇü fast-weight Õ▒éþÜä state µÄÑÕÅúÞªüÞç¬ÕÀ▒Þ«¥Þ«íÒÇé
-   þø©Õà│:13 Þ┤¿µò░Úöü GQA þÜäÚù«ÚóÿÕÀ▓Þ«░ÕàÑ **ABLATIONS.mdÒÇîDesign-coupling auditÒÇì**ÒÇé
+1. **混合配比**:M 系列混合版把 12 层 attention 全保留又加 12 层 LNN,内存/速度必然
+   全负(RESULTS.md:44 已 retract"混合是 O(1)")。建议 attention 12→4 层(对齐 LFM2
+   约 3/8 配比),其余纯 LNN+FFN:KV ÷3、训练内存负结果消失、~1.6× 慢大概率反转。
+   P0 第三轮 `--n_layers 4` 翻倍注意力零帮助,已证明不缺注意力容量。
+2. **头数与原丝数解耦**:attention 没理由必须 13 头(13 的因数只有 1/13,GQA 没法调档)。
+   生物性留在 LNN 的 `n_protofilaments=13`。方案 A: d_model 832→1024, 16 头×64,
+   n_kv_heads=4;方案 B: 保 832, 16 头×52。**P0 第五轮的 acc 1.0000 是用 13× KV 换的,
+   直接进 M2 等于左手打右手** —— 修复方向应是全局头配额+合理 GQA,不是 full MHA。
+3. **tokenizer / 外推信誉**:GPT-2 BPE 对中文是 byte-level 灾难(一字 2-3 token),
+   若接 Awareness 主产品(100+ 语言)先废一半;训练 512 → 对外 1M 是 2000× 外推,
+   LFM2 训到 32k 只标 32k。**表格硬约束已落地**(2026-07-30):首页图注、research.html、
+   llms.txt、**BENCHMARKS.md 1M 表上方**均已标明"仅推理携带状态字节,无 512 token 以上
+   质量证据,out-of-window LM 为 null"。
+4. **重跑 adapter 挂载实验(评审第四条,成本最低、信息量最大)**:上次失败是工程 bug
+   不是架构结论 —— MT adapter 被 PEFT 冻结只训了 LoRA(RESULTS.md:42),且用 in-window
+   PPL 去测跨窗口记忆模块,指标本身就测不出东西。重跑改三个变量:
+   backbone 换 **LFM2.5-350M**(混合同族,28T token,<$10M 免费商用)、训练前打印可训
+   参数量确认 `requires_grad=True`、主指标换 **cross-window recall**(0.56 vs 0.000
+   那条线),in-window PPL 只做不退化 sanity check。本地 8GB 可跑。若成立,P1 的
+   "数百美元云预算+教师 API"整块可省。⚠️ 风险:LFM2 conv state 无状态设计
+   (2 token 且每 forward 重置),有状态 fast-weight 层的 state 接口要自己设计。
+   相关:13 质数锁 GQA 的问题已记入 **ABLATIONS.md「Design-coupling audit」**。
 
-## 4. õ©ïõ©Çµ¡Ñ´╝êµîëõ╝ÿÕàêþ║º´╝ë
+## 4. 下一步（按优先级）
 
-0. **M2-P0 µöÂÕ░¥(µ£¼Õ£░,Þ┐øÞíîõ©¡)**:Ôæá þ¡ëÕìòþÄ»Þ┐çÕñ£Õ«×Ú¬îÕç║"stack µÀ▒Õ║ª ├ù ÞÀ│µò░"þƒ®ÚÿÁ;
-   Ôæí ÞÀæ `--n_global_heads` sweep(0/1/2/4,µÄóÚÆêõ╗╗Õèí)Õ«ÜÚàìÚóØÚ╗ÿÞ«ñÕÇ╝;Ôæó µèè P0 Õ«îµò┤
-   þ╗ôÞ«║ + µø▓þ║┐Õø¥Õø║ÕîûÞ┐ø `docs/ROADMAP_M2.md` õ©Ä BENCHMARKS;Ôæú Þºåþ╗ôµ×£Õå│Õ«Ü
-   µÀ▒þøæþØú(µ»ÅÞ┐¡õ╗úÕèá loss)µÿ»ÕÉªþ½ïÚí╣ÒÇéÕæ¢õ╗ñµ¿íµØ┐:
+0. **M2-P0 收尾(本地,进行中)**:① 等单环过夜实验出"stack 深度 × 跳数"矩阵;
+   ② 跑 `--n_global_heads` sweep(0/1/2/4,探针任务)定配额默认值;③ 把 P0 完整
+   结论 + 曲线图固化进 `docs/ROADMAP_M2.md` 与 BENCHMARKS;④ 视结果决定
+   深监督(每迭代加 loss)是否立项。命令模板:
    `py -3.11 benchmarks/reasoning_depth.py --task pointer_chase --difficulty 4 --n_values 8 --steps 30000 --seeds 0 --mode fixed --eval_depths 1 2 4 --stack --mix --n_global_heads 2 --tag quota-sweep`
-1. **Õ¢ôÕëìõ©╗þ║┐õ╗╗Õèí´╝Üþ╗ºþ╗¡ÞÀæÕ╝║ baseline**´╝ÜP0-3 modern_transformer ÚÿÂµ«ÁµêÉµ×£ÕÀ▓µÄ¿ÚÇü´╝øõ©ïõ©Çµ¡Ñõ╝ÿÕàêÞíÑ `mamba`´╝îÚÜÅÕÉÄÞíÑ Mamba-2/GLA/DeltaNet µêûÕÉîþ▒╗Ú½ÿµòêµ×Âµ×ä´╝øµ│¿µäÅ Windows Mamba µùá CUDA kernel´╝îÕ╝║ baseline ÕÆîµòêþÄçµø▓þ║┐Õ╗║Þ««Þ┐üÕê░ Linux/A100ÒÇé
-2. **þ╗ºþ╗¡Õ¢Æµíúµû░ baseline þ╗ôµ×£**´╝ÜMamba/Mamba-2/GLA/DeltaNet µ»ÅÞÀæÕ«îõ©Çõ©¬µ¿íÕ×ï´╝îÚâ¢ÕÉîµ¡Ñõ©ë seed JSONÒÇürun.log/µáçÕçåÕîûµùÑÕ┐ùÕÆîµø┤µû░ÕÉÄþÜä `scaling_train_20000_summary.txt`´╝øcheckpoint `.pt` õ╗ìõ©ìµÅÉõ║ñÒÇé
-3. **µø┤µû░þ╗ôµ×£µûçµíúÕÆîÞ«║µûçµØÉµûÖ**´╝ê2026-07-19 ÕÀ▓Õ«îµêÉþ¼¼õ©ÇÞ¢«´╝ë´╝ÜP0-2 õ©ëþºìÕ¡É + P0-3 modern_transformer þ╗ôµ×£ÕÀ▓ÕåÖÕàÑ README/BENCHMARKS/RESULTS/õ©¡Þï▒µûçÞ«║µûç/õ©¡Þï▒µûç deck´╝îÕ╣ÂÕÀ▓µÿÄþí«µáçµ│¿ modern_transformer ÚóåÕàê MT-LNN 11.3%ÒÇü2K µùºþ╗ôÞ«║ÕÀ▓µÆñÕø×ÒÇüO1 ÕÅéÞÇâÚöÜÚÖÉÕêÂÒÇé
-4. **ÔÜá´©Å Ú¬îÞ»üÞ«║µûçµæÿÞªüþÜä 14.7% õ©╗Õ╝á**´╝êµû░Õó×´╝îÚçìÞªü´╝ë´╝ÜÞ«║µûçµæÿÞªü/þ╗ôÞ«║þÜäÒÇîµ»öÕÉîÕÅéµò░ Transformer õ¢Ä 14.7% PPLÒÇìµØÑÞç¬ÕñºÚóäþ«ù´╝ê100K µ¡Ñ A100´╝ëÕ«×Ú¬î´╝îõ¢å**Õçáõ╣ÄÞé»Õ«Üõ╣ƒµÿ»Õ»╣þØÇÕÉîõ©Çõ©¬ simple-reference Õ╝▒Õƒ║þ║┐µÁïþÜä**ÒÇéÕÀ▓ÕàêÕèáÚÖÉÕ«ÜÞ»¡´╝ê"vs simple-reference´╝îÚØ×þÄ░õ╗úÕƒ║þ║┐"´╝ëõ¢£õ©║µ¡óÞíÇ´╝îõ¢å**Ú£ÇÞªüÕ£¿ÕñºÚóäþ«ùõ©ïÞíÑõ©ÇÞ¢« `modern_transformer` Õ»╣þàº**µëìÞâ¢þí«Þ«ñÞ┐Öõ©¬Õñ┤ÕÅÀõ©╗Õ╝áµÿ»ÕÉªµêÉþ½ïÒÇéÞïÑÕÉîµáÀÕÅìÞ¢¼´╝îµæÿÞªüÕ┐àÚí╗ÚçìÕåÖÒÇéÕ╗║Þ««Õ£¿ AutoDL õ©èõ©ÄÕàÂõ╗ûÕ╝║ baseline õ©ÇÞÁÀµÄÆÚÿƒÒÇé
-5. ~~**Õ╣ÂÞíîÕ¥àÕè×´╝ÜÕüÜ fp16 Þ»èµû¡**~~ ÔåÆ **ÕÀ▓Õ«îµêÉ´╝ê2026-07-19´╝ë**´╝Üµá╣ÕøáÕ«Üõ¢ì + õ┐«Õñì + 2000 µ¡ÑÚ¬îÞ»ü + Õà¿õ╗ôÕ║ôÕ«íÞ«í´╝îÞºüõ©èÞí¿ÒÇéÕë®õ¢ÖÕÅ»ÚÇë´╝ÜÕ£¿ AutoDL õ©èÞÀæ fp16 20K þí«Þ«ñÚò┐þ¿ï´╝êµ£¼Õ£░ÕÀ▓Ú¬îÞ»ü 2000 µ¡Ñõ©öõ©Ä fp32 Þ┤¿ÚçÅµîüÕ╣│´╝ëÒÇé
-6. **µë® scaling law**´╝ÜÞç│Õ░æ 3 õ©¬ÕÅéµò░Þºäµ¿í´╝îÕø║Õ«Ü tokenizer/data/seq_len/batch/token budget´╝îÞ¥ôÕç║ÕØçÕÇ╝┬▒µáçÕçåÕÀ«ÕÆîµòêþÄçµø▓þ║┐ÒÇé
-7. **ÞíÑþ£ƒÕ«×Úò┐õ©èõ©ïµûçÕ«×Ú¬î**´╝Üþö¿ decode state / memory profile / Úò┐õ©èõ©ïµûçõ╗╗ÕèíÞ»üµÿÄ O(1) working memory þÜäÕ«×ÚÖàõ╗ÀÕÇ╝ÒÇé
+1. **当前主线任务：继续跑强 baseline**：P0-3 modern_transformer 阶段成果已推送；下一步优先补 `mamba`，随后补 Mamba-2/GLA/DeltaNet 或同类高效架构；注意 Windows Mamba 无 CUDA kernel，强 baseline 和效率曲线建议迁到 Linux/A100。
+2. **继续归档新 baseline 结果**：Mamba/Mamba-2/GLA/DeltaNet 每跑完一个模型，都同步三 seed JSON、run.log/标准化日志和更新后的 `scaling_train_20000_summary.txt`；checkpoint `.pt` 仍不提交。
+3. **更新结果文档和论文材料**（2026-07-19 已完成第一轮）：P0-2 三种子 + P0-3 modern_transformer 结果已写入 README/BENCHMARKS/RESULTS/中英文论文/中英文 deck，并已明确标注 modern_transformer 领先 MT-LNN 11.3%、2K 旧结论已撤回、O1 参考锚限制。
+4. **⚠️ 验证论文摘要的 14.7% 主张**（新增，重要）：论文摘要/结论的「比同参数 Transformer 低 14.7% PPL」来自大预算（100K 步 A100）实验，但**几乎肯定也是对着同一个 simple-reference 弱基线测的**。已先加限定语（"vs simple-reference，非现代基线"）作为止血，但**需要在大预算下补一轮 `modern_transformer` 对照**才能确认这个头号主张是否成立。若同样反转，摘要必须重写。建议在 AutoDL 上与其他强 baseline 一起排队。
+5. ~~**并行待办：做 fp16 诊断**~~ → **已完成（2026-07-19）**：根因定位 + 修复 + 2000 步验证 + 全仓库审计，见上表。剩余可选：在 AutoDL 上跑 fp16 20K 确认长程（本地已验证 2000 步且与 fp32 质量持平）。
+6. **扩 scaling law**：至少 3 个参数规模，固定 tokenizer/data/seq_len/batch/token budget，输出均值±标准差和效率曲线。
+7. **补真实长上下文实验**：用 decode state / memory profile / 长上下文任务证明 O(1) working memory 的实际价值。
 
-## 5. ÔÜá´©Å ÞªüÚü┐ÕàìþÜäÕØæ´╝êÞíÇµ│¬µòÖÞ«¡´╝ë
+## 5. ⚠️ 要避免的坑（血泪教训）
 
-1. **þ╗Øõ©ìõ┐íõ║îµëïþ╗ôÞ«║**´╝ÜÕ╝òþö¿õ╗╗õ¢òµò░µì«/µûçõ╗Â/API ÕëìÕ┐àÚí╗õ║▓Þç¬ Read/Grep/µúÇµƒÑ JSON´╝øÕ░ñÕàÂµÿ»ÞÀ¿õ╝ÜÞ»ØÒÇüÞÀ¿Úí╣þø«þÜäþ╗ôµ×£ÒÇé
-2. **þ╗Øõ©ìµèè O1 þÜäµò░Õ¡ùµÉ¼Þ┐ø M1 Þ«║µûçõ©╗Þí¿**´╝ÜO1´╝ê84M/3000µ¡Ñ/AMP´╝ëÕÆî M1´╝ê126M/fp32/20K´╝ëõ©ìÕÉîÕÅúÕ¥ä´╝îµÀÀþö¿õ╝ÜÚÇáµêÉõ©ìõ©ÑÞ░¿þöÜÞç│Õ¡ªµ£»ÚúÄÚÖ®ÒÇé
-3. **Úò┐ÞÀæÕ┐àÚí╗ checkpoint/resume**´╝Üµùá checkpoint µùÂµ£║ÕÖ¿þØíþ£á/SSH µû¡Õ╝Ç/Þ┐øþ¿ïÚçìÕÉ»Úâ¢õ╝ÜÕ»╝Þç┤Õ¢ôÕëì arch õ╗Ä 0 ÚçìÞÀæÒÇéþÄ░Õ£¿ `scaling_comparison.py` ÕÀ▓µö»µîüµ»Å N µ¡Ñõ┐ØÕ¡ÿÒÇé
-4. **õ©ìÞªüµÅÉõ║ñ checkpoint `.pt`**´╝Ü`scaling_fp32/converge_probe/checkpoints/*.pt` Õìòõ©¬µûçõ╗ÂÕÅ»Þ¥¥ 1GB+´╝îÕÅ¬þö¿õ║Äµ£¼Õ£░/µ£ìÕèíÕÖ¿µüóÕñì´╝îõ©ìÞ┐ø GitHubÒÇé
-5. **8GB GPU õ©ìÚÇéÕÉêÕ╣ÂÞíîÞ«¡þ╗â**´╝ÜM1 P0-2 þ║ª 7GB´╝îÕìáþö¿µùÂõ©ìÞªüÕ╣ÂÞíî O1 µêûÕàÂõ╗û GPU Þ«¡þ╗âÒÇé
-6. **transformer baseline þí¼þ╝ûþáü `n_heads=13`**´╝Ü`--d_model` Õ┐àÚí╗Þâ¢Þó½ 13 µò┤ÚÖñ´╝êþö¿ 832 µêû 104´╝îÕê½þö¿ 128´╝ëÒÇé
-7. **Õà¼Õ╝Çõ╗ôÕ║ôÞç¬µøØþƒ¡µØ┐**´╝Ü`PUBLICATION_READINESS.md` ÕÀ▓õ║Ä 2026-08-01 Þ┐üÕç║Õê░þºüµ£ëõ╗ôÕ║ô AwareLiquid-Web þÜä `internal/`´╝êÕ«âÞç¬Þ┐░"Õï┐µÄ¿Õà¼Õ╝Çõ╗ôÕ║ô"Õì┤õ©Çþø┤Þó½ git ÞÀƒÞ©¬´╝ëÒÇé**µ£¼ HANDOFF õ╗ìÕ£¿Õà¼Õ╝Çõ╗ôÕ║ô**õ©öÕîàÕÉ½µ£¬Õ«îµêÉÚí╣õ©ÄÚúÄÚÖ®´╝îµÅÉõ║ñÕëìþí«Þ«ñÕÅ»õ╗ÑÕà¼Õ╝ÇÒÇé
+1. **绝不信二手结论**：引用任何数据/文件/API 前必须亲自 Read/Grep/检查 JSON；尤其是跨会话、跨项目的结果。
+2. **绝不把 O1 的数字搬进 M1 论文主表**：O1（84M/3000步/AMP）和 M1（126M/fp32/20K）不同口径，混用会造成不严谨甚至学术风险。
+3. **长跑必须 checkpoint/resume**：无 checkpoint 时机器睡眠/SSH 断开/进程重启都会导致当前 arch 从 0 重跑。现在 `scaling_comparison.py` 已支持每 N 步保存。
+4. **不要提交 checkpoint `.pt`**：`scaling_fp32/converge_probe/checkpoints/*.pt` 单个文件可达 1GB+，只用于本地/服务器恢复，不进 GitHub。
+5. **8GB GPU 不适合并行训练**：M1 P0-2 约 7GB，占用时不要并行 O1 或其他 GPU 训练。
+6. **transformer baseline 硬编码 `n_heads=13`**：`--d_model` 必须能被 13 整除（用 832 或 104，别用 128）。
+7. **公开仓库自曝短板**：`PUBLICATION_READINESS.md` 已于 2026-08-01 迁出到私有仓库 AwareLiquid-Web 的 `internal/`（它自述"勿推公开仓库"却一直被 git 跟踪）。**本 HANDOFF 仍在公开仓库**且包含未完成项与风险，提交前确认可以公开。
 
-## 6. Õà│Úö«Õæ¢õ╗ñÚÇƒµƒÑ
+## 6. 关键命令速查
 
 ```powershell
-# µ£¼Õ£░ P0-1 2K ÕñÜþºìÕ¡É´╝êÕÀ▓Õ«îµêÉ´╝ë
+# 本地 P0-1 2K 多种子（已完成）
 py -3.11 benchmarks/scaling_comparison.py --mode train --steps 2000 `
   --seeds 0,1,2 --archs transformer,mt_lnn --dtype fp32 `
   --train_token_cap 50000000 --out_dir E:/M1/scaling_fp32
 
-# µ£¼Õ£░ P0-2 20K µöÂµòø´╝êÕÀ▓Õ«îµêÉ´╝øµö»µîü checkpoint/resume´╝ë
+# 本地 P0-2 20K 收敛（已完成；支持 checkpoint/resume）
 py -3.11 benchmarks/scaling_comparison.py --mode train --steps 20000 `
   --seeds 0,1,2 --archs mt_lnn,transformer --dtype fp32 `
   --ckpt_every 500 --resume `
   --out_dir E:/M1/scaling_fp32/converge_probe
 
-# Þ┐£þ¿ï P0-3 modern_transformer´╝êÕÀ▓Õ«îµêÉ´╝ë
+# 远程 P0-3 modern_transformer（已完成）
 ssh root@tulong91.imwork.net -p 54511
 cd /root/autodl-tmp/M1
 python benchmarks/scaling_comparison.py --mode train --steps 20000 \
@@ -517,7 +513,7 @@ python benchmarks/scaling_comparison.py --mode train --steps 20000 \
   --out_dir /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer \
   2>&1 | tee /root/autodl-tmp/M1/scaling_fp32/p0_3_modern_transformer/run.log
 
-# Þ┐£þ¿ïõ©ïõ©Çµ¡Ñ´╝ÜÞÀæ mamba´╝êÞ┐øÞíîõ©¡/Õ¥àÕ«îµêÉ´╝ë
+# 远程下一步：跑 mamba（进行中/待完成）
 cd /root/autodl-tmp/M1
 python benchmarks/scaling_comparison.py --mode train --steps 20000 \
   --seeds 0,1,2 \
@@ -528,31 +524,31 @@ python benchmarks/scaling_comparison.py --mode train --steps 20000 \
   --out_dir /root/autodl-tmp/M1/scaling_fp32/p0_3_mamba \
   2>&1 | tee /root/autodl-tmp/M1/scaling_fp32/p0_3_mamba/run.log
 
-# µƒÑþ£ï P0-2/P0-3 µ▒çµÇ╗
+# 查看 P0-2/P0-3 汇总
 Get-Content E:\M1\scaling_fp32\converge_probe\scaling_train_20000_summary.txt
 
-# µƒÑ GPU õ║ëµèó
+# 查 GPU 争抢
 nvidia-smi --query-compute-apps=pid,used_memory --format=csv,noheader
 
-# Ô¡É 125M selective_decay µûçµ£¼Õ«×Ú¬î´╝ê2026-08-06 Õ░▒þ╗¬´╝îÕ¥à GPU ÔÇöÔÇö µûçµ£¼þ┐╗þøÿÕà│Úö«Þ»üµì«´╝ë
-# µÄÑþ║┐ÕÀ▓Ú¬îÞ»ü´╝Ü126,092,519 params´╝ê=126,041,819 + 50,700 sel_w/sel_b´╝ë´╝îÕåÆþâƒ stableÒÇé
-# ÕëìµÅÉ´╝Üselective_decay Õ£¿ parity µÄóÚÆê 3/3 µ╗íÕêå´╝îÕ░Åµ¿íÕ×ïµûçµ£¼µÄóÚÆê 3/3 ÚàìÕ»╣Õà¿õ╝ÿ´╝êv3 ÕìÅÞ««´╝ë´╝î
-#       µ¡ñÕ«×Ú¬îµö¥ÕñºÕê░ 125M Ú¬îÞ»üµÿ»ÕÉªþ╝®Õ░Åõ©Ä modern_transformer þÜä 11.3% PPL ÕÀ«ÞÀØÒÇé
-# µ│¿µäÅ´╝ÜÕ»╣µ»öþ╗äÕ┐àÚí╗ÕÉîÞÀæ ÔÇöÔÇö mt_lnn(Ú╗ÿÞ«ñ) µÿ» 88.93┬▒0.33 þÜäÕÄåÕÅ▓Õƒ║þ║┐´╝îÕåìÕèá --selective_decay ÞçéÒÇé
+# ⭐ 125M selective_decay 文本实验（2026-08-06 就绪，待 GPU —— 文本翻盘关键证据）
+# 接线已验证：126,092,519 params（=126,041,819 + 50,700 sel_w/sel_b），冒烟 stable。
+# 前提：selective_decay 在 parity 探针 3/3 满分，小模型文本探针 3/3 配对全优（v3 协议），
+#       此实验放大到 125M 验证是否缩小与 modern_transformer 的 11.3% PPL 差距。
+# 注意：对比组必须同跑 —— mt_lnn(默认) 是 88.93±0.33 的历史基线，再加 --selective_decay 臂。
 #
-# ­ƒôè v4 µûçµ£¼þ╗¡Þ«¡´╝êÕå│þ¡ûÚù¿´╝î2026-08-06 ÕÉ»Õè¿´╝î2000ÔåÆ8000 µ¡Ñ´╝ë´╝Üµ£¼Õ£░ CPU ÞÀæ
+# 📊 v4 文本续训（决策门，2026-08-06 启动，2000→8000 步）：本地 CPU 跑
 #   `py -3.11 benchmarks/text_selective_ab.py --resume --steps 8000`
-#   - seed0 stock ÕÀ▓Õ«îµêÉ´╝Üval_ppl=475.974´╝êv3 ÕÉîµ¿íÕ×ï 666.16 ÔåÆ Úóäþ«ù├ù4 ÕñºÕ╣àµö╣Õûä´╝îÞ«¡þ╗âÞ┐£µ£¬ÚÑ▒ÕÆî´╝ë
-#   - þ╗ôÞ«║ÕêñÕ«Ü´╝Ü3 ÚàìÕ»╣ selective µÿ»ÕÉªÚÜÅÚóäþ«ùµö¥Õñº ÔåÆ ÞÀæ `py -3.11 benchmarks/analyze_text_ab.py`
-#   - Õêåµ×ÉÞäÜµ£¼ `benchmarks/analyze_text_ab.py`´╝ê2026-08-06 µû░Õó×´╝ë´╝ÜÚàìÕ»╣ delta + sign-test + ÞÀ¿Úóäþ«ùÞ¢¿Þ┐╣
+#   - seed0 stock 已完成：val_ppl=475.974（v3 同模型 666.16 → 预算×4 大幅改善，训练远未饱和）
+#   - 结论判定：3 配对 selective 是否随预算放大 → 跑 `py -3.11 benchmarks/analyze_text_ab.py`
+#   - 分析脚本 `benchmarks/analyze_text_ab.py`（2026-08-06 新增）：配对 delta + sign-test + 跨预算轨迹
 #
-# ­ƒöô P100 ÞºúÚöü´╝ê2026-08-06 ÕÅæþÄ░´╝ë´╝ÜKaggle ÕàìÞ┤╣Õ▒é P100´╝êsm_60´╝ëÚ╗ÿÞ«ñµû░ torch µùá sm_60 µö»µîü´╝î
-#   ÔåÆ Þúà cu118 µ×äÕ╗║ `torch==2.1.2+cu118`´╝êõ┐ØþòÖ sm_60´╝îÕ«ÿµû╣Þ«║ÕØøÞ»üÕ«× arch_list ÕÉ½ sm_60´╝ëÕì│ÕÅ»þö¿ GPUÒÇé
-#   kaggle/kaggle_runner.ipynb ÕÀ▓Õåàþ¢«Þ»ÑÚÇ╗Þ¥æ´╝êcell 1 Þç¬Õè¿µÄóµÁï+Õ«ëÞúà´╝ë´╝îqueue D´╝ê125M´╝ëõ©ìÕåìÞó½ GPU Õìíµ¡╗ÒÇé
-#   µÄ¿ÚÇüÕåàµá©´╝Ükaggle/runner_push/kernel-metadata.json´╝êis_private=true´╝îÕ╝òþö¿ notebook Õë»µ£¼´╝ë
-#   ÔåÆ `kaggle kernels push -p kaggle/runner_push`  ÔåÉ µ│¿µäÅ CLI Þªüµ▒éþ▓¥þí«µûçõ╗ÂÕÉì kernel-metadata.json´╝î
-#     µùá -m ÕÅéµò░´╝îþø«Õ¢òÕåàÕ┐àÚí╗Þç¬ÕîàÕÉ½Þ»Ñµûçõ╗Â´╝êÕï┐þö¿ `-p kaggle`´╝îÚéúÚçîÕÅ¬µ£ë kernel-metadata-runner.json´╝ëÒÇé
-ssh root@tulong91.imwork.net -p 54511   # µêû AutoDL / Kaggle T4
+# 🔓 P100 解锁（2026-08-06 发现）：Kaggle 免费层 P100（sm_60）默认新 torch 无 sm_60 支持，
+#   → 装 cu118 构建 `torch==2.1.2+cu118`（保留 sm_60，官方论坛证实 arch_list 含 sm_60）即可用 GPU。
+#   kaggle/kaggle_runner.ipynb 已内置该逻辑（cell 1 自动探测+安装），queue D（125M）不再被 GPU 卡死。
+#   推送内核：kaggle/runner_push/kernel-metadata.json（is_private=true，引用 notebook 副本）
+#   → `kaggle kernels push -p kaggle/runner_push`  ← 注意 CLI 要求精确文件名 kernel-metadata.json，
+#     无 -m 参数，目录内必须自包含该文件（勿用 `-p kaggle`，那里只有 kernel-metadata-runner.json）。
+ssh root@tulong91.imwork.net -p 54511   # 或 AutoDL / Kaggle T4
 cd /root/autodl-tmp/M1
 python benchmarks/scaling_comparison.py --mode train --steps 20000 \
   --seeds 0,1,2 --archs mt_lnn \
@@ -563,102 +559,102 @@ python benchmarks/scaling_comparison.py --mode train --steps 20000 \
   2>&1 | tee /root/autodl-tmp/M1/scaling_fp32/p0_2b_selective/run.log
 ```
 
-## 7. Õà│Úö«µûçõ╗Â
+## 7. 关键文件
 
-- Þ«¡þ╗âÞäÜµ£¼´╝Ü`benchmarks/scaling_comparison.py`´╝ê`--mode train`´╝îÕÉ½ `--ckpt_every` / `--resume`´╝ë
-- Õ╝║ baseline õ╗úþáü´╝Ü`benchmarks/baselines.py`´╝êµû░Õó× `ModernCausalTransformer`´╝ÜRoPE + RMSNorm + SwiGLU´╝ë
-- P0-1 þ╗ôµ×£´╝Ü`scaling_fp32/train_*_s*.json`
-- P0-2/P0-3 þ╗ôµ×£´╝Ü`scaling_fp32/converge_probe/train_mt_lnn_s0.json`ÒÇü`train_mt_lnn_s1.json`ÒÇü`train_mt_lnn_s2.json`ÒÇü`train_transformer_s0.json`ÒÇü`train_transformer_s1.json`ÒÇü`train_transformer_s2.json`ÒÇü`train_modern_transformer_s0.json`ÒÇü`train_modern_transformer_s1.json`ÒÇü`train_modern_transformer_s2.json`
-- P0-2/P0-3 µ▒çµÇ╗´╝Ü`scaling_fp32/converge_probe/scaling_train_20000_summary.txt`
-- µáçÕçåÕîûµùÑÕ┐ù´╝Ü`scaling_fp32/converge_probe/scaling_train_20000_mt_lnn.log`ÒÇü`scaling_train_20000_transformer.log`ÒÇü`scaling_train_20000_modern_transformer.log`
-- checkpoint´╝êõ©ìµÅÉõ║ñ´╝ë´╝Ü`scaling_fp32/converge_probe/checkpoints/*.pt`
-- µû¢ÕÀÑÕø¥´╝Ü`PUBLICATION_READINESS.md`´╝êþºüµ£ëõ╗ôÕ║ô AwareLiquid-Web `internal/`´╝ë
-- µ¿íÕ×ï´╝Ü`mt_lnn/model.py`ÒÇü`mt_lnn/mt_lnn_layer.py`ÒÇü`mt_lnn/mt_lnn_v2.py`
+- 训练脚本：`benchmarks/scaling_comparison.py`（`--mode train`，含 `--ckpt_every` / `--resume`）
+- 强 baseline 代码：`benchmarks/baselines.py`（新增 `ModernCausalTransformer`：RoPE + RMSNorm + SwiGLU）
+- P0-1 结果：`scaling_fp32/train_*_s*.json`
+- P0-2/P0-3 结果：`scaling_fp32/converge_probe/train_mt_lnn_s0.json`、`train_mt_lnn_s1.json`、`train_mt_lnn_s2.json`、`train_transformer_s0.json`、`train_transformer_s1.json`、`train_transformer_s2.json`、`train_modern_transformer_s0.json`、`train_modern_transformer_s1.json`、`train_modern_transformer_s2.json`
+- P0-2/P0-3 汇总：`scaling_fp32/converge_probe/scaling_train_20000_summary.txt`
+- 标准化日志：`scaling_fp32/converge_probe/scaling_train_20000_mt_lnn.log`、`scaling_train_20000_transformer.log`、`scaling_train_20000_modern_transformer.log`
+- checkpoint（不提交）：`scaling_fp32/converge_probe/checkpoints/*.pt`
+- 施工图：`PUBLICATION_READINESS.md`（私有仓库 AwareLiquid-Web `internal/`）
+- 模型：`mt_lnn/model.py`、`mt_lnn/mt_lnn_layer.py`、`mt_lnn/mt_lnn_v2.py`
 
-## 8. õ║ñµÄÑ´╝ÜParametric memory Õøøþ╗┤Õƒ║Õçå ÔÇö õ╗úþáüÕ░▒þ╗¬´╝îÕà¿ÚçÅÕ¥àÞÀæ´╝ê2026-08-29´╝îÕêåµö» `iter/parametric-memory`´╝ë
+## 8. 交接：Parametric memory 四维基准 — 代码就绪，全量待跑（2026-08-29，分支 `iter/parametric-memory`）
 
-> **þ╗ÖµëºÞíîµÁïÞ»òþÜäÕÉîõ║ï**´╝Üµ£¼Þèéµÿ»Õ«îµò┤µëºÞíîµëïÕåîÒÇéõ╗úþáü´╝êTask 1 runtime + Task 2 bench´╝ë
-> ÕÀ▓µÅÉõ║ñÕ£¿ `iter/parametric-memory`´╝îõ¢áÕÅ¬Ú£ÇÞªüÞÀæµÁïÞ»òÒÇüÕêñÞ»╗ÒÇüµèèÕ«×µÁïµò░Õ¡ùÕàÑÕ║ô´╝êTask 3´╝ëÒÇé
+> **给执行测试的同事**：本节是完整执行手册。代码（Task 1 runtime + Task 2 bench）
+> 已提交在 `iter/parametric-memory`，你只需要跑测试、判读、把实测数字入库（Task 3）。
 
-### 8.1 ÕÀ▓Õ«îµêÉ´╝êÕï┐ÚçìÕüÜ´╝ë
+### 8.1 已完成（勿重做）
 
-| Úí╣ | õ¢ìþ¢« | þèÂµÇü |
+| 项 | 位置 | 状态 |
 |---|---|---|
-| ParametricMemory runtime´╝êwrite/recall/forget/snapshot/state_bytes´╝îsum\|delta ÕÅîÕåÖÞºäÕêÖ´╝ë | `mt_lnn/parametric_memory.py` | Ô£à ÕÀ▓µÅÉõ║ñ´╝î10 Úí╣ÕìòµÁï CPU <5s |
-| Õøøþ╗┤Õƒ║ÕçåÞäÜµ£¼´╝êD1 in-window / D2 ÞÀ¿þ¬ù / D3 Õå▓þ¬ü / D4 þ£ƒÕ¡ÉÞ┐øþ¿ïÞÀ¿õ╝ÜÞ»Ø´╝ë | `benchmarks/parametric_memory_bench.py` | Ô£à `--smoke` CPU ÕÀ▓Ú¬îÞ»üÕà¿Úô¥ÞÀ»´╝êÕÉ½ D4 Õ¡ÉÞ┐øþ¿ï + BM25/runtime µø▓þ║┐´╝ë |
-| Õ«Üõ¢ìµûçµíú´╝êµ£║ÕêÂÕ»╣µ»öÞí¿´╝îµò░Õ¡ùþòÖþÖ¢´╝ë | `docs/PARAMETRIC_MEMORY.md` | Ô£à Õ¥àÕà¿ÚçÅµò░Õ¡ùÕø×Õí½ÕÉÄõ©ìÕè¿Õ«âõ╣ƒÕÅ» |
-| ÕìòµÁï´╝êÕåÖÕàÑÔåÆÕÅ¼Õø× / õ¢ìþ▓¥þí« / forget ÚÜöþª╗ / O(1) þèÂµÇüÕ¡ùÞèé´╝ë | `tests/test_parametric_memory.py` | Ô£à þ╗┐ |
-| µÅÉõ║ñÚô¥ | `08d4edf ÔåÆ 9d558cd ÔåÆ efb3a6d ÔåÆ d286e4c ÔåÆ e789889` | Õêåµö»Õ╣▓ÕçÇ´╝îÕƒ║þ║┐ = main cad9372 |
+| ParametricMemory runtime（write/recall/forget/snapshot/state_bytes，sum\|delta 双写规则） | `mt_lnn/parametric_memory.py` | ✅ 已提交，10 项单测 CPU <5s |
+| 四维基准脚本（D1 in-window / D2 跨窗 / D3 冲突 / D4 真子进程跨会话） | `benchmarks/parametric_memory_bench.py` | ✅ `--smoke` CPU 已验证全链路（含 D4 子进程 + BM25/runtime 曲线） |
+| 定位文档（机制对比表，数字留白） | `docs/PARAMETRIC_MEMORY.md` | ✅ 待全量数字回填后不动它也可 |
+| 单测（写入→召回 / 位精确 / forget 隔离 / O(1) 状态字节） | `tests/test_parametric_memory.py` | ✅ 绿 |
+| 提交链 | `08d4edf → 9d558cd → efb3a6d → d286e4c → e789889` | 分支干净，基线 = main cad9372 |
 
-þÄ»ÕóâÕÀ▓Õ░▒þ╗¬´╝Üvenv `/Users/aricredemption/Projects/M1/.venv`´╝êtorch 2.13´╝îMPS ÕÅ»þö¿´╝ë´╝ø
-TinyLlama-1.1B-Chat ÕÀ▓Õ£¿ HF cache´╝êþª╗þ║┐ÞÀæÕèá `HF_HUB_OFFLINE=1`´╝ëÒÇé
-**Õêåµö»Õ£¿þï¼þ½ï worktree `/Users/aricredemption/Projects/M1-pm`**´╝êõ©╗õ╗ôÕ║ôÕñÜÕêåµö»Õ╣ÂÞíîÕìáþö¿´╝î
-Õï┐Õ£¿õ©╗õ╗ôÕ║ôÕêçµ¡ñÕêåµö»´╝ëÒÇémacOS µ▓Öþ«▒õ©ïõ©┤µùÂþø«Õ¢òÚ£Ç `TMPDIR=<repo>/.tmp`´╝êÕàê mkdir´╝ëÒÇé
-ÕÀ▓µÄóÚÆê´╝êÕìò seedÒÇü100 µ¡Ñ´╝î**õ©ìÕÅ»Õ╝òþö¿**´╝îõ╗àÞ»üµÿÄþ«íþ║┐ÚÇÜ´╝ë´╝Ümt_v2 s0 D1 0.555 / D2 0ÒÇé
+环境已就绪：venv `/Users/aricredemption/Projects/M1/.venv`（torch 2.13，MPS 可用）；
+TinyLlama-1.1B-Chat 已在 HF cache（离线跑加 `HF_HUB_OFFLINE=1`）。
+**分支在独立 worktree `/Users/aricredemption/Projects/M1-pm`**（主仓库多分支并行占用，
+勿在主仓库切此分支）。macOS 沙箱下临时目录需 `TMPDIR=<repo>/.tmp`（先 mkdir）。
+已探针（单 seed、100 步，**不可引用**，仅证明管线通）：mt_v2 s0 D1 0.555 / D2 0。
 
-### 8.2 µëºÞíîµ¡ÑÚ¬ñ´╝êµîëÕ║Å´╝ë
+### 8.2 执行步骤（按序）
 
 ```bash
 cd /Users/aricredemption/Projects/M1-pm
 PY=/Users/aricredemption/Projects/M1/.venv/bin/python
 
-# 1) ÕìòµÁï´╝ê~5s´╝îÕ┐àÚí╗Õàêþ╗┐´╝ë
+# 1) 单测（~5s，必须先绿）
 $PY -m pytest tests/test_parametric_memory.py tests/test_session_state.py -q
 
-# 2) smoke´╝ê~2min´╝îÕ╝║ÕêÂ CPU´╝îÚ¬îÞ»üÕøøþ╗┤+BM25+runtime µø▓þ║┐Õà¿Úô¥ÞÀ»´╝ë
+# 2) smoke（~2min，强制 CPU，验证四维+BM25+runtime 曲线全链路）
 BENCH_DEVICE=cpu TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY \
   benchmarks/parametric_memory_bench.py --smoke
 
-# 3) Õà¿ÚçÅ´╝ê~2h´╝îMPS´╝øresume-safe´╝Üõ©¡µû¡ÕÉÄÕÄƒÕæ¢õ╗ñÚçìÞÀæÕì│þ╗¡´╝îÕÀ▓µ£ë JSON Þç¬Õè¿ÞÀ│Þ┐ç´╝ë
-#    µùÑÕ┐ùÕà¿Úâ¿Õ©ª [HH:MM:SS] µùÂÚù┤µê│ + PHASE ÚÿÂµ«ÁµáçÞ«░´╝êtrain/eval/D4/bm25/runtime´╝ë´╝î
-#    tee ÞÉ¢þøÿõ©Çõ╗¢õ¥┐õ║ÄµÄÆµƒÑ´╝Ünan µ£ë [WARN]´╝îseed þ╝║Õñ▒µ£ë [WARN]´╝î
-#    Õ¡ÉÞ┐øþ¿ïÕñ▒Þ┤ÑµÉ£ "Traceback" õ©Ä "[ERROR"
+# 3) 全量（~2h，MPS；resume-safe：中断后原命令重跑即续，已有 JSON 自动跳过）
+#    日志全部带 [HH:MM:SS] 时间戳 + PHASE 阶段标记（train/eval/D4/bm25/runtime），
+#    tee 落盘一份便于排查：nan 有 [WARN]，seed 缺失有 [WARN]，
+#    子进程失败搜 "Traceback" 与 "[ERROR"
 TMPDIR=$PWD/.tmp HF_HUB_OFFLINE=1 $PY benchmarks/parametric_memory_bench.py \
   2>&1 | tee benchmarks/results/parametric_memory_run.log
 ```
 
-õ║ºÕç║´╝êÕà¿Úâ¿ÞÉ¢ `benchmarks/results/`´╝îÞ┐Öµÿ»ÕàÑÕ║ôþÜäÕö»õ©Çõ¥Øµì«´╝ë´╝Ü
-`parametric_memory_{baseline,lora_only,mt_v2,mt_v2_delta}_s{0,1,2}.json`´╝ê12 õ©¬´╝î
-µ»Å config├ùseed õ©Çõ╗¢´╝îÕÉ½ D1ÔÇôD4 Õà¿þ╗┤Õ║ª´╝ë+ `parametric_memory_summary.json`
-´╝êmean┬▒std µ▒çµÇ╗´╝ë+ `parametric_memory_bm25.json`´╝êÕñûµîéÕ║ôÕ»╣þàº´╝Üþ▓¥Õ║ª/latency/
-Õ¡ÿÕé¿Õ¡ùÞèéÚÜÅµØíþø«Õó×Úò┐µø▓þ║┐´╝ë+ `parametric_memory_runtime.json`´╝êÕÅéµò░Õîû runtime´╝Ü
-O(1) þèÂµÇüÕ¡ùÞèé + sqrt(d/N) Õ«╣ÚçÅµø▓þ║┐´╝ëÒÇé
+产出（全部落 `benchmarks/results/`，这是入库的唯一依据）：
+`parametric_memory_{baseline,lora_only,mt_v2,mt_v2_delta}_s{0,1,2}.json`（12 个，
+每 config×seed 一份，含 D1–D4 全维度）+ `parametric_memory_summary.json`
+（mean±std 汇总）+ `parametric_memory_bm25.json`（外挂库对照：精度/latency/
+存储字节随条目增长曲线）+ `parametric_memory_runtime.json`（参数化 runtime：
+O(1) 状态字节 + sqrt(d/N) 容量曲线）。
 
-### 8.3 ÕêñÞ»╗þ║¬Õ¥ï´╝êþ║óþ║┐´╝îÞ┐ØÕÅìÕì│Þ┐öÕÀÑ´╝ë
+### 8.3 判读纪律（红线，违反即返工）
 
-1. **Õìò seed õ©ìÕÅ»Õ╝òþö¿**´╝êHANDOFF ┬º2.5´╝ë´╝ÜÞí¿õ©¡ÕÅ¬ÕåÖ mean┬▒std´╝ên=3´╝ë+ per-seedÒÇé
-2. **D3 conflict resolution ÕªéÕ«×µèÑ**´╝Üµ£║ÕêÂÚóäµ£ƒ delta´╝êþ║áÚöÖ´╝ëõ╝ÿõ║Ä sum´╝êÕÅáÕèá´╝ë´╝î
-   µ¡úÞ┤ƒþÜåÕÅ»´╝îÕåÖÕ«×µÁï´╝ø`conflict_in_window_sanity` Õêùõ¢£Õ»╣þàºÒÇé
-3. **D4 µ£ëµòêµÇºÚù¿**´╝Ü`cross_session_no_restore_control` Õ┐àÚí╗ Ôëê chance´╝ê1e-3´╝ë´╝î
-   ÕÉªÕêÖ harness µ│äµ╝Å´╝îµò░Õ¡ùõ¢£Õ║ƒÕàêõ┐« harness´╝ø`within_window_reference` µÿ»
-   round-trip µìƒÞÇùþÜäÕÅéþàº´╝êcross_session ÔëÑ 0.7├ùwithin µëìþ«ùµùáµìƒ´╝îÕÉî
-   cross_session_recall.py þÜä verdict ÚÇ╗Þ¥æ´╝ëÒÇé
-4. **ÕÅúÕ¥äÞ»ÜÕ«×**´╝Ü0.56┬▒0.09 ÚöÜþé╣µÿ» TinyLlama 8000 µ¡ÑÕÅúÕ¥ä´╝øµ£¼ bench Ú╗ÿÞ«ñ 3000 µ¡Ñ´╝î
-   D2 µò░Õ¡ùÚóäµ£ƒõ¢Äõ║ÄÚöÜþé╣ÔÇöÔÇöJSON ÚçîÕÀ▓Þ«░ steps´╝îµûçµíúÕ┐àÚí╗Õ©ª steps ÕåÖ´╝îõ©ìÕ¥ùµÀÀÕÅúÕ¥äÒÇé
-5. **ÕàÑÕ║ôÚí║Õ║Å**´╝êTask 3´╝ë´╝ÜBENCHMARKS.md µû░Þèé´╝êÞí¿µá╝ÕÅúÕ¥äþàº ┬ºCross-window´╝ëÔåÆ
-   RESULTS.md Proven Þíî + "What we do NOT claim" Õèáõ©ÇµØí´╝êÕÅéµò░ÕîûÞ«░Õ┐åõ©ìµÅÉÕìçÕƒ║Õ║º
-   PPLÒÇüõ©ìµÅÉõ¥øÚò┐õ©èõ©ïµûç LM Õó×þøè´╝îµ▓┐þö¿µùóµ£ë null´╝ëÔåÆ README Product lines ÕÅ¬ÕèáµîçÚÆêÒÇé
-   µû░Õó×µ»Åõ©ÇÞíîÕ┐àÚí╗Þâ¢Þó½ `benchmarks/results/parametric_memory_*.json` ÕñìþÄ░´╝ø
-   þªüµ¡óÕ╝òþö¿ retracted õ©╗Õ╝á´╝êadapter ÚÖì PPL / hybrid O(1) / Úò┐õ©èõ©ïµûçÕó×þøè /
-   µäÅÞ»å ╬ª╠é Orch-OR´╝ëÒÇé
-6. structural zero Õ»╣þàº´╝êbaseline/lora_only´╝ëÕ£¿ D2/D3 Õ║öõ©║ 0.000´╝êþ╗ôµ×äµÇº´╝ë´╝ø
-   ÞïÑÚØ×ÚøÂÞ»┤µÿÄþèÂµÇüÚÇÜÚüôµ│äµ╝Å´╝îÕàêµƒÑ harness ÕåìµèÑµò░ÒÇé
+1. **单 seed 不可引用**（HANDOFF §2.5）：表中只写 mean±std（n=3）+ per-seed。
+2. **D3 conflict resolution 如实报**：机制预期 delta（纠错）优于 sum（叠加），
+   正负皆可，写实测；`conflict_in_window_sanity` 列作对照。
+3. **D4 有效性门**：`cross_session_no_restore_control` 必须 ≈ chance（1e-3），
+   否则 harness 泄漏，数字作废先修 harness；`within_window_reference` 是
+   round-trip 损耗的参照（cross_session ≥ 0.7×within 才算无损，同
+   cross_session_recall.py 的 verdict 逻辑）。
+4. **口径诚实**：0.56±0.09 锚点是 TinyLlama 8000 步口径；本 bench 默认 3000 步，
+   D2 数字预期低于锚点——JSON 里已记 steps，文档必须带 steps 写，不得混口径。
+5. **入库顺序**（Task 3）：BENCHMARKS.md 新节（表格口径照 §Cross-window）→
+   RESULTS.md Proven 行 + "What we do NOT claim" 加一条（参数化记忆不提升基座
+   PPL、不提供长上下文 LM 增益，沿用既有 null）→ README Product lines 只加指针。
+   新增每一行必须能被 `benchmarks/results/parametric_memory_*.json` 复现；
+   禁止引用 retracted 主张（adapter 降 PPL / hybrid O(1) / 长上下文增益 /
+   意识 Φ̂ Orch-OR）。
+6. structural zero 对照（baseline/lora_only）在 D2/D3 应为 0.000（结构性）；
+   若非零说明状态通道泄漏，先查 harness 再报数。
 
-### 8.4 PR Õ░▒þ╗¬Õîà´╝ê2026-08-29´╝îõ╗úþáüõ¥ºÕ«îµêÉÒÇüÕà¿ÚçÅÕ¥àÞÀæ´╝ë
+### 8.4 PR 就绪包（2026-08-29，代码侧完成、全量待跑）
 
-- **PR µáçÚóÿ**´╝Ü`feat: parametric memory engine v0 + four-competency bench´╝êõ╗úþáüÕ░▒þ╗¬´╝îÕà¿ÚçÅþ╗ôµ×£Õ¥àÞÀæ´╝ë`
-- **PR µ¡úµûç**´╝Üþø«µáç / µ£║ÕêÂÕ»╣µ»ö / Þ┐¡õ╗úµùÑÕ┐ùÞºü `docs/PARAMETRIC_MEMORY.md`´╝ø
-  µëºÞíîµëïÕåîÞºüµ£¼Þèé ┬º8.2ÔÇô8.3´╝øÕà¿ÚçÅ JSON ÞÉ¢þøÿÕÉÄµîë ┬º8.3.5 ÕàÑÕ║ôÕøøÕñäµûçµíú´╝î
-  ÕåìµèèÕøøþ╗┤þ╗ôµ×£Þí¿ÞíÑÞ┐ø PR µÅÅÞ┐░ÒÇé
-- **Õ╝Ç PR Õæ¢õ╗ñ**´╝êshell µüóÕñìÕÉÄ´╝îÕ£¿ worktree `M1-pm` Õåà´╝ë´╝Ü
+- **PR 标题**：`feat: parametric memory engine v0 + four-competency bench（代码就绪，全量结果待跑）`
+- **PR 正文**：目标 / 机制对比 / 迭代日志见 `docs/PARAMETRIC_MEMORY.md`；
+  执行手册见本节 §8.2–8.3；全量 JSON 落盘后按 §8.3.5 入库四处文档，
+  再把四维结果表补进 PR 描述。
+- **开 PR 命令**（shell 恢复后，在 worktree `M1-pm` 内）：
   ```bash
   git push -u origin iter/parametric-memory
   gh pr create --base main --head iter/parametric-memory \
     --title "feat: parametric memory engine v0 + four-competency bench" \
     --body "$(cat .github/PULL_REQUEST_TEMPLATE.md)"
   ```
-- **õ©ÄÕàÂõ╗ûÕ╣ÂÞíî PR þÜäÕà│þ│╗**´╝Üirregular-streaming-edge / o-series-hybrid-ratio
-  þ¡ëþ║┐õ©Äµ£¼Õêåµö»ÚøÂµûçõ╗Âõ║ñÕÅë´╝øÕö»õ©Çµ¢£Õ£¿õ║ñÕÅáµÿ» HANDOFF.md Þ┐¢ÕèáÞèé´╝êÕÉêÕ╣ÂµùÂõ©ñÞèé
-  Úâ¢õ┐ØþòÖÕì│ÕÅ»´╝ëÒÇéÕÅªµ│¿µäÅ origin/main Õü£Õ£¿ c564a5d´╝êµ£¼Õ£░ main ÚóåÕàê 27 µÅÉõ║ñ
-  µ£¬µÄ¿´╝ë´╝îÕàÂõ╗û PR ÞïÑÕƒ║õ║Äµû░ main Õêåµö»Õ╝ÇÕç║´╝îdiff õ╝ÜÞú╣µîƒþ╗ºµë┐µÅÉõ║ñÔÇöÔÇöÕàê
-  `git push origin main` ÕÅ»µÂêÚÖñÕÖ¬Õú░´╝êµÄ¿Õëìõ©ÄÞ┤ƒÞ┤úõ║║þí«Þ«ñ´╝ëÒÇé
+- **与其他并行 PR 的关系**：irregular-streaming-edge / o-series-hybrid-ratio
+  等线与本分支零文件交叉；唯一潜在交叠是 HANDOFF.md 追加节（合并时两节
+  都保留即可）。另注意 origin/main 停在 c564a5d（本地 main 领先 27 提交
+  未推），其他 PR 若基于新 main 分支开出，diff 会裹挟继承提交——先
+  `git push origin main` 可消除噪声（推前与负责人确认）。

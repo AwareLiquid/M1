@@ -1,4 +1,4 @@
-﻿# Experimental development moved to M2
+# Experimental development moved to M2
 
 The active research repository is [AwareLiquid/M2](https://github.com/AwareLiquid/M2).
 Its initial code import is commit `47bc830b710c1960453ac6bdc0d8dedf8dec4c89`.

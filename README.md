@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # MT-LNN
 
@@ -15,7 +15,7 @@
 
 </div>
 
-> **ÔûÂ´©Å Try these models in [HyperCode](https://awareliquid.ai/hypercode)** ÔÇö the production app with the same liquid-core brain: 228+ built-in domain skills, on-device, one-click install for Windows & macOS.
+> **▶️ Try these models in [HyperCode](https://awareliquid.ai/hypercode)** — the production app with the same liquid-core brain: 228+ built-in domain skills, on-device, one-click install for Windows & macOS.
 
 ---
 
@@ -30,69 +30,69 @@
 
 **A streaming-state recurrent LLM architecture with two proven, hard-to-replicate results: cross-window associative recall that attention cannot express, and (in its attention-free variant) genuine O(1) inference memory.**
 
-> **Evidence policy.** Every number in this README is backed by a reproducible table in [BENCHMARKS.md](BENCHMARKS.md) and reconciled in [RESULTS.md](RESULTS.md). RESULTS.md is the source of truth; if any other doc disagrees, RESULTS.md wins. Earlier "ÔêÆ28ÔÇô34% adapter PPL" and consciousness/╬ª╠é claims have been **retracted or reclassified as inspiration** ÔÇö see [What is retracted](#what-is-retracted).
+> **Evidence policy.** Every number in this README is backed by a reproducible table in [BENCHMARKS.md](BENCHMARKS.md) and reconciled in [RESULTS.md](RESULTS.md). RESULTS.md is the source of truth; if any other doc disagrees, RESULTS.md wins. Earlier "−28–34% adapter PPL" and consciousness/Φ̂ claims have been **retracted or reclassified as inspiration** — see [What is retracted](#what-is-retracted).
 
 ## What is proven
 
 Results that survive convergence and a modern baseline:
 
-1. **MT-LNN trains stably at 125M ÔÇö but a modern Transformer still leads on language-modeling quality.** At **convergence** (20,000 steps, **3 seeds**, fp32, WikiText-103): MT-LNN reaches **88.93 ┬▒ 0.33** val PPL, beating the simple matched Transformer (**94.14 ┬▒ 0.78**, ÔêÆ5.5%) ÔÇö but a **modern Transformer baseline (RoPE + RMSNorm + SwiGLU) reaches 78.86 ┬▒ 0.25, i.e. 11.3% *better* than MT-LNN**. All architectures train stably with no NaN, which answers the original "does a liquid-recurrent net converge when scaled 100├ù?" question. ÔÜá´©Å **An earlier 2,000-step run reported MT-LNN ahead by ~31% (257 vs 371). That gap did not survive**: it was an artifact of **undertraining plus a weak reference baseline**, and both effects vanish at convergence against a modern baseline. **Perplexity is therefore not currently an MT-LNN advantage** ÔÇö the architecture's case rests on the memory/efficiency results below.
+1. **MT-LNN trains stably at 125M — but a modern Transformer still leads on language-modeling quality.** At **convergence** (20,000 steps, **3 seeds**, fp32, WikiText-103): MT-LNN reaches **88.93 ± 0.33** val PPL, beating the simple matched Transformer (**94.14 ± 0.78**, −5.5%) — but a **modern Transformer baseline (RoPE + RMSNorm + SwiGLU) reaches 78.86 ± 0.25, i.e. 11.3% *better* than MT-LNN**. All architectures train stably with no NaN, which answers the original "does a liquid-recurrent net converge when scaled 100×?" question. ⚠️ **An earlier 2,000-step run reported MT-LNN ahead by ~31% (257 vs 371). That gap did not survive**: it was an artifact of **undertraining plus a weak reference baseline**, and both effects vanish at convergence against a modern baseline. **Perplexity is therefore not currently an MT-LNN advantage** — the architecture's case rests on the memory/efficiency results below.
 
-2. **Cross-window / cross-session associative recall that attention and LoRA get 0.000 on by construction.** The fast-weight state stores discrete keyÔåÆvalue bindings across a **dropped KV cache**: **0.56 mean recall** (3-seed 0.62 / 0.43 / 0.62) where frozen attention and LoRA are structurally zero. Remove the fast-weight matrix and it collapses to 0.008 ÔÇö the fast weight *is* the memory. Snapshotting that state to disk and restoring into a fresh process is **bit-exact lossless** ÔÇö what turns "recall within a session" into "remembers you across sessions."
+2. **Cross-window / cross-session associative recall that attention and LoRA get 0.000 on by construction.** The fast-weight state stores discrete key→value bindings across a **dropped KV cache**: **0.56 mean recall** (3-seed 0.62 / 0.43 / 0.62) where frozen attention and LoRA are structurally zero. Remove the fast-weight matrix and it collapses to 0.008 — the fast weight *is* the memory. Snapshotting that state to disk and restoring into a fresh process is **bit-exact lossless** — what turns "recall within a session" into "remembers you across sessions."
 
 And, in the attention-free line:
 
-3. **O(1) inference memory (O-series / ARR only).** Every attention block replaced by a recurrent mixer ÔåÆ carried state **flat at 0.381 MB** regardless of context, versus an O(T) KV cache. Measured at 125M scale across a **2048├ù context increase (512 ÔåÆ 1,048,576 tokens)** with the state unchanged to the decimal: **1008├ù smaller at 128k, 8063├ù at 1M** (where the KV cache alone would be 3 GB). Audited against the *strongest* opposing compression, not just fp16: the advantage survives **2-bit KV + GQA=8** (1070.9├ù @128k, 8567├ù @1M) and every non-evicted configuration, with all crossovers at 17ÔÇô976 tokens Ôë¬ 128k ÔÇö the one honest concession is small-window eviction + 2-bit on pure bytes, which discards the out-of-window recall the fast-weight state keeps (0.56 vs 0.000; see [`docs/KV_FRONTIER.md`](docs/KV_FRONTIER.md)). This is the architecture's strongest surviving claim.
+3. **O(1) inference memory (O-series / ARR only).** Every attention block replaced by a recurrent mixer → carried state **flat at 0.381 MB** regardless of context, versus an O(T) KV cache. Measured at 125M scale across a **2048× context increase (512 → 1,048,576 tokens)** with the state unchanged to the decimal: **1008× smaller at 128k, 8063× at 1M** (where the KV cache alone would be 3 GB). Audited against the *strongest* opposing compression, not just fp16: the advantage survives **2-bit KV + GQA=8** (1070.9× @128k, 8567× @1M) and every non-evicted configuration, with all crossovers at 17–976 tokens ≪ 128k — the one honest concession is small-window eviction + 2-bit on pure bytes, which discards the out-of-window recall the fast-weight state keeps (0.56 vs 0.000; see [`docs/KV_FRONTIER.md`](docs/KV_FRONTIER.md)). This is the architecture's strongest surviving claim.
 
 | Result | Number | Caveat |
 |---|---|---|
-| **LM quality at convergence** (20K steps, n=3, fp32) | modern Transformer **78.86 ┬▒ 0.25** < MT-LNN **88.93 ┬▒ 0.33** < simple Transformer **94.14 ┬▒ 0.78** | **MT-LNN loses to a modern baseline by 11.3%**; beats only the weak one (ÔêÆ5.5%) |
-| ~~Native 125M "ÔêÆ31% vs Transformer"~~ (2K steps) | **Retracted as a headline claim** ÔÇö undertrained + weak baseline; does not survive 20K convergence | superseded by the row above |
-| Native 125M vs Mamba | ÔêÆ37.8% val PPL at 2K steps (257 vs 414) | **2K-step only, not re-run at convergence**; width/depth-mismatched external baseline |
-| Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete KÔåÆV bindings, not long-context LM |
+| **LM quality at convergence** (20K steps, n=3, fp32) | modern Transformer **78.86 ± 0.25** < MT-LNN **88.93 ± 0.33** < simple Transformer **94.14 ± 0.78** | **MT-LNN loses to a modern baseline by 11.3%**; beats only the weak one (−5.5%) |
+| ~~Native 125M "−31% vs Transformer"~~ (2K steps) | **Retracted as a headline claim** — undertrained + weak baseline; does not survive 20K convergence | superseded by the row above |
+| Native 125M vs Mamba | −37.8% val PPL at 2K steps (257 vs 414) | **2K-step only, not re-run at convergence**; width/depth-mismatched external baseline |
+| Cross-window recall (fast-weight) | 0.56 vs **0.000** (attention/LoRA) | discrete K→V bindings, not long-context LM |
 | Cross-session snapshot/restore | bit-exact, controls at chance | recall task is high-variance |
-| O(1) inference state (**O-series only**) | 0.381 MB flat ÔåÆ 1008├ù @128k ÔåÆ **8063├ù @1M** vs fp16 GQA=1; **1070.9├ù @128k ÔåÆ 8567├ù @1M vs 2-bit + GQA=8** | attention-free ARR only, not the hybrid; inference carried-state, not training memory; smaller than every *non-evicted* KV past ~0.1ÔÇô1k tokens, but **never smaller than sink+window(512) eviction @2-bit** (0.202 MB) ÔÇö that trade is retrieval, not bytes |
+| O(1) inference state (**O-series only**) | 0.381 MB flat → 1008× @128k → **8063× @1M** vs fp16 GQA=1; **1070.9× @128k → 8567× @1M vs 2-bit + GQA=8** | attention-free ARR only, not the hybrid; inference carried-state, not training memory; smaller than every *non-evicted* KV past ~0.1–1k tokens, but **never smaller than sink+window(512) eviction @2-bit** (0.202 MB) — that trade is retrieval, not bytes |
 
 ## Honest pain-point framing
 
 | Transformer pain point | What MT-LNN actually offers |
 |---|---|
-| KV-cache memory grows O(T) | **O(1) constant state ÔÇö O-series (ARR) inference only.** The hybrid M-series still has attention and is **not** O(1); its *training* memory is worse than a Transformer's. |
-| Attention cannot recall across a dropped context window | **Fast-weight state carries KÔåÆV bindings across windows/sessions** (0.56 vs 0.000). |
-| No durable per-user memory across sessions | **Lossless (F,z) snapshot/restore** ÔÇö bit-exact round-trip. |
+| KV-cache memory grows O(T) | **O(1) constant state — O-series (ARR) inference only.** The hybrid M-series still has attention and is **not** O(1); its *training* memory is worse than a Transformer's. |
+| Attention cannot recall across a dropped context window | **Fast-weight state carries K→V bindings across windows/sessions** (0.56 vs 0.000). |
+| No durable per-user memory across sessions | **Lossless (F,z) snapshot/restore** — bit-exact round-trip. |
 
-*(MT-LNN does **not** give long-context language-modeling gains ÔÇö out-of-window LM is a measured null. The state is episodic keyÔåÆvalue memory, not compressed distributed context.)*
+*(MT-LNN does **not** give long-context language-modeling gains — out-of-window LM is a measured null. The state is episodic key→value memory, not compressed distributed context.)*
 
 **Event-native sensing streams** (`iter/event-stream-liquid`): a DVS-physics
-event-stream benchmark family where irregularity is the native format ÔÇö see
+event-stream benchmark family where irregularity is the native format — see
 [docs/EVENT_STREAM.md](docs/EVENT_STREAM.md) for why continuous time is a
 structural requirement there, and the "Event-native sensing streams" section
 in [BENCHMARKS.md](BENCHMARKS.md) for the 10-seed results, including the
-pre-registered ╬öt-span verdict (**NULL** on "advantage widens with span") and
+pre-registered Δt-span verdict (**NULL** on "advantage widens with span") and
 the N-Caltech101 null.
 
 ## What is retracted
 
 To keep this repo credible, the following earlier headline claims are **withdrawn** (full detail in [RESULTS.md](RESULTS.md) and the BENCHMARKS.md correction notes):
 
-- **The "ÔêÆ28.5% / ÔêÆ27.7% / ÔêÆ34.4% PPL at 0.1ÔÇô0.2% trainable params" adapter results are retracted.** Those runs froze the MT adapter (PEFT) and trained **LoRA only**; a controlled ablation shows the MT adapter adds **Ôëê0 PPL beyond LoRA** (7.98 vs 7.92). The "0.1ÔÇô0.2% trainable" figures were the LoRA-only param counts.
-- **The "irregular-sampling robustness vs discrete RNNs" edge (battery pilot, 2026-07-24) is retracted as an architectural claim (2026-08-29).** Under the canonical GRU-D baseline the pre-registered absorption test fired, and the original margin did not survive the forced d_model 65ÔåÆ78 width migration. What survives is a single-domain air-quality forecasting result. Full data: [RESULTS.md](RESULTS.md) and BENCHMARKS.md ┬º"Irregular-sampling streaming edge ÔÇö GRU-D + multi-task"; landing analysis in [docs/STREAMING_EDGE_LANDING.md](docs/STREAMING_EDGE_LANDING.md).
+- **The "−28.5% / −27.7% / −34.4% PPL at 0.1–0.2% trainable params" adapter results are retracted.** Those runs froze the MT adapter (PEFT) and trained **LoRA only**; a controlled ablation shows the MT adapter adds **≈0 PPL beyond LoRA** (7.98 vs 7.92). The "0.1–0.2% trainable" figures were the LoRA-only param counts.
+- **The "irregular-sampling robustness vs discrete RNNs" edge (battery pilot, 2026-07-24) is retracted as an architectural claim (2026-08-29).** Under the canonical GRU-D baseline the pre-registered absorption test fired, and the original margin did not survive the forced d_model 65→78 width migration. What survives is a single-domain air-quality forecasting result. Full data: [RESULTS.md](RESULTS.md) and BENCHMARKS.md §"Irregular-sampling streaming edge — GRU-D + multi-task"; landing analysis in [docs/STREAMING_EDGE_LANDING.md](docs/STREAMING_EDGE_LANDING.md).
 - **The hybrid is not O(1) and gives no long-context LM gain.** Both are measured nulls for the M-series.
-- **The Orch-OR / ╬ª╠é / anesthesia "consciousness" results are inert in the trained path** (AVP failed; ╬ª╠é sign inverted vs theory). Inspiration, not evidence.
+- **The Orch-OR / Φ̂ / anesthesia "consciousness" results are inert in the trained path** (AVP failed; Φ̂ sign inverted vs theory). Inspiration, not evidence.
 - **The five optional bio modules are PPL-neutral at 48M.** Shipped configs run the lean core.
 
 ## Product lines
 
 - **M-series (hybrid, attention + liquid adapter):** cloud/GPU serving at full base quality; unique edge is cross-window/cross-session recall at ~1% param overhead.
-- **O-series (ARR, attention-free):** edge/streaming; unique edge is genuine O(1) inference memory. Research preview at 2.15├ù teacher PPL.
+- **O-series (ARR, attention-free):** edge/streaming; unique edge is genuine O(1) inference memory. Research preview at 2.15× teacher PPL.
 
 See [docs/PRODUCT_LINES.md](docs/PRODUCT_LINES.md).
 
 ## Inspiration (not load-bearing)
 
-MT-LNN's design *draws on* neuroscience ÔÇö neuronal microtubules and the 13-protofilament count, Global Workspace Theory, Friston's predictive coding, and the PenroseÔÇôHameroff Orch-OR collapse hypothesis. These shaped the initial architecture (e.g. the ¤ä timescale ladder is initialized from biological priors, which the frozen-¤ä ablation shows is a genuinely good *starting point*: 0.285 vs 0.621 trained recall).
+MT-LNN's design *draws on* neuroscience — neuronal microtubules and the 13-protofilament count, Global Workspace Theory, Friston's predictive coding, and the Penrose–Hameroff Orch-OR collapse hypothesis. These shaped the initial architecture (e.g. the τ timescale ladder is initialized from biological priors, which the frozen-τ ablation shows is a genuinely good *starting point*: 0.285 vs 0.621 trained recall).
 
-**None of this is load-bearing on the results above, and we do not present it as evidence.** The Orch-OR collapse gate, the ╬ª╠é "integrated information" proxy, the Anesthesia Validation Protocol, and the quantum-coupling module are **inert in the trained path** ÔÇö the AVP fails and the ╬ª╠é response is even sign-inverted versus the theory's prediction. They remain behind flags as research scaffolding and biological motivation, not a working consciousness metric or a selling point. The credible story is the benchmarked engineering: recall, cross-session persistence, O(1) O-series inference, and 125M sample efficiency.
+**None of this is load-bearing on the results above, and we do not present it as evidence.** The Orch-OR collapse gate, the Φ̂ "integrated information" proxy, the Anesthesia Validation Protocol, and the quantum-coupling module are **inert in the trained path** — the AVP fails and the Φ̂ response is even sign-inverted versus the theory's prediction. They remain behind flags as research scaffolding and biological motivation, not a working consciousness metric or a selling point. The credible story is the benchmarked engineering: recall, cross-session persistence, O(1) O-series inference, and 125M sample efficiency.
 
 ---
 
@@ -155,7 +155,7 @@ python bench_llama_mt_needle.py --model meta-llama/Llama-3.2-1B \
 
 ```bash
 python prepare_data.py                         # tokenize WikiText-103 to memmap binaries
-python train.py --compile --wandb              # default: d_model=832 (=13├ù64), 12 layers
+python train.py --compile --wandb              # default: d_model=832 (=13×64), 12 layers
 python demo.py --ckpt checkpoints/final.pt --prompt "The human brain"
 ```
 
@@ -230,41 +230,41 @@ contract for both servers is pinned by `tests/test_server.py` /
 
 ```
 input_ids
-   Ôåô
+   ↓
 Token Embedding + RoPE
-   Ôåô
-ÔöÇÔöÇÔöÇ ├ù n_layers ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
+   ↓
+─── × n_layers ──────────────────────────────────────────────────
 MTLNNBlock  (pre-norm + residual at each sub-layer)
-  ÔÇó MicrotubuleAttention             [GQA, KV cache, SDPA / Flash-Attn]
+  • MicrotubuleAttention             [GQA, KV cache, SDPA / Flash-Attn]
        scalar polarity bias  +  GTP-cap ALiBi log-bias
-       opt-in: low-rank bilinear polarity  ¤â(xWa)(xWb)ßÁÇ
-  ÔÇó MTLNNLayer                       [recurrent h_prev cache, parallel scan]
-       d_model ÔåÆ 13 protofilaments  (d_proto = d_model/13; exact at 832)
-       13 ├ù 5-scale MultiScaleResonance  (geometric ¤ä sweep, softmax blend)
-         ╬║-gate         content-based scale activation
-         LAVI rhythm    history-based slow/fast ¤ä blend (use_rhythm=True)
+       opt-in: low-rank bilinear polarity  σ(xWa)(xWb)ᵀ
+  • MTLNNLayer                       [recurrent h_prev cache, parallel scan]
+       d_model → 13 protofilaments  (d_proto = d_model/13; exact at 832)
+       13 × 5-scale MultiScaleResonance  (geometric τ sweep, softmax blend)
+         κ-gate         content-based scale activation
+         LAVI rhythm    history-based slow/fast τ blend (use_rhythm=True)
        LateralCoupling (3-way):
-         static W_lat (13├ù13, identity init)
+         static W_lat (13×13, identity init)
          + nearest-neighbor torch.roll (ring topology)
-         + RMC content-aware attention (¤â(rmc_gate) Ôëê 0.05 init)
-         ÔåÆ all gated by exp(-╬│ ┬À (t mod T_period))   [GTP-cap renewal]
-       MAPGate (per-protofilament, fc2_bias=+2 ÔåÆ near-open at init)
-       ÔåÆ d_model
-  ÔÇó [GWTBLayer / CompetitiveGWTBLayer]  optional per-block workspace
-ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇ
-   Ôåô
-[GlobalRhythmController]    aggregate per-layer LAVI ÔåÆ residual correction
-   Ôåô
+         + RMC content-aware attention (σ(rmc_gate) ≈ 0.05 init)
+         → all gated by exp(-γ · (t mod T_period))   [GTP-cap renewal]
+       MAPGate (per-protofilament, fc2_bias=+2 → near-open at init)
+       → d_model
+  • [GWTBLayer / CompetitiveGWTBLayer]  optional per-block workspace
+──────────────────────────────────────────────────────────────────
+   ↓
+[GlobalRhythmController]    aggregate per-layer LAVI → residual correction
+   ↓
 GWTBLayer or CompetitiveGWTBLayer
-    compress d_model ÔåÆ d_gw ÔåÆ workspace SA ÔåÆ broadcast + ╬│┬Àresidual
+    compress d_model → d_gw → workspace SA → broadcast + γ·residual
     (CompetitiveGWTBLayer adds multi-source bidding from lnn / attn / coherence)
-   Ôåô
+   ↓
 GlobalCoherenceLayer        sparse top-k + Orch-OR collapse gate
-   Ôåô
+   ↓
 [PredictiveStateHead]       BYOL/V-JEPA online predictor vs EMA target (stop-grad)
-   Ôåô
-LayerNorm ÔåÆ lm_head (weight-tied)
-   Ôåô
+   ↓
+LayerNorm → lm_head (weight-tied)
+   ↓
 logits
 ```
 
@@ -283,22 +283,22 @@ All four default **OFF**, add zero overhead when disabled, and never change the 
 
 | Module | Flag | Biological prior | Mechanism |
 |---|---|---|---|
-| **Phase A** ÔÇö `CompetitiveGWTBLayer` | `use_competitive_gwtb` | GWT (Baars / Dehaene): conscious content wins by competition | Multi-source bids ÔåÆ score ÔåÆ winner broadcast; `gwtb_competition_entropy` guards routing collapse |
-| **Phase B** ÔÇö `CausalConsistencyChecker` | inference object | PFC predictive-error monitoring | `cosine` or anisotropy-robust `subspace`-residual novelty ÔåÆ forced SELF_CRITIQUE below threshold |
-| **Phase B+** ÔÇö `CausalActivationSteerer` | inference object | error-driven re-stabilisation | STARS-inspired: on a detected break, orthogonally project the drifting state back onto the legal causal subspace (reuses the checker's `principal_subspace()` ÔÇö no duplicated SVD) |
-| **Phase C** ÔÇö `PredictiveStateHead` | `use_world_model` | Predictive coding / Friston free energy | BYOL/V-JEPA online predictor + stop-grad EMA target (collapse-free); normalised surprise Ôêê [0,1] feeds LAVI |
-| **Phase D** ÔÇö `HebbianRegularizer` | `use_hebbian` | Hebbian consolidation | LAVI-gated co-activation loss (training only) |
+| **Phase A** — `CompetitiveGWTBLayer` | `use_competitive_gwtb` | GWT (Baars / Dehaene): conscious content wins by competition | Multi-source bids → score → winner broadcast; `gwtb_competition_entropy` guards routing collapse |
+| **Phase B** — `CausalConsistencyChecker` | inference object | PFC predictive-error monitoring | `cosine` or anisotropy-robust `subspace`-residual novelty → forced SELF_CRITIQUE below threshold |
+| **Phase B+** — `CausalActivationSteerer` | inference object | error-driven re-stabilisation | STARS-inspired: on a detected break, orthogonally project the drifting state back onto the legal causal subspace (reuses the checker's `principal_subspace()` — no duplicated SVD) |
+| **Phase C** — `PredictiveStateHead` | `use_world_model` | Predictive coding / Friston free energy | BYOL/V-JEPA online predictor + stop-grad EMA target (collapse-free); normalised surprise ∈ [0,1] feeds LAVI |
+| **Phase D** — `HebbianRegularizer` | `use_hebbian` | Hebbian consolidation | LAVI-gated co-activation loss (training only) |
 
-> Phase C `use_ema_target=False` is a SimSiam variant ÔÇö provably collapse-free on its own (verified across 3 seeds, |cos| Ôëê 0.33 vs na├»ve 1.000). EMA aids convergence, not collapse-prevention. Full analysis in [V2_REVIEW.md](docs/reviews/V2_REVIEW.md) ┬º8.
+> Phase C `use_ema_target=False` is a SimSiam variant — provably collapse-free on its own (verified across 3 seeds, |cos| ≈ 0.33 vs naïve 1.000). EMA aids convergence, not collapse-prevention. Full analysis in [V2_REVIEW.md](docs/reviews/V2_REVIEW.md) §8.
 
 ### EEG-inspired Rhythm Gate (2026-06-06)
 
-Brain cortex maintains two oscillatory modes ÔÇö **persistent** (theta/alpha, stable context) and **transient** (gamma bursts, rapid switching). MT-LNN implements this via the **LAVI** (Lag Angle Vector Index) estimator: per-protofilament cosine similarity between current input and `h_prev` shifts the ¤ä-scale blend.
+Brain cortex maintains two oscillatory modes — **persistent** (theta/alpha, stable context) and **transient** (gamma bursts, rapid switching). MT-LNN implements this via the **LAVI** (Lag Angle Vector Index) estimator: per-protofilament cosine similarity between current input and `h_prev` shifts the τ-scale blend.
 
-| Signal | Existing ╬║-gate | New LAVI rhythm gate |
+| Signal | Existing κ-gate | New LAVI rhythm gate |
 |---|---|---|
 | Source | Current input content | h_prev vs current input similarity |
-| Effect | Which ¤ä scales are active | How much to weight slow vs fast ¤ä |
+| Effect | Which τ scales are active | How much to weight slow vs fast τ |
 
 Enable:
 
@@ -313,9 +313,9 @@ Diagnostics surfaced via `model.get_mt_diagnostics()`: `lavi_mean / min / max`, 
 
 Drop historical KV tensors during decode and keep only the recurrent `h_prev`:
 
-- 1000 tokens, traditional KV stream: ~1020 KB ÔåÆ MT-LNN state-only: **4.1 KB**.
+- 1000 tokens, traditional KV stream: ~1020 KB → MT-LNN state-only: **4.1 KB**.
 - Aimed at edge / always-on inference where context length is bounded by the recurrent state, not by KV memory.
-- The $O(1)$ vs $O(T)$ contrast is pinned as a regression in [`tests/test_long_context_memory.py`](tests/test_long_context_memory.py): state-only cache bytes stay flat for **T = 20├ù the RoPE window** (320 steps over a 16-token window, i.e. 20 wraps) while the KV cache grows a constant +bytes/token. Reproduce the sweep with `python benchmarks/state_only_streaming.py --steps 512 --max_seq_len 64 --fixed_window` (8 wraps: KV 330 KB vs state-only 2.6 KB, a 127├ù gap).
+- The $O(1)$ vs $O(T)$ contrast is pinned as a regression in [`tests/test_long_context_memory.py`](tests/test_long_context_memory.py): state-only cache bytes stay flat for **T = 20× the RoPE window** (320 steps over a 16-token window, i.e. 20 wraps) while the KV cache grows a constant +bytes/token. Reproduce the sweep with `python benchmarks/state_only_streaming.py --steps 512 --max_seq_len 64 --fixed_window` (8 wraps: KV 330 KB vs state-only 2.6 KB, a 127× gap).
 
 ### Sparse Resonance (top-$k$ scale routing)
 
@@ -323,15 +323,15 @@ The 5 timescales per protofilament are gated to top-$k$ at decode. Ablation: top
 
 ### Anesthesia Validation Protocol (AVP)
 
-At inference, hooks progressively damp MT-DL outputs and the global-coherence broadcast by `(1 ÔêÆ level)` as `level` rises 0 ÔåÆ 1. We measure **╬ª╠é** (Kraskov kNN proxy for integrated information). Hooks attach only to `MTLNNLayer` and `GlobalCoherenceLayer`, so the baselines' ╬ö ╬ª╠é is exactly 0 by construction:
+At inference, hooks progressively damp MT-DL outputs and the global-coherence broadcast by `(1 − level)` as `level` rises 0 → 1. We measure **Φ̂** (Kraskov kNN proxy for integrated information). Hooks attach only to `MTLNNLayer` and `GlobalCoherenceLayer`, so the baselines' Δ Φ̂ is exactly 0 by construction:
 
-| Model       | ╬ª╠é(╬║=1)   | ╬ª╠é(╬║=10)  | ╬ö ╬ª╠é                        |
+| Model       | Φ̂(κ=1)   | Φ̂(κ=10)  | Δ Φ̂                        |
 |---          |---:       |---:       |---:                          |
 | Transformer | -9.045    | -9.045    | 0.000 (no hooks)             |
 | LNN         | -7.977    | -7.977    | 0.000 (no hooks)             |
 | **MT-LNN**  | -18.673   | -11.096   | **+7.578 (responsive)**      |
 
-> ÔÜá´©Å At ~200K toy scale, ╬ö ╬ª╠é sign is inverted vs. paper prediction. Architectural *responsiveness* is real; *direction* is expected to flip after 125M-scale training. See [BENCHMARKS.md](BENCHMARKS.md) ┬ºAVP.
+> ⚠️ At ~200K toy scale, Δ Φ̂ sign is inverted vs. paper prediction. Architectural *responsiveness* is real; *direction* is expected to flip after 125M-scale training. See [BENCHMARKS.md](BENCHMARKS.md) §AVP.
 
 ---
 
@@ -339,7 +339,7 @@ At inference, hooks progressively damp MT-DL outputs and the global-coherence br
 
 Off by default; package imports cleanly without their dependencies.
 
-- **`mt_lnn.phi_iit`** ÔÇö exact IIT 4.0 ╬ª via PyPhi (Tononi lab toolbox). `pip install pyphi`. Use for Ôëñ8-node analysis; the kNN proxy `phi_hat` covers training-time monitoring.
+- **`mt_lnn.phi_iit`** — exact IIT 4.0 Φ via PyPhi (Tononi lab toolbox). `pip install pyphi`. Use for ≤8-node analysis; the kNN proxy `phi_hat` covers training-time monitoring.
 
 ---
 
@@ -347,9 +347,9 @@ Off by default; package imports cleanly without their dependencies.
 
 ```
 mt_lnn/
-  config.py              MTLNNConfig ÔÇö single source of truth for all hparams
+  config.py              MTLNNConfig — single source of truth for all hparams
   embedding.py           TokenEmbedding + RoPE (offset-aware)
-  mt_attention.py        MicrotubuleAttention ÔÇö GQA, KV cache, scalar+low-rank polarity
+  mt_attention.py        MicrotubuleAttention — GQA, KV cache, scalar+low-rank polarity
   mt_lnn_layer.py        MTLNNLayer, MultiScaleResonance, LateralCoupling, MAPGate
                          (fully vectorised over P; LAVI rhythm hook in scale gate)
   rhythm.py              LAVIEstimator + GlobalRhythmController
@@ -362,17 +362,17 @@ mt_lnn/
   world_model.py         PredictiveStateHead (Phase C; BYOL/V-JEPA EMA target)
   imagination.py         LatentImagination (L4; rolls the world model's 1-step map forward into a multi-step imagined trajectory; 0 params, no backbone coupling)
   spatial_ops.py         Composable geometric operators (distance/direction/containment/proximity graphs/connected components/REACHABILITY; pure functions, 0 params, compose into spatial-reasoning queries)
-  physics_ops.py         Composable Newtonian dynamics operators (symplectic integration ÔÇö semi-implicit Euler AND 2nd-order time-reversible velocity Verlet (integrate_verlet, selectable via rollout(integrator="verlet") for O(dt^2)-bounded energy on long imagination rollouts) / gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
+  physics_ops.py         Composable Newtonian dynamics operators (symplectic integration — semi-implicit Euler AND 2nd-order time-reversible velocity Verlet (integrate_verlet, selectable via rollout(integrator="verlet") for O(dt^2)-bounded energy on long imagination rollouts) / gravity/N-body/collision impulse/wall reflection/conservation probes/ROLLOUT; pure functions, 0 params, compose into "what happens next" physics simulation)
   salience_events.py     SalienceEventDetector (global-workspace ignition; adaptive-baseline z-score + Schmitt hysteresis + refractory; 0-param read-only observer of world-model surprise; the dual-speed engine's wake-up tripwire)
   failsafe.py            BlindRolloutGuard (confidence-gated blind rollout: coast on the world-model imagination through input dropouts, go dark when untrusted) + CircuitBreaker (model-external output safety: unconditional NaN/bounds/slew clamp + debounced trip-to-fallback with bumpless transfer; 0-param, no model.py coupling) + TopologyBreaker (a zero-param tripwire on the SHAPE of the live representation: latch a healthy reference cloud, then per-tick watch SRTD H0-barcode drift + optional Betti-0 component count, trip/close through the same debounced FSM as CircuitBreaker; composes topology_ops, no model.py coupling)
   acoustic_ops.py        Composable binaural-hearing operators (propagation delay / 1-over-r spreading / ITD / ILD / Doppler / phasor interference; localize_azimuth inverse readout + binaural_scene composition; 0-param analytic, no model.py coupling)
   geometry_ops.py        Composable Fisher-Rao information-geometry operators on the probability simplex (the space PlaceCellCode's softmax actually emits): Bhattacharyya overlap / Fisher-Rao distance / geodesic interpolation / exp-log maps / parallel transport / Fisher metric / Karcher barycenter; pure functions, 0 params, no model.py coupling. The correct curved-manifold ruler for L2 place codes that spatial_memory currently reads with the wrong (Euclidean) metric (P0#1)
   topology_ops.py        Composable TDA operators for a state/code point cloud: minimum spanning tree / exact H0 persistent homology (the barcode = sorted MST edge weights) / Betti-0 + Betti-0 curve (reusing spatial_ops' union-find connected components) / total persistence / SRTD (Symmetric Relative-Topology Divergence, a zero-param topology-drift tripwire); pure functions, 0 params, no model.py coupling. Counts attractor/cluster structure and flags topology change (P0#2)
-  stdp_ops.py            Composable spike-timing-dependent-plasticity operators: the asymmetric exponential STDP window (stdp_kernel / window_integral) + the all-to-all pairwise sum (pairwise_stdp, the definition) + the O(T) online eligibility-trace update (stdp_trace_update, how it runs on hardware) ÔÇö provably equal; pure functions, 0 params, no model.py coupling. Local, BACKPROP-FREE learning from spike timing alone, PARALLEL to plasticity.py: the loss-level Hebbian governs the smooth continuous-time LTC core, event-driven STDP governs the discrete salience-ignition / L2 place-code event streams that plasticity.py explicitly says STDP does NOT fit at the core (P0 learning)
+  stdp_ops.py            Composable spike-timing-dependent-plasticity operators: the asymmetric exponential STDP window (stdp_kernel / window_integral) + the all-to-all pairwise sum (pairwise_stdp, the definition) + the O(T) online eligibility-trace update (stdp_trace_update, how it runs on hardware) — provably equal; pure functions, 0 params, no model.py coupling. Local, BACKPROP-FREE learning from spike timing alone, PARALLEL to plasticity.py: the loss-level Hebbian governs the smooth continuous-time LTC core, event-driven STDP governs the discrete salience-ignition / L2 place-code event streams that plasticity.py explicitly says STDP does NOT fit at the core (P0 learning)
   attractor_ops.py       Composable attractor / self-stabilization operators: fixed point / spectral radius / asymptotic rate / is_contraction for a linear map (closed form) + relax rollout of any step map + empirical settling_time / convergence_rate / lyapunov_descent from an observed trajectory + basin_radius (bisection probe for the basin half-width); analyze_linear_attractor composes them and cross-checks empirical==analytic; pure functions, 0 params, no model.py coupling. Measures where the settling core converges, how fast, and how large a shock its basin absorbs (P0 learning)
   ingest_ops.py          Sensor-ingestion / stream-alignment operators: resample a jittered, timestamped sensor stream onto the core's fixed-dt grid (resample_uniform: linear exact-on-ramp / ZOH) + coverage_mask flags steps deep inside a dropout (hand off to BlindRolloutGuard to coast); align_stream flagship -> AlignedStream; closes the gap between the fixed-dt LTC discretization and a real, irregular sensor clock; 0-param analytic input-side front-end, no model.py coupling
-  slow_layer.py          SlowThreatAssessor ÔÇö the slow half of the dual-speed engine, woken ONLY on a salient ignition: a multi-step ballistic forecast (physics_ops.rollout + spatial_ops.in_ball) -> time-to-breach ETA + closest approach + CLEAR/WATCH/ENGAGE threat level; 0-param, no model.py coupling, paid for only when a real state change earns it
-  pipeline.py            DualSpeedSentry ÔÇö the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite + wake the slow layer (real multi-step threat assessment) on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
+  slow_layer.py          SlowThreatAssessor — the slow half of the dual-speed engine, woken ONLY on a salient ignition: a multi-step ballistic forecast (physics_ops.rollout + spatial_ops.in_ball) -> time-to-breach ETA + closest approach + CLEAR/WATCH/ENGAGE threat level; 0-param, no model.py coupling, paid for only when a real state change earns it
+  pipeline.py            DualSpeedSentry — the commercial loop wiring every layer in its intended role: perceive (acoustic+spatial) -> predict (physics surprise) -> ignite + wake the slow layer (real multi-step threat assessment) on salience -> coast through dropout (blind rollout) -> clamp actuator (circuit breaker); orchestrator 0 new params, zero model.py coupling
   plasticity.py          HebbianRegularizer (Phase D; LAVI-gated consolidation)
   deliberation.py        DeliberationRouter (entropy 3-way + causal-consistency floor)
   router.py              DeliberationRouter mode plumbing
@@ -385,12 +385,12 @@ mt_lnn/
   streaming.py           streaming_inference, prefill_state_only
   observability.py       JsonlMetricWriter, cache_summary, v2 metric records
   anesthesia.py          AnesthesiaController + runtime AVP hooks
-  phi_hat.py             Kraskov kNN ╬ª╠é proxy + anesthesia sweep
-  phi_iit.py             Exact IIT 4.0 ╬ª (PyPhi); optional
-  phi_spectral.py        Spectral ╬ª approximation
+  phi_hat.py             Kraskov kNN Φ̂ proxy + anesthesia sweep
+  phi_iit.py             Exact IIT 4.0 Φ (PyPhi); optional
+  phi_spectral.py        Spectral Φ approximation
   multimodal.py          Multi-modal token codebook hooks
   sensory_frontend.py    SensoryFrontend (P1 closed-loop): the temporal front that turns a raw, jittered, dropout-prone sensor stream into backbone-ready tokens -- composes ingest_ops.align_stream (resample onto the core's fixed-dt grid + flag dropout steps) with a trainable multimodal.ModalityProjector (project to d_model); emits a SensoryEncoding (inputs_embeds + coverage/pad mask, the trust signal a BlindRolloutGuard coasts on); trainable nn.Module, but never imports model.py (feeds the backbone via inputs_embeds)
-  model.py top_down      Top-down modulation (P1 closed-loop Ôæí): MTLNNModel.forward(top_down=...) threads a high-level goal/context vector to every block, folded in as a zero-init-gated residual (x = x + tanh(gate)*proj(LayerNorm(top_down))) after attention, before the liquid core -- cortical top-down feedback. Gated by config.use_top_down (default OFF -> no new params, bit-identical). At init gate=0 -> strict no-op (bit-exact); the gate keeps a live gradient so the model LEARNS to open and aim it. Optional config.top_down_to_gwtb additionally offers the goal as an external bid in the global-workspace competition (reuses the world-model bid pathway)
+  model.py top_down      Top-down modulation (P1 closed-loop ②): MTLNNModel.forward(top_down=...) threads a high-level goal/context vector to every block, folded in as a zero-init-gated residual (x = x + tanh(gate)*proj(LayerNorm(top_down))) after attention, before the liquid core -- cortical top-down feedback. Gated by config.use_top_down (default OFF -> no new params, bit-identical). At init gate=0 -> strict no-op (bit-exact); the gate keeps a live gradient so the model LEARNS to open and aim it. Optional config.top_down_to_gwtb additionally offers the goal as an external bid in the global-workspace competition (reuses the world-model bid pathway)
   spatial.py             Spatial frontends: GridCellEncoding, PlaceCellCode (DoG target), PointCloud/Voxel
   spatial_reasoning.py   SpatialReasoner (perception + deliberation; optional causal checker/steerer)
   spatial_memory.py      SpatialMemory (L2; place-indexed associative memory, Hebbian write / pattern-completion read, 0 params)
@@ -551,7 +551,7 @@ assets/                    decks/ (investor + paper), figures/ (architecture dia
 
 ## Status
 
-Research-grade code. All 967 tests pass (model ┬À rhythm ┬À causality ┬À world-model ┬À observability ┬À GWTB ┬À coherence ┬À AVP ┬À operator layers + dual-speed sentry + autonomous cognitive agent + streaming continual learning + the three default-on Phase-1 brain mechanisms: predictive-coding loss, O(1) decay working memory, dynamic-kappa scale gating). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (955 tests in ~99s, deselecting the 12 `slow` tests that train a model or download CLIP weights ÔÇö the full run is ~8 min). Highlights:
+Research-grade code. All 967 tests pass (model · rhythm · causality · world-model · observability · GWTB · coherence · AVP · operator layers + dual-speed sentry + autonomous cognitive agent + streaming continual learning + the three default-on Phase-1 brain mechanisms: predictive-coding loss, O(1) decay working memory, dynamic-kappa scale gating). Run the full suite with `python -m pytest tests/`, or the fast smoke path `python -m pytest tests/ -m "not slow"` (955 tests in ~99s, deselecting the 12 `slow` tests that train a model or download CLIP weights — the full run is ~8 min). Highlights:
 
 ```
 [ok] test_kv_cache_parity                 cached vs full diff < 1e-4
@@ -571,23 +571,23 @@ Research-grade code. All 967 tests pass (model ┬À rhythm ┬À causality ┬�
 [ok] test_top_down_modulation            goal biases every block: closed gate == strict no-op (bit-exact), open gate steers logits, gate has live gradient, cache parity holds
 [ok] test_lnn_recurrence_active           h_prev verifiably flows
 [ok] test_gwtb_cache_parity               GWTB cached vs full diff < 1e-4
-[ok] test_anesthesia_validation_protocol  ╬ª╠é collapses monotonically with ╬║
-[ok] test_protofilament_scaling           P=64 only ~1.2├ù slower than P=13
+[ok] test_anesthesia_validation_protocol  Φ̂ collapses monotonically with κ
+[ok] test_protofilament_scaling           P=64 only ~1.2× slower than P=13
 [ok] test_lavi_persistent_higher_for_similar_input
-[ok] test_global_rhythm_identity_at_init  scale=0 ÔåÆ output = input exactly
+[ok] test_global_rhythm_identity_at_init  scale=0 → output = input exactly
 [ok] test_model_no_regression_rhythm_off  use_rhythm=False: zero output impact
 ```
 
 What's validated:
 
-- Ô£à Architectural priors (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC, GWTB) yield a modest but consistent edge on whole-sequence recall in long-range selective tasks at matched 200K params (├ù1.3 over a vanilla Transformer at $T{=}32$; ratio grows at longer $T$).
-- Ô£à MT-residual adapter transfers across Llama and Qwen bases at 0.1ÔÇô0.2 % trainable params, with PPL improvement that scales positively (ÔêÆ28 % at 1.1B ÔåÆ ÔêÆ34 % at 3B).
-- Ô£à Real $O(N)$ generation with `past_key_values`; state-only streaming reduces 1000-token decode footprint from ~1020 KB ÔåÆ 4.1 KB.
+- ✅ Architectural priors (13 protofilaments, GTP renewal, parallel-scan recurrence, RMC, GWTB) yield a modest but consistent edge on whole-sequence recall in long-range selective tasks at matched 200K params (×1.3 over a vanilla Transformer at $T{=}32$; ratio grows at longer $T$).
+- ✅ MT-residual adapter transfers across Llama and Qwen bases at 0.1–0.2 % trainable params, with PPL improvement that scales positively (−28 % at 1.1B → −34 % at 3B).
+- ✅ Real $O(N)$ generation with `past_key_values`; state-only streaming reduces 1000-token decode footprint from ~1020 KB → 4.1 KB.
 
 What's not yet shown (by design):
 
-- ÔØî Generic LM benchmarks (MMLU, HellaSwag, full WikiText-103 PPL) ÔÇö requires 125M+ from-scratch training run; listed as future work.
-- ÔÜá´©Å ╬ö ╬ª╠é direction at toy scale is inverted vs. paper prediction; expected to flip after 125M training.
+- ❌ Generic LM benchmarks (MMLU, HellaSwag, full WikiText-103 PPL) — requires 125M+ from-scratch training run; listed as future work.
+- ⚠️ Δ Φ̂ direction at toy scale is inverted vs. paper prediction; expected to flip after 125M training.
 
 ---
 
@@ -608,23 +608,23 @@ What's not yet shown (by design):
 | [mt_lnn_operator_algebra_whitepaper.tex](mt_lnn_operator_algebra_whitepaper.tex) | Operator-algebra math white paper: exact definitions + property-pinned invariants for all 11 zero-parameter operators wrapping the LTC core (honest "identity vs property-pinned vs statistical" grading) |
 | [NEEDLE_FIX.md](docs/reviews/NEEDLE_FIX.md) | Fixed needle-in-a-haystack harness |
 | [CLOUD_RUN.md](docs/guides/CLOUD_RUN.md) / [KAGGLE_RUN.md](docs/guides/KAGGLE_RUN.md) | Cloud / Kaggle reproduction |
-| [LATENT_RECURSION.md](docs/LATENT_RECURSION.md) | Latent recursion vs Coconut/Huginn: compute ledger (latent iterations vs CoT tokens), preregistered adjudication protocols, continuous-time ¤ä-ladder knob |
+| [LATENT_RECURSION.md](docs/LATENT_RECURSION.md) | Latent recursion vs Coconut/Huginn: compute ledger (latent iterations vs CoT tokens), preregistered adjudication protocols, continuous-time τ-ladder knob |
 | [llm-viz-QUICKSTART.md](llm-viz-integration/llm-viz-QUICKSTART.md) | 3D interactive architecture viewer |
 
 ---
 
 ## Design references
 
-- **Closed-form LTC** ÔÇö Hasani et al., *Closed-form continuous-time neural networks*, Nature MI 2022
-- **Liquid Foundation Models** ÔÇö Liquid AI LFM2 / LFM2.5 (2025ÔÇô2026)
-- **Orch-OR** ÔÇö Penrose & Hameroff; experimental support: Wiest, *Neuroscience of Consciousness*, Oxford Academic, 2025
-- **GWT** ÔÇö Baars (1988); Dehaene & Changeux, *Neuron* 2011
-- **Predictive coding** ÔÇö Friston, *free energy principle*
-- **GQA** ÔÇö Ainslie et al., EMNLP 2023
-- **RoPE** ÔÇö Su et al., *RoFormer*
+- **Closed-form LTC** — Hasani et al., *Closed-form continuous-time neural networks*, Nature MI 2022
+- **Liquid Foundation Models** — Liquid AI LFM2 / LFM2.5 (2025–2026)
+- **Orch-OR** — Penrose & Hameroff; experimental support: Wiest, *Neuroscience of Consciousness*, Oxford Academic, 2025
+- **GWT** — Baars (1988); Dehaene & Changeux, *Neuron* 2011
+- **Predictive coding** — Friston, *free energy principle*
+- **GQA** — Ainslie et al., EMNLP 2023
+- **RoPE** — Su et al., *RoFormer*
 
 ---
 
 ## License
 
-MIT ÔÇö see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
