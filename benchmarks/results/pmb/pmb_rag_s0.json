@@ -1,0 +1,210 @@
+{
+  "benchmark": "pmb-v0",
+  "system": "rag",
+  "seed": 0,
+  "config": {
+    "encoder": "hash",
+    "topk": 8,
+    "dim": 256,
+    "max_tokens": 8000,
+    "context_char_budget": 4000
+  },
+  "results": {
+    "t1": {
+      "task": "t1",
+      "grid": [
+        {
+          "n": 4,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 13113,
+          "answer_latency_ms": 0.036458499380387366,
+          "context_chars_mean": 480.0,
+          "n_questions": 4,
+          "n_sessions": 1
+        },
+        {
+          "n": 4,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 528671,
+          "answer_latency_ms": 0.19800000882241875,
+          "context_chars_mean": 506.5,
+          "n_questions": 4,
+          "n_sessions": 5
+        },
+        {
+          "n": 4,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 2078246,
+          "answer_latency_ms": 0.7612812332808971,
+          "context_chars_mean": 473.25,
+          "n_questions": 4,
+          "n_sessions": 17
+        },
+        {
+          "n": 16,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 52113,
+          "answer_latency_ms": 0.0397160038119182,
+          "context_chars_mean": 443.875,
+          "n_questions": 16,
+          "n_sessions": 1
+        },
+        {
+          "n": 16,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 565452,
+          "answer_latency_ms": 0.18648188415681943,
+          "context_chars_mean": 467.4375,
+          "n_questions": 16,
+          "n_sessions": 5
+        },
+        {
+          "n": 16,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 0.875,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 2113008,
+          "answer_latency_ms": 0.699046748195542,
+          "context_chars_mean": 449.0,
+          "n_questions": 16,
+          "n_sessions": 17
+        },
+        {
+          "n": 64,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 0.96875,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 208469,
+          "answer_latency_ms": 0.09112633142649429,
+          "context_chars_mean": 450.421875,
+          "n_questions": 64,
+          "n_sessions": 1
+        },
+        {
+          "n": 64,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 0.9375,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 726947,
+          "answer_latency_ms": 0.23031507498672,
+          "context_chars_mean": 460.8125,
+          "n_questions": 64,
+          "n_sessions": 5
+        },
+        {
+          "n": 64,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 0.78125,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 2266425,
+          "answer_latency_ms": 0.8357076321772183,
+          "context_chars_mean": 439.546875,
+          "n_questions": 64,
+          "n_sessions": 17
+        }
+      ]
+    },
+    "t2": {
+      "task": "t2",
+      "params": {
+        "seed": 0,
+        "n_keys": 8,
+        "n_updates": 3,
+        "distractors_between": 1,
+        "decoys_per_distractor": 8,
+        "confusers_per_key": 2
+      },
+      "mode": "evidence",
+      "recall": 1.0,
+      "stale_answer_rate": 0.0,
+      "stale_context_rate": 1.0,
+      "state_bytes": 301737,
+      "answer_latency_ms": 0.10824474156834185,
+      "context_chars_mean": 497.875,
+      "n_questions": 8,
+      "n_sessions": 5
+    },
+    "t3": {
+      "task": "t3",
+      "n_facts": 16,
+      "curve": [
+        {
+          "gap": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 52103,
+          "answer_latency_ms": 0.038994690839899704,
+          "context_chars_mean": 438.4375,
+          "n_questions": 16,
+          "n_sessions": 1
+        },
+        {
+          "gap": 2,
+          "mode": "evidence",
+          "recall": 0.875,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 308639,
+          "answer_latency_ms": 0.11893999908352271,
+          "context_chars_mean": 457.75,
+          "n_questions": 16,
+          "n_sessions": 3
+        },
+        {
+          "gap": 8,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 1083242,
+          "answer_latency_ms": 0.3513384399411734,
+          "context_chars_mean": 442.0625,
+          "n_questions": 16,
+          "n_sessions": 9
+        },
+        {
+          "gap": 32,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 4180339,
+          "answer_latency_ms": 1.5028359957796056,
+          "context_chars_mean": 500.625,
+          "n_questions": 16,
+          "n_sessions": 33
+        }
+      ]
+    }
+  }
+}

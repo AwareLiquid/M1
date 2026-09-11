@@ -1,0 +1,224 @@
+{
+  "benchmark": "pmb-v0",
+  "system": "oracle",
+  "seed": 2,
+  "config": {
+    "encoder": "hash",
+    "topk": 8,
+    "dim": 256,
+    "max_tokens": 8000,
+    "context_char_budget": 4000
+  },
+  "results": {
+    "t1": {
+      "task": "t1",
+      "grid": [
+        {
+          "n": 4,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 777,
+          "answer_latency_ms": 0.006052257958799601,
+          "context_chars_mean": 688.0,
+          "n_questions": 4,
+          "n_sessions": 1,
+          "truncated": false
+        },
+        {
+          "n": 4,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 41004,
+          "answer_latency_ms": 0.161322983331047,
+          "context_chars_mean": 40783.0,
+          "n_questions": 4,
+          "n_sessions": 5,
+          "truncated": false
+        },
+        {
+          "n": 4,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 161602,
+          "answer_latency_ms": 0.23632300144527107,
+          "context_chars_mean": 50135.0,
+          "n_questions": 4,
+          "n_sessions": 17,
+          "truncated": true
+        },
+        {
+          "n": 16,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 2921,
+          "answer_latency_ms": 0.010473999282112345,
+          "context_chars_mean": 2831.0,
+          "n_questions": 16,
+          "n_sessions": 1,
+          "truncated": false
+        },
+        {
+          "n": 16,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 43108,
+          "answer_latency_ms": 0.14363013542606495,
+          "context_chars_mean": 42882.0,
+          "n_questions": 16,
+          "n_sessions": 5,
+          "truncated": false
+        },
+        {
+          "n": 16,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 163578,
+          "answer_latency_ms": 0.21325006309780292,
+          "context_chars_mean": 50154.0,
+          "n_questions": 16,
+          "n_sessions": 17,
+          "truncated": true
+        },
+        {
+          "n": 64,
+          "k": 0,
+          "mode": "evidence",
+          "recall": 0.328125,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 11433,
+          "answer_latency_ms": 0.03470765568636125,
+          "context_chars_mean": 11343.0,
+          "n_questions": 64,
+          "n_sessions": 1,
+          "truncated": false
+        },
+        {
+          "n": 64,
+          "k": 4,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 51483,
+          "answer_latency_ms": 0.18208850542578148,
+          "context_chars_mean": 40067.0,
+          "n_questions": 64,
+          "n_sessions": 5,
+          "truncated": true
+        },
+        {
+          "n": 64,
+          "k": 16,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 172008,
+          "answer_latency_ms": 0.2078952593365102,
+          "context_chars_mean": 50235.0,
+          "n_questions": 64,
+          "n_sessions": 17,
+          "truncated": true
+        }
+      ]
+    },
+    "t2": {
+      "task": "t2",
+      "params": {
+        "seed": 2,
+        "n_keys": 8,
+        "n_updates": 3,
+        "distractors_between": 1,
+        "decoys_per_distractor": 8,
+        "confusers_per_key": 2
+      },
+      "mode": "evidence",
+      "recall": 0.0,
+      "stale_answer_rate": 1.0,
+      "stale_context_rate": 1.0,
+      "state_bytes": 22640,
+      "answer_latency_ms": 0.07920825009932742,
+      "context_chars_mean": 22456.0,
+      "n_questions": 8,
+      "n_sessions": 5,
+      "truncated": false
+    },
+    "t3": {
+      "task": "t3",
+      "n_facts": 16,
+      "curve": [
+        {
+          "gap": 0,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 2720,
+          "answer_latency_ms": 0.009247305570170283,
+          "context_chars_mean": 2632.0,
+          "n_questions": 16,
+          "n_sessions": 1,
+          "truncated": false
+        },
+        {
+          "gap": 2,
+          "mode": "evidence",
+          "recall": 1.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 23228,
+          "answer_latency_ms": 0.08019263987080194,
+          "context_chars_mean": 23076.0,
+          "n_questions": 16,
+          "n_sessions": 3,
+          "truncated": false
+        },
+        {
+          "gap": 8,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 83230,
+          "answer_latency_ms": 0.22124487804831006,
+          "context_chars_mean": 50014.0,
+          "n_questions": 16,
+          "n_sessions": 9,
+          "truncated": true
+        },
+        {
+          "gap": 32,
+          "mode": "evidence",
+          "recall": 0.0,
+          "stale_answer_rate": 0.0,
+          "stale_context_rate": 0.0,
+          "state_bytes": 324073,
+          "answer_latency_ms": 0.3408307384233922,
+          "context_chars_mean": 50035.0,
+          "n_questions": 16,
+          "n_sessions": 33,
+          "truncated": true
+        }
+      ]
+    }
+  }
+}

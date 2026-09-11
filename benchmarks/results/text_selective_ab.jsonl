@@ -23,3 +23,5 @@
 {"seed": 0, "selective": true, "params": 10653837, "val_ppl": 465.51690673828125, "steps": 8000}
 {"seed": 1, "selective": true, "params": 10653837, "val_ppl": 476.726318359375, "steps": 8000}
 {"seed": 2, "selective": true, "params": 10653837, "val_ppl": 472.9900207519531, "steps": 8000}
+{"seed": 0, "selective": false, "params": 10652667, "val_ppl": 388.000, "steps": 32000}
+{"seed": 1, "selective": false, "params": 10652667, "val_ppl": 389.567, "steps": 32000}
