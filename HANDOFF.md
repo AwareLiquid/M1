@@ -1,11 +1,17 @@
 # MT-LNN / M1 — 会话交接文档 (HANDOFF)
 
-> 组件审计与最终分类：[COMPONENT_AUDIT.md](docs/COMPONENT_AUDIT.md)。
-> 研发主体保持液态/类脑；物理头归Physics，暂未迁移；接口通过不代表能力获益。
+> 组件审计与最终分类：[COMPONENT_AUDIT.md](docs/COMPONENT_AUDIT.md)；研发主体保持液态/类脑，物理头归 Physics（暂未迁移），接口通过不代表能力获益。
 
-> 2026-09-09 历史成果整理入口：[保留清单与训练准入](docs/RESEARCH_RECOVERY.md)。
-> 原始成果保留；融合式 PCLiquidCore 与主 LM 的外挂 PC 不同，不能互相替代裁决。
-> 下文含历史快照；训练前按上述索引及 RESULTS.md 核对，不直接照旧待办重跑。
+> 2026-09-09 历史成果整理入口：[保留清单与训练准入](docs/RESEARCH_RECOVERY.md)；原始成果保留，融合式 PCLiquidCore 与主 LM 外挂 PC 不同、不能互相替代裁决；下文含历史快照，训练前按索引及 RESULTS.md 核对。
+
+## 迁移说明（2026-09-08）
+
+- 负责人：Everest。组织主仓库为 `AwareLiquid/M1`，本地对应 `E:\AwareLiquid\M1`。
+- 实验研发已迁入 `AwareLiquid/M2`，本地 `E:\AwareLiquid\M2`，迁移提交 `47bc830`。
+- 文档 QA 项目现名 `AwareLiquid/AwareLiquid-RAG`，本地 `E:\AwareLiquid\RAG`。
+- M1 旧实验实现暂留以支持历史 import/checkpoint；本次未改变默认计算图或重新训练；`E:\M1` 仍是连接 `everest-an/M1` 的旧工作区，不要混淆两个远端。
+- 后续实验在 M2 开发；成熟机制通过消融、预算对齐和回归验证后再回迁 M1。
+- 详细迁移来源与限制见 `docs/M2_MIGRATION.md`；下方旧记录按历史上下文阅读。
 
 ## 0. 当前快照（2026-09-06，冷热分离纪律：本节 ≤40 行，只放当前态）
 

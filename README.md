@@ -11,18 +11,22 @@
 [![Paper ZH](https://img.shields.io/badge/PDF-ZH-red)](https://huggingface.co/EverestAn/MT-LNN/resolve/main/mt_lnn_arxiv_zh.pdf)
 [![HF Model](https://img.shields.io/badge/HF-MT--LNN-yellow)](https://huggingface.co/EverestAn/MT-LNN)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Try in HyperCode](https://img.shields.io/badge/Try%20in-HyperCode-0e0e10?style=flat)](https://awareliquid.ai/hypercode)
 
 </div>
 
+> **▶️ Try these models in [HyperCode](https://awareliquid.ai/hypercode)** — the production app with the same liquid-core brain: 228+ built-in domain skills, on-device, one-click install for Windows & macOS.
+
 ---
 
-> **Note — "M2" also names a document-QA adapter, not this architecture.**
-> A separate repo, [`AwareLiquid/AwareLiquid-M2`](https://github.com/AwareLiquid/AwareLiquid-M2),
-> is a retrieval + compression **adapter** that wraps a *frozen* API model for
-> financial-document QA. Its ~91.7% eval score is the adapter's, not this MT-LNN
-> architecture's — it trains no weights and shares no code with this repo. The
-> "M2" in this project (`m2_final.pt`, the kaggle m2 pretrain kernel) refers to
-> this architecture's 125M line.
+> **Repository boundaries (2026-09-08).** This repository is the M1 model core.
+> Experimental architecture development now lives in
+> [AwareLiquid/M2](https://github.com/AwareLiquid/M2).
+> The document-QA adapter has been renamed to
+> [AwareLiquid-RAG](https://github.com/AwareLiquid/AwareLiquid-RAG).
+> Its QA scores are separate from model-architecture results. Historical
+> `m2_final.pt` filenames remain unchanged for checkpoint compatibility.
+> See [migration status](docs/M2_MIGRATION.md) for source provenance and scope.
 
 **A streaming-state recurrent LLM architecture with two proven, hard-to-replicate results: cross-window associative recall that attention cannot express, and (in its attention-free variant) genuine O(1) inference memory.**
 
