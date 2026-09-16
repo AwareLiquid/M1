@@ -47,6 +47,20 @@
 - **验收门**：kernel 输出 JSON 与本地复算逐字节一致 + publishable() 纪律。
 - **来源**：ADJ-001（budget_wall 脱出）、kb/threads/T001、kaggle_kernels/tau_ladder_probe/。
 
+### B-2 结案记录 · tau-ladder 探针 · DEAD（flat / 天花板，2026-09-16 A100 通道）
+- **执行**：18 配置（2 ladder × 3 depths × 3 seeds）× 30K 步；**通道由用户指令从
+  Kaggle 换为 A100 服务器**（协议/判据不变，仅换算力通道，4 workers CPU+GPU 并行）。
+- **结果**：18/18 配置 mean_acc ≈ 1.0——OFF d1/d2/d4: 0.9997/0.9998/0.9998；
+  ON d1/d2/d4: 0.9997/0.9999/0.9998。**全饱和**。
+- **判决**（judge_verdict，预注册判据写死）：h_supported=false，delta_gain=0.0
+  （阈值 2σ=0.0002），diagnosis=**flat**，配对符号检验 p=1.0。
+- **诚实标注（重要）**：此 flat 是**天花板效应**，非"τ 阶梯无效"的干净判负——
+  parity d16 在 depth=1 即达 1.0，深度维度无区分度，τ 阶梯无增益可测（与 M2
+  mod_chain 天花板同因）。**该协议无法检验 H004**；需"depth=1 学不会、depth=4
+  能学会"的硬化任务（更高 difficulty 或 pointer_chase 类查表域，判据同款）重测。
+- **证据**：`benchmarks/results/tau_ladder/`（18 配置 JSON + verdict JSON + README）。
+- **后续**：B-2' 难度硬化 τ 阶梯探针（新条目，预注册判据同款）。
+
 ## CANDIDATE（待外部扫描后转正）
 
 ### B-3 · 跨会话 fast-weight 记忆 vs 检索基线的同任务对打（P1 主轴升级）· CANDIDATE（受限）
