@@ -1,0 +1,11 @@
+{
+  "id": "aricredemption/m1-cpu-sweep",
+  "title": "M1 CPU Sweep",
+  "code_file": "run_sweep.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true
+}

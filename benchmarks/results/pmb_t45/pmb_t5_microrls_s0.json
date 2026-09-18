@@ -1,0 +1,38 @@
+{
+  "benchmark": "pmb-v0",
+  "system": "micro_rls",
+  "seed": 0,
+  "config": {
+    "encoder": "hash",
+    "topk": 8,
+    "dim": 256,
+    "max_tokens": 8000,
+    "update_rule": "falcon_nlms",
+    "context_char_budget": 4000
+  },
+  "results": {
+    "t5": {
+      "task": "t5",
+      "params": {
+        "seed": 0,
+        "n_known": 8,
+        "n_unknown": 4,
+        "k_distractors": 4,
+        "decoys_per_distractor": 8,
+        "confusers_per_key": 2
+      },
+      "mode": "generative",
+      "recall": 0.08333333333333333,
+      "stale_answer_rate": 0.0,
+      "stale_context_rate": 0.0,
+      "state_bytes": 2592,
+      "answer_latency_ms": 0.030690998149414856,
+      "context_chars_mean": 6.0,
+      "n_questions": 12,
+      "n_sessions": 5,
+      "recall_known": 0.125,
+      "abstain_false_rate": 1.0,
+      "n_abstain": 4
+    }
+  }
+}

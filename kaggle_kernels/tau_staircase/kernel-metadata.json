@@ -1,0 +1,15 @@
+{
+  "id": "aricredemption/m1-tau-staircase-b-2-calibration",
+  "title": "M1 Tau Staircase (B-2' calibration)",
+  "code_file": "run_staircase.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle"
+  ]
+}

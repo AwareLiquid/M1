@@ -440,3 +440,153 @@ def t3_curve(seed: int, n_facts: int = T3_N_FACTS) -> Iterator[Tuple[Dict, Dict]
     for gap in T3_GAPS:
         ep = generate_t3(seed, gap, n_facts)
         yield ep["params"], ep
+
+
+# ---------------------------------------------------------------------------
+# T4 · Multi-Session Reasoning (cross-session join)
+# ---------------------------------------------------------------------------
+
+T4_M_VALUES = (4, 8)
+T4_K_VALUES = (0, 4)
+RATING_TEMPLATE = "{name} left a satisfaction rating of {rating} out of 5."
+ID_TEMPLATE = "{name}'s membership number is {code}."
+T4_QUESTION = ("What is the membership number of the person whose "
+               "satisfaction rating is {rating}?")
+
+
+def generate_t4(seed: int, m_persons: int, k_distractors: int,
+                decoys_per_distractor: int = DECOYS_PER_DISTRACTOR,
+                confusers_per_key: int = CONFUSERS_PER_KEY) -> Dict:
+    """Cross-session JOIN: session A binds each person to a UNIQUE satisfaction
+    rating; session B (after *k_distractors* filler sessions) binds each
+    person to a membership number. Questions give a rating and ask for the
+    membership number — answerable only by joining across two sessions.
+    Gold answers stay unique 6-digit codes (anti-enumeration intact)."""
+    rng = _rng(seed, "t4", m_persons, k_distractors)
+    n_decoys = k_distractors * decoys_per_distractor
+    persons = _sample_persons(rng, m_persons + n_decoys)
+    targets, decoy_persons = persons[:m_persons], persons[m_persons:]
+
+    # ratings: unique per person (draw without replacement, small domain)
+    ratings = rng.sample(range(1, m_persons + 5), m_persons)
+
+    codes = _sample_codes(rng, m_persons * (1 + confusers_per_key) + n_decoys)
+    gold_codes = codes[:m_persons]
+    confuser_codes = codes[m_persons:m_persons * (1 + confusers_per_key)]
+    decoy_codes = codes[m_persons * (1 + confusers_per_key):]
+
+    decoy_attrs = [rng.choice(ATTRIBUTES) for _ in range(n_decoys)]
+    rating_lines = [RATING_TEMPLATE.format(name=n, rating=r)
+                    for n, r in zip(targets, ratings)]
+    id_lines = [ID_TEMPLATE.format(name=n, code=c)
+                for n, c in zip(targets, gold_codes)]
+
+    sessions: List[Tuple[str, str]] = [
+        ("t4_m{}_k{}_s000_ratings".format(m_persons, k_distractors),
+         " ".join(rating_lines))
+    ]
+    for i in range(k_distractors):
+        lo = i * decoys_per_distractor
+        hi = lo + decoys_per_distractor
+        sessions.append((
+            f"t4_m{m_persons}_k{k_distractors}_s{i + 1:03d}_distractor",
+            make_distractor(rng, _decoy_lines(rng, decoy_persons[lo:hi],
+                                              decoy_attrs[lo:hi],
+                                              decoy_codes[lo:hi])),
+        ))
+    sessions.append((
+        f"t4_m{m_persons}_k{k_distractors}_s{k_distractors + 1:03d}_ids",
+        " ".join(id_lines)))
+
+    questions = [
+        {"q": T4_QUESTION.format(rating=r), "gold": gold_codes[i], "stale": []}
+        for i, r in enumerate(ratings)
+    ]
+    return {
+        "task": "t4",
+        "params": {"seed": seed, "m_persons": m_persons,
+                   "k_distractors": k_distractors,
+                   "decoys_per_distractor": decoys_per_distractor,
+                   "confusers_per_key": confusers_per_key},
+        "sessions": sessions,
+        "questions": questions,
+    }
+
+
+def t4_grid(seed: int) -> Iterator[Tuple[Dict, Dict]]:
+    for m in T4_M_VALUES:
+        for k in T4_K_VALUES:
+            ep = generate_t4(seed, m, k)
+            yield ep["params"], ep
+
+
+def decoy_attrs(rng: random.Random, n: int) -> List[str]:
+    return [rng.choice(ATTRIBUTES) for _ in range(n)]
+
+
+# ---------------------------------------------------------------------------
+# T5 · Abstention (unknown-key questions must NOT be answered with codes)
+# ---------------------------------------------------------------------------
+
+T5_N_KNOWN = 8
+T5_N_UNKNOWN = 4
+T5_K_DISTRACTORS = 4
+
+
+def generate_t5(seed: int, n_known: int = T5_N_KNOWN,
+                n_unknown: int = T5_N_UNKNOWN,
+                k_distractors: int = T5_K_DISTRACTORS,
+                decoys_per_distractor: int = DECOYS_PER_DISTRACTOR,
+                confusers_per_key: int = CONFUSERS_PER_KEY) -> Dict:
+    """T1-style known questions (scored by gold recall) mixed with *n_unknown*
+    questions about persons NEVER mentioned in any session. An abstention
+    failure is scored at the context level: the scored prefix contains ANY
+    6-digit code for an unknown question (the system returned candidate
+    values for something it has no record of)."""
+    rng = _rng(seed, "t5", n_known, n_unknown, k_distractors)
+    n_decoys = k_distractors * decoys_per_distractor
+    persons = _sample_persons(rng, n_known + n_decoys + n_unknown)
+    known, decoy_persons = persons[:n_known], persons[n_known:n_known + n_decoys]
+    unknowns = persons[n_known + n_decoys:]
+    attr_sets = _sample_attr_sets(rng, n_known, confusers_per_key)
+    unknown_attrs = [rng.choice(ATTRIBUTES) for _ in range(n_unknown)]
+    decoy_attrs = [rng.choice(ATTRIBUTES) for _ in range(n_decoys)]
+
+    codes = _sample_codes(rng, n_known * (1 + confusers_per_key) + n_decoys)
+    gold_codes = codes[:n_known]
+    confuser_codes = codes[n_known:n_known * (1 + confusers_per_key)]
+    decoy_codes = codes[n_known * (1 + confusers_per_key):]
+
+    fact_lines = _target_fact_lines(rng, known, attr_sets, gold_codes,
+                                    confuser_codes, FACT_TEMPLATES)
+    sessions: List[Tuple[str, str]] = [
+        (f"t5_n{n_known}_k{k_distractors}_s000_facts", " ".join(fact_lines))
+    ]
+    for i in range(k_distractors):
+        lo = i * decoys_per_distractor
+        hi = lo + decoys_per_distractor
+        sessions.append((
+            f"t5_n{n_known}_k{k_distractors}_s{i + 1:03d}_distractor",
+            make_distractor(rng, _decoy_lines(rng, decoy_persons[lo:hi],
+                                              decoy_attrs[lo:hi],
+                                              decoy_codes[lo:hi])),
+        ))
+
+    questions = []
+    for i, name in enumerate(known):
+        questions.append({"q": _render_question(rng, name, attr_sets[i][0]),
+                          "gold": gold_codes[i], "stale": []})
+    for i, name in enumerate(unknowns):
+        questions.append({"q": _render_question(rng, name, unknown_attrs[i]),
+                          "abstain": True, "stale": []})
+    rng.shuffle(questions)
+    return {
+        "task": "t5",
+        "params": {"seed": seed, "n_known": n_known,
+                   "n_unknown": n_unknown,
+                   "k_distractors": k_distractors,
+                   "decoys_per_distractor": decoys_per_distractor,
+                   "confusers_per_key": confusers_per_key},
+        "sessions": sessions,
+        "questions": questions,
+    }

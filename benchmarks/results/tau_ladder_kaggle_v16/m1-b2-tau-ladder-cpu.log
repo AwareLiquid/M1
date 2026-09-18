@@ -1,0 +1,6 @@
+[{"stream_name":"stdout","time":4.249430783,"data":"[setup] bundle at /kaggle/input/datasets/aricredemption/m1-b1-text-ab-bundle\n"}
+,{"stream_name":"stdout","time":8.615764658,"data":"[launch] lane1 pairs=[(1, 0), (2, 1), (4, 2)] pid=9\n"}
+,{"stream_name":"stdout","time":8.616404246,"data":"[launch] lane2 pairs=[(1, 1), (2, 2)] pid=10\n"}
+,{"stream_name":"stdout","time":8.619102828,"data":"[launch] lane3 pairs=[(1, 2), (4, 0)] pid=11\n"}
+,{"stream_name":"stdout","time":8.619136471000001,"data":"[launch] lane4 pairs=[(2, 0), (4, 1)] pid=12\n"}
+]

@@ -32,10 +32,10 @@ from pathlib import Path
 from typing import Callable, Dict, Optional
 
 try:                                    # package mode (python -m ...)
-    from .tasks import generate_t2, t1_grid, t3_curve
+    from .tasks import generate_t2, generate_t5, t1_grid, t3_curve, t4_grid
     from .systems import MemorySystem, make_system
 except ImportError:                     # script mode (python run_pmb.py)
-    from tasks import generate_t2, t1_grid, t3_curve
+    from tasks import generate_t2, generate_t5, t1_grid, t3_curve, t4_grid
     from systems import MemorySystem, make_system
 
 
@@ -93,8 +93,10 @@ def run_episode(factory: Callable[[], MemorySystem], episode: Dict,
     scoring_budget = (GENERATIVE_ANSWER_CHAR_BUDGET if mode == "generative"
                       else int(context_char_budget))
     hits = stale_answers = stale_contexts = 0
+    abstain_miss = abstain_total = 0
     latencies_ms = []
     raw_chars = []
+    import re as _re
     for q in episode["questions"]:
         t0 = time.perf_counter()
         raw = (system.answer(q["q"]) if mode == "generative"
@@ -102,6 +104,12 @@ def run_episode(factory: Callable[[], MemorySystem], episode: Dict,
         latencies_ms.append((time.perf_counter() - t0) * 1000.0)
         raw_chars.append(len(raw))
         scored = raw[:scoring_budget]     # HARNESS truncation — see above
+        if q.get("abstain"):
+            # T5 abstention: a scored 6-digit code for an unknown-key question
+            # is a false answer (the system returned values it has no record of)
+            abstain_total += 1
+            abstain_miss += int(bool(_re.search(r"\d{6}", scored)))
+            continue
         gold_in = q["gold"] in scored
         stale_in = any(s in scored for s in q.get("stale", []))
         hits += int(gold_in)
@@ -122,6 +130,10 @@ def run_episode(factory: Callable[[], MemorySystem], episode: Dict,
         "n_questions": n_q,
         "n_sessions": len(episode["sessions"]),
     }
+    if abstain_total:
+        result["recall_known"] = hits / (n_q - abstain_total)
+        result["abstain_false_rate"] = abstain_miss / abstain_total
+        result["n_abstain"] = abstain_total
     if hasattr(system, "truncated"):
         result["truncated"] = bool(system.truncated)
     return result
@@ -167,7 +179,26 @@ def run_t3(factory: Callable[[], MemorySystem], seed: int,
     return {"task": "t3", "n_facts": params["n_facts"], "curve": curve}
 
 
-TASK_RUNNERS = {"t1": run_t1, "t2": run_t2, "t3": run_t3}
+def run_t4(factory: Callable[[], MemorySystem], seed: int,
+           context_char_budget: int = DEFAULT_CONTEXT_CHAR_BUDGET) -> Dict:
+    """Full (M, K) grid — cross-session join, single-cell reporting invalid."""
+    grid = []
+    for params, episode in t4_grid(seed):
+        res = _run_in_tmp(factory, episode, context_char_budget)
+        grid.append({"m": params["m_persons"], "k": params["k_distractors"],
+                     **res})
+    return {"task": "t4", "grid": grid}
+
+
+def run_t5(factory: Callable[[], MemorySystem], seed: int,
+           context_char_budget: int = DEFAULT_CONTEXT_CHAR_BUDGET) -> Dict:
+    episode = generate_t5(seed)
+    res = _run_in_tmp(factory, episode, context_char_budget)
+    return {"task": "t5", "params": episode["params"], **res}
+
+
+TASK_RUNNERS = {"t1": run_t1, "t2": run_t2, "t3": run_t3,
+                "t4": run_t4, "t5": run_t5}
 
 
 # ---------------------------------------------------------------------------
@@ -177,14 +208,21 @@ TASK_RUNNERS = {"t1": run_t1, "t2": run_t2, "t3": run_t3}
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="PMB v0 — Persistent Memory Benchmark runner")
-    p.add_argument("--task", choices=["t1", "t2", "t3", "all"], default="t1")
-    p.add_argument("--system", choices=["none", "oracle", "rag", "parametric",
-                                        "fastweight"], default="rag")
+    p.add_argument("--task", choices=["t1", "t2", "t3", "t4", "t5", "all"],
+                   default="t1")
+    p.add_argument("--system", choices=["none", "oracle", "rag", "rag_2hop", "filesystem",
+                                        "parametric", "micro_fw",
+                                        "micro_rls", "fastweight"], default="rag")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--update-rule", choices=["sum", "delta", "falcon_nlms"],
+    p.add_argument("--abstain-threshold", type=float, default=None,
+                   help="t5b: rag 检索分数低于此值时返回空上下文 (拒答)")
+    p.add_argument("--update-rule", choices=["sum", "delta", "falcon_nlms",
+                                             "kalman_delta"],
                    default="falcon_nlms",
                    help="parametric fast-weight write rule (Falcon-1 NLMS "
-                        "default; sum/delta are the existing baselines)")
+                        "default; sum/delta are the existing baselines, "
+                        "kalman_delta is the isotropic KDN evidence-weighted "
+                        "rule)")
     p.add_argument("--encoder", choices=["hash", "e5"], default="hash",
                    help="rag encoder: hash = offline hashed BoW; "
                         "e5 = mt_lnn SentenceEncoder (multilingual-e5-small)")
@@ -202,6 +240,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--model", default=None,
                    help="fastweight: path to the E2 GPU-tuned MT-LNN adapter "
                         "checkpoint (v0: loader not implemented yet)")
+    p.add_argument("--consolidate", choices=["none", "downscale", "downscale_z", "prune"],
+                   default="none",
+                   help="B-20 sleep-consolidation transform at session "
+                        "boundaries (parametric system only): downscale = "
+                        "F<-alpha*F (negative control); prune = zero |F_ij| "
+                        "below the keep-frac quantile")
+    p.add_argument("--consolidate-param", type=float, default=None,
+                   help="downscale alpha (e.g. 0.9) or prune keep-frac "
+                        "(e.g. 0.10)")
+    p.add_argument("--read-iters", type=int, default=1,
+                   help="B-21: iterative attractor readout steps (1 = legacy "
+                        "single-shot; >1 re-enters r<-tanh(beta*r)@F)")
+    p.add_argument("--read-beta", type=float, default=2.0,
+                   help="B-21: sharpness of the iteration nonlinearity")
+    p.add_argument("--read-protocol", choices=["direct", "bam"], default="direct",
+                   help="B-22: bam = Kosko bidirectional alternation "
+                        "(value->key->value per round)")
     p.add_argument("--out_json", default=None,
                    help="write the report JSON here (stdout always)")
     return p
@@ -219,9 +274,16 @@ def main(argv=None) -> int:
     def factory() -> MemorySystem:
         return make_system(args.system, encoder=args.encoder, topk=args.topk,
                            dim=args.dim, max_tokens=args.max_tokens,
-                           update_rule=args.update_rule)
+                           update_rule=args.update_rule,
+                           score_threshold=args.abstain_threshold,
+                           consolidate_mode=args.consolidate,
+                           consolidate_param=args.consolidate_param,
+                           read_iters=args.read_iters,
+                           read_beta=args.read_beta,
+                           read_protocol=args.read_protocol)
 
-    tasks = ["t1", "t2", "t3"] if args.task == "all" else [args.task]
+    tasks = (["t1", "t2", "t3", "t4", "t5"] if args.task == "all"
+             else [args.task])
     report = {
         "benchmark": "pmb-v0",
         "system": args.system,
@@ -229,7 +291,12 @@ def main(argv=None) -> int:
         "config": {"encoder": args.encoder, "topk": args.topk,
                    "dim": args.dim, "max_tokens": args.max_tokens,
                    "update_rule": args.update_rule,
-                   "context_char_budget": args.context_char_budget},
+                   "context_char_budget": args.context_char_budget,
+                   "consolidate": args.consolidate,
+                   "consolidate_param": args.consolidate_param,
+                   "read_iters": args.read_iters,
+                   "read_beta": args.read_beta,
+                   "read_protocol": args.read_protocol},
         "results": {t: TASK_RUNNERS[t](factory, args.seed,
                                        args.context_char_budget)
                     for t in tasks},

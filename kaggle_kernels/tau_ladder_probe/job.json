@@ -1,0 +1,11 @@
+{
+  "name": "b2-tau-ladder",
+  "cmd": "bash -c 'bash 起各 lane；见 run_tau_probe.py（kernel 顶层脚本）'",
+  "device": "cpu",
+  "est_hours": 36,
+  "kaggle_dir": "kaggle_kernels/tau_ladder_probe",
+  "resume_safe": true,
+  "slug": "aricredemption/m1-b2-tau-ladder-cpu",
+  "harvest_dest": "benchmarks/results/tau_ladder",
+  "ckpt_dataset": "aricredemption/m1-tau-ladder-ckpt"
+}

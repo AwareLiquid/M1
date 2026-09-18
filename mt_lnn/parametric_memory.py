@@ -92,7 +92,7 @@ def _hash_vec(text: str, dim: int) -> torch.Tensor:
 class _Session:
     """One session's parametric state: (F, z) + the text-value decode lexicon."""
 
-    __slots__ = ("F", "z", "lexicon", "read_rule")
+    __slots__ = ("F", "z", "lexicon", "read_rule", "u")
 
     def __init__(self, d: int, dtype: torch.dtype):
         self.F = torch.zeros(d, d, dtype=dtype)
@@ -100,6 +100,10 @@ class _Session:
         # value text -> its (precomputed) unit vector; LRU order = use order.
         self.lexicon: "OrderedDict[str, torch.Tensor]" = OrderedDict()
         self.read_rule: Optional[str] = None   # rule of the LAST write
+        # isotropic predictive covariance (kalman_delta only; None until a
+        # kalman write touches this session so other rules' snapshots are
+        # byte-identical to their pre-KDN form)
+        self.u: Optional[float] = None
 
 
 class ParametricMemory:
@@ -116,19 +120,63 @@ class ParametricMemory:
         text_encoder: Optional[Callable[[str], torch.Tensor]] = None,
         lexicon_capacity: int = 1024,
         dtype: torch.dtype = torch.float32,
+        u0: float = 1.0,
+        obs_noise: float = 1e-2,
+        process_noise: float = 1e-3,
+        consolidate_mode: str = "none",
+        consolidate_param: Optional[float] = None,
+        read_iters: int = 1,
+        read_beta: float = 2.0,
+        read_protocol: str = "direct",
     ):
-        if update_rule not in ("sum", "delta", "falcon_nlms"):
+        if update_rule not in ("sum", "delta", "falcon_nlms", "kalman_delta"):
             raise ValueError(
-                f"update_rule must be 'sum'/'delta'/'falcon_nlms', got {update_rule!r}")
+                f"update_rule must be 'sum'/'delta'/'falcon_nlms'/'kalman_delta',"
+                f" got {update_rule!r}")
+        if consolidate_mode not in ("none", "downscale", "downscale_z", "prune"):
+            raise ValueError(
+                f"consolidate_mode must be 'none'/'downscale'/'downscale_z'/'prune',"
+                f" got {consolidate_mode!r}")
         if not 0.0 < decay <= 1.0:
             raise ValueError(f"decay must be in (0, 1], got {decay!r}")
         if not 0.0 < eta <= 1.0:
             raise ValueError(f"eta must be in (0, 1], got {eta!r}")
+        if not 0.0 < u0:
+            raise ValueError(f"u0 must be > 0, got {u0!r}")
+        if not 0.0 < obs_noise:
+            raise ValueError(f"obs_noise must be > 0, got {obs_noise!r}")
+        if not 0.0 <= process_noise <= u0:
+            raise ValueError(f"process_noise must be in [0, u0], got {process_noise!r}")
         self.d_mem = d_mem
         self.vocab_size = vocab_size
         self.update_rule = update_rule
         self.decay = decay
         self.eta = eta
+        # kalman_delta (isotropic KDN) hyperparameters, v0 defaults — untuned
+        self.u0 = u0
+        self.obs_noise = obs_noise
+        self.process_noise = process_noise
+        # B-20 sleep-consolidation transform (applied at session boundaries,
+        # i.e. before each snapshot): "downscale" = F <- p*F (synaptic
+        # scaling, negative control); "prune" = zero |F_ij| below the
+        # keep-frac quantile of |F| (sparsify-as-deinterference hypothesis).
+        self.consolidate_mode = consolidate_mode
+        self.consolidate_param = consolidate_param
+        self.last_nonzero_rate: Optional[float] = None
+        # B-21 iterative attractor readout (Hopfield pattern completion):
+        # 1 = legacy single-shot; >1 sharpens the cued vector by iterating
+        #   r <- phi(beta*r) @ F (re-normalised each step).
+        if not 1 <= read_iters <= 16:
+            raise ValueError(f"read_iters must be in [1, 16], got {read_iters!r}")
+        self.read_iters = read_iters
+        self.read_beta = read_beta
+        # B-22: "direct" = legacy single-shot/iterative same-map re-entry;
+        # "bam" = Kosko bidirectional alternation (value->key->value using
+        # the two empirically validated maps: backward F@x, forward x@F).
+        if read_protocol not in ("direct", "bam"):
+            raise ValueError(
+                f"read_protocol must be 'direct'/'bam', got {read_protocol!r}")
+        self.read_protocol = read_protocol
         self.lexicon_capacity = lexicon_capacity
         self.dtype = dtype
         # Fixed random unit-norm table: token id -> key/value vector, and the
@@ -177,9 +225,10 @@ class ParametricMemory:
         one store can A/B the two trained mechanisms (mt_v2 vs mt_v2_delta).
         delta carries z unchanged, mirroring FastWeightMemoryV2's contract."""
         rule = update_rule or self.update_rule
-        if rule not in ("sum", "delta", "falcon_nlms"):
+        if rule not in ("sum", "delta", "falcon_nlms", "kalman_delta"):
             raise ValueError(
-                f"update_rule must be 'sum'/'delta'/'falcon_nlms', got {rule!r}")
+                f"update_rule must be 'sum'/'delta'/'falcon_nlms'/'kalman_delta',"
+                f" got {rule!r}")
         k = self._embed(key)
         v = self._embed(value)
         s = self._session(session_id)
@@ -193,6 +242,22 @@ class ParametricMemory:
             # contraction eigenvalue is (decay - eta) in (-1, 1) — bounded.
             pred = k @ s.F                          # (d,) = k^T F
             s.F = self.decay * s.F - self.eta * torch.outer(k, pred - v)
+        elif rule == "kalman_delta":
+            # Isotropic Kalman delta — KDN's evidence-weighted write
+            # (linear-Gaussian SSM view, cf. arXiv:2609.07816; delta/NLMS
+            # emerge as the isotropic-surrogate special case when covariance
+            # tracking is dropped). Here we KEEP the scalar covariance: the
+            # write gain is eta_k = u / (u*||k||^2 + obs_noise) — large early
+            # (little evidence), shrinking as evidence accumulates — and the
+            # posterior covariance contracts by the same observation.
+            # Falcon-NLMS is the fixed-eta corner of this family.
+            if s.u is None:
+                s.u = self.u0
+            denom = s.u * float(k.dot(k)) + self.obs_noise
+            gain = s.u / denom
+            pred = s.F @ k
+            s.F = self.decay * s.F + gain * torch.outer(v - pred, k)
+            s.u = s.u * self.obs_noise / denom
         else:
             # Falcon-1 scalar NLMS (arXiv:2608.27763): F <- decay*F +
             # eta (v - F k) k^T / (||k||^2 + eps), scale-invariant step.
@@ -237,6 +302,20 @@ class ParametricMemory:
         else:
             r = qF
         r = r / r.norm().clamp_min(_EPS)
+        # B-21 iterative completion: re-enter the association through the
+        # stored overlaps (r acts as the cue for the next read).
+        for _ in range(self.read_iters - 1):
+            if self.read_protocol == "bam":
+                # B-22 Kosko BAM: alternate the two association maps
+                # (value->key via F@x, key->value via x@F) instead of
+                # re-entering with the same map (which orthonormal spaces
+                # make meaningless — see B-21 post-mortem).
+                kc = s.F @ torch.tanh(self.read_beta * r)
+                kc = kc / kc.norm().clamp_min(_EPS)
+                r = torch.tanh(self.read_beta * kc) @ s.F
+            else:
+                r = torch.tanh(self.read_beta * r) @ s.F
+            r = r / r.norm().clamp_min(_EPS)
         if candidates is not None:
             rows, labels = self._table[list(candidates)], list(candidates)
         elif s.lexicon:
@@ -255,7 +334,47 @@ class ParametricMemory:
             out.append((None, 0.0))
         return out
 
+    # ------------------------------------------------------- consolidation
+
+    def consolidate(self, session_id: str) -> None:
+        """B-20 sleep-consolidation transform, called at session boundaries
+        (before snapshot). No-op for mode 'none' or untouched sessions."""
+        s = self._sessions.get(session_id)
+        if (s is None or s.read_rule is None
+                or self.consolidate_mode == "none"):
+            return
+        if self.consolidate_mode == "downscale":
+            alpha = self.consolidate_param if self.consolidate_param is not None else 0.9
+            s.F = s.F * alpha
+        elif self.consolidate_mode == "downscale_z":
+            # TRUE no-op control: scale F and z together — preserves the
+            # r = qF/(q.z) read invariant exactly. Validates the hook.
+            alpha = self.consolidate_param if self.consolidate_param is not None else 0.9
+            s.F = s.F * alpha
+            s.z = s.z * alpha
+        elif self.consolidate_mode == "prune":
+            keep = self.consolidate_param if self.consolidate_param is not None else 0.10
+            if not 0.0 < keep < 1.0:
+                raise ValueError(f"prune keep-frac must be in (0,1), got {keep!r}")
+            flat = s.F.abs().flatten()
+            n = flat.numel()
+            k = max(1, int(n * keep))
+            if k < n:
+                thresh = torch.kthvalue(flat, n - k).values
+                s.F = s.F * (s.F.abs() >= thresh)
+        self.last_nonzero_rate = float((s.F != 0).float().mean().item())
+
     # ---------------------------------------------------------------- forget
+
+    def bump_uncertainty(self, session_id: str) -> None:
+        """KDN process noise: re-inflate the predictive covariance at session
+        boundaries (evidence decays across gaps). No-op unless a kalman_delta
+        write has touched this session — other rules' snapshots stay
+        byte-identical to their pre-KDN form."""
+        s = self._sessions.get(session_id)
+        if s is None or s.u is None:
+            return
+        s.u = min(self.u0, s.u + self.process_noise)
 
     def forget(self, session_id: str, key=None) -> bool:
         """Erase ONE binding (key given) or the WHOLE session (key=None).
@@ -289,13 +408,18 @@ class ParametricMemory:
         s = self._sessions.get(session_id)
         if s is None:
             return None
-        return {
+        snap = {
             "format": _SNAP_FORMAT,
             "d_mem": self.d_mem,
             "read_rule": s.read_rule,
             "F": _t2b64(s.F), "z": _t2b64(s.z),
             "lexicon": [[val, _t2b64(vec)] for val, vec in s.lexicon.items()],
         }
+        if s.u is not None:
+            snap["u"] = s.u   # kalman_delta predictive covariance (optional key)
+        if self.consolidate_mode != "none" and self.last_nonzero_rate is not None:
+            snap["nonzero_rate"] = self.last_nonzero_rate   # B-20 honesty column
+        return snap
 
     def restore(self, session_id: str, snap: dict) -> None:
         """Inverse of snapshot (bit-exact by construction: raw fp32 bytes)."""
@@ -305,6 +429,7 @@ class ParametricMemory:
         s.F = _b642t(snap["F"], (self.d_mem, self.d_mem), self.dtype)
         s.z = _b642t(snap["z"], (self.d_mem,), self.dtype)
         s.read_rule = snap["read_rule"]
+        s.u = snap.get("u")   # absent in pre-KDN snapshots -> None
         s.lexicon.clear()
         for val, vec_b64 in snap["lexicon"]:
             s.lexicon[val] = _b642t(vec_b64, (self.d_mem,), self.dtype)

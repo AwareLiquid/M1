@@ -1,0 +1,15 @@
+{
+  "id": "aricredemption/m1-b2-tau-ladder-cpu",
+  "title": "m1-b2-tau-ladder-cpu",
+  "code_file": "run_tau_probe.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle",
+    "aricredemption/m1-tau-ladder-ckpt"
+  ]
+}

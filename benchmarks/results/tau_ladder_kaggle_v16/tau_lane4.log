@@ -1,0 +1,19 @@
+[plan] device=cpu steps=30000 待跑 2/2 配置
+    step     0  loss 2.5610
+    step  2500  loss 2.9236
+    step  5000  loss 0.0002
+    step  7500  loss 0.0001
+    step  9999  loss 0.0001
+    step     0  loss 0.0024
+    step  5000  loss 0.0001
+    step 10000  loss 0.0000
+    step 15000  loss 0.0000
+    step 19999  loss 0.0000
+  [ladderoff_d2_s0] done mean_acc=1.0000 gated=False wall_s=27145.9
+    step     0  loss 2.5607
+    step  2500  loss 0.5225
+    step  5000  loss 0.0001
+    step  7500  loss 0.0000
+    step  9999  loss 0.0000
+    step     0  loss 0.0023
+    step  5000  loss 0.0000

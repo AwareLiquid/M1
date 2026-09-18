@@ -1,0 +1,33 @@
+[plan] device=cpu steps=30000 待跑 2/2 配置
+    step     0  loss 2.5616
+    step  2500  loss 0.3553
+    step  5000  loss 0.0001
+    step  7500  loss 0.0000
+    step  9999  loss 0.0000
+    step     0  loss 0.0018
+    step  5000  loss 0.0002
+    step 10000  loss 0.0000
+    step 15000  loss 0.0000
+    step 19999  loss 0.0000
+  [ladderoff_d1_s0] done mean_acc=0.9997 gated=False wall_s=15112.3
+    step     0  loss 2.5616
+    step  2500  loss 0.3553
+    step  5000  loss 0.0001
+    step  7500  loss 0.0000
+    step  9999  loss 0.0000
+    step     0  loss 0.0018
+    step  5000  loss 0.0002
+    step 10000  loss 0.0000
+    step 15000  loss 0.0000
+    step 19999  loss 0.0000
+  [ladderon_d1_s0] done mean_acc=0.9997 gated=False wall_s=15222.5
+
+[verdict] h_supported=False diagnosis=flat → /kaggle/working/results/tau_ladder_verdict.json
+  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0
+[plan] device=cpu steps=30000 待跑 2/2 配置
+    step     0  loss 2.3693
+    step  2500  loss 0.0324
+    step  5000  loss 0.0024
+    step  7500  loss 0.0001
+    step  9999  loss 0.0010
+    step     0  loss 0.0000

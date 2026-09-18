@@ -12,6 +12,37 @@ axes none of them cover:
    a superseded value is scored as a distinct failure mode.
 3. **Forgetting curve** — recall must be reported as a function of the number
    of intervening distractor sessions, as a full curve, never a single point.
+4. **Cross-session JOIN (t4)** — a fact in session A is the *key* for a value
+   in session C; single-session retrieval cannot answer it (B-8/B-9: hash
+   retrieval 0.0, semantic e5 0.5-1.0, fixed-window oracle collapses beyond
+   window).
+5. **Abstention (t5)** — questions about never-mentioned keys must NOT be
+   answered with codes; the harness scores false-answer rate at the context
+   level (a plain retrieval-confidence threshold already removes 92% of
+   hallucinated answers — abstention failure is a protocol gap, not a
+   capability limit).
+
+## Related work (2026 benchmark landscape)
+
+* **LongMemEval** (ICLR'25) — chat-history long-term memory, 5 abilities.
+  PMB covers 3/5 (information extraction ≈ T1, knowledge updates ≈ T2) and
+  adds what it lacks: full forgetting curves (T3) + cross-session JOIN (t4).
+  Multi-session reasoning & abstention decision-layers are PMB's t4/t5b
+  roadmap.
+* **StateMemBench** (arXiv:2608.19652) — evolving-state tracking, closest to
+  PMB T2 (closed-pool current/superseded/fail scoring). Differences: PMB adds
+  anti-enumeration truncation, the (N,K) retention grid, the forgetting
+  curve, and mechanically enforced persistence (snapshot-to-disk per
+  session). Cited as same-topic prior work — see
+  `docs/PMB_VS_2026_BENCHMARKS.md` for the full matrix.
+* **AgentMemBench** (arXiv:2608.00009) — 5 memory-management strategies on
+  LLM-generated dialogue (LoCoMo/MultiDoc2Dial/MSC), retrieval-quality
+  metrics. Orthogonal: program-generated facts + exact-code scoring isolate
+  memory from generation quality; no session-boundary persistence semantics.
+* **MCB** (arXiv:2608.19564) — memory-clarification boundary (persist/use/
+  verify/ask) at the LLM decision layer. Orthogonal to PMB's memory-body
+  scoring; t5b abstention protocol should adopt its four-way taxonomy.
+* Full comparison matrix: `docs/PMB_VS_2026_BENCHMARKS.md`.
 
 All tasks are program-generated from a seed (English templates in v0);
 gold answers are unique 6-digit codes so exact-substring scoring is

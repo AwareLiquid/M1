@@ -1,0 +1,45 @@
+{
+ "h_supported": false,
+ "gain_off": 0.0,
+ "gain_on": 0.0,
+ "delta_gain": 0.0,
+ "threshold": 0.0,
+ "tiers": {
+  "off_d4": {
+   "n": 1,
+   "per_seed": [
+    0.8854
+   ],
+   "mean": 0.8854,
+   "std": null
+  },
+  "on_d4": {
+   "n": 1,
+   "per_seed": [
+    0.9636
+   ],
+   "mean": 0.9636,
+   "std": null
+  }
+ },
+ "gate": {
+  "ok": false,
+  "tag": "ladder_on_d4_vs_d4",
+  "sign_test": {
+   "p": 1.0,
+   "wins": 0,
+   "losses": 0,
+   "n_effective": 0
+  },
+  "reasons": [
+   "ladder_on_d4_vs_d4 arm-a: 1 seed(s) < required 3 — E0 协议禁止引用单/双 seed 结论 (HANDOFF §2.5 第 5 条)",
+   "ladder_on_d4_vs_d4 arm-b: 1 seed(s) < required 3 — E0 协议禁止引用单/双 seed 结论 (HANDOFF §2.5 第 5 条)",
+   "配对符号检验 p=1.000 ≥ 0.05"
+  ]
+ },
+ "diagnosis": {
+  "kind": "flat",
+  "note": "τ 阶梯增益与 OFF 无可辨差异 — 机制无效或预算不足"
+ },
+ "n_rows": 2
+}

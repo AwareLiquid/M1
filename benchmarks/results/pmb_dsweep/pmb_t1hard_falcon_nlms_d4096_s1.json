@@ -1,0 +1,30 @@
+{
+  "benchmark": "pmb-v0",
+  "system": "parametric",
+  "seed": 1,
+  "config": {
+    "update_rule": "falcon_nlms",
+    "dim": 4096,
+    "cell": [
+      64,
+      16
+    ],
+    "driver": "dsweep_t1_hard.py (B-17)"
+  },
+  "results": {
+    "t1_hard": {
+      "task": "t1",
+      "n": 64,
+      "k": 16,
+      "mode": "generative",
+      "recall": 0.0,
+      "stale_answer_rate": 0.0,
+      "stale_context_rate": 0.0,
+      "state_bytes": 96496924,
+      "answer_latency_ms": 26.342619057686534,
+      "context_chars_mean": 6.0,
+      "n_questions": 64,
+      "n_sessions": 17
+    }
+  }
+}

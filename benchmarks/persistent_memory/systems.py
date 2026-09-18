@@ -46,7 +46,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
-_TOKEN_RE = re.compile(r"[a-z']+")
+_TOKEN_RE = re.compile(r"[a-z0-9']+")  # 含数字: 6 位码 gold 必须可被编码（否则 generative 系统全部判负为伪影）
 
 
 def _split_sentences(text: str) -> List[str]:
@@ -264,9 +264,13 @@ class RagSystem(MemorySystem):
     name = "rag"
 
     def __init__(self, encoder: str = "hash", topk: int = 8, dim: int = 256,
-                 device: str = "cpu"):
+                 device: str = "cpu", score_threshold: Optional[float] = None):
         self.encoder_name = encoder
         self.topk = int(topk)
+        # t5b abstention: if the best retrieval score is below this floor,
+        # answer_context returns "" (the system abstains). None = legacy
+        # behaviour (always return top-k text). Opt-in; default unchanged.
+        self.score_threshold = score_threshold
         self._enc = make_encoder(encoder, dim=dim, device=device)
         self._sentences: List[str] = []
         self._vecs: List[np.ndarray] = []
@@ -314,7 +318,111 @@ class RagSystem(MemorySystem):
         scores = mat @ q
         k = min(self.topk, len(self._sentences))
         top = np.argsort(-scores)[:k]
+        if (self.score_threshold is not None
+                and float(scores[top[0]]) < self.score_threshold):
+            return ""   # abstain: best match below the confidence floor (t5b)
         return " ".join(self._sentences[int(i)] for i in top)
+
+
+class RagTwoHopSystem(RagSystem):
+    """Two-hop retrieval baseline (B-16) — protocol-ceiling reference for the
+    cross-session JOIN task, not a general system (oracle-like role).
+
+    t4 questions ask for person→code while quoting person→rating. Single-hop
+    rag retrieves one side of the join and the answer sentence never lands in
+    the context. Here hop 1 resolves the quoted rating to a person (parse the
+    rating sentence out of the question's own top-3), hop 2 re-queries by the
+    person's name and returns those sentences. Same store, same encoder,
+    same top-k discipline — only the retrieval PROTOCOL differs, which is
+    exactly the variable under test: if this reaches retrieval parity where
+    single-hop hash scores 0.0, the JOIN failure is a protocol gap (same
+    shape as the t5b abstention finding), not an information gap."""
+
+    name = "rag_2hop"
+    # question template: "...satisfaction rating is {r}?" (no "out of 5");
+    # stored sentence template: "{name} left a satisfaction rating of {r} out of 5."
+    _RATING_Q_RE = re.compile(r"satisfaction rating is (\d+)")
+    _RATING_SENT_RE = re.compile(
+        r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?) left a satisfaction rating of (\d+)")
+
+    def answer_context(self, question: str) -> str:
+        if not self._vecs:
+            return ""
+        m = self._RATING_Q_RE.search(question)
+        if m is None:
+            return super().answer_context(question)   # non-JOIN: single-hop
+        person = self._person_for_rating(question, m.group(1))
+        if person is None:
+            return super().answer_context(question)   # hop-1 miss: degrade
+        q2 = self._enc.encode(f"{person} membership number is", is_query=True)
+        mat = np.stack(self._vecs)
+        scores = mat @ q2
+        top = np.argsort(-scores)[:min(2, len(self._sentences))]
+        return " ".join(self._sentences[int(i)] for i in top)
+
+    def _person_for_rating(self, question: str, rating: str) -> Optional[str]:
+        """Hop 1 — resolve rating -> person from the question's own top-3
+        sentences (embedding retrieval + mechanical parse of the rating
+        sentence). None = hop-1 miss."""
+        q = self._enc.encode(question, is_query=True)
+        mat = np.stack(self._vecs)
+        scores = mat @ q
+        top = np.argsort(-scores)[:min(3, len(self._sentences))]
+        for i in top:
+            m = self._RATING_SENT_RE.search(self._sentences[int(i)])
+            if m and m.group(2) == rating:
+                return m.group(1)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# filesystem — Letta-style trivial baseline (B-23, community arbitration)
+# ---------------------------------------------------------------------------
+
+class FilesystemSystem(MemorySystem):
+    """B-23: dump every session verbatim into one plain-text store; at
+    answer time grep lines by question-word overlap and return the hits
+    (the harness truncates at its budget). No embeddings, no index, no
+    vectors — state_bytes is the raw file, O(history) by design. This is
+    the PMB-isation of Letta's 'filesystem beats memory layers' claim:
+    if this trivial baseline matches rag anywhere, that task family does
+    not need a retrieval layer."""
+
+    name = "filesystem"
+    mode = "evidence"
+    _SNAP_FORMAT = "pmb-filesystem-v0"
+    _SID = "pmb"
+
+    def __init__(self, **_):
+        self.lines: List[str] = []
+
+    def ingest(self, session_id: str, text: str) -> None:
+        self.lines.extend(_split_sentences(text))
+
+    def snapshot(self, session_id: str) -> bytes:
+        obj = {"format": self._SNAP_FORMAT, "lines": self.lines}
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True).encode("utf-8")
+
+    def restore(self, blob: bytes) -> None:
+        obj = json.loads(blob.decode("utf-8"))
+        if obj.get("format") != self._SNAP_FORMAT:
+            raise ValueError(f"not a filesystem snapshot: {obj.get('format')!r}")
+        self.lines = list(obj["lines"])
+
+    def answer_context(self, question: str) -> str:
+        if not self.lines:
+            return ""
+        qwords = set(w for w in re.split(r"[^a-z0-9]+", question.lower()) if w)
+        scored = []
+        for i, line in enumerate(self.lines):
+            overlap = len(qwords & set(
+                w for w in re.split(r"[^a-z0-9]+", line.lower()) if w))
+            if overlap:
+                scored.append((overlap, i))
+        if not scored:
+            return ""
+        scored.sort(reverse=True)
+        return " ".join(self.lines[i] for _, i in scored)
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +492,19 @@ class FastWeightSystem(MemorySystem):
         self.tokenizer = tokenizer
         self.device = device
         self.generate_fn = generate_fn
+        if self.generate_fn is None:
+            def _default_generate(prompt: str) -> str:
+                enc = self.tokenizer(prompt, return_tensors="pt",
+                                     truncation=True,
+                                     max_length=1024).to(self.device)
+                with self._torch.no_grad():
+                    out = self.model.generate(
+                        **enc, max_new_tokens=64, do_sample=False,
+                        pad_token_id=(self.tokenizer.pad_token_id or
+                                      self.tokenizer.eos_token_id))
+                return self.tokenizer.decode(out[0][enc["input_ids"].shape[1]:],
+                                             skip_special_tokens=True)
+            self.generate_fn = _default_generate
         self._sent_enc = SentenceEncoder(
             model_id=encoder_model_id or DEFAULT_MODEL, device=device)
         # Instance-owned temp dir: NO shared-CWD side channel — two instances
@@ -394,7 +515,7 @@ class FastWeightSystem(MemorySystem):
         # key_dim must follow the PLUGGABLE encoder (e5-small is 384-d but
         # e.g. multilingual-e5-base is 768-d) — a hardcoded default crashes
         # the first write_session with a key-dim mismatch.
-        self._key_dim = int(self._sent_enc.dim())
+        self._key_dim = int(self._sent_enc.dim)
         self.store = FastWeightSessionStore(db_path=self._db_path,
                                             key_dim=self._key_dim)
         # Adapter streaming records (F, z) at INFERENCE time only
@@ -531,10 +652,19 @@ class ParametricMemorySystem(MemorySystem):
     _SID = "pmb"
 
     def __init__(self, d_mem: int = 256, update_rule: str = "falcon_nlms",
-                 decay: float = 0.99, eta: float = 0.5, seed: int = 0):
+                 decay: float = 0.99, eta: float = 0.5, seed: int = 0,
+                 consolidate_mode: str = "none",
+                 consolidate_param: Optional[float] = None,
+                 read_iters: int = 1, read_beta: float = 2.0,
+                 read_protocol: str = "direct"):
         from mt_lnn.parametric_memory import ParametricMemory
         self.memory = ParametricMemory(d_mem=d_mem, update_rule=update_rule,
-                                       decay=decay, eta=eta, seed=seed)
+                                       decay=decay, eta=eta, seed=seed,
+                                       consolidate_mode=consolidate_mode,
+                                       consolidate_param=consolidate_param,
+                                       read_iters=read_iters,
+                                       read_beta=read_beta,
+                                       read_protocol=read_protocol)
         self.update_rule = update_rule
         self.d_mem = d_mem
 
@@ -565,6 +695,9 @@ class ParametricMemorySystem(MemorySystem):
         return f"{caps[-1].strip()} {attr}"
 
     def ingest(self, session_id: str, text: str) -> None:
+        # KDN process noise: every session boundary re-inflates the
+        # predictive covariance (no-op for non-kalman_delta rules).
+        self.memory.bump_uncertainty(self._SID)
         for sent in _split_sentences(text):
             code = re.search(r"\b\d{6}\b", sent)
             key = self._key_of(sent)
@@ -572,6 +705,9 @@ class ParametricMemorySystem(MemorySystem):
                 self.memory.write(self._SID, key, code.group(0))
 
     def snapshot(self, session_id: str) -> bytes:
+        # B-20: the session boundary IS the sleep window — consolidate before
+        # persisting (no-op for consolidate_mode='none').
+        self.memory.consolidate(self._SID)
         snap = self.memory.snapshot(self._SID)
         if snap is None:
             return b""
@@ -593,12 +729,187 @@ class ParametricMemorySystem(MemorySystem):
 
 
 # ---------------------------------------------------------------------------
+# micro fastweight — gradient-trained keyed associative memory (B-4' v0)
+# ---------------------------------------------------------------------------
+
+class MicroFastWeightSystem(MemorySystem):
+    """Gradient-trained keyed associative memory — the classic fast-weight
+    rule (SGD on a linear associator) as the contrast to ParametricMemory's
+    closed-form sum/delta writes. Scientific point (B-7 follow-up): does
+    *gradient* writing survive cross-session binding any better than the
+    closed-form rules that scored 0.0 on the T1 hard cell?  Catastrophic
+    interference is the expected failure mode; this system exists to
+    measure it, not to hide it (L008: local CPU, ~30 min for 3 seeds)."""
+
+    name = "micro_fw"
+    mode = "generative"
+    _SNAP_FORMAT = "pmb-microfw-v1"
+    _SID = "pmb"
+
+    def __init__(self, d_mem: int = 104, lr: float = 0.1, inner_steps: int = 8,
+                 seed: int = 0, **_):
+        import torch
+        self._torch = torch
+        self.d_mem = d_mem
+        self.lr = lr
+        self.inner_steps = inner_steps
+        self.seed = seed
+        g = self._torch.Generator().manual_seed(seed)
+        # fixed random projections (part of state: must survive snapshot)
+        self.P_key = self._torch.randn(d_mem, d_mem, generator=g) * (d_mem ** -0.5)
+        self.P_val = self._torch.randn(d_mem, d_mem, generator=g) * (d_mem ** -0.5)
+        # the fast weight itself
+        self.W = self._torch.zeros(d_mem, d_mem)
+        # value space: code string -> index into value prototype matrix
+        self._codes: List[str] = []
+        self._val_mat: Optional[self._torch.Tensor] = None
+        # hashing encoder for text -> d_mem vector (deterministic, offline)
+        self._enc = make_encoder("hash", dim=d_mem)
+
+    def _phi_key(self, text: str):
+        v = self._enc.encode(text, is_query=True)
+        return self.P_key @ self._torch.tensor(v, dtype=self._torch.float32)
+
+    def _phi_val(self, code: str):
+        v = self._enc.encode(code, is_query=False)
+        return self.P_val @ self._torch.tensor(v, dtype=self._torch.float32)
+
+    def _ensure_code(self, code: str):
+        if code not in self._codes:
+            self._codes.append(code)
+            v = self._phi_val(code).unsqueeze(0)
+            self._val_mat = v if self._val_mat is None else self._torch.cat(
+                [self._val_mat, v], dim=0)
+
+    def _train_pair(self, key: str, code: str):
+        """inner_steps SGD on (phi_key(key) -> phi_val(code)) — the gradient
+        write. Each fact is a few steps; interference across facts is the
+        measured phenomenon, not a bug."""
+        torch = self._torch
+        k = self._phi_key(key).detach()
+        self._ensure_code(code)
+        idx = self._codes.index(code)
+        target = self._val_mat[idx].detach()
+        W = self.W.detach().clone().requires_grad_(True)
+        opt = self._torch.optim.SGD([W], lr=self.lr)
+        for _ in range(self.inner_steps):
+            opt.zero_grad()
+            loss = ((W @ k - target) ** 2).sum()
+            loss.backward()
+            opt.step()
+        self.W = W.detach()
+
+    def ingest(self, session_id: str, text: str) -> None:
+        for sent in _split_sentences(text):
+            code = re.search(r"\b\d{6}\b", sent)
+            key = ParametricMemorySystem._key_of(sent)
+            if code and key:
+                self._train_pair(key, code.group(0))
+
+    def snapshot(self, session_id: str) -> bytes:
+        obj = {"format": self._SNAP_FORMAT,
+               "d": self.d_mem, "lr": self.lr,
+               "inner_steps": self.inner_steps, "seed": self.seed,
+               "W": [[round(x, 6) for x in row] for row in self.W.tolist()],
+               "codes": self._codes,
+               "vals": [[round(x, 6) for x in row]
+                        for row in (self._val_mat.tolist()
+                                    if self._val_mat is not None else [])]}
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True).encode("utf-8")
+
+    def restore(self, blob: bytes) -> None:
+        obj = json.loads(blob.decode("utf-8"))
+        if obj.get("format") != self._SNAP_FORMAT:
+            raise ValueError(f"not a micro_fw snapshot: {obj.get('format')!r}")
+        torch = self._torch
+        self.d_mem = obj["d"]; self.lr = obj["lr"]
+        self.inner_steps = obj["inner_steps"]; self.seed = obj["seed"]
+        self.W = self._torch.tensor(obj["W"], dtype=self._torch.float32)
+        self._codes = list(obj["codes"])
+        self._val_mat = (self._torch.tensor(obj["vals"], dtype=self._torch.float32)
+                         if obj["vals"] else None)
+
+    def answer(self, question: str) -> str:
+        key = ParametricMemorySystem._key_of(question)
+        if key is None or self._val_mat is None or not len(self._codes):
+            return ""
+        h = self.W @ self._phi_key(key)
+        sims = self._val_mat @ h
+        return self._codes[int(self._torch.argmax(sims))]
+
+
+class MicroRLSSystem(MicroFastWeightSystem):
+    """B-13: closed-form ridge write — replaces 8-step SGD with an exact
+    batch least-squares re-solve over ALL stored pairs (Kohonen/Anderson
+    pseudo-inverse lineage). For a linear associator of width d, this
+    stores ~d linearly-independent key->value patterns EXACTLY with zero
+    sequential interference: 'solve, don't grind'. Capacity ≈ d is the
+    honest wall — beyond it, graceful degradation is measured, not hidden.
+    State is O(n*d) (the pair list) — same asymptotics as rag's store,
+    so the comparison with rag is storage-fair."""
+
+    name = "micro_rls"
+    _SNAP_FORMAT = "pmb-microrls-v1"
+
+    def __init__(self, d_mem: int = 104, lam: float = 0.1, seed: int = 0, **_):
+        super().__init__(d_mem=d_mem, seed=seed, **_)
+        self.lam = lam
+        self.pairs: List[Tuple[str, str]] = []
+
+    def _resolve(self):
+        torch = self._torch
+        if not self.pairs:
+            self.W = torch.zeros(self.d_mem, self.d_mem)
+            return
+        K = torch.stack([self._phi_key(k) for k, _ in self.pairs])
+        Vm = torch.stack([self._phi_val(c) for _, c in self.pairs])
+        A = K.T @ K + self.lam * torch.eye(self.d_mem)
+        self.W = torch.linalg.solve(A, K.T @ Vm)
+        self._codes, self._val_mat = [], None
+        for _, c in self.pairs:
+            self._ensure_code(c)
+
+    def ingest(self, session_id: str, text: str) -> None:
+        new = False
+        for sent in _split_sentences(text):
+            code = re.search(r"\b\d{6}\b", sent)
+            key = ParametricMemorySystem._key_of(sent)
+            if code and key:
+                self.pairs.append((key, code.group(0)))
+                new = True
+        if new:
+            self._resolve()
+
+    def _train_pair(self, key: str, code: str):
+        self.pairs.append((key, code))
+        self._resolve()
+
+    def snapshot(self, session_id: str) -> bytes:
+        obj = {"format": self._SNAP_FORMAT, "d": self.d_mem, "lam": self.lam,
+               "seed": self.seed, "pairs": [list(p) for p in self.pairs]}
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True).encode("utf-8")
+
+    def restore(self, blob: bytes) -> None:
+        obj = json.loads(blob.decode("utf-8"))
+        if obj.get("format") != self._SNAP_FORMAT:
+            raise ValueError(f"not a micro_rls snapshot: {obj.get('format')!r}")
+        self.d_mem = obj["d"]; self.lam = obj["lam"]; self.seed = obj["seed"]
+        self.pairs = [tuple(p) for p in obj["pairs"]]
+        self._resolve()
+
+
+# ---------------------------------------------------------------------------
 # factory
 # ---------------------------------------------------------------------------
 
 def make_system(name: str, *, encoder: str = "hash", topk: int = 8,
                 dim: int = 256, max_tokens: int = 8000,
                 device: str = "cpu", update_rule: str = "falcon_nlms",
+                score_threshold: Optional[float] = None,
+                consolidate_mode: str = "none",
+                consolidate_param: Optional[float] = None,
+                read_iters: int = 1, read_beta: float = 2.0,
+                read_protocol: str = "direct",
                 **fastweight_kwargs) -> MemorySystem:
     """Build a fresh system instance (the runner calls this per session to
     enforce the disk round-trip — no in-process state may survive)."""
@@ -607,9 +918,23 @@ def make_system(name: str, *, encoder: str = "hash", topk: int = 8,
     if name == "oracle":
         return OracleContextSystem(max_tokens=max_tokens)
     if name == "rag":
-        return RagSystem(encoder=encoder, topk=topk, dim=dim, device=device)
+        return RagSystem(encoder=encoder, topk=topk, dim=dim, device=device,
+                         score_threshold=score_threshold)
+    if name == "rag_2hop":
+        return RagTwoHopSystem(encoder=encoder, topk=topk, dim=dim, device=device)
+    if name == "filesystem":
+        return FilesystemSystem()
     if name == "parametric":
-        return ParametricMemorySystem(d_mem=dim, update_rule=update_rule)
+        return ParametricMemorySystem(d_mem=dim, update_rule=update_rule,
+                                      consolidate_mode=consolidate_mode,
+                                      consolidate_param=consolidate_param,
+                                      read_iters=read_iters,
+                                      read_beta=read_beta,
+                                      read_protocol=read_protocol)
+    if name == "micro_fw":
+        return MicroFastWeightSystem(d_mem=dim, lr=0.1)
+    if name == "micro_rls":
+        return MicroRLSSystem(d_mem=dim)
     if name == "fastweight":
         return FastWeightSystem(device=device, **fastweight_kwargs)
     raise ValueError(

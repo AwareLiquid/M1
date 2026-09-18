@@ -1,0 +1,35 @@
+{
+  "benchmark": "pmb-v0",
+  "system": "rag",
+  "seed": 2,
+  "config": {
+    "encoder": "hash",
+    "topk": 8,
+    "dim": 256,
+    "max_tokens": 8000,
+    "update_rule": "falcon_nlms",
+    "context_char_budget": 4000
+  },
+  "results": {
+    "t2": {
+      "task": "t2",
+      "params": {
+        "seed": 2,
+        "n_keys": 8,
+        "n_updates": 3,
+        "distractors_between": 1,
+        "decoys_per_distractor": 8,
+        "confusers_per_key": 2
+      },
+      "mode": "evidence",
+      "recall": 0.75,
+      "stale_answer_rate": 0.125,
+      "stale_context_rate": 0.875,
+      "state_bytes": 301879,
+      "answer_latency_ms": 0.10998938523698598,
+      "context_chars_mean": 487.5,
+      "n_questions": 8,
+      "n_sessions": 5
+    }
+  }
+}

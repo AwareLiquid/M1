@@ -1,0 +1,27 @@
+{
+ "task": "parity",
+ "protocol": "tau_ladder_probe",
+ "ladder": true,
+ "depth": 1,
+ "seed": 0,
+ "steps": 20000,
+ "gate_step": 10000,
+ "gate_acc_k1": 1.0,
+ "gated_budget_wall": false,
+ "difficulty": 128,
+ "acc_by_k": {
+  "1": 1.0,
+  "2": 1.0,
+  "4": 1.0,
+  "8": 0.8838,
+  "16": 0.4961,
+  "32": 0.4819,
+  "64": 0.5024,
+  "128": 0.4888
+ },
+ "mean_acc": 0.7316,
+ "wall_s": 1542.0,
+ "device": "cuda",
+ "git_rev": "fc61d5cda7da",
+ "ts": "2026-09-17T07:12:29"
+}

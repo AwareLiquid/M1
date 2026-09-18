@@ -1,0 +1,185 @@
+[{"stream_name":"stdout","time":3.228575177,"data":"[02:50:47 @0min] [setup] bundle at /kaggle/input/datasets/aricredemption/m1-b1-text-ab-bundle\n"}
+,{"stream_name":"stdout","time":7.8689742,"data":"[02:50:52 @0min] [env] torch=2.10.0+cu128 cuda=True device=Tesla T4\n"}
+,{"stream_name":"stdout","time":7.869006189,"data":"[02:50:52 @0min] [plan] 待跑 6/6 个 (k,d) 对: [(32, 1), (32, 4), (64, 1), (64, 4), (128, 1), (128, 4)]\n"}
+,{"stream_name":"stdout","time":7.869139726,"data":"[02:50:52 @0min] [cfg 1/6] START k=32 d=1 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":15.890547607,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":15.890594647,"data":"    step     0  loss 2.5877\n"}
+,{"stream_name":"stdout","time":97.477750226,"data":"    step  2500  loss 0.6825\n"}
+,{"stream_name":"stdout","time":178.703693585,"data":"    step  5000  loss 0.6897\n"}
+,{"stream_name":"stdout","time":259.775950091,"data":"    step  7500  loss 0.6359\n"}
+,{"stream_name":"stdout","time":341.149677173,"data":"    step  9999  loss 0.6944\n"}
+,{"stream_name":"stdout","time":341.526643086,"data":"    step     0  loss 0.6972\n"}
+,{"stream_name":"stdout","time":422.751447736,"data":"    step  2500  loss 0.7249\n"}
+,{"stream_name":"stdout","time":503.350177797,"data":"    step  5000  loss 0.6895\n"}
+,{"stream_name":"stdout","time":584.564605557,"data":"    step  7500  loss 0.5299\n"}
+,{"stream_name":"stdout","time":665.687601355,"data":"    step  9999  loss 0.6915\n"}
+,{"stream_name":"stdout","time":666.35302584,"data":"  [ladderoff_d1_s0] done mean_acc=0.9097 gated=False wall_s=656.6\n"}
+,{"stream_name":"stdout","time":666.35305886,"data":"    step     0  loss 2.5877\n"}
+,{"stream_name":"stdout","time":747.590742181,"data":"    step  2500  loss 0.6825\n"}
+,{"stream_name":"stdout","time":831.145002388,"data":"    step  5000  loss 0.6897\n"}
+,{"stream_name":"stdout","time":912.432733924,"data":"    step  7500  loss 0.6359\n"}
+,{"stream_name":"stdout","time":994.271779905,"data":"    step  9999  loss 0.6944\n"}
+,{"stream_name":"stdout","time":994.611429365,"data":"    step     0  loss 0.6972\n"}
+,{"stream_name":"stdout","time":1075.98006311,"data":"    step  2500  loss 0.7249\n"}
+,{"stream_name":"stdout","time":1156.753068203,"data":"    step  5000  loss 0.6895\n"}
+,{"stream_name":"stdout","time":1237.944796086,"data":"    step  7500  loss 0.5299\n"}
+,{"stream_name":"stdout","time":1319.456578948,"data":"    step  9999  loss 0.6915\n"}
+,{"stream_name":"stdout","time":1320.065328805,"data":"  [ladderon_d1_s0] done mean_acc=0.9097 gated=False wall_s=653.8\n"}
+,{"stream_name":"stdout","time":1320.065355815,"data":"\n"}
+,{"stream_name":"stdout","time":1320.065361764,"data":"[verdict] h_supported=False diagnosis=flat → /kaggle/working/results_k32/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":1320.065367101,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":1321.694027666,"data":"[03:12:46 @22min] [cfg 1/6] DONE k=32 d=1 rc=0 wall=21.9min\n"}
+,{"stream_name":"stdout","time":1321.694067027,"data":"[03:12:46 @22min] [eta] 完成 1/6，均 wall 21.9min，预计剩余 109min\n"}
+,{"stream_name":"stdout","time":1321.694080368,"data":"[03:12:46 @22min] [cfg 2/6] START k=32 d=4 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":1325.65053891,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":1325.650582639,"data":"    step     0  loss 2.5881\n"}
+,{"stream_name":"stdout","time":1571.485491838,"data":"    step  2500  loss 0.6926\n"}
+,{"stream_name":"stdout","time":1816.491621763,"data":"    step  5000  loss 0.6872\n"}
+,{"stream_name":"stdout","time":2062.228592927,"data":"    step  7500  loss 0.6640\n"}
+,{"stream_name":"stdout","time":2308.840332481,"data":"    step  9999  loss 0.6936\n"}
+,{"stream_name":"stdout","time":2309.874176742,"data":"    step     0  loss 0.6938\n"}
+,{"stream_name":"stdout","time":2554.578691922,"data":"    step  2500  loss 0.7044\n"}
+,{"stream_name":"stdout","time":2798.497691143,"data":"    step  5000  loss 0.6882\n"}
+,{"stream_name":"stdout","time":3044.267011993,"data":"    step  7500  loss 0.5161\n"}
+,{"stream_name":"stdout","time":3291.31983648,"data":"    step  9999  loss 0.6875\n"}
+,{"stream_name":"stdout","time":3293.269118169,"data":"  [ladderoff_d4_s0] done mean_acc=0.8854 gated=False wall_s=1969.5\n"}
+,{"stream_name":"stdout","time":3293.269153853,"data":"    step     0  loss 2.5880\n"}
+,{"stream_name":"stdout","time":3539.907914052,"data":"    step  2500  loss 0.6926\n"}
+,{"stream_name":"stdout","time":3785.576257277,"data":"    step  5000  loss 0.6825\n"}
+,{"stream_name":"stdout","time":4032.980295298,"data":"    step  7500  loss 0.2530\n"}
+,{"stream_name":"stdout","time":4281.327109821,"data":"    step  9999  loss 0.6912\n"}
+,{"stream_name":"stdout","time":4282.345336528,"data":"    step     0  loss 0.5796\n"}
+,{"stream_name":"stdout","time":4528.79963095,"data":"    step  2500  loss 0.7010\n"}
+,{"stream_name":"stdout","time":4774.44349188,"data":"    step  5000  loss 0.7048\n"}
+,{"stream_name":"stdout","time":5021.272648296,"data":"    step  7500  loss 0.2394\n"}
+,{"stream_name":"stdout","time":5268.936627921,"data":"    step  9999  loss 0.2847\n"}
+,{"stream_name":"stdout","time":5270.765560963,"data":"  [ladderon_d4_s0] done mean_acc=0.9636 gated=False wall_s=1977.6\n"}
+,{"stream_name":"stdout","time":5270.765614372,"data":"\n"}
+,{"stream_name":"stdout","time":5270.765621898,"data":"[verdict] h_supported=False diagnosis=flat → /kaggle/working/results_k32/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":5270.765628651,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":5271.465844994,"data":"[04:18:36 @88min] [cfg 2/6] DONE k=32 d=4 rc=0 wall=65.8min\n"}
+,{"stream_name":"stdout","time":5271.465885589,"data":"[04:18:36 @88min] [eta] 完成 2/6，均 wall 43.9min，预计剩余 175min\n"}
+,{"stream_name":"stdout","time":5271.465993406,"data":"[04:18:36 @88min] [cfg 3/6] START k=64 d=1 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":5275.310104114,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":5275.310180275,"data":"    step     0  loss 2.5981\n"}
+,{"stream_name":"stdout","time":5383.131472004,"data":"    step  2500  loss 0.6931\n"}
+,{"stream_name":"stdout","time":5490.451188278,"data":"    step  5000  loss 0.6970\n"}
+,{"stream_name":"stdout","time":5597.785821165,"data":"    step  7500  loss 0.6931\n"}
+,{"stream_name":"stdout","time":5704.55326862,"data":"    step  9999  loss 0.6959\n"}
+,{"stream_name":"stdout","time":5705.144277296,"data":"    step     0  loss 0.6932\n"}
+,{"stream_name":"stdout","time":5812.929598562,"data":"    step  2500  loss 0.6925\n"}
+,{"stream_name":"stdout","time":5920.374089896,"data":"    step  5000  loss 0.6929\n"}
+,{"stream_name":"stdout","time":6027.755313788,"data":"    step  7500  loss 0.6941\n"}
+,{"stream_name":"stdout","time":6133.801646279,"data":"    step  9999  loss 0.6954\n"}
+,{"stream_name":"stdout","time":6134.885693851,"data":"  [ladderoff_d1_s0] done mean_acc=0.7964 gated=False wall_s=861.4\n"}
+,{"stream_name":"stdout","time":6134.885732498,"data":"    step     0  loss 2.5981\n"}
+,{"stream_name":"stdout","time":6242.518449497,"data":"    step  2500  loss 0.6931\n"}
+,{"stream_name":"stdout","time":6350.482102713,"data":"    step  5000  loss 0.6970\n"}
+,{"stream_name":"stdout","time":6458.042058058,"data":"    step  7500  loss 0.6931\n"}
+,{"stream_name":"stdout","time":6564.037901632,"data":"    step  9999  loss 0.6959\n"}
+,{"stream_name":"stdout","time":6564.603325423,"data":"    step     0  loss 0.6932\n"}
+,{"stream_name":"stdout","time":6672.192906156,"data":"    step  2500  loss 0.6925\n"}
+,{"stream_name":"stdout","time":6779.910137257,"data":"    step  5000  loss 0.6929\n"}
+,{"stream_name":"stdout","time":6887.032814242,"data":"    step  7500  loss 0.6941\n"}
+,{"stream_name":"stdout","time":6992.93672888,"data":"    step  9999  loss 0.6954\n"}
+,{"stream_name":"stdout","time":6993.946220605,"data":"  [ladderon_d1_s0] done mean_acc=0.7964 gated=False wall_s=859.1\n"}
+,{"stream_name":"stdout","time":6993.946267744,"data":"\n"}
+,{"stream_name":"stdout","time":6993.946276913,"data":"[verdict] h_supported=False diagnosis=flat → /kaggle/working/results_k64/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":6993.946282532,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":6994.598606664,"data":"[04:47:19 @117min] [cfg 3/6] DONE k=64 d=1 rc=0 wall=28.7min\n"}
+,{"stream_name":"stdout","time":6994.598655522,"data":"[04:47:19 @117min] [eta] 完成 3/6，均 wall 38.8min，预计剩余 116min\n"}
+,{"stream_name":"stdout","time":6994.598755309,"data":"[04:47:19 @117min] [cfg 4/6] START k=64 d=4 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":6998.564163485,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":6998.564225782,"data":"    step     0  loss 2.5984\n"}
+,{"stream_name":"stdout","time":7349.855733444,"data":"    step  2500  loss 0.6924\n"}
+,{"stream_name":"stdout","time":7701.251570156,"data":"    step  5000  loss 0.6985\n"}
+,{"stream_name":"stdout","time":8051.960804309,"data":"    step  7500  loss 0.6927\n"}
+,{"stream_name":"stdout","time":8397.883794981,"data":"    step  9999  loss 0.6974\n"}
+,{"stream_name":"stdout","time":8399.607725421,"data":"    step     0  loss 0.6951\n"}
+,{"stream_name":"stdout","time":8751.242891021,"data":"    step  2500  loss 0.6925\n"}
+,{"stream_name":"stdout","time":9103.021725466,"data":"    step  5000  loss 0.6931\n"}
+,{"stream_name":"stdout","time":9454.259669113,"data":"    step  7500  loss 0.6942\n"}
+,{"stream_name":"stdout","time":9800.631847259,"data":"    step  9999  loss 0.6896\n"}
+,{"stream_name":"stdout","time":9803.857804741,"data":"  [ladderoff_d4_s0] done mean_acc=0.8216 gated=False wall_s=2807.2\n"}
+,{"stream_name":"stdout","time":9803.857853969,"data":"    step     0  loss 2.5983\n"}
+,{"stream_name":"stdout","time":10156.239115362,"data":"    step  2500  loss 0.6922\n"}
+,{"stream_name":"stdout","time":10508.472220022,"data":"    step  5000  loss 0.6904\n"}
+,{"stream_name":"stdout","time":10860.231865862,"data":"    step  7500  loss 0.6917\n"}
+,{"stream_name":"stdout","time":11206.830069787,"data":"    step  9999  loss 0.6908\n"}
+,{"stream_name":"stdout","time":11208.526979795,"data":"    step     0  loss 0.6916\n"}
+,{"stream_name":"stdout","time":11561.460309481,"data":"    step  2500  loss 0.6928\n"}
+,{"stream_name":"stdout","time":11913.696112578,"data":"    step  5000  loss 0.6934\n"}
+,{"stream_name":"stdout","time":12264.979796325,"data":"    step  7500  loss 0.6940\n"}
+,{"stream_name":"stdout","time":12611.92106963,"data":"    step  9999  loss 0.6938\n"}
+,{"stream_name":"stdout","time":12614.970998405,"data":"  [ladderon_d4_s0] done mean_acc=0.7836 gated=False wall_s=2811.3\n"}
+,{"stream_name":"stdout","time":12614.971042007,"data":"\n"}
+,{"stream_name":"stdout","time":12614.971047328,"data":"[verdict] h_supported=False diagnosis=flat → /kaggle/working/results_k64/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":12614.971062828,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":12615.635049098,"data":"[06:21:00 @210min] [cfg 4/6] DONE k=64 d=4 rc=0 wall=93.7min\n"}
+,{"stream_name":"stdout","time":12615.635088479,"data":"[06:21:00 @210min] [eta] 完成 4/6，均 wall 52.5min，预计剩余 105min\n"}
+,{"stream_name":"stdout","time":12615.635260099,"data":"[06:21:00 @210min] [cfg 5/6] START k=128 d=1 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":12619.525757138,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":12619.525804988,"data":"    step     0  loss 2.5929\n"}
+,{"stream_name":"stdout","time":12812.448839662,"data":"    step  2500  loss 0.6968\n"}
+,{"stream_name":"stdout","time":13004.895754957,"data":"    step  5000  loss 0.6964\n"}
+,{"stream_name":"stdout","time":13196.790904398,"data":"    step  7500  loss 0.6934\n"}
+,{"stream_name":"stdout","time":13389.287136451,"data":"    step  9999  loss 0.6931\n"}
+,{"stream_name":"stdout","time":13390.3601604,"data":"    step     0  loss 0.6945\n"}
+,{"stream_name":"stdout","time":13583.175729845,"data":"    step  2500  loss 0.6948\n"}
+,{"stream_name":"stdout","time":13775.823605867,"data":"    step  5000  loss 0.8463\n"}
+,{"stream_name":"stdout","time":13967.715550568,"data":"    step  7500  loss 0.6923\n"}
+,{"stream_name":"stdout","time":14160.820527767,"data":"    step  9999  loss 0.6920\n"}
+,{"stream_name":"stdout","time":14162.830320509,"data":"  [ladderoff_d1_s0] done mean_acc=0.7415 gated=False wall_s=1545.2\n"}
+,{"stream_name":"stdout","time":14162.83035819,"data":"    step     0  loss 2.5929\n"}
+,{"stream_name":"stdout","time":14355.460724895,"data":"    step  2500  loss 0.6968\n"}
+,{"stream_name":"stdout","time":14547.885189733,"data":"    step  5000  loss 0.6967\n"}
+,{"stream_name":"stdout","time":14739.442298157,"data":"    step  7500  loss 0.6931\n"}
+,{"stream_name":"stdout","time":14932.120653635,"data":"    step  9999  loss 0.6929\n"}
+,{"stream_name":"stdout","time":14933.177965663,"data":"    step     0  loss 0.6944\n"}
+,{"stream_name":"stdout","time":15125.807104557,"data":"    step  2500  loss 0.6973\n"}
+,{"stream_name":"stdout","time":15318.144264665,"data":"    step  5000  loss 0.6946\n"}
+,{"stream_name":"stdout","time":15509.926584754,"data":"    step  7500  loss 0.6939\n"}
+,{"stream_name":"stdout","time":15702.85614431,"data":"    step  9999  loss 0.6933\n"}
+,{"stream_name":"stdout","time":15704.737490544,"data":"  [ladderon_d1_s0] done mean_acc=0.7316 gated=False wall_s=1542.0\n"}
+,{"stream_name":"stdout","time":15704.737539763,"data":"\n"}
+,{"stream_name":"stdout","time":15704.737547175,"data":"[verdict] h_supported=False diagnosis=flat → /kaggle/working/results_k128/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":15704.737553583,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":15705.395378576,"data":"[07:12:30 @262min] [cfg 5/6] DONE k=128 d=1 rc=0 wall=51.5min\n"}
+,{"stream_name":"stdout","time":15705.395413859,"data":"[07:12:30 @262min] [eta] 完成 5/6，均 wall 52.3min，预计剩余 52min\n"}
+,{"stream_name":"stdout","time":15705.395615201,"data":"[07:12:30 @262min] [cfg 6/6] START k=128 d=4 (2 ladder 模式 × 20000 步, seed=0)\n"}
+,{"stream_name":"stdout","time":15709.545778878,"data":"[plan] device=cuda steps=20000 待跑 2/2 配置\n"}
+,{"stream_name":"stdout","time":15709.545851943,"data":"    step     0  loss 2.5930\n"}
+,{"stream_name":"stdout","time":16324.332925564,"data":"    step  2500  loss 0.6962\n"}
+,{"stream_name":"stdout","time":16939.721258889,"data":"    step  5000  loss 0.6935\n"}
+,{"stream_name":"stdout","time":17553.387718254,"data":"    step  7500  loss 0.6936\n"}
+,{"stream_name":"stdout","time":18169.235388749,"data":"    step  9999  loss 0.6928\n"}
+,{"stream_name":"stdout","time":18177.761693685,"data":"  [ladderoff_d4_s0] GATE: acc(k=1)=0.5000 \u003c 0.55 → budget_wall, early-stop at 10000\n"}
+,{"stream_name":"stdout","time":18177.761764889,"data":"  [ladderoff_d4_s0] done mean_acc=0.5062 gated=True wall_s=2470.1\n"}
+,{"stream_name":"stdout","time":18177.761773921,"data":"    step     0  loss 2.5929\n"}
+,{"stream_name":"stdout","time":18792.501905124,"data":"    step  2500  loss 0.6962\n"}
+,{"stream_name":"stdout","time":19407.872379536,"data":"    step  5000  loss 0.6935\n"}
+,{"stream_name":"stdout","time":20021.410119117,"data":"    step  7500  loss 0.6936\n"}
+,{"stream_name":"stdout","time":20637.807274399,"data":"    step  9999  loss 0.6928\n"}
+,{"stream_name":"stdout","time":20645.921346445,"data":"  [ladderon_d4_s0] GATE: acc(k=1)=0.5000 \u003c 0.55 → budget_wall, early-stop at 10000\n"}
+,{"stream_name":"stdout","time":20645.921379955,"data":"  [ladderon_d4_s0] done mean_acc=0.5062 gated=True wall_s=2468.6\n"}
+,{"stream_name":"stdout","time":20645.92138573,"data":"\n"}
+,{"stream_name":"stdout","time":20645.921390097,"data":"[verdict] h_supported=False diagnosis=budget_wall → /kaggle/working/results_k128/tau_ladder_verdict.json\n"}
+,{"stream_name":"stdout","time":20645.921395056,"data":"  gain_off=0.0 gain_on=0.0 delta=0.0 threshold=0.0\n"}
+,{"stream_name":"stdout","time":20646.58783827,"data":"[08:34:51 @344min] [cfg 6/6] DONE k=128 d=4 rc=0 wall=82.4min\n"}
+,{"stream_name":"stdout","time":20646.587884098,"data":"[08:34:51 @344min] [eta] 完成 6/6，均 wall 57.3min，预计剩余 0min\n"}
+,{"stream_name":"stdout","time":20646.59039994,"data":"[08:34:51 @344min] [merge] 15 个文件（k 前缀防冲突）-\u003e /kaggle/working/tau_staircase_results\n"}
+,{"stream_name":"stdout","time":20646.590416391,"data":"[08:34:51 @344min] [summary] k/d 一览（ladderon gate_acc@10K / mean_acc@20K）:\n"}
+,{"stream_name":"stdout","time":20646.590753619,"data":"  k=  32 d=1: gate_acc=1.0 mean_acc=0.9097\n"}
+,{"stream_name":"stdout","time":20646.590920942,"data":"  k=  32 d=4: gate_acc=1.0 mean_acc=0.9636\n"}
+,{"stream_name":"stdout","time":20646.591060823,"data":"  k=  64 d=1: gate_acc=1.0 mean_acc=0.7964\n"}
+,{"stream_name":"stdout","time":20646.591202747,"data":"  k=  64 d=4: gate_acc=1.0 mean_acc=0.7836\n"}
+,{"stream_name":"stdout","time":20646.591286915,"data":"  k= 128 d=1: gate_acc=1.0 mean_acc=0.7316\n"}
+,{"stream_name":"stdout","time":20646.591426946,"data":"  k= 128 d=4: gate_acc=0.5 mean_acc=0.5062\n"}
+,{"stream_name":"stdout","time":20646.591435965,"data":"[08:34:51 @344min] [done] 总 344min\n"}
+,{"stream_name":"stderr","time":20648.997977352,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":20648.998047841,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":20649.204367691,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":20649.204392877,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":20649.809988472,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":20650.580300926,"data":"[NbConvertApp] Writing 302240 bytes to __results__.html\n"}
+]
