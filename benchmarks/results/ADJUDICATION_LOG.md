@@ -23,3 +23,5 @@
 | [ADJ-009](kb/decisions/ADJ-009-merge-window-consolidation.md) | 2026-09-07 | 绿 PR 队列批次整合纪律(合并窗口制) |
 | [ADJ-010](kb/decisions/ADJ-010-doc-budget-benchmarks-hybrid-ratio.md) | 2026-09-08 | BENCHMARKS 预算 1850→1950（hybrid-ratio 确认节随 ARR 工具入 main） |
 | [ADJ-011](kb/decisions/ADJ-011-main-approval-requirement-relaxed.md) | 2026-09-08 | main 批准门槛 1→0（双账号排程约束移除，CI 门禁保留） |
+| [ADJ-012](kb/decisions/ADJ-012-fleet-funnel-tpu-lane-and-reuse-rules.md) | 2026-09-18 | 机队定形：三级探真漏斗 + TPU lane 激活 + 跨级复用 R1-R4 |
+| [ADJ-013](kb/decisions/ADJ-013-liquid-atom-constitution-and-interface-freeze.md) | 2026-09-19 | 液态原子立宪：τ-resonance atom 命名 + 接口冻结 + 演进纪律（B-26 转正） |

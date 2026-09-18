@@ -1,0 +1,12 @@
+{
+  "id": "aricredemption/mt-lnn-c1-global-heads",
+  "title": "MT LNN C1 Global Heads",
+  "code_file": "run_c1.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "enable_tpu": false,
+  "enable_internet": true
+}

@@ -1,0 +1,17 @@
+{
+  "id": "aricredemption/m1-tpu-core-audit",
+  "title": "M1 TPU Core Audit",
+  "code_file": "run_core_audit.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": true,
+  "accelerator_type": "TPU_V2",
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle"
+  ],
+  "kernel_sources": [],
+  "competition_sources": []
+}

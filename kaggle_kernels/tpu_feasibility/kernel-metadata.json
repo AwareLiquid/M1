@@ -1,0 +1,17 @@
+{
+  "id": "aricredemption/m1-tpu-feasibility-probe",
+  "title": "M1 TPU Feasibility Probe",
+  "code_file": "run_tpu_probe.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": true,
+  "accelerator_type": "TPU_V2",
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle"
+  ],
+  "kernel_sources": [],
+  "competition_sources": []
+}

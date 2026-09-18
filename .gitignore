@@ -140,7 +140,7 @@ benchmarks/_legacy.onnx
 # Deployment access notes — never committed (public repo)
 *.local.md
 
-# Kaggle credentials (KGAT_ tokens �� never commit)
+# Kaggle credentials (KGAT_ tokens �� never commit)
 /.kaggle/
 
 # text A/B checkpoints (large, reproducible from script)
@@ -151,3 +151,9 @@ AwareLiquid-Web/
 
 # Experiment run logs (E1/E2/E5 parity/length-extrapolation series)
 /logs/
+
+# 搜索/调研记录 — 本地落盘、永不提交（见 notes/searches/README.md）
+notes/searches/
+
+# Agent 会话状态目录（watchdog/plans，非仓库内容）
+/.zcode/

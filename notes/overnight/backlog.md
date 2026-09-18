@@ -10,6 +10,12 @@
 > （指标下降 ≥ 阈值同样触发判定路径，负变化不得落在字面区间外）；
 > ③中间带（→边界登记）。跨时点对照必须同跑（L009，
 > kb/lessons/L009-same-run-cross-time-comparison.md）。
+> **晋级线两栏（2026-09-18 ADJ-012 增）**：每条立项另须写死
+> ④本机先验线（≤1h 探针在什么读数上才配消耗配额）；
+> ⑤判决 seed 与探真 seed 不同源（R4），低保真读数只筛配置不进判读（R3/L012）。
+> **编号勘误**：本文件及 9/16-9/17 晨报中的"H004"（τ 阶梯可检性）实为
+> `kb/hypotheses/H006-tau-ladder-depth-detectability.md`（撞号已追溯登记，
+> 今后新文一律写 H006；kb 的 H004=1M 流式记忆，T002 线）。
 > GPU 通道状态（大实验前置条件，状态变化在此登记，提示词不写死）：
 > 2026-09-09 阻塞——Kaggle Secrets 未配 GITHUB_TOKEN 且 kernel 凭据修复 PR 未合并；
 > 两项齐备后把本行改为"可用"。
@@ -167,6 +173,77 @@
   已加参数化入口（--sel/--seed，PR #56，B-1 并行执行所需），仍为 sys.argv 手解析
   （--help 仍会开跑）；全量 argparse 改造降级低优先 mechanism 项——L006"复用前读
   源码确认入口"纪律为强制项，不依赖此改造。
+
+### B-26 · τ-混合原子化路线图（对标 Transformer 的 token-mixer 迭代生态）· ACTIVE（2026-09-19 用户拍板转正）
+- **转正记录（2026-09-19）**：用户拍板"参考原子工程化思想开始迭代"→
+  三件套①接口冻结落 **ADJ-013**（τ-resonance atom 命名 + forward 签名冻结 +
+  主从方向声明），②阶梯/族谱落 **docs/LIQUID_ATOM.md**；③专用硬件路径
+  **维持绑定**（rung-3 出数后再评估，理由见 ADJ-013 拒绝项）。
+  勘误：本条初稿称 resonance mixing 为"无人认领格"——只读审计发现该格
+  代码已在 iter/latent-recursion 实现（Task 4 开关）+ LATENT_RECURSION §1
+  已占位声明，正确表述为"已存在、待立户"。
+- **来源**：2026-09-19 用户命题"Transformer 的迭代原子是什么？液态能否提出对等
+  原子？" + 外部扫描（Mamba 演化全史/Mamba-3 核函数解析/RWKV 4-5-6/Kimi Linear/
+  MambaOut，链接见下）。承接 B-25（域匹配）与本线 H001/H006（τ 可检性）。
+- **扫描结论（原子论）**：Transformer 生态的迭代原子 = **token mixer**，
+  且三条件齐备才滚得动雪球：①接口冻结（residual stream + 每层 [B,T,d] 进出，
+  全社区可互相换件）；②原子数学单行可刻画（attention→MLA→linear(Kimi)→
+  SSM(Hyena/RWKV) 都是换 mixer 不换机座）；③硬件快速路径。
+  Mamba 谱系实锤"时间常数一族也能撑起工业级迭代生态"：S4→S6 全史迭代的就是
+  离散化 Δ（连续时间→选择性→Mamba-3 核），且 MambaOut 证明**原子有效性
+  绑域**（语言赢≠到处赢）——与 B-25 闭环。
+- **M1 可占的原创位（开创性主张候选）**：Mamba 族是**线性**时不变+输入选择性
+  的 τ 原子；液态族是**非线性、输入条件化时间常数**（LTC 原式）。二者中间
+  无人占的格子 = **"深度即积分时间"的 resonance mixing**：core_iterations
+  不是网络层数而是 ODE 积分步数，τ ladder = 离散化格式，H001 的
+  core-vs-stack 差异即"混合发生在 mixer 内还是积分器内"。文献无对等物
+  （DEQ 有无穷步无线性化 τ；LNN 有 τ 无 mixer 接口）。
+- **原子化三件套（工程化定义，转正前置）**：
+  ① 接口冻结 ADJ：MT-LNN block 契约（residual stream、set_core_iterations
+  签名、logits 出口）钉死，此后换原子=换引擎不换机座；
+  ② 原子参数表 H/T 工件：φ_τ 族一行一迭代档——τ0 固定 / 输入门控(LTC 已占) /
+  resonance ladder(独有) / 自适应 solver / horizon 学习（迭代次数=可学量，
+  最强差异化档）——每档绑预注册判据与敏感带域（依赖 B-2″/B-25 verdict）；
+  ③ 硬件快速路径：固定迭代数=静态图=XLA 友好（TPU 0.25 s/步实测，
+  COMPUTE_TIERS §十），这是"可迭代"的算力证明。
+- **触发条件**：B-2″ 出 BAND_HIT（敏感带域实锤）或 B-25 转正（换域实锤）
+  任一成立 → 先做 ①接口冻结 ADJ（零 GPU 成本，白班可执行）；②③随后。
+- **风险/边界**：不扩为预训练宣言（MambaOut 教训：先证域内原子优势，再谈
+  换域）；数值上 ladder 档与 Mamba-3 核函数的差异刻画（非线性门控 vs 线性
+  ZOH）须在工件里写死，防被审稿人归并到 SSM 族。
+- **扫描来源**：https://m.toutiao.com/article/7649019496665055786/ ·
+  https://zhuanlan.zhihu.com/p/1961871417072154429 ·
+  https://m.blog.csdn.net/qq_36603091/article/details/154182448 ·
+  https://m.blog.csdn.net/qq_29788741/article/details/139049530 ·
+  https://m.blog.csdn.net/just_sort/article/details/138135444
+
+### B-25 · 液态网络原生评测域探针（外部反馈核查："Transformer 协议不适配 LNN"）· CANDIDATE
+- **来源**：2026-09-18 外部反馈（"液态神经网络架构用传统 Transformer 架构迭代
+  有问题"）+ 当日外部扫描（链接见下"扫描来源"）。
+- **扫描结论**：LNN/LTC 谱系文献的原生评测域 = 连续时间控制、噪声时序、
+  自动驾驶、轨迹/动力学任务（arXiv:2510.07578 对比研究：LNN 在噪声/连续任务
+  胜 GRU/LSTM，但训练更慢，受 ODE solver 依赖与 BPTT 显存约束；MIT 19 神经元
+  自动驾驶 = 控制域叙事）。**parity/pointer_chase 这类离散符号任务是 Transformer
+  主场**（induction-head 谱系），把液态主张放进该域无文献先例。仓库内部两条
+  独立证据与"协议错配"相容：① train_model docstring 的 beta2/clip 发现
+  （Transformer 系优化卫生配方单独就能杀死 parity 突破——稀有大梯度事件被
+  clip 截断）；② parity 族全员共享天花板/墙（H006 判决域贫化，09-17 结案）。
+- **但反馈不完全成立（诚实边界）**：MT-LNN 的主张不是"LNN 时序强"，而是
+  "液态 τ/核心循环给潜空间递归加可学性"（H001/H006/T001 线）——该主张成立的
+  先决条件是存在 **τ 可分辨的任务域**，符号域内已两次落空（parity 死、pc 待判），
+  故真正的缺口 = 候选域选择，而非架构错误。
+- **候选动作（最便宜优先）**：动力学原生敏感带——非均匀采样简谐振子/受迫阻尼
+  轨迹外推（Δt 随机；τ ladder 在物理上有 ground truth = 离散化步长；深度 =
+  core_iterations；刚性系统对"积分步数"天然敏感 → d1/d4 带存在有先验理由）。
+  chance 基线 = 常值外推 RMSE，gate 用 RMSE 比而非 acc。
+- **触发条件（满足任一才转正 PREREGISTERED，防开新战线烧钱）**：
+  ① B-2″ verdict = ALL_WALL 或 MIXED（符号域判负/边界，T001 在现有域内无仗可打）；
+  ② BAND_HIT 但 ladder ON/OFF 差异在 pc 域内不可分辨（τ 机制无法在符号域检验）。
+- **T1 先验（≤1h）**：numpy 生成器 + 200 步冒烟即得"任务可学性初判"；
+  晋级线：d4 loss 曲线在冒烟窗内低于常值基线才配配额（R3：探真只筛配置）。
+- **扫描来源**：https://arxiv.org/html/2510.07578v1 ·
+  https://m.blog.csdn.net/apple/article/details/154219658 ·
+  https://zhuanlan.zhihu.com/p/1967978515094799317
 
 ## DONE（本池启用后完成）
 

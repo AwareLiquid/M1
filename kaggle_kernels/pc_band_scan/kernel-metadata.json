@@ -1,0 +1,17 @@
+{
+  "id": "aricredemption/m1-pc-band-scan-b-2-pointer-chase-mine",
+  "title": "M1 PC Band Scan (B-2'' pointer_chase mine)",
+  "code_file": "run_pc_band.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "enable_tpu": false,
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle"
+  ],
+  "kernel_sources": [],
+  "competition_sources": []
+}

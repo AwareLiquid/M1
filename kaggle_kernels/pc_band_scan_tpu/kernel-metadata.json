@@ -1,0 +1,19 @@
+{
+  "id": "aricredemption/m1-pc-band-scan-tpu-relay",
+  "title": "M1 PC Band Scan TPU Relay",
+  "code_file": "run_pc_band_tpu.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": true,
+  "accelerator_type": "TPU_V2",
+  "enable_internet": true,
+  "dataset_sources": [
+    "aricredemption/m1-b1-text-ab-bundle"
+  ],
+  "kernel_sources": [
+    "aricredemption/m1-pc-band-scan-b-2-pointer-chase-mine"
+  ],
+  "competition_sources": []
+}

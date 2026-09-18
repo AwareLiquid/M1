@@ -11,6 +11,14 @@
 | `H###` | Hypothesis — 一个可判定的假设,带预注册判负标准 | `kb/hypotheses/` | PROPOSED → UNDER_TEST → SUPPORTED / REFUTED / DORMANT |
 | `T###` | Thread — 一条研究线/方向,可孵化多个 H | `kb/threads/` | PROPOSED → EXPLORING → PROMOTED / CLOSED |
 | `ADJ###` | Decision ADR — 一个关键决策/调整的正文工件(2026-09-06 起,一决策一文件) | `kb/decisions/` | 追加式:新决策开新文件;正文不可变,勘误开新 ADJ 并双向注记。索引 = benchmarks/results/ADJUDICATION_LOG.md(每条 1 行) |
+| `L###` | Lesson/复盘 — 错误反馈体系(2026-08 起,一教训一文件) | `kb/lessons/` | ACTIVE / SUPERSEDED(被新 L 或规则取代时注记,文件不删)。正文节:Statement / Instances / Enforcement。**勘误先例**:撞号或误引按追溯登记处理(ADJ-006;H006 对 overnight"H004"的脱钩) |
+
+## 知识户口总表(新文档先找家)
+
+方向→本目录 H/T + backlog;决策→ADJ;错误反馈→L;规则→`docs/` 协议类 +
+backlog 协议节;运维 how-to→`docs/*_RUNBOOK*`、`docs/COMPUTE_TIERS.md` §三;
+参考标定→`docs/COMPUTE_TIERS.md`、BENCHMARKS/RESULTS。调研流水与出处登记在
+本地不入库的 `notes/searches/`(苗圃;毕业方向即上表)。
 
 ## 三条铁律
 
