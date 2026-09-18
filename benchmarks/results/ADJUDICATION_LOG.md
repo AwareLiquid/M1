@@ -2,7 +2,8 @@
 
 > 每条记录一个关键决策/调整:调整了什么、根因证据、如何验证。
 > 与 `kb/hypotheses/`(假设档案)、`docs/DECISION_TRACE_SPEC.md`(字段契约)配套。
-> 纪律:必写"根因证据"(文件/数据/commit),必写"验证"(改后怎么确认是对的)。
+> 纪律:必写"根因证据"(文件/数据/commit),必写"验证"(改后怎么确认是对的);
+> 2026-09-09 起(ADJ-014,原号撞机队件已勘误)必写"DEVIATION"(none 或写明协议偏离及原因)。
 
 ---
 
@@ -25,3 +26,4 @@
 | [ADJ-011](kb/decisions/ADJ-011-main-approval-requirement-relaxed.md) | 2026-09-08 | main 批准门槛 1→0（双账号排程约束移除，CI 门禁保留） |
 | [ADJ-012](kb/decisions/ADJ-012-fleet-funnel-tpu-lane-and-reuse-rules.md) | 2026-09-18 | 机队定形：三级探真漏斗 + TPU lane 激活 + 跨级复用 R1-R4 |
 | [ADJ-013](kb/decisions/ADJ-013-liquid-atom-constitution-and-interface-freeze.md) | 2026-09-19 | 液态原子立宪：τ-resonance atom 命名 + 接口冻结 + 演进纪律（B-26 转正） |
+| [ADJ-014](kb/decisions/ADJ-014-lessons-layer-execution-loop-stop-loss.md) | 2026-09-09 | 教训层 kb/lessons/ 立层 + 执行层迭代止损 + H 立项外部扫描强制（PR #52 迟到件，编号勘误：原稿占 ADJ-012，与机队件撞号，回溯改号落地，先例同 H006） |

@@ -4,14 +4,14 @@
 > 载体是纯 markdown + 简易 frontmatter,零运行时依赖。
 > 参考:`docs/DECISION_TRACE_SPEC.md`(数据层血缘字段)、`benchmarks/results/ADJUDICATION_LOG.md`(决策日志)。
 
-## 工件类型(当前三种)
+## 工件类型(当前四种)
 
 | 前缀 | 类型 | 目录 | 生命周期 |
 |---|---|---|---|
 | `H###` | Hypothesis — 一个可判定的假设,带预注册判负标准 | `kb/hypotheses/` | PROPOSED → UNDER_TEST → SUPPORTED / REFUTED / DORMANT |
 | `T###` | Thread — 一条研究线/方向,可孵化多个 H | `kb/threads/` | PROPOSED → EXPLORING → PROMOTED / CLOSED |
 | `ADJ###` | Decision ADR — 一个关键决策/调整的正文工件(2026-09-06 起,一决策一文件) | `kb/decisions/` | 追加式:新决策开新文件;正文不可变,勘误开新 ADJ 并双向注记。索引 = benchmarks/results/ADJUDICATION_LOG.md(每条 1 行) |
-| `L###` | Lesson/复盘 — 错误反馈体系(2026-08 起,一教训一文件) | `kb/lessons/` | ACTIVE / SUPERSEDED(被新 L 或规则取代时注记,文件不删)。正文节:Statement / Instances / Enforcement。**勘误先例**:撞号或误引按追溯登记处理(ADJ-006;H006 对 overnight"H004"的脱钩) |
+| `L###` | Lesson/复盘 — 错误反馈体系(2026-08 起,一教训一文件) | `kb/lessons/` | ACTIVE / SUPERSEDED(被新 L 或规则取代时注记,文件不删)。正文节:Statement / Instances / Enforcement。**勘误先例**:撞号或误引按追溯登记处理(ADJ-006;H006 对 overnight"H004"的脱钩;ADJ-014 对 PR #52 迟到件 ADJ-012 撞号回溯改号) |
 
 ## 知识户口总表(新文档先找家)
 
@@ -45,7 +45,13 @@ backlog 协议节;运维 how-to→`docs/*_RUNBOOK*`、`docs/COMPUTE_TIERS.md` §
 - frontmatter 字段:`id` / `status` / `thread`(可选)/ `refine_of`(可选)/
   `created` / `refs`(代码或数据路径列表)/ `owner` + `deadline`(UNDER_TEST 必填,ADJ-006)。
 - 必填正文节:`## Statement`(假设陈述)、`## Pre-registered judgment`(判负标准,写死)、
-  `## Evidence basis`(立项依据,只引不测)、`## Verdict log`(追加式判决记录)。
+  `## Evidence basis`(立项依据,只引不测,**须含外部扫描:谁做过类似的事、失败在
+  哪里——H 立项与判负后转向时强制,ADJ-014**)、
+  `## Verdict log`(追加式判决记录)。
+- L 工件:`L###-短横线摘要.md`,frontmatter `id`/`status`/`created`/`refs`/`origin`,
+  正文节 `## Statement` / `## Trigger`(触发条件,§4.2 异常晋升的匹配依据)/
+  `## Countermeasure`(对策)/ `## Source`(来源锚)。L 只写行为规则与触发条件,
+  不写实验数字(铁律 1 同样适用);对策仍要走预注册,不是免检结论。
 
 ## 生命周期纪律(2026-09-04,ADJ-006)
 
@@ -58,3 +64,14 @@ backlog 协议节;运维 how-to→`docs/*_RUNBOOK*`、`docs/COMPUTE_TIERS.md` §
 - 判定落地(frontmatter 改 SUPPORTED/REFUTED)只认三件套:预注册标准
   + 证据轨 JSON 入 `benchmarks/results/` + RESULTS.md 状态位回填。
   三件齐才允许改状态——与 PR_MERGE_POLICY §5 结论级门禁同一条纪律。
+
+## 教训库演进纪律(L###,2026-09-09,ADJ-014)
+
+- **受控演进**:每个合并窗口的教训复盘只允许 ≤4 个操作,操作集固定为
+  `ADD / EDIT / REMOVE / SUPERSEDE`(取代开新条,只命名不删除,同 consolidation_policy
+  `policy_forget` 的"只命名过期键"纪律)。禁止无操作的无声膨胀。
+- **准入判据**:"删掉这条会导致再犯同类错吗?不会就删"(Claude Code 官方
+  best-practices 的教训文件准入)。不满足即不得 ADD。
+- **来源要求**:每条 L 必须有 `Source` 锚(实际事故/H/ADJ 路径);
+  同一异常第 2 次出现(§4.2 异常晋升)时,评审现有 L 的 Trigger 是否已覆盖,
+  未覆盖即 ADD 并在条目里注记两次出现的锚。

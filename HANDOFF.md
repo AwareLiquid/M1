@@ -479,13 +479,12 @@ KV 前沿账目的最后一个未测残项。3.8.6 的账本已被真模型实�
 
 ## 5. ⚠️ 要避免的坑（血泪教训）
 
-1. **绝不信二手结论**：引用任何数据/文件/API 前必须亲自 Read/Grep/检查 JSON；尤其是跨会话、跨项目的结果。
-2. **绝不把 O1 的数字搬进 M1 论文主表**：O1（84M/3000步/AMP）和 M1（126M/fp32/20K）不同口径，混用会造成不严谨甚至学术风险。
-3. **长跑必须 checkpoint/resume**：无 checkpoint 时机器睡眠/SSH 断开/进程重启都会导致当前 arch 从 0 重跑。现在 `scaling_comparison.py` 已支持每 N 步保存。
-4. **不要提交 checkpoint `.pt`**：`scaling_fp32/converge_probe/checkpoints/*.pt` 单个文件可达 1GB+，只用于本地/服务器恢复，不进 GitHub。
-5. **8GB GPU 不适合并行训练**：M1 P0-2 约 7GB，占用时不要并行 O1 或其他 GPU 训练。
-6. **transformer baseline 硬编码 `n_heads=13`**：`--d_model` 必须能被 13 整除（用 832 或 104，别用 128）。
-7. **公开仓库自曝短板**：`PUBLICATION_READINESS.md` 已于 2026-08-01 迁出到私有仓库 AwareLiquid-Web 的 `internal/`（它自述"勿推公开仓库"却一直被 git 跟踪）。**本 HANDOFF 仍在公开仓库**且包含未完成项与风险，提交前确认可以公开。
+> **2026-09-09 起（ADJ-014，原号 ADJ-012 撞号已勘误）教训层迁移至 `kb/lessons/`**——教训工件化后，
+> ITERATION_PRINCIPLES §4.2 异常晋升（同一异常 ≥2 次强制评审）才有匹配载体。
+> 本节只留指针，不新增条目；新教训一律走 kb/lessons/ `L###` 工件
+> （格式与演进纪律见 `kb/README.md`；L001–L007 一句话 Statement 见各工件首节）。
+
+执行层止损（agent 调试会话双预算制）见 ITERATION_PRINCIPLES §4.6。
 
 ## 6. 关键命令速查
 
