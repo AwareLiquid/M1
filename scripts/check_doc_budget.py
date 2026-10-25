@@ -29,7 +29,7 @@ BUDGETS = {
     "HANDOFF.md": 660,                        # 冷热分离后（快照 + 链接，剧情入归档）
     "benchmarks/results/ADJUDICATION_LOG.md": 60,   # 纯索引：每决策 1 行
     "RESULTS.md": 110,
-    "README.md": 650,
+    "README.md": 715,                         # ADJ-015：benchmark provenance 章节落 README
     "docs/RESEARCH_PLAN.md": 220,             # §1 状态表 + pitch；决策记录去 kb/decisions/
     # 参考型（宽松上限，防失控不防篇幅）
     "BENCHMARKS.md": 1950,

@@ -27,3 +27,4 @@
 | [ADJ-012](kb/decisions/ADJ-012-fleet-funnel-tpu-lane-and-reuse-rules.md) | 2026-09-18 | 机队定形：三级探真漏斗 + TPU lane 激活 + 跨级复用 R1-R4 |
 | [ADJ-013](kb/decisions/ADJ-013-liquid-atom-constitution-and-interface-freeze.md) | 2026-09-19 | 液态原子立宪：τ-resonance atom 命名 + 接口冻结 + 演进纪律（B-26 转正） |
 | [ADJ-014](kb/decisions/ADJ-014-lessons-layer-execution-loop-stop-loss.md) | 2026-09-09 | 教训层 kb/lessons/ 立层 + 执行层迭代止损 + H 立项外部扫描强制（PR #52 迟到件，编号勘误：原稿占 ADJ-012，与机队件撞号，回溯改号落地，先例同 H006） |
+| [ADJ-015](kb/decisions/ADJ-015-readme-benchmark-provenance.md) | 2026-10-25 | README 预算 650→715（benchmark provenance：基线定义 + 数据/metric + 复现命令） |
